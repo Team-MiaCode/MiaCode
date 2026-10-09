@@ -486,30 +486,46 @@ Item {
             visible: ld ? ld.visible : true
             opacity: layerItem.isChartFrame ? 1.0 : (ld && ld.opacity !== undefined ? ld.opacity : 1.0)
 
-            // Card content, optionally drop-shadowed via a layer effect on the
-            // content ONLY (so the selection chrome is never rasterised with it).
-            // The shadow applies in EVERY background mode — over a backdrop, and
-            // in Transparent mode where it casts a soft shadow onto the alpha PNG.
+            // Card halo. The shadow applies in EVERY background mode — over a
+            // backdrop, and in Transparent mode where it casts a soft shadow onto
+            // the alpha PNG. It is drawn from a hidden texture copy of the
+            // content, BEHIND the content, instead of as a layer effect on the
+            // content: a layer would rasterise the card into a texture that is
+            // then resampled at the layer's fractional device-pixel position,
+            // blurring its text. MultiEffect has no shadow-only mode, so it also
+            // draws its copy of the card; the crisp card on top covers it.
+            readonly property bool castsCardShadow: layerItem.isCard && canvas.cardShadowEnabled
+            ShaderEffectSource {
+                id: cardShadowSource
+                anchors.fill: content
+                sourceItem: layerItem.castsCardShadow ? content : null
+                hideSource: false
+                live: true
+                visible: false
+            }
+            MultiEffect {
+                anchors.fill: content
+                visible: layerItem.castsCardShadow
+                source: cardShadowSource
+                shadowEnabled: true
+                shadowColor: canvas.cardShadowColor()
+                // Scale the shadow blur radius by the card's px-per-native scale
+                // (the SAME factor as the offset below) so softness, offset and
+                // geometry all track output resolution → preview == export.
+                blurMax: Math.max(2, Math.round(canvas.cardShadowBlurMax() * layerItem.height
+                                  / canvas.cardContentNativeH(canvas.coverTemplate)))
+                shadowBlur: canvas.cardShadowBlur()
+                shadowScale: canvas.cardShadowScale()
+                // offsetY is card-native px; scale into wrapper px.
+                shadowVerticalOffset: canvas.cardShadowOffsetY()
+                                      * (layerItem.height / canvas.cardContentNativeH(canvas.coverTemplate))
+                shadowHorizontalOffset: 0
+                autoPaddingEnabled: true
+            }
+
             Item {
                 id: content
                 anchors.fill: parent
-                layer.enabled: layerItem.isCard && canvas.cardShadowEnabled
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: canvas.cardShadowColor()
-                    // Scale the shadow blur radius by the card's px-per-native scale
-                    // (the SAME factor as the offset below) so softness, offset and
-                    // geometry all track output resolution → preview == export.
-                    blurMax: Math.max(2, Math.round(canvas.cardShadowBlurMax() * layerItem.height
-                                      / canvas.cardContentNativeH(canvas.coverTemplate)))
-                    shadowBlur: canvas.cardShadowBlur()
-                    shadowScale: canvas.cardShadowScale()
-                    // offsetY is card-native px; scale into wrapper px.
-                    shadowVerticalOffset: canvas.cardShadowOffsetY()
-                                          * (layerItem.height / canvas.cardContentNativeH(canvas.coverTemplate))
-                    shadowHorizontalOffset: 0
-                    autoPaddingEnabled: true
-                }
                 // B1 — chart-frame inner-ring background, BEHIND the overlay. The
                 // crisp cover background (PV mode: the PV frame at the layer's chart
                 // time), circular-masked to the playfield disk and
