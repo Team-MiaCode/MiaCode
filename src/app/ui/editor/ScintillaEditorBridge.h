@@ -47,6 +47,9 @@ class ScintillaEditorBridge : public ScintillaQuick_item
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY availabilityChanged)
     Q_PROPERTY(bool canPaste READ canPaste NOTIFY availabilityChanged)
     Q_PROPERTY(QVariantList bookmarks READ bookmarks NOTIFY bookmarksChanged)
+    Q_PROPERTY(QVariantList overviewMarkers READ overviewMarkers NOTIFY overviewChanged)
+    Q_PROPERTY(int overviewDisplayLineCount READ overviewDisplayLineCount NOTIFY overviewChanged)
+    Q_PROPERTY(int overviewCurrentDisplayLine READ overviewCurrentDisplayLine NOTIFY overviewChanged)
     Q_PROPERTY(bool imeComposing READ imeComposing NOTIFY imeComposingChanged)
 public:
     QColor sceneBackgroundColor() const { return Qt::transparent; }
@@ -87,6 +90,9 @@ public:
     bool canRedo() const { return send(SCI_CANREDO); }
     bool canPaste() const { return send(SCI_CANPASTE); }
     QVariantList bookmarks() const { return bookmarks_; }
+    QVariantList overviewMarkers() const { return overviewMarkers_; }
+    int overviewDisplayLineCount() const;
+    int overviewCurrentDisplayLine() const { return overviewCurrentDisplayLine_; }
     bool imeComposing() const { return imeComposing_; }
     Q_INVOKABLE void undo();
     Q_INVOKABLE void redo();
@@ -102,6 +108,7 @@ public:
     Q_INVOKABLE QRectF textPositionRectangle(int position) const;
     Q_INVOKABLE QRectF lineRectangle(int line) const;
     Q_INVOKABLE int lineAtPosition(int position) const;
+    Q_INVOKABLE int overviewDisplayLineForPosition(int utf16Position) const;
     Q_INVOKABLE void acceptCompletionFromPopup();
     Q_INVOKABLE void dropDocument(const QString& key);
     Q_INVOKABLE void configureSearch(const QString& query, const QString& replacement, bool matchCase, bool wholeWord);
@@ -122,6 +129,7 @@ signals:
     void followVisualChanged();
     void availabilityChanged();
     void bookmarksChanged();
+    void overviewChanged();
     void imeComposingChanged();
     void findRequested();
     void contextMenuRequested(qreal x, qreal y);
@@ -136,6 +144,12 @@ protected:
     void wheelEvent(QWheelEvent* event) override;
     void inputMethodEvent(QInputMethodEvent* event) override;
 private:
+    enum OverviewProjectionPart {
+        OverviewMarkersDirty = 0x01,
+        OverviewCurrentLineDirty = 0x02,
+        OverviewDisplayLineCountDirty = 0x04,
+        OverviewAllDirty = OverviewMarkersDirty | OverviewCurrentLineDirty | OverviewDisplayLineCountDirty,
+    };
     bool applyEditorTransaction(const miacode::editor::SimaiTextEditResult& result);
     void publishTouchAnchor(int position);
     void centerCursorInView();
@@ -148,6 +162,8 @@ private:
     void textMutated();
     void refreshDecorations();
     void refreshDiagnostics();
+    void scheduleOverviewProjectionRefresh(int parts);
+    void refreshOverviewProjection();
     void refreshSettings();
     void publishContext(bool userCaret);
     void applyFollow(bool reveal = false);
@@ -165,6 +181,15 @@ private:
     QPointer<AnalysisModel> analysisSession_;
     QVariantMap palette_;
     QVariantList bookmarks_;
+    QVariantList overviewMarkers_;
+    QVariantList overviewSyntaxRows_;
+    QVariantList overviewMuriRows_;
+    qulonglong overviewDiagnosticGeneration_ = ~qulonglong(0);
+    int overviewDiagnosticDifficulty_ = -1;
+    int overviewDisplayLineCount_ = 0;
+    int overviewCurrentDisplayLine_ = -1;
+    int overviewDirtyParts_ = OverviewAllDirty;
+    bool overviewRefreshPending_ = false;
     QFont effectiveFont_;
     int lineHeight_ = 0;
     QSizeF layoutSize_;

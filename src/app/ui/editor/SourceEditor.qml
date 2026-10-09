@@ -20,6 +20,27 @@ Rectangle {
         }
     }
     property int pendingBookmarkLine: -1
+    readonly property int editorRailBaseWidth: 18
+    readonly property real editorRailDevicePixelRatio: Math.max(0.01,
+        root.Window.window ? root.Window.window.devicePixelRatio : 1)
+    readonly property int editorRailPhysicalWidth: 3 * Math.ceil(
+        editorRailBaseWidth * editorRailDevicePixelRatio / 3)
+    readonly property real editorRailWidth: editorRailPhysicalWidth / editorRailDevicePixelRatio
+    readonly property int editorRailLanePhysicalWidth: editorRailPhysicalWidth / 3
+    readonly property real editorRailLaneWidth: editorRailLanePhysicalWidth / editorRailDevicePixelRatio
+    readonly property int editorRailDisplayLineCount: Math.max(
+        1, sourceArea.vertical_scroll_max + sourceArea.vertical_scroll_page)
+    readonly property real editorRailCurrentMarkerHeight: Math.min(
+        Math.ceil(2 * editorRailDevicePixelRatio) / editorRailDevicePixelRatio,
+        verticalRailBackground.height)
+    property int editorRailSceneRevision: 0
+    readonly property real editorRailSceneX: {
+        // mapToItem() needs an explicit dependency when an ancestor moves.
+        const revision = editorRailSceneRevision
+        return root.mapToItem(null, 0, 0).x
+    }
+    readonly property real editorRailRightMargin:
+        width - alignRailCoordinate(width, editorRailSceneX)
     signal normalizeChartRequested()
     readonly property var bookmarks: sourceArea.bookmarks
     readonly property bool canUndo: sourceArea.canUndo
@@ -46,6 +67,53 @@ Rectangle {
     }
     readonly property string selectionBeatTooltipText: selectionBeatStatusText.length === 0 ? ""
         : selectionBeatSummary.exact ? beatSummaryDetail() : qsTrId("document.selection_beats_inexact").arg(beatSummaryDetail())
+
+    function alignRailCoordinate(value, sceneOrigin) {
+        const ratio = editorRailDevicePixelRatio
+        return Math.round((sceneOrigin + value) * ratio) / ratio - sceneOrigin
+    }
+
+    function overviewMarkerTop(marker) {
+        const lineCount = root.editorRailDisplayLineCount
+        const trackHeight = verticalRailBackground.height
+        if (lineCount <= 0 || trackHeight <= 0) return 0
+        const minimumHeight = Math.min(Math.ceil(2 * editorRailDevicePixelRatio)
+                                      / editorRailDevicePixelRatio, trackHeight)
+        const sceneTop = verticalRailBackground.sceneTop
+        const top = alignRailCoordinate(trackHeight * marker.startDisplayLine / lineCount, sceneTop)
+        return Math.max(0, Math.min(trackHeight - minimumHeight, top))
+    }
+
+    function overviewMarkerHeight(marker) {
+        const lineCount = root.editorRailDisplayLineCount
+        const trackHeight = verticalRailBackground.height
+        if (lineCount <= 0 || trackHeight <= 0) return 0
+        const minimumHeight = Math.min(Math.ceil(2 * editorRailDevicePixelRatio)
+                                      / editorRailDevicePixelRatio, trackHeight)
+        const top = overviewMarkerTop(marker)
+        const sceneTop = verticalRailBackground.sceneTop
+        const endDisplayLine = Math.max(marker.startDisplayLine, marker.endDisplayLine)
+        const end = alignRailCoordinate(trackHeight * (endDisplayLine + 1) / lineCount, sceneTop)
+        return Math.max(0, Math.min(trackHeight, Math.max(end, top + minimumHeight)) - top)
+    }
+
+    function overviewCurrentMarkerTop() {
+        const lineCount = root.editorRailDisplayLineCount
+        const displayLine = sourceArea.overviewCurrentDisplayLine
+        const trackHeight = verticalRailBackground.height
+        if (lineCount <= 0 || displayLine < 0 || trackHeight <= 0) return 0
+        const markerHeight = editorRailCurrentMarkerHeight
+        const sceneTop = verticalRailBackground.sceneTop
+        const center = trackHeight * (displayLine + 0.5) / lineCount
+        const top = alignRailCoordinate(center - markerHeight / 2, sceneTop)
+        return Math.max(0, Math.min(trackHeight - markerHeight, top))
+    }
+
+    function overviewLaneColor(lane) {
+        if (lane === 0) return Theme.colors.syntax.warning
+        if (lane === 1) return Theme.colors.accent.primary
+        return Theme.colors.syntax.error
+    }
     color: Theme.surfaceColor(Theme.colors.background.surface)
     clip: true
     function undo() { sourceArea.undo() }
@@ -335,7 +403,7 @@ Rectangle {
         objectName: "sourceArea"
         property bool reservesPlainSpace: true
         anchors.left: parent.left
-        anchors.right: parent.right
+        anchors.right: verticalBar.left
         anchors.top: findReplaceBar.bottom
         anchors.bottom: horizontalBar.top
         documentSession: root.documentSession
@@ -378,6 +446,7 @@ Rectangle {
             visible: editorContextMenu.visible && !sourceArea.readonly
                      && !root.syncController.followPlaybackActive
         }
+        onScenePositionChanged: root.editorRailSceneRevision += 1
         onSelectionChanged: {
             root.viewState.editorCursorLine = cursorLine
             root.viewState.editorCursorColumn = cursorColumn
@@ -408,13 +477,54 @@ Rectangle {
         anchors.top: sourceArea.top
         anchors.bottom: sourceArea.bottom
         anchors.right: parent.right
+        anchors.rightMargin: root.editorRailRightMargin
+        width: root.editorRailWidth
+        leftPadding: 0
+        rightPadding: 0
         orientation: Qt.Vertical
         hoverEnabled: true
         active: hovered || pressed || sourceArea.activeFocus
         onPressedChanged: if (pressed) sourceArea.beginViewportInteraction()
-        size: sourceArea.vertical_scroll_page / Math.max(1, sourceArea.vertical_scroll_max + sourceArea.vertical_scroll_page)
-        position: sourceArea.vertical_scroll_value / Math.max(1, sourceArea.vertical_scroll_max + sourceArea.vertical_scroll_page)
-        onPositionChanged: if (pressed) sourceArea.scrollVertical(Math.round(position * (sourceArea.vertical_scroll_max + sourceArea.vertical_scroll_page)))
+        size: sourceArea.vertical_scroll_page / root.editorRailDisplayLineCount
+        position: sourceArea.vertical_scroll_value / root.editorRailDisplayLineCount
+        onPositionChanged: if (pressed) sourceArea.scrollVertical(Math.round(position * root.editorRailDisplayLineCount))
+        background: Item {
+            id: verticalRailBackground
+            readonly property int alignmentRevision: root.editorRailSceneRevision
+            readonly property real sceneLeft: {
+                const revision = alignmentRevision
+                return parent.mapToItem(null, 0, 0).x
+            }
+            readonly property real sceneTop: {
+                const revision = alignmentRevision
+                return parent.mapToItem(null, 0, 0).y
+            }
+            x: root.alignRailCoordinate(0, sceneLeft)
+            y: root.alignRailCoordinate(0, sceneTop)
+            width: root.alignRailCoordinate(parent.width, sceneLeft) - x
+            height: root.alignRailCoordinate(parent.height, sceneTop) - y
+
+            Repeater {
+                model: sourceArea.overviewMarkers
+                delegate: Rectangle {
+                    required property var modelData
+                    x: modelData.lane * root.editorRailLaneWidth
+                    y: root.overviewMarkerTop(modelData)
+                    width: root.editorRailLaneWidth
+                    height: root.overviewMarkerHeight(modelData)
+                    color: root.overviewLaneColor(modelData.lane)
+                }
+            }
+            Rectangle {
+                x: 0
+                y: root.overviewCurrentMarkerTop()
+                width: root.editorRailWidth
+                height: root.editorRailCurrentMarkerHeight
+                color: Theme.contentOverlayColor(Theme.colors.text.editor, 0.32)
+                visible: sourceArea.overviewCurrentDisplayLine >= 0
+                         && sourceArea.overviewDisplayLineCount > 0
+            }
+        }
     }
     AppScrollBar {
         id: horizontalBar
