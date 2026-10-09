@@ -29,6 +29,8 @@
 #include <QtCore>
 #include <QtGui>
 
+#include <cmath>
+
 #include <cstdio>  // G2 Diag: std::snprintf for sync rate-change beacon lines
 #include "app/runtime/playback/Playback.Internal.h"
 
@@ -50,6 +52,30 @@ QVariantMap introLeadInBannerTemplateMap()
         }
     }
     return templateMap;
+}
+
+// PV-preview audition: the transport start is nudged past chart 0 so it never
+// takes the visual lead-in, and the song's fade gain moves in 1/32 steps.
+constexpr double kPvSegmentMinimumStartSecond = 0.001;
+constexpr double kPvSegmentGainSteps = 32.0;
+
+double smoothstep01(double t)
+{
+    t = qBound(0.0, t, 1.0);
+    return t * t * (3.0 - 2.0 * t);
+}
+
+// The export's music envelope (VideoExportAudioRenderPlan / BassExportAudioBackend)
+// at `elapsedSeconds` into the intro: fade in from 0, fade out ending when the
+// wipe fully covers the screen.
+double pvSegmentTrackGain(double elapsedSeconds)
+{
+    const double endSeconds = miacode::intro::kPvPreviewHoldSeconds + miacode::intro::kPvPreviewAudioTailSeconds;
+    const double fadeIn = smoothstep01(elapsedSeconds / miacode::intro::kPvPreviewAudioFadeInSeconds);
+    const double fadeOut = 1.0 - smoothstep01(
+        (elapsedSeconds - (endSeconds - miacode::intro::kPvPreviewAudioFadeOutSeconds))
+        / miacode::intro::kPvPreviewAudioFadeOutSeconds);
+    return qBound(0.0, qMin(fadeIn, fadeOut), 1.0);
 }
 }  // namespace
 
@@ -78,11 +104,17 @@ bool miacode::runtime::PlaybackCoordinator::exportIntroEnabled() const
     return state_.exportPreviewAuditionActive_ && currentExportIntroLeadInSpec(nullptr);
 }
 
+double miacode::runtime::PlaybackCoordinator::exportIntroDurationSeconds() const
+{
+    IntroBannerSpec spec;
+    return currentExportIntroLeadInSpec(&spec) ? introDurationSeconds(spec) : 0.0;
+}
+
 double miacode::runtime::PlaybackCoordinator::exportIntroLowerBoundSeconds() const
 {
     // The intro occupies negative time [-duration, 0) only while the export
     // audition is up and 添加片头 is on; otherwise the slider starts at 0.
-    return exportIntroEnabled() ? -miacode::intro::kDurationSeconds : 0.0;
+    return exportIntroEnabled() ? -exportIntroDurationSeconds() : 0.0;
 }
 
 void miacode::runtime::PlaybackCoordinator::setupExportIntroOverlayData()
@@ -106,12 +138,18 @@ void miacode::runtime::PlaybackCoordinator::setupExportIntroOverlayData()
     // override as the export mount + the dialog preview).
     QVariantMap templateMap = introLeadInBannerTemplateMap();
     miacode::video_export::applyBannerFontOverride(templateMap, spec.fontDisplayPath, spec.fontBodyPath);
+    // The preview's own stage PV plays under the PV-preview hold, as the export
+    // composites its PV segment under the overlay.
+    QVariantMap style = introBannerStyleMap(spec, previewStageMediaRouteHasVideo());
+    // Preview only: dragging the PV segment window fades the card so the PV
+    // under it stays readable.
+    style.insert(QStringLiteral("cardDimmed"), ui_.qmlExportSession_->introPvSegmentDragging());
     state_.scene_->setIntroOverlayData(
         introBannerTrackMap(spec),
         templateMap,
         jacketUrl,
         QUrl(QString::fromLatin1(miacode::intro::kLogoFallbackUrl)),
-        introBannerStyleMap(spec));
+        style);
 }
 
 void miacode::runtime::PlaybackCoordinator::renderExportIntroFrame(double positionSeconds)
@@ -119,39 +157,62 @@ void miacode::runtime::PlaybackCoordinator::renderExportIntroFrame(double positi
     if (state_.scene_ == nullptr) {
         return;
     }
-    // position in [-duration, 0] maps to authoring frame 0..kDurationFrames.
-    const double into = positionSeconds + miacode::intro::kDurationSeconds;
+    IntroBannerSpec spec;
+    const bool pvPreview = currentExportIntroLeadInSpec(&spec) && spec.pvPreview;
+    // position in [-duration, 0] maps to authoring frame 0..durationFrames.
+    const double into = positionSeconds + miacode::intro::introDurationSeconds(pvPreview);
     const int frame = qBound(
         0, qRound(into * static_cast<double>(miacode::intro::kAuthoringFps)),
-        miacode::intro::kDurationFrames);
+        miacode::intro::introDurationFrames(pvPreview));
+    state_.scene_->setIntroStillFrame(
+        !state_.exportIntroPvSegmentActive_ && !state_.exportIntroLeadInActive_);
     state_.scene_->setIntroOverlayFrame(frame, true);
+    state_.scene_->setIntroHidesChart(pvPreview && frame < miacode::intro::kPvPreviewHoldFrames);
 }
 
 void miacode::runtime::PlaybackCoordinator::enterExportIntroRegion(double positionSeconds)
 {
-    if (state_.scene_ == nullptr || !exportIntroEnabled()) {
+    IntroBannerSpec spec;
+    if (state_.scene_ == nullptr || !currentExportIntroLeadInSpec(&spec) || !exportIntroEnabled()) {
         return;
+    }
+    if (state_.exportIntroPvSegmentActive_) {
+        stopExportIntroPvSegment();
     }
     if (state_.playing_) {
         stopQtPreviewPlayback(true);  // freeze the chart behind the overlay
     }
-    if (!state_.exportIntroRegionActive_) {
-        requestPausedPreviewSeek(0.0, false, true);
+    const bool firstEntry = !state_.exportIntroRegionActive_;
+    if (firstEntry) {
         setupExportIntroOverlayData();
     }
     state_.exportIntroRegionActive_ = true;
     playbackState_.previewTransportState_ = miacode::PlaybackTransportState::Paused;
-    state_.exportIntroPlayheadSeconds_ =
-        qBound(-miacode::intro::kDurationSeconds, positionSeconds, 0.0);
+    const double durationSeconds = introDurationSeconds(spec);
+    state_.exportIntroPlayheadSeconds_ = qBound(-durationSeconds, positionSeconds, 0.0);
+    // The paused chart parks where the intro shows it: inside the PV segment
+    // during the PV-preview hold (its stage PV is on screen), else at chart 0.
+    const double elapsedSeconds = state_.exportIntroPlayheadSeconds_ + durationSeconds;
+    const double parkSecond = spec.pvPreview && elapsedSeconds < miacode::intro::kPvPreviewHoldSeconds
+        ? spec.pvPreviewStartSeconds + elapsedSeconds
+        : 0.0;
+    if (firstEntry || qAbs(parkSecond - state_.exportIntroParkedChartSecond_) > 1e-4) {
+        requestPausedPreviewSeek(parkSecond, false, true);
+        state_.exportIntroParkedChartSecond_ = parkSecond;
+    }
     renderExportIntroFrame(state_.exportIntroPlayheadSeconds_);
     publishPreviewPlayhead();
 }
 
 void miacode::runtime::PlaybackCoordinator::exitExportIntroRegion()
 {
-    const bool wasActive = state_.exportIntroRegionActive_ || state_.exportIntroLeadInActive_;
+    const bool wasActive = state_.exportIntroRegionActive_ || state_.exportIntroLeadInActive_
+        || state_.exportIntroPvSegmentActive_;
+    stopExportIntroPvSegment();
+    state_.exportIntroAuditionActive_ = false;
     state_.exportIntroLeadInActive_ = false;
     state_.exportIntroRegionActive_ = false;
+    state_.exportIntroParkedChartSecond_ = -1.0;
     // Drop the negative playhead so a later stray read can't resurrect a frozen
     // intro position (the region flags above are authoritative; this is hygiene).
     state_.exportIntroPlayheadSeconds_ = 0.0;
@@ -182,13 +243,19 @@ void miacode::runtime::PlaybackCoordinator::cancelExportIntroLeadIn()
 
 void miacode::runtime::PlaybackCoordinator::pauseExportIntroAdvance()
 {
+    // Only user transport actions pause the intro; they all end an audition.
+    state_.exportIntroAuditionActive_ = false;
+    if (state_.exportIntroPvSegmentActive_) {
+        // Re-entering the region stops the segment and parks the PV on the
+        // paused frame.
+        enterExportIntroRegion(state_.exportIntroPlayheadSeconds_);
+        updatePauseButtonAppearance();
+        return;
+    }
     if (!state_.exportIntroLeadInActive_) {
         return;
     }
-    state_.exportIntroLeadInActive_ = false;
-    if (state_.exportIntroLeadInTimer_ != nullptr) {
-        state_.exportIntroLeadInTimer_->stop();
-    }
+    haltExportIntroLeadInTimer();
     // Keep the region + static frame so the paused intro stays on screen.
     playbackState_.previewTransportState_ = miacode::PlaybackTransportState::Paused;
     updatePauseButtonAppearance();
@@ -196,18 +263,31 @@ void miacode::runtime::PlaybackCoordinator::pauseExportIntroAdvance()
 
 void miacode::runtime::PlaybackCoordinator::startExportIntroAdvance(double fromPositionSeconds)
 {
-    if (state_.scene_ == nullptr || !exportIntroEnabled()) {
+    IntroBannerSpec spec;
+    if (state_.scene_ == nullptr || !currentExportIntroLeadInSpec(&spec) || !exportIntroEnabled()) {
         return;
     }
     enterExportIntroRegion(fromPositionSeconds);
     state_.exportIntroAdvanceFromSeconds_ = state_.exportIntroPlayheadSeconds_;
+    const double elapsedSeconds = state_.exportIntroPlayheadSeconds_ + introDurationSeconds(spec);
+
+    // PV preview: the song + PV segment runs on the real transport until its
+    // music has faded out under the wipe; the timer below covers the rest.
+    if (spec.pvPreview
+        && elapsedSeconds < miacode::intro::kPvPreviewHoldSeconds + miacode::intro::kPvPreviewAudioTailSeconds) {
+        startExportIntroPvSegment(spec.pvPreviewStartSeconds, elapsedSeconds);
+        if (state_.exportIntroPvSegmentActive_) {
+            return;
+        }
+    }
 
     // Opening jingle — only when advancing from at/near the intro head. Played
     // through the SAME BASS audition path as the note SFX / clock count-in: the
     // QSoundEffect path was inaudible on this Windows/Qt build (GUI 2026-06-16),
     // while audition() is proven (clock_count works). The SFX runtime is already
     // prepared by installExportPreviewAuditionScene; ensure it anyway (idempotent).
-    if (state_.exportIntroPlayheadSeconds_ <= -miacode::intro::kDurationSeconds + 0.1) {
+    // The PV preview has no opening jingle.
+    if (!spec.pvPreview && elapsedSeconds <= 0.1) {
         ensurePreviewSfxRuntimePrepared(state_);
         if (state_.previewSfxRuntime_ != nullptr) {
             state_.previewSfxRuntime_->audition(QStringLiteral("track_start"), 1.0);
@@ -222,6 +302,7 @@ void miacode::runtime::PlaybackCoordinator::startExportIntroAdvance(double fromP
         });
     }
     state_.exportIntroLeadInActive_ = true;
+    renderExportIntroFrame(state_.exportIntroPlayheadSeconds_);
     playbackState_.previewTransportState_ = miacode::PlaybackTransportState::Playing;
     state_.exportIntroLeadInElapsed_.restart();
     state_.exportIntroLeadInTimer_->start();
@@ -235,6 +316,9 @@ void miacode::runtime::PlaybackCoordinator::tickExportIntroLeadIn()
     }
     const double elapsedSeconds = static_cast<double>(state_.exportIntroLeadInElapsed_.elapsed()) / 1000.0;
     const double position = state_.exportIntroAdvanceFromSeconds_ + elapsedSeconds;
+    if (finishExportIntroAuditionIfDue(position + exportIntroDurationSeconds())) {
+        return;
+    }
     if (position >= 0.0) {
         // Crossed 0 -> hand off to the normal chart audition from the chart head.
         exitExportIntroRegion();
@@ -244,6 +328,141 @@ void miacode::runtime::PlaybackCoordinator::tickExportIntroLeadIn()
     state_.exportIntroPlayheadSeconds_ = position;
     renderExportIntroFrame(position);
     publishPreviewPlayhead();
+}
+
+void miacode::runtime::PlaybackCoordinator::startExportIntroPvSegment(double startSeconds, double elapsedSeconds)
+{
+    state_.exportIntroPvSegmentActive_ = true;
+    state_.exportIntroPvSegmentStartSeconds_ = qMax(0.0, startSeconds);
+    state_.exportIntroPvSegmentTrackGain_ = pvSegmentTrackGain(elapsedSeconds);
+    state_.exportIntroParkedChartSecond_ = -1.0;
+    // startQtPreviewPlayback re-applies the levels, now in the intro-segment
+    // mode (note SFX silent, song on the fade envelope). A start exactly at
+    // chart 0 would take the visual lead-in, so nudge it past the tolerance.
+    const double chartSecond = qMax(kPvSegmentMinimumStartSecond,
+                                    state_.exportIntroPvSegmentStartSeconds_ + elapsedSeconds);
+    if (!startQtPreviewPlayback(chartSecond, false)) {
+        // The chart is not ready to play yet. Drop the deferred start it queued
+        // (it would later play the song outside the intro) and let the caller
+        // run the intro silently on its timer.
+        state_.pendingPreviewPlaybackStart_ = false;
+        state_.exportIntroPvSegmentActive_ = false;
+        state_.exportIntroPvSegmentTrackGain_ = 1.0;
+        preview_.applyPreviewAudioSettingsToRuntime();
+        return;
+    }
+    // Stop returns to the intro, not into the song.
+    state_.qtPreviewPlaybackReturnSecond_ = 0.0;
+    renderExportIntroFrame(state_.exportIntroPlayheadSeconds_);
+    updatePauseButtonAppearance();
+}
+
+void miacode::runtime::PlaybackCoordinator::tickExportIntroPvSegment(double chartSecond)
+{
+    syncPreviewStageMediaRoutePlayback(chartSecond);
+    setPreviewStageMediaRouteObservedPlayheadSecond(chartSecond);
+    const double durationSeconds = exportIntroDurationSeconds();
+    const double elapsedSeconds = chartSecond - state_.exportIntroPvSegmentStartSeconds_;
+    state_.exportIntroPlayheadSeconds_ = qBound(-durationSeconds, elapsedSeconds - durationSeconds, 0.0);
+    renderExportIntroFrame(state_.exportIntroPlayheadSeconds_);
+    // Quantised so the level dispatch only runs when the envelope moves audibly.
+    const double gain = std::round(pvSegmentTrackGain(elapsedSeconds) * kPvSegmentGainSteps) / kPvSegmentGainSteps;
+    if (gain != state_.exportIntroPvSegmentTrackGain_) {
+        state_.exportIntroPvSegmentTrackGain_ = gain;
+        preview_.applyPreviewAudioSettingsToRuntime();
+    }
+    publishPreviewPlayhead();
+    if (elapsedSeconds >= miacode::intro::kPvPreviewHoldSeconds + miacode::intro::kPvPreviewAudioTailSeconds) {
+        if (finishExportIntroAuditionIfDue(elapsedSeconds)) {
+            return;
+        }
+        // The music has faded out and the wipe covers the screen: park the
+        // chart at 0 unseen and let the timer run the rest of the wipe.
+        startExportIntroAdvance(state_.exportIntroPlayheadSeconds_);
+    }
+}
+
+void miacode::runtime::PlaybackCoordinator::stopExportIntroPvSegment()
+{
+    if (!state_.exportIntroPvSegmentActive_) {
+        return;
+    }
+    state_.exportIntroPvSegmentActive_ = false;
+    state_.exportIntroPvSegmentTrackGain_ = 1.0;
+    state_.exportIntroParkedChartSecond_ = -1.0;
+    if (state_.playing_ || state_.previewStartupSyncPending_ || state_.previewLateVideoStartPending_) {
+        stopQtPreviewPlayback(true);
+    }
+    preview_.applyPreviewAudioSettingsToRuntime();
+}
+
+void miacode::runtime::PlaybackCoordinator::haltExportIntroLeadInTimer()
+{
+    state_.exportIntroLeadInActive_ = false;
+    if (state_.exportIntroLeadInTimer_ != nullptr) {
+        state_.exportIntroLeadInTimer_->stop();
+    }
+}
+
+bool miacode::runtime::PlaybackCoordinator::exportIntroAuditionPlaying() const
+{
+    return state_.exportIntroAuditionActive_;
+}
+
+void miacode::runtime::PlaybackCoordinator::setExportIntroAuditionPlaying(bool playing)
+{
+    if (!playing) {
+        if (!state_.exportIntroAuditionActive_) {
+            return;
+        }
+        // Stop returns to where the audition started.
+        state_.exportIntroAuditionActive_ = false;
+        haltExportIntroLeadInTimer();
+        enterExportIntroRegion(state_.exportIntroAuditionReturnSeconds_);
+        updatePauseButtonAppearance();
+        return;
+    }
+    IntroBannerSpec spec;
+    if (state_.scene_ == nullptr || !currentExportIntroLeadInSpec(&spec) || !spec.pvPreview
+        || !exportIntroEnabled()) {
+        return;
+    }
+    // Play from the picked moment when the user seeked inside the segment,
+    // from the segment head after it moved. Ending parks back on the frame
+    // that was showing (paused frames are stills, so never a black frame).
+    const double durationSeconds = introDurationSeconds(spec);
+    const double elapsedSeconds = state_.exportIntroRegionActive_
+        ? state_.exportIntroPlayheadSeconds_ + durationSeconds
+        : -1.0;
+    const bool pausedInSegment =
+        elapsedSeconds >= 0.0 && elapsedSeconds < miacode::intro::kPvPreviewHoldSeconds;
+    const bool fromHead = ui_.qmlExportSession_->introAuditionFromHead();
+    const double startElapsedSeconds = pausedInSegment && !fromHead ? elapsedSeconds : 0.0;
+    const double returnElapsedSeconds = pausedInSegment ? elapsedSeconds : 0.0;
+    haltExportIntroLeadInTimer();
+    state_.exportIntroAuditionStartSeconds_ = startElapsedSeconds - durationSeconds;
+    state_.exportIntroAuditionReturnSeconds_ = returnElapsedSeconds - durationSeconds;
+    state_.exportIntroAuditionActive_ = true;
+    startExportIntroAdvance(state_.exportIntroAuditionStartSeconds_);
+}
+
+bool miacode::runtime::PlaybackCoordinator::finishExportIntroAuditionIfDue(double elapsedSeconds)
+{
+    if (!state_.exportIntroAuditionActive_
+        || elapsedSeconds < miacode::intro::kPvPreviewHoldSeconds + miacode::intro::kPvPreviewAudioTailSeconds) {
+        return false;
+    }
+    const bool loop = ui_.qmlExportSession_ != nullptr && ui_.qmlExportSession_->introAuditionLoop();
+    if (loop) {
+        haltExportIntroLeadInTimer();
+        startExportIntroAdvance(state_.exportIntroAuditionStartSeconds_);
+    } else {
+        state_.exportIntroAuditionActive_ = false;
+        haltExportIntroLeadInTimer();
+        enterExportIntroRegion(state_.exportIntroAuditionReturnSeconds_);
+    }
+    updatePauseButtonAppearance();
+    return true;
 }
 
 bool miacode::runtime::PlaybackCoordinator::handleExportIntroSliderSeek(double second)
@@ -259,6 +478,7 @@ bool miacode::runtime::PlaybackCoordinator::handleExportIntroSliderSeek(double s
         return false;
     }
     // In the intro region: render the frame statically (no chart audio/advance).
+    state_.exportIntroAuditionActive_ = false;
     if (state_.exportIntroLeadInActive_) {
         pauseExportIntroAdvance();
     }
@@ -281,12 +501,19 @@ void miacode::runtime::PlaybackCoordinator::refreshExportIntroState()
         return;
     }
     if (state_.exportIntroRegionActive_) {
-        // Refresh the overlay with the new 片头 settings, keep the position.
+        // Refresh the overlay with the new 片头 settings, keep the position. A
+        // running PV segment pauses so its PV re-parks on the new segment.
         setupExportIntroOverlayData();
-        renderExportIntroFrame(state_.exportIntroPlayheadSeconds_);
+        if (state_.exportIntroLeadInActive_) {
+            renderExportIntroFrame(state_.exportIntroPlayheadSeconds_);
+        } else {
+            state_.exportIntroAuditionActive_ = false;
+            enterExportIntroRegion(state_.exportIntroPlayheadSeconds_);
+            updatePauseButtonAppearance();
+        }
     } else if (!state_.playing_ && qAbs(state_.pauseSecond_) <= 0.05) {
         // Default the playhead to the intro head so the user sees it first.
-        enterExportIntroRegion(-miacode::intro::kDurationSeconds);
+        enterExportIntroRegion(-exportIntroDurationSeconds());
     }
 }
 

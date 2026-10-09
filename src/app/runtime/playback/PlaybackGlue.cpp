@@ -96,7 +96,7 @@ void miacode::runtime::PlaybackCoordinator::onStopPreview()
     MC_OP("miacode::runtime::PlaybackCoordinator::onStopPreview");
     // Stop the export-page intro animation if it's mid-play (it clears the
     // overlay and leaves the chart paused at 0).
-    if (state_.exportIntroLeadInActive_) {
+    if (state_.exportIntroLeadInActive_ || state_.exportIntroPvSegmentActive_) {
         cancelExportIntroLeadIn();
     }
     // The latency page now reuses this exact transport (its synthesized test
@@ -136,6 +136,12 @@ void miacode::runtime::PlaybackCoordinator::onStopPreview()
 void miacode::runtime::PlaybackCoordinator::onTogglePreviewPause()
 {
     MC_OP("miacode::runtime::PlaybackCoordinator::onTogglePreviewPause");
+    if (state_.exportIntroPvSegmentActive_) {
+        // The PV-preview segment rides the transport; pausing it parks the
+        // intro on the current frame.
+        pauseExportIntroAdvance();
+        return;
+    }
     if (state_.exportIntroLeadInActive_) {
         if (exportIntroEnabled()) {
             // The intro is advancing -> pause it, keeping the static frame on screen.

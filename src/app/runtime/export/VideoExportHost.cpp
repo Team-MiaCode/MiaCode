@@ -93,6 +93,17 @@ void miacode::runtime::VideoExportHost::refreshIntroState()
     emit session_.applicationServices_.shellNotifications().presentationChanged();
 }
 
+void miacode::runtime::VideoExportHost::setIntroAuditionPlaying(bool playing)
+{
+    session_.setExportIntroAuditionPlaying(playing);
+    emit session_.applicationServices_.shellNotifications().presentationChanged();
+}
+
+bool miacode::runtime::VideoExportHost::introAuditionPlaying() const
+{
+    return session_.exportIntroAuditionPlaying();
+}
+
 int Session::resolveToolsMenuExportDifficultyId() const
 {
     // While the export page is open it owns the difficulty the Tools-menu

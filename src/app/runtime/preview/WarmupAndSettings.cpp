@@ -812,11 +812,15 @@ void miacode::runtime::StageMediaHost::applyPreviewAudioSettingsToRuntime()
     // self-corrects from the settled mode. (This replaces the old snapshot/restore
     // + latencySandboxAuditionActive_ gate, which leaked when an exit path skipped
     // the controller's restore.)
+    // The export page's PV-preview intro audition is a third mode: the song
+    // plays from the chosen segment with note SFX silent, on the intro's fade.
     auto* sandbox = session_.latencySandboxController();
     const bool latencyAudition = sandbox != nullptr && sandbox->isOnPage();
     const PreviewAudioSettings levels = latencyAudition
         ? makePreviewLatencyAuditionLevels(state_.previewAudioSettings_, sandbox->sfxVolumePercent())
-        : state_.previewAudioSettings_;
+        : state_.exportIntroPvSegmentActive_
+              ? makePreviewIntroSegmentLevels(state_.previewAudioSettings_, state_.exportIntroPvSegmentTrackGain_)
+              : state_.previewAudioSettings_;
     state_.previewSfxRuntime_->applyLevels(levels);
 }
 

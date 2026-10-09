@@ -61,6 +61,16 @@ void Session::refreshExportIntroState()
     playback_->refreshExportIntroState();
 }
 
+void Session::setExportIntroAuditionPlaying(bool playing)
+{
+    playback_->setExportIntroAuditionPlaying(playing);
+}
+
+bool Session::exportIntroAuditionPlaying() const
+{
+    return playback_->exportIntroAuditionPlaying();
+}
+
 void Session::setExportAuditionClockSchedule(int clockCount, double clockBpm)
 {
     playback_->setExportAuditionClockSchedule(clockCount, clockBpm);

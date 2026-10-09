@@ -33,6 +33,13 @@ import QtQuick.Effects
 //             the chart PLAYFIELD is uncovered as the wipe opens
 //   349       cycle2End == hand-off; chart "曲绘" bg fade (5.6s..6.6s) is applied
 //             DOWNSTREAM in ffmpeg and runs past this point.
+//
+// PV-preview style (pvPreviewMode): no cycle 1. The PV segment fades in from black
+// (pvFadeInFrames) — the export composites it UNDER this overlay
+// (pvPreviewVideoUnderlay), or without a video PV the crisp backdrop image stands
+// in — and the card pops in over it from pvCardRevealStart. The hold lasts pvPreviewHoldFrames;
+// the classic cycle 2 (hard cut → wipe → reveal) then starts at that frame, so
+// durationFrames = pvPreviewHoldFrames + cycle2SpanFrames (IntroConfig.h).
 
 Item {
     id: root
@@ -53,6 +60,25 @@ Item {
     // Soft drop shadow behind the whole card (the transparent-mode card can't
     // draw its own — MaimaiBannerCard.cardShadowEnabled is a no-op there).
     property bool cardShadowEnabled: false
+
+    // ---- PV-preview style (IntroBannerSpec.pvPreview) ----
+    property bool pvPreviewMode: false
+    // Card + PV window [0, hold); also the cycle-2 start frame.
+    property int pvPreviewHoldFrames: 390
+    // true -> the caller composites the PV segment under this overlay, so the
+    // hold leaves the frame transparent around the card.
+    property bool pvPreviewVideoUnderlay: false
+    readonly property int pvFadeInFrames: 24
+    // Preview only: the export page fades the card while its PV segment window
+    // is dragged, so the PV under the card stays readable.
+    property bool cardDimmed: false
+    // Preview only: a paused PV-preview frame is a still of the segment — no
+    // black fade-in cover and the card fully formed — so the picked moment
+    // stays visible; the fade-in and card pop play during playback.
+    property bool stillFrame: false
+    // The card pops in (staggered build + scale bump, as in the classic intro)
+    // over the PV while the PV is still fading up from black.
+    readonly property int pvCardRevealStart: 12
 
     // Banner payload pulled from the chart (title/artist/designer/level/
     // difficulty/bpm/mode), forwarded to the embedded MaimaiBannerCard.
@@ -99,8 +125,9 @@ Item {
 
     readonly property int cycle1Start:      0
     readonly property int cycle1SpanFrames: 68                     // full-cycle real span; trimmed part plays ~0.6s
-    readonly property int cycle1End:        36                     // retract done (~0.6s)
-    readonly property int cycle2Start:      195                    // 3.25s
+    // The PV preview has no cycle 1 (cycle1End 0) and starts cycle 2 at its hold end.
+    readonly property int cycle1End:        pvPreviewMode ? 0 : 36 // retract done (~0.6s)
+    readonly property int cycle2Start:      pvPreviewMode ? pvPreviewHoldFrames : 195 // 3.25s
     readonly property int cycle2SpanFrames: 154                    // 2.567s == given 转场.mp4
     readonly property int cycle2End:        cycle2Start + cycle2SpanFrames // 349, wipe fully retracted (5.817s)
 
@@ -113,7 +140,7 @@ Item {
     // level -> text, see MaimaiBannerCard.partOpacity). It begins AFTER the cycle-1
     // wipe has nearly retracted so the assembly happens in FULL VIEW (like the maimai
     // reference), not hidden under the cover. ~34..50.
-    readonly property int cardRevealStart:  34
+    readonly property int cardRevealStart:  pvPreviewMode ? pvCardRevealStart : 34
     // At cycle 2 the card is INSTANT-CUT (no dissolve): frame 195 flips the whole
     // screen to the solid transition bg (backdropColor), the wipe plays on it, and
     // at the merge (full cover) the solid bg + black base drop to reveal the chart.
@@ -135,6 +162,7 @@ Item {
     // Ease-out dissolve that plays as the cover clears, hold, then hard-cut out
     // behind cycle 2 so the card/backdrop give way to the chart.
     function cardOpacity() {
+        if (pvPreviewMode) return 0.0               // no blurred backdrop in the PV preview
         if (frame < cardStartAbs) return 0.0
         if (frame < cardStartAbs + cardRevealFrames)
             return easeOutCubic((frame - cardStartAbs) / cardRevealFrames)
@@ -146,8 +174,17 @@ Item {
     // covered, then drops at the cycle-2 retract so the wipe uncovers the chart
     // playfield (outline + notes + HUD). The background itself is blacked/faded
     // downstream in the ffmpeg base, so the playfield/HUD here are unaffected.
+    // The PV-preview hold keeps it off so the underlaid PV segment shows through.
     function baseOpacity() {
+        if (pvPreviewMode && pvPreviewVideoUnderlay && frame < hideAbs) return 0.0
         return frame < revealStart ? 1.0 : 0.0
+    }
+
+    // PV preview opening: the PV (or its still fallback) fades in from black;
+    // the card pops in on top of it.
+    function pvFadeCoverOpacity() {
+        if (!pvPreviewMode || stillFrame) return 0.0
+        return 1.0 - easeOutCubic(frame / pvFadeInFrames)
     }
 
     function currentCycleStart() {
@@ -191,7 +228,7 @@ Item {
     Image {
         id: bgFill
         anchors.fill: parent
-        source: root.effectiveBackdrop
+        source: root.pvPreviewMode ? "" : root.effectiveBackdrop
         fillMode: Image.PreserveAspectCrop
         visible: false
         asynchronous: false
@@ -211,7 +248,7 @@ Item {
         id: blurredTex
         anchors.fill: parent
         sourceItem: blurredBg
-        live: true
+        live: !root.pvPreviewMode
         hideSource: true
         visible: false
     }
@@ -229,6 +266,28 @@ Item {
         anchors.fill: parent
         color: root.backdropColor
         opacity: root.cardOpacity() * 0.45
+        visible: opacity > 0
+    }
+
+    // PV preview without a video underlay: the backdrop image, crisp and undimmed,
+    // stands in for the PV through the hold.
+    Image {
+        anchors.fill: parent
+        source: (root.pvPreviewMode && !root.pvPreviewVideoUnderlay) ? root.effectiveBackdrop : ""
+        fillMode: Image.PreserveAspectCrop
+        visible: root.pvPreviewMode && !root.pvPreviewVideoUnderlay
+                 && root.frame < root.hideAbs && status === Image.Ready
+        asynchronous: false
+        smooth: true
+        mipmap: true
+    }
+
+    // PV-preview fade-in: black over the PV underneath (below the card, so the
+    // card's own pop-in reads at full strength).
+    Rectangle {
+        anchors.fill: parent
+        color: "#000000"
+        opacity: root.pvFadeCoverOpacity()
         visible: opacity > 0
     }
 
@@ -265,8 +324,10 @@ Item {
         // clears, so it's in view) — the master opacity here only gates presence +
         // the cycle-2 hard-cut, NOT the fade-in (else the two would multiply). The
         // blurred backdrop/dim use cardOpacity() (earlier, under the wipe).
-        revealStartFrame: root.cardRevealStart
-        opacity: (root.frame >= root.cardRevealStart && root.frame < root.hideAbs) ? 1.0 : 0.0
+        revealStartFrame: root.pvPreviewMode && root.stillFrame ? -1 : root.cardRevealStart
+        opacity: ((root.frame >= root.cardRevealStart || (root.pvPreviewMode && root.stillFrame))
+                  && root.frame < root.hideAbs)
+                 ? (root.cardDimmed ? 0.3 : 1.0) : 0.0
         visible: opacity > 0
         layer.enabled: root.cardShadowEnabled
         layer.effect: MultiEffect {

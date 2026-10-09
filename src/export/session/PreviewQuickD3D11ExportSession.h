@@ -84,6 +84,9 @@ public:
         const QUrl& logoImage,
         const QVariantMap& style = QVariantMap());
     void setIntroFrame(int authoringFrame, bool active);
+    // Hides the chart scene + HUD under an intro phase that leaves the frame
+    // transparent (the PV-preview hold shows the ffmpeg-composited PV there).
+    void setChartLayersVisible(bool visible);
     bool introOverlayReady() const { return introItem_ != nullptr; }
 
     bool initialize(QString* errorMessage = nullptr);

@@ -482,6 +482,8 @@ add_executable(MiaCode WIN32 MACOSX_BUNDLE
     src/app/services/Id3TagReader.cpp
     src/app/services/ProjectPreferences.h
     src/app/services/ProjectPreferences.cpp
+    src/app/services/ExportIntroPreferences.h
+    src/app/services/ExportIntroPreferences.cpp
     src/app/runtime/latency/LatencyAnalysis.h
     src/app/runtime/latency/LatencyAnalysis.cpp
     src/app/runtime/latency/LatencyTestChartBuilder.h
@@ -660,6 +662,8 @@ set_source_files_properties(
 set(MIACODE_UI_ICON_FILES
     src/app/ui/resources/icons/range-play.svg
     src/app/ui/resources/icons/range-play-active.svg
+    src/app/ui/resources/icons/repeat.svg
+    src/app/ui/resources/icons/repeat-active.svg
     src/app/ui/resources/icons/maximize.svg
     src/app/ui/resources/icons/restore.svg
     src/app/ui/resources/icons/check.svg

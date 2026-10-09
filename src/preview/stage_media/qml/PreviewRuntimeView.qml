@@ -15,6 +15,7 @@ Rectangle {
         objectName: "previewQuickSceneRoot"
         anchors.fill: parent
         z: 1
+        opacity: root.runtime && root.runtime.introHidesChart ? 0 : 1
         runtime: root.runtime
     }
 
@@ -23,6 +24,7 @@ Rectangle {
         objectName: "previewQuickHudLayer"
         anchors.fill: parent
         z: 2
+        opacity: root.runtime && root.runtime.introHidesChart ? 0 : 1
         runtime: root.runtime
     }
 
@@ -53,6 +55,7 @@ Rectangle {
         function syncIntroOverlayFrame() {
             if (!introOverlayLoader.item || !root.runtime)
                 return
+            introOverlayLoader.item.stillFrame = root.runtime.introStillFrame
             introOverlayLoader.item.frame = root.runtime.introOverlayFrame
         }
 

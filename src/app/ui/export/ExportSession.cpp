@@ -12,6 +12,9 @@
 #include "export/video_export/VideoExportSettings.h"
 #include "export/video_export/FontLibrary.h"
 #include "app/services/UserFontLibrary.h"
+#include "app/services/ExportIntroPreferences.h"
+#include "core/chart/ChartAssetPaths.h"
+#include "core/chart/IntroConfig.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -24,6 +27,7 @@
 #include <QTimer>
 #include <QUrl>
 
+#include <cmath>
 #include <utility>
 
 
@@ -79,6 +83,13 @@ ExportSession::ExportSession(miacode::ShellNotifications& notifications,
             adoptPreviewRenderSettings();
         }
     });
+    // The audition ends inside the playback coordinator (music faded out,
+    // another transport action); it announces that through the presentation.
+    connect(&notifications, &miacode::ShellNotifications::presentationChanged,
+            this, &ExportSession::introPreviewStateChanged);
+    introPvStartSaveTimer_.setSingleShot(true);
+    introPvStartSaveTimer_.setInterval(400);
+    connect(&introPvStartSaveTimer_, &QTimer::timeout, this, &ExportSession::flushIntroPvStart);
     connect(this, &ExportSession::rangeChanged, this, [this]() {
         if (rangePlaybackEnabled_ && !hasPendingSelectionRangeExport_) {
             emit playbackRangeRequested(true, exportStartSeconds(), exportEndSeconds());
@@ -384,6 +395,9 @@ void ExportSession::leave()
     emit pageSessionActiveChanged();
     emit rangePlaybackStateChanged();
     savePreferences();
+    flushIntroPvStart();
+    introPvSegmentDragging_ = false;
+    emit introPreviewStateChanged();
     hasSeededTask_ = false;
     stopAudition();
     setUnavailableReason(QString());
@@ -391,6 +405,7 @@ void ExportSession::leave()
 
 void ExportSession::replaceDocument(int preferredDifficultyId)
 {
+    flushIntroPvStart();
     setRangePlaybackEnabled(false);
     ++pagePrepareGeneration_;
     stopAudition();
@@ -558,6 +573,8 @@ void ExportSession::seedFromDifficulty(int difficultyId)
         return;
     }
     setUnavailableReason(QString());
+    // The seed re-reads the chart's stored PV start; write a pending drag first.
+    flushIntroPvStart();
     VideoExportTask seededTask = engine()->buildSeedTask(difficultyId);
     if (hasSeededTask_) {
         miacode::video_export::copyVideoExportUserSettings(task_, &seededTask);
@@ -1067,6 +1084,22 @@ QString ExportSession::setExportStartText(const QString& text)
     return QString::number(task_.exportStartSeconds, 'f', 3);
 }
 
+QString ExportSession::setIntroPvStartText(const QString& text)
+{
+    double seconds = 0.0;
+    const QString normalized = miacode::video_export::sanitizeVideoExportTimestamp(text);
+    bool parsed = false;
+    if (normalized.contains(QLatin1Char(':'))) {
+        parsed = miacode::video_export::parseVideoExportTimestamp(normalized, &seconds);
+    } else {
+        seconds = normalized.toDouble(&parsed);
+    }
+    if (parsed) {
+        setIntroPvStartSeconds(seconds);
+    }
+    return QString::number(task_.intro.pvPreviewStartSeconds, 'f', 3);
+}
+
 QString ExportSession::setExportEndText(const QString& text)
 {
     double seconds = 0.0;
@@ -1284,6 +1317,107 @@ void ExportSession::setIntroFontBodyPath(const QString& path)
     if (engine() != nullptr) {
         engine()->refreshIntroState();
     }
+}
+
+double ExportSession::introPvSegmentSeconds() const
+{
+    return miacode::intro::kPvPreviewHoldSeconds;
+}
+
+double ExportSession::introPvMusicSeconds() const
+{
+    return miacode::intro::kPvPreviewHoldSeconds + miacode::intro::kPvPreviewAudioTailSeconds;
+}
+
+bool ExportSession::introPvVideoAvailable() const
+{
+    return miacode::chart_assets::isVideoBackgroundPath(task_.backgroundMediaPath)
+        && QFileInfo::exists(task_.backgroundMediaPath);
+}
+
+void ExportSession::setIntroPvPreview(bool value)
+{
+    if (task_.intro.pvPreview == value) {
+        return;
+    }
+    task_.intro.pvPreview = value;
+    emit introChanged();
+    savePreferences();
+    if (engine() != nullptr) {
+        engine()->refreshIntroState();
+    }
+}
+
+void ExportSession::setIntroPvStartSeconds(double seconds)
+{
+    if (!std::isfinite(seconds)) {
+        return;
+    }
+    const double latestStart = qMax(0.0, chartDurationSeconds_ - miacode::intro::kPvPreviewHoldSeconds);
+    seconds = qBound(0.0, seconds, latestStart);
+    if (qAbs(seconds - task_.intro.pvPreviewStartSeconds) < 1e-6) {
+        return;
+    }
+    task_.intro.pvPreviewStartSeconds = seconds;
+    introAuditionFromHead_ = true;
+    pendingIntroPvStartChartPath_ = task_.chartPath;
+    pendingIntroPvStartSeconds_ = seconds;
+    introPvStartSaveTimer_.start();
+    emit introChanged();
+    if (engine() != nullptr) {
+        engine()->refreshIntroState();
+    }
+}
+
+bool ExportSession::introAuditionPlaying() const
+{
+    return engine() != nullptr && engine()->introAuditionPlaying();
+}
+
+void ExportSession::toggleIntroAudition()
+{
+    if (engine() == nullptr) {
+        return;
+    }
+    engine()->setIntroAuditionPlaying(!engine()->introAuditionPlaying());
+    emit introPreviewStateChanged();
+}
+
+void ExportSession::noteIntroPvSeek()
+{
+    introAuditionFromHead_ = false;
+}
+
+void ExportSession::setIntroPvSegmentDragging(bool dragging)
+{
+    if (introPvSegmentDragging_ == dragging) {
+        return;
+    }
+    introPvSegmentDragging_ = dragging;
+    emit introPreviewStateChanged();
+    if (engine() != nullptr) {
+        engine()->refreshIntroState();
+    }
+}
+
+void ExportSession::setIntroAuditionLoop(bool loop)
+{
+    if (introAuditionLoop_ == loop) {
+        return;
+    }
+    introAuditionLoop_ = loop;
+    emit introPreviewStateChanged();
+}
+
+void ExportSession::flushIntroPvStart()
+{
+    introPvStartSaveTimer_.stop();
+    if (pendingIntroPvStartChartPath_.isEmpty()) {
+        return;
+    }
+    miacode::export_intro_preferences::savePvPreviewStartSeconds(
+        pendingIntroPvStartChartPath_, pendingIntroPvStartSeconds_);
+    pendingIntroPvStartChartPath_.clear();
 }
 
 void ExportSession::resetIntroFonts()

@@ -71,6 +71,13 @@ class PreviewRuntime : public QObject
     Q_OBJECT
     Q_PROPERTY(bool introOverlayActive READ introOverlayActive NOTIFY introOverlayStateChanged)
     Q_PROPERTY(int introOverlayFrame READ introOverlayFrame NOTIFY introOverlayStateChanged)
+    // The PV-preview hold leaves the overlay transparent around the card so the
+    // stage PV shows; the chart scene and HUD drop out (opacity, not visibility —
+    // see PreviewSurface.qml) for that phase.
+    Q_PROPERTY(bool introHidesChart READ introHidesChart NOTIFY introOverlayStateChanged)
+    // The intro is paused / scrubbed rather than playing: the overlay draws the
+    // frame as a still (no black fade-in cover, the card already formed).
+    Q_PROPERTY(bool introStillFrame READ introStillFrame NOTIFY introOverlayStateChanged)
     Q_PROPERTY(QVariantMap introBannerTrack READ introBannerTrack NOTIFY introOverlayDataChanged)
     Q_PROPERTY(QVariantMap introBannerTemplate READ introBannerTemplate NOTIFY introOverlayDataChanged)
     Q_PROPERTY(QUrl introBackgroundImage READ introBackgroundImage NOTIFY introOverlayDataChanged)
@@ -132,6 +139,10 @@ public:
         const QVariantMap& bannerStyle = {});
     void setIntroOverlayFrame(int authoringFrame, bool active, bool requestUpdate = true);
     void clearIntroOverlay(bool requestUpdate = true);
+    void setIntroHidesChart(bool hides);
+    bool introHidesChart() const { return introHidesChart_; }
+    void setIntroStillFrame(bool still);
+    bool introStillFrame() const { return introStillFrame_; }
     bool introOverlayActive() const { return introOverlayActive_; }
     int introOverlayFrame() const { return introOverlayFrame_; }
     QVariantMap introBannerTrack() const { return introBannerTrack_; }
@@ -284,6 +295,8 @@ private:
     std::shared_ptr<const miacode::preview::scene::PreviewFrameState> publishedFrameState_;
     bool introOverlayActive_ = false;
     int introOverlayFrame_ = 0;
+    bool introHidesChart_ = false;
+    bool introStillFrame_ = false;
     QVariantMap introBannerTrack_;
     QVariantMap introBannerTemplate_;
     QUrl introBackgroundImage_;

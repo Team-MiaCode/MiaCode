@@ -41,6 +41,8 @@ public:
     MuriRenderOptions muriRenderOptions() const override;
     double currentAudioClockSecond() const override;
     void refreshIntroState() override;
+    void setIntroAuditionPlaying(bool playing) override;
+    bool introAuditionPlaying() const override;
 
     void applySharedExportTaskSettings(const VideoExportTask& task);
     // The three dialog entry slots take an explicit difficulty id; the

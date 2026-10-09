@@ -268,6 +268,7 @@ bool BassExportAudioBackend::renderMixedTrackToWav(
     }
 
     QHash<QString, QByteArray> sourceDataByPath;
+    QHash<QString, double> bgmNormalizationGainByPath;
     std::vector<std::unique_ptr<ScheduledSource>> sources;
     auto cleanupPlugins = [&]() {
         sources.clear();
@@ -286,7 +287,9 @@ bool BassExportAudioBackend::renderMixedTrackToWav(
                                 double sourceStartSecond,
                                 double durationSeconds,
                                 double gain,
-                                const QString& tag) -> bool {
+                                const QString& tag,
+                                double fadeInSeconds = 0.0,
+                                double fadeOutSeconds = 0.0) -> bool {
         if (path.isEmpty() || !QFileInfo::exists(path) || gain <= 0.0 || durationSeconds <= 0.0) {
             return true;
         }
@@ -345,7 +348,12 @@ bool BassExportAudioBackend::renderMixedTrackToWav(
         source->stream = stream;
 
         double effectiveGain = gain;
-        if (tag == QStringLiteral("bgm")) {
+        // The PV-preview intro segment reuses the BGM's normalisation so the
+        // intro music and the chart music play at the same loudness.
+        const bool normalizedMusic = tag == QStringLiteral("bgm") || tag == QStringLiteral("bgm_intro");
+        if (normalizedMusic && bgmNormalizationGainByPath.contains(path)) {
+            effectiveGain = gain * bgmNormalizationGainByPath.value(path);
+        } else if (normalizedMusic) {
             const QWORD scanLength = BASS_ChannelGetLength(stream, BASS_POS_BYTE);
             double peak = 0.0;
             if (scanLength != static_cast<QWORD>(-1) && scanLength > 0) {
@@ -375,6 +383,7 @@ bool BassExportAudioBackend::renderMixedTrackToWav(
             constexpr double kBgmNormalizePeakFloor = 1.0e-4;
             const double normalizationGain =
                 qMin(kBgmNormalizeMaxBoost, 1.0 / qMax(peak, kBgmNormalizePeakFloor));
+            bgmNormalizationGainByPath.insert(path, normalizationGain);
             effectiveGain = gain * normalizationGain;
             appendExportLog(
                 QStringLiteral("bgm_normalize_peak"),
@@ -413,7 +422,7 @@ bool BassExportAudioBackend::renderMixedTrackToWav(
                 }
                 return false;
             }
-        } else if (tag == QStringLiteral("bgm")) {
+        } else if (normalizedMusic) {
             BASS_ChannelSetPosition(stream, 0, BASS_POS_BYTE);
         }
 
@@ -435,6 +444,39 @@ bool BassExportAudioBackend::renderMixedTrackToWav(
             return false;
         }
 
+        // Head/tail ramps as a mixer volume envelope. Node positions follow the
+        // source's own mixed position, so 0 is its first mixed sample. BASS
+        // interpolates linearly between nodes, so each ramp is sampled from a
+        // smoothstep curve: no audible kink where a ramp starts or lands.
+        const double fadeIn = qBound(0.0, fadeInSeconds, durationSeconds);
+        const double fadeOut = qBound(0.0, fadeOutSeconds, durationSeconds - fadeIn);
+        if (fadeIn > 0.0 || fadeOut > 0.0) {
+            constexpr int kRampSteps = 16;
+            const auto smoothstep = [](double t) { return t * t * (3.0 - 2.0 * t); };
+            std::vector<BASS_MIXER_NODE> nodes;
+            nodes.reserve(2 * (kRampSteps + 1));
+            for (int step = 0; step <= kRampSteps; ++step) {
+                const double t = static_cast<double>(step) / kRampSteps;
+                nodes.push_back({BASS_ChannelSeconds2Bytes(masterMixer, fadeIn * t),
+                                 static_cast<float>(fadeIn > 0.0 ? smoothstep(t) : 1.0)});
+            }
+            const double fadeOutStart = durationSeconds - fadeOut;
+            for (int step = 0; step <= kRampSteps; ++step) {
+                const double t = static_cast<double>(step) / kRampSteps;
+                nodes.push_back({BASS_ChannelSeconds2Bytes(masterMixer, fadeOutStart + fadeOut * t),
+                                 static_cast<float>(fadeOut > 0.0 ? 1.0 - smoothstep(t) : 1.0)});
+            }
+            if (!BASS_Mixer_ChannelSetEnvelope(stream, BASS_MIXER_ENV_VOL, nodes.data(),
+                                               static_cast<DWORD>(nodes.size()))) {
+                appendExportLog(
+                    QStringLiteral("audio_backend_envelope_failed"),
+                    QStringLiteral("backend=%1 tag=%2 err=%3")
+                        .arg(backendId())
+                        .arg(tag)
+                        .arg(static_cast<int>(BASS_ErrorGetCode())));
+            }
+        }
+
         sources.push_back(std::move(source));
         return true;
     };
@@ -447,6 +489,21 @@ bool BassExportAudioBackend::renderMixedTrackToWav(
                 plan.backgroundTrack.durationSeconds,
                 plan.backgroundTrack.gain,
                 QStringLiteral("bgm"))) {
+            BASS_StreamFree(masterMixer);
+            cleanupPlugins();
+            return false;
+        }
+    }
+    if (plan.introPreviewTrack.enabled) {
+        if (!addScheduledFile(
+                plan.introPreviewTrack.path,
+                plan.introPreviewTrack.mixStartSecond,
+                plan.introPreviewTrack.sourceStartSecond,
+                plan.introPreviewTrack.durationSeconds,
+                plan.introPreviewTrack.gain,
+                QStringLiteral("bgm_intro"),
+                plan.introPreviewTrack.fadeInSeconds,
+                plan.introPreviewTrack.fadeOutSeconds)) {
             BASS_StreamFree(masterMixer);
             cleanupPlugins();
             return false;

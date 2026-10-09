@@ -331,6 +331,18 @@
         <source>Prepend the maimai track-start intro (full-range exports only).</source>
         <translation>Prepend the maimai track-start intro (full-range exports only).</translation>
     </message>
+    <message id="cli.video_export.intro_card_shadow">
+        <source>Draw a soft drop shadow behind the intro difficulty card.</source>
+        <translation>Draw a soft drop shadow behind the intro difficulty card.</translation>
+    </message>
+    <message id="cli.video_export.intro_pv_invalid">
+        <source>--intro-pv-start must be zero or a positive number</source>
+        <translation>--intro-pv-start must be zero or a positive number</translation>
+    </message>
+    <message id="cli.video_export.intro_pv_start">
+        <source>PV-preview intro: chart second where the fixed 6.5 s PV + music segment starts (implies --intro).</source>
+        <translation>PV-preview intro: chart second where the fixed 6.5 s PV + music segment starts (implies --intro).</translation>
+    </message>
     <message id="cli.video_export.judge_line_scale">
         <source>Judge line size scale.</source>
         <translation>Judge line size scale.</translation>
@@ -3944,6 +3956,42 @@ Error: %1</translation>
     <message id="video_export.intro">
         <source>Intro</source>
         <translation>Intro</translation>
+    </message>
+    <message id="video_export.intro_audition">
+        <source>Audition</source>
+        <translation>Audition</translation>
+    </message>
+    <message id="video_export.intro_audition_loop">
+        <source>Loop audition</source>
+        <translation>Loop audition</translation>
+    </message>
+    <message id="video_export.intro_audition_stop">
+        <source>Stop</source>
+        <translation>Stop</translation>
+    </message>
+    <message id="video_export.intro_music_segment">
+        <source>Music segment</source>
+        <translation>Music segment</translation>
+    </message>
+    <message id="video_export.intro_pv_segment">
+        <source>PV segment</source>
+        <translation>PV segment</translation>
+    </message>
+    <message id="video_export.intro_pv_start">
+        <source>Start</source>
+        <translation>Start</translation>
+    </message>
+    <message id="video_export.intro_style">
+        <source>Intro style</source>
+        <translation>Intro style</translation>
+    </message>
+    <message id="video_export.intro_style_classic">
+        <source>Classic</source>
+        <translation>Classic</translation>
+    </message>
+    <message id="video_export.intro_style_pv_preview">
+        <source>PV preview</source>
+        <translation>PV preview</translation>
     </message>
     <message id="video_export.output">
         <source>Output</source>

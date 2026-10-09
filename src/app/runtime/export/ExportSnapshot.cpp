@@ -2,6 +2,7 @@
 #include "app/runtime/Shared.h"
 
 #include "app/services/PlaybackStateAuthority.h"
+#include "app/services/ExportIntroPreferences.h"
 #include "app/services/HudFontPreferences.h"
 
 #include "audio/QtPreviewSfxRuntime.h"
@@ -115,6 +116,9 @@ IntroBannerSpec buildIntroBannerSpec(
     intro.jacketPath = chartPath.isEmpty()
         ? QString()
         : miacode::chart_assets::resolveDisplayBackgroundImagePath(chartPath);
+    // The PV-preview segment is chosen per song, so every export of this chart
+    // (single, batch item, any difficulty) uses the start its project stored.
+    intro.pvPreviewStartSeconds = miacode::export_intro_preferences::pvPreviewStartSeconds(chartPath);
     return intro;
 }
 
@@ -1112,6 +1116,11 @@ bool miacode::runtime::VideoExportHost::exportPreviewVideoFromCli(
         chartPath,
         request.addIntro,
         fullRangeExport);
+    task.intro.cardShadow = request.introCardShadow;
+    if (request.introPvPreview) {
+        task.intro.pvPreview = true;
+        task.intro.pvPreviewStartSeconds = request.introPvStartSeconds;
+    }
     task.clockCount = miacode::chart_clock::clockCountFromDocument(session_.applicationServices_.workspace().document());
     if (const SimaiDifficultyData* difficulty = session_.applicationServices_.workspace().document().difficulty(difficultyId)) {
         task.clockBpm = miacode::chart_clock::clockBpmForChart(session_.applicationServices_.workspace().document(), difficulty->chart);

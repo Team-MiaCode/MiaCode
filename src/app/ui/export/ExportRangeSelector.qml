@@ -9,6 +9,29 @@ Item {
     required property var exportSession
     required property var previewSession
 
+    // The same lane also picks the fixed-length 片头 PV segment (fixedLength):
+    // both handles and the body move the window together, a press inside the
+    // window or on the playhead seeks the preview within it, and a press
+    // outside recentres the window there. The caller binds the range, routes
+    // edits through applyRange and maps window offsets to preview seconds.
+    property string objectNamePrefix: "exportRange"
+    property bool fixedLength: false
+    property var applyRange: function(start, end) { exportSession.setExportRangeSeconds(start, end) }
+    property var previewSecondFor: function(second) { return previewSecondForRangeSecond(second) }
+    // fixedLength: where the playhead sits in the window (seconds from its
+    // start, may run past its end), or < 0 to place it at playheadSeconds when
+    // the preview is inside the content, and hide it otherwise.
+    property real windowPlayheadSeconds: -1
+    // Where the playhead lands in the window whenever the window moves.
+    property real windowMoveOffsetSeconds: 0
+    property var previewSecondForWindowOffset: function(offset) { return previewSecondFor(startSeconds + offset) }
+    property real dragWindowOffsetSeconds: 0
+    property real dragPressX: 0
+    property bool dragMoved: false
+    readonly property bool windowMoving: fixedLength && draggingTarget === "range" && dragMoved
+    // fixedLength: the user picked a moment inside the window (click or playhead drag).
+    signal windowSeeked()
+
     property string draggingTarget: ""
     property real dragStartSeconds: 0
     property real dragEndSeconds: 0
@@ -16,14 +39,13 @@ Item {
     property real dragPreviewSecond: 0
     property real hoverSecond: 0
 
-    readonly property real totalSeconds: Math.max(0, Number(exportSession.contentDurationSeconds) || 0)
-    readonly property real minimumRangeSeconds: Math.max(0,
-                                                         Number(exportSession.minimumExportRangeSeconds) || 0)
-    readonly property real startSeconds: Math.max(0, Math.min(totalSeconds,
-                                                               Number(exportSession.exportStartSeconds) || 0))
+    property real totalSeconds: Math.max(0, Number(exportSession.contentDurationSeconds) || 0)
+    property real minimumRangeSeconds: Math.max(0, Number(exportSession.minimumExportRangeSeconds) || 0)
+    property real requestedStartSeconds: Number(exportSession.exportStartSeconds) || 0
+    property real requestedEndSeconds: Number(exportSession.exportEndSeconds) || 0
+    readonly property real startSeconds: Math.max(0, Math.min(totalSeconds, requestedStartSeconds))
     readonly property real endSeconds: Math.max(startSeconds + minimumRangeSeconds,
-                                                 Math.min(totalSeconds,
-                                                          Number(exportSession.exportEndSeconds) || 0))
+                                                 Math.min(totalSeconds, requestedEndSeconds))
     readonly property real playheadSeconds: Math.max(0, Math.min(totalSeconds,
                                                                   Number(previewSession.positionSeconds) || 0))
     // The lane can land on fractional logical coordinates on a fractional-DPR
@@ -61,6 +83,90 @@ Item {
             ? previewSession.lowerBoundSeconds : second
     }
 
+    function windowLengthSeconds() {
+        return Math.max(0.001, endSeconds - startSeconds)
+    }
+
+    function windowOffsetForX(x) {
+        const width = Math.max(1, lane.visualEndX - lane.visualStartX)
+        return Math.max(0, Math.min(windowLengthSeconds() - 0.001,
+                                    (x - lane.visualStartX) / width * windowLengthSeconds()))
+    }
+
+    function moveWindowTo(nextStart) {
+        const length = windowLengthSeconds()
+        const bounded = Math.max(0, Math.min(totalSeconds - length, nextStart))
+        root.applyRange(bounded, bounded + length)
+        return bounded
+    }
+
+    function beginWindowGesture(target, x) {
+        draggingTarget = target
+        dragPressX = x
+        dragPressSecond = lane.secondForX(x)
+        dragMoved = false
+        dragWindowOffsetSeconds = target === "playhead" ? windowOffsetForX(x) : windowMoveOffsetSeconds
+        if (target === "jump") {
+            // Recentre on the press, then keep dragging the window from there.
+            moveWindowTo(dragPressSecond - windowLengthSeconds() * 0.5)
+            draggingTarget = "range"
+            dragMoved = true
+        }
+        dragStartSeconds = startSeconds
+        dragPreviewSecond = draggingTarget === "playhead" ? startSeconds + dragWindowOffsetSeconds : startSeconds
+        previewSession.beginScrub()
+        if (dragMoved || draggingTarget === "playhead")
+            previewSession.updateScrub(root.previewSecondForWindowOffset(dragWindowOffsetSeconds))
+    }
+
+    function updateWindowGesture(x) {
+        if (draggingTarget === "playhead") {
+            dragWindowOffsetSeconds = windowOffsetForX(x)
+            dragPreviewSecond = startSeconds + dragWindowOffsetSeconds
+        } else if (draggingTarget === "range") {
+            if (!dragMoved && Math.abs(x - dragPressX) < 3)
+                return
+            dragMoved = true
+            dragPreviewSecond = moveWindowTo(dragStartSeconds + lane.secondForX(x) - dragPressSecond)
+        } else {
+            return
+        }
+        previewSession.updateScrub(root.previewSecondForWindowOffset(dragWindowOffsetSeconds))
+    }
+
+    function endWindowGesture() {
+        if (draggingTarget.length === 0)
+            return
+        // A click inside the window (no drag) seeks to that moment of it.
+        const seeked = draggingTarget === "playhead" || (draggingTarget === "range" && !dragMoved)
+        if (draggingTarget === "range" && !dragMoved)
+            dragWindowOffsetSeconds = windowOffsetForX(dragPressX)
+        previewSession.endScrub(root.previewSecondForWindowOffset(dragWindowOffsetSeconds))
+        draggingTarget = ""
+        dragMoved = false
+        if (seeked)
+            root.windowSeeked()
+    }
+
+    function nudgeWindow(deltaSeconds) {
+        moveWindowTo(startSeconds + deltaSeconds)
+        previewSession.positionSeconds = root.previewSecondForWindowOffset(windowMoveOffsetSeconds)
+    }
+
+    activeFocusOnTab: fixedLength
+    Keys.onPressed: function(event) {
+        if (!root.fixedLength)
+            return
+        const step = (event.modifiers & Qt.ShiftModifier) ? 1.0 : 0.1
+        if (event.key === Qt.Key_Left) {
+            root.nudgeWindow(-step)
+            event.accepted = true
+        } else if (event.key === Qt.Key_Right) {
+            root.nudgeWindow(step)
+            event.accepted = true
+        }
+    }
+
     function beginDrag(target, second) {
         draggingTarget = target
         dragStartSeconds = startSeconds
@@ -78,30 +184,30 @@ Item {
         if (draggingTarget === "start") {
             const nextStart = Math.max(0, Math.min(dragEndSeconds - minimumRangeSeconds,
                                                     dragStartSeconds + delta))
-            exportSession.setExportRangeSeconds(nextStart, dragEndSeconds)
+            root.applyRange(nextStart, dragEndSeconds)
             dragPreviewSecond = nextStart
         } else if (draggingTarget === "end") {
             const nextEnd = Math.max(dragStartSeconds + minimumRangeSeconds,
                                      Math.min(totalSeconds, dragEndSeconds + delta))
-            exportSession.setExportRangeSeconds(dragStartSeconds, nextEnd)
+            root.applyRange(dragStartSeconds, nextEnd)
             dragPreviewSecond = nextEnd
         } else if (draggingTarget === "range") {
             const boundedDelta = Math.max(-dragStartSeconds,
                                           Math.min(totalSeconds - dragEndSeconds, delta))
             const nextStart = dragStartSeconds + boundedDelta
             const nextEnd = dragEndSeconds + boundedDelta
-            exportSession.setExportRangeSeconds(nextStart, nextEnd)
+            root.applyRange(nextStart, nextEnd)
             dragPreviewSecond = nextStart
         } else {
             return
         }
-        previewSession.updateScrub(previewSecondForRangeSecond(dragPreviewSecond))
+        previewSession.updateScrub(root.previewSecondFor(dragPreviewSecond))
     }
 
     function endDrag() {
         if (draggingTarget.length === 0)
             return
-        previewSession.endScrub(previewSecondForRangeSecond(dragPreviewSecond))
+        previewSession.endScrub(root.previewSecondFor(dragPreviewSecond))
         draggingTarget = ""
     }
 
@@ -126,7 +232,7 @@ Item {
     Text {
         id: timestamp
 
-        objectName: "exportRangeTimestamp"
+        objectName: root.objectNamePrefix + "Timestamp"
         width: root.timestampWidth
         horizontalAlignment: Text.AlignHCenter
         x: Math.max(0, Math.min(root.width - width,
@@ -151,7 +257,7 @@ Item {
     Item {
         id: lane
 
-        objectName: "exportRangeLane"
+        objectName: root.objectNamePrefix + "Lane"
         anchors.left: parent.left
         anchors.right: parent.right
         y: root.timestampBandHeight
@@ -172,9 +278,21 @@ Item {
             const mapped = lane.mapToItem(null, 0, 0)
             return mapped && isFinite(mapped.x) ? mapped.x : 0
         }
+        // A fixed window carries the playhead through its drawn width, so it
+        // stays inside the window even when the window is drawn wider than its
+        // real span.
+        readonly property bool playheadShown: !root.fixedLength
+            || root.windowPlayheadSeconds >= 0
+            || (Number(root.previewSession.positionSeconds) || 0) >= 0
+        function playheadX() {
+            if (root.fixedLength && root.windowPlayheadSeconds >= 0)
+                return visualStartX + root.windowPlayheadSeconds / root.windowLengthSeconds()
+                    * (visualEndX - visualStartX)
+            return xForSecond(root.playheadSeconds)
+        }
         readonly property int playheadCenterDeviceX: {
             const originX = sceneOriginX()
-            return Math.round((originX + xForSecond(root.playheadSeconds)) * root.renderDpr)
+            return Math.round((originX + playheadX()) * root.renderDpr)
         }
         readonly property int playheadLeftDeviceX:
             playheadCenterDeviceX - Math.floor(playheadWidthDevicePixels * 0.5)
@@ -214,6 +332,13 @@ Item {
         }
 
         function targetAt(x, y) {
+            if (root.fixedLength) {
+                if (playheadShown && root.windowPlayheadSeconds >= 0 && Math.abs(x - playheadX()) <= 4)
+                    return "playhead"
+                if (x >= visualStartX - handleHitRadius && x <= visualEndX + handleHitRadius)
+                    return "range"
+                return rangeCanShift ? "jump" : ""
+            }
             if (Math.abs(x - visualStartX) <= handleHitRadius)
                 return "start"
             if (Math.abs(x - visualEndX) <= handleHitRadius)
@@ -236,7 +361,7 @@ Item {
         Rectangle {
             id: rangeBody
 
-            objectName: "exportRangeSelectedBody"
+            objectName: root.objectNamePrefix + "SelectedBody"
             x: lane.visualStartX
             y: lane.trackY
             width: Math.max(1, lane.visualEndX - x)
@@ -248,7 +373,8 @@ Item {
         Rectangle {
             id: playhead
 
-            objectName: "exportRangePlayhead"
+            objectName: root.objectNamePrefix + "Playhead"
+            visible: lane.playheadShown
             x: lane.playheadLeftX
             y: 1
             width: lane.playheadWidth
@@ -271,7 +397,7 @@ Item {
         Item {
             id: startHandle
 
-            objectName: "exportRangeStartHandle"
+            objectName: root.objectNamePrefix + "StartHandle"
             x: lane.visualStartX - width * 0.5
             y: (lane.height - height) * 0.5
             width: lane.handleWidth
@@ -298,7 +424,7 @@ Item {
         Item {
             id: endHandle
 
-            objectName: "exportRangeEndHandle"
+            objectName: root.objectNamePrefix + "EndHandle"
             x: lane.visualEndX - width * 0.5
             y: (lane.height - height) * 0.5
             width: lane.handleWidth
@@ -331,22 +457,33 @@ Item {
             cursorShape: root.draggingTarget === "range" ? Qt.ClosedHandCursor
                         : root.draggingTarget.length > 0 ? Qt.SizeHorCursor
                         : lane.targetAt(mouseX, mouseY) === "range" ? Qt.OpenHandCursor
+                        : lane.targetAt(mouseX, mouseY) === "jump" ? Qt.PointingHandCursor
                         : lane.targetAt(mouseX, mouseY).length > 0 ? Qt.SizeHorCursor
                         : Qt.ArrowCursor
 
             onPressed: function(mouse) {
                 root.hoverSecond = lane.secondForX(mouse.x)
                 const target = lane.targetAt(mouse.x, mouse.y)
-                if (target.length > 0)
-                    root.beginDrag(target, root.hoverSecond)
+                if (target.length === 0)
+                    return
+                if (root.fixedLength) {
+                    root.forceActiveFocus(Qt.MouseFocusReason)
+                    root.beginWindowGesture(target, mouse.x)
+                    return
+                }
+                root.beginDrag(target, root.hoverSecond)
             }
             onPositionChanged: function(mouse) {
                 root.hoverSecond = lane.secondForX(mouse.x)
-                if (pressed && root.draggingTarget.length > 0)
+                if (!pressed || root.draggingTarget.length === 0)
+                    return
+                if (root.fixedLength)
+                    root.updateWindowGesture(mouse.x)
+                else
                     root.updateDrag(root.hoverSecond)
             }
-            onReleased: root.endDrag()
-            onCanceled: root.endDrag()
+            onReleased: root.fixedLength ? root.endWindowGesture() : root.endDrag()
+            onCanceled: root.fixedLength ? root.endWindowGesture() : root.endDrag()
         }
     }
 

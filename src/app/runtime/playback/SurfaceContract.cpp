@@ -132,6 +132,9 @@ void miacode::runtime::PlaybackCoordinator::beginScrub()
     stopPreviewHeldSeek();
     state_.previewScrubDragging_ = true;
     state_.previewScrubRenderElapsed_.invalidate();
+    if (state_.exportIntroPvSegmentActive_) {
+        pauseExportIntroAdvance();
+    }
     if (state_.playing_) {
         pauseQtPreviewPlaybackExact();
     }

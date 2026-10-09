@@ -102,6 +102,10 @@ public:
     virtual double currentAudioClockSecond() const = 0;
     // Re-derives the negative-time intro region after an intro edit.
     virtual void refreshIntroState() = 0;
+    // PV-preview audition: plays the intro up to the end of its music, then
+    // returns to where it started (repeating while the page loops it).
+    virtual void setIntroAuditionPlaying(bool playing) = 0;
+    virtual bool introAuditionPlaying() const = 0;
 
 protected:
     ExportEngine() = default;

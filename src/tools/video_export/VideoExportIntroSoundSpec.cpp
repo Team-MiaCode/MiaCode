@@ -65,6 +65,8 @@ bool verifySnapshotAndWorkerRoundTrip(QTextStream& err)
     source.intro.enabled = true;
     source.introSoundFileName = QStringLiteral("../custom-start.flac");
     source.audioSettings.introVolume = 0.6;
+    source.intro.pvPreview = true;
+    source.intro.pvPreviewStartSeconds = 42.5;
 
     const QJsonObject json = source.toJson();
     const QJsonObject intro = json.value(QStringLiteral("intro")).toObject();
@@ -98,6 +100,10 @@ bool verifySnapshotAndWorkerRoundTrip(QTextStream& err)
         workerTask.introSoundFileName == QStringLiteral("custom-start.flac")
             && qAbs(workerTask.audioSettings.introVolume - 0.6) <= 1e-9,
         QStringLiteral("worker task receives the selected intro sound and the intro volume"),
+        err);
+    ok &= require(
+        workerTask.intro.pvPreview && nearlyEqual(workerTask.intro.pvPreviewStartSeconds, 42.5),
+        QStringLiteral("worker task receives the PV preview intro segment"),
         err);
 
     QJsonObject clampedJson = json;

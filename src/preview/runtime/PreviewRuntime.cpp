@@ -520,11 +520,30 @@ void PreviewRuntime::setIntroOverlayFrame(int authoringFrame, bool active, bool 
     }
 }
 
+void PreviewRuntime::setIntroHidesChart(bool hides)
+{
+    if (introHidesChart_ == hides) {
+        return;
+    }
+    introHidesChart_ = hides;
+    emit introOverlayStateChanged();
+}
+
+void PreviewRuntime::setIntroStillFrame(bool still)
+{
+    if (introStillFrame_ == still) {
+        return;
+    }
+    introStillFrame_ = still;
+    emit introOverlayStateChanged();
+}
+
 void PreviewRuntime::clearIntroOverlay(bool requestUpdate)
 {
-    const bool changed = introOverlayActive_ || introOverlayFrame_ != 0;
+    const bool changed = introOverlayActive_ || introOverlayFrame_ != 0 || introHidesChart_;
     introOverlayActive_ = false;
     introOverlayFrame_ = 0;
+    introHidesChart_ = false;
     if (changed) {
         emit introOverlayStateChanged();
     }
