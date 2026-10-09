@@ -234,21 +234,18 @@ Item {
 
     // 2) Live banner card, centered at a square the height of the frame,
     //    floating on the backdrop. Renders transparent (template flag), so the
-    //    blurred backdrop shows around it.
-    // Drop-shadow parameters echo MaimaiBannerCard.cardShadow* (template
-    // `cardShadow` block with the same defaults), since the transparent-mode
-    // card can't draw its own shadow.
-    function cardShadowColor() {
+    //    blurred backdrop shows around it. The transparent-mode card can't draw
+    //    its own shadow, so the optional halo is a layer effect here, built from
+    //    the template's cardShadow block (card-native px, scaled to this card) —
+    //    the same halo the cover composer draws.
+    function cardShadowValue(key, fallback) {
         var s = (bannerTemplateData && bannerTemplateData.cardShadow) || {}
-        return s.color !== undefined ? s.color : "#99000000"
+        return s[key] !== undefined ? s[key] : fallback
     }
-    function cardShadowBlurValue() {
-        var s = (bannerTemplateData && bannerTemplateData.cardShadow) || {}
-        return s.blur !== undefined ? s.blur : 0.6
-    }
-    function cardShadowOffsetYValue() {
-        var s = (bannerTemplateData && bannerTemplateData.cardShadow) || {}
-        return s.offsetY !== undefined ? s.offsetY : 14
+    readonly property real cardPxPerNative: {
+        var c = (bannerTemplateData && bannerTemplateData.card) || {}
+        return cardImg.height * (c.heightRatio !== undefined ? c.heightRatio : 0.78)
+            / (c.nativeHeight !== undefined ? c.nativeHeight : 636)
     }
 
     MaimaiBannerCard {
@@ -274,9 +271,11 @@ Item {
         layer.enabled: root.cardShadowEnabled
         layer.effect: MultiEffect {
             shadowEnabled: true
-            shadowColor: root.cardShadowColor()
-            shadowBlur: root.cardShadowBlurValue()
-            shadowVerticalOffset: root.cardShadowOffsetYValue()
+            shadowColor: root.cardShadowValue("color", "#B8000000")
+            blurMax: Math.max(2, Math.round(root.cardShadowValue("blurMax", 48) * root.cardPxPerNative))
+            shadowBlur: root.cardShadowValue("blur", 0.8)
+            shadowScale: root.cardShadowValue("scale", 1.02)
+            shadowVerticalOffset: root.cardShadowValue("offsetY", 5.3) * root.cardPxPerNative
         }
     }
 

@@ -141,15 +141,23 @@ Item {
     // ---- card drop-shadow helpers (template.cardShadow) ----
     function cardShadowColor() {
         return (coverTemplate && coverTemplate.cardShadow && coverTemplate.cardShadow.color)
-                ? coverTemplate.cardShadow.color : "#99000000"
+                ? coverTemplate.cardShadow.color : "#B8000000"
     }
     function cardShadowBlur() {
         return (coverTemplate && coverTemplate.cardShadow && coverTemplate.cardShadow.blur !== undefined)
-                ? coverTemplate.cardShadow.blur : 0.6
+                ? coverTemplate.cardShadow.blur : 0.8
     }
     function cardShadowOffsetY() {
         return (coverTemplate && coverTemplate.cardShadow && coverTemplate.cardShadow.offsetY !== undefined)
-                ? coverTemplate.cardShadow.offsetY : 14
+                ? coverTemplate.cardShadow.offsetY : 5.3
+    }
+    function cardShadowBlurMax() {
+        return (coverTemplate && coverTemplate.cardShadow && coverTemplate.cardShadow.blurMax !== undefined)
+                ? coverTemplate.cardShadow.blurMax : 48
+    }
+    function cardShadowScale() {
+        return (coverTemplate && coverTemplate.cardShadow && coverTemplate.cardShadow.scale !== undefined)
+                ? coverTemplate.cardShadow.scale : 1.02
     }
 
     readonly property url backdropSourceUrl:
@@ -481,9 +489,10 @@ Item {
                     // Scale the shadow blur radius by the card's px-per-native scale
                     // (the SAME factor as the offset below) so softness, offset and
                     // geometry all track output resolution → preview == export.
-                    blurMax: Math.max(2, Math.round(64 * layerItem.height
+                    blurMax: Math.max(2, Math.round(canvas.cardShadowBlurMax() * layerItem.height
                                       / canvas.cardContentNativeH(canvas.coverTemplate)))
                     shadowBlur: canvas.cardShadowBlur()
+                    shadowScale: canvas.cardShadowScale()
                     // offsetY is card-native px; scale into wrapper px.
                     shadowVerticalOffset: canvas.cardShadowOffsetY()
                                           * (layerItem.height / canvas.cardContentNativeH(canvas.coverTemplate))
