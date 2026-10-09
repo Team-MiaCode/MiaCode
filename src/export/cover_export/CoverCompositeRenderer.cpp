@@ -209,6 +209,17 @@ QImage renderCoverComposite(CoverLayoutModel* model,
         settleEvents(true);
         image = window->grabWindow();
     }
+    // The grab renders into the window's surface. Should that surface be smaller
+    // than requested, lay the normalised composition out on it instead of
+    // cropping the full-size layout; the scale below restores the output size.
+    if (!image.isNull()) {
+        const qreal grabDpr = image.devicePixelRatio() > 0 ? image.devicePixelRatio() : 1.0;
+        const QSizeF surface(image.width() / grabDpr, image.height() / grabDpr);
+        if (surface.width() + 1 < width || surface.height() + 1 < height) {
+            root->setSize(surface);
+            image = window->grabWindow();
+        }
+    }
     delete window;
     if (image.isNull()) {
         if (errorMessage != nullptr) {

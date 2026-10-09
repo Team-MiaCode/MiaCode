@@ -228,6 +228,25 @@ QImage SceneFrameRenderer::renderAt(double seconds, int sidePx, QString* errorMe
         }
         return QImage();
     }
+    // A resize of the shown window reaches the surface the grab renders into
+    // only on a later event-loop turn, while QWindow::size() already reports the
+    // new size. A scene larger than that surface comes back cropped to its
+    // top-left and would be stretched up below, so lay the scene out on the
+    // surface actually grabbed and grab again; the scale below restores `side`.
+    const qreal grabDpr = image.devicePixelRatio() > 0 ? image.devicePixelRatio() : 1.0;
+    const int surfaceSide = qMin(image.width(), image.height());
+    if (surfaceSide + 1 < qRound(side * grabDpr)) {
+        sceneRoot_->setSize(QSizeF(surfaceSide / grabDpr, surfaceSide / grabDpr));
+        image = window_->grabWindow();
+        sceneRoot_->setSize(QSizeF(side, side));
+        if (image.isNull()) {
+            if (errorMessage != nullptr) {
+                *errorMessage = QStringLiteral("grabWindow returned an empty image");
+            }
+            return QImage();
+        }
+        image = image.copy(0, 0, surfaceSide, surfaceSide);
+    }
     image.setDevicePixelRatio(1.0);
     if (image.width() != side || image.height() != side) {
         image = image.scaled(side, side, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);

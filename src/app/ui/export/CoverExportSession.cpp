@@ -1466,6 +1466,13 @@ void CoverExportSession::exportCover()
     }
 
     setBusy(true);
+    const int frameSide = qBound(512, qMax(outputWidth(), outputHeight()), 4096);
+    // The editor captures at a smaller side. Request the export side now so the
+    // capture window's resize is delivered during the turn below; the grab
+    // otherwise has to fall back to the old surface size and upscale.
+    if (chartFrameAvailable_ && frameRenderer_ != nullptr) {
+        frameRenderer_->prepareCaptureWindow(frameSide, frameRenderer_->playheadSeconds());
+    }
     // renderVisibleChartFramesForExport()/exportCoverComposite() below are
     // synchronous in-process QSG work with no progress callback, so nothing
     // yields back to the event loop once they start. Give it one turn here,
@@ -1481,7 +1488,6 @@ void CoverExportSession::exportCover()
     playback_->cancelInput();
     commitActiveLayerFrameSeconds();
     stopAndDetachLiveChartScene();
-    const int frameSide = qBound(512, qMax(outputWidth(), outputHeight()), 4096);
     const bool framesReady = renderVisibleChartFramesForExport(frameSide);
     persistComposition();
     const auto result = framesReady
