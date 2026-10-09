@@ -35,6 +35,17 @@ miacode_add_dev_tool(miacode_simai_dump
     INCLUDES src
 )
 
+# Cover compositor without the editor UI: one chart-frame layer (PV / 曲绘 /
+# transparent disk background) next to the difficulty card.
+miacode_add_dev_tool(miacode_cover_render
+    SOURCES
+        src/devtools/CoverRender.cpp
+    LIBS miacode_export miacode_preview_quick miacode_preview_quickplugin
+        Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick
+    INCLUDES src
+)
+miacode_link_dev_audio(miacode_cover_render)
+
 miacode_add_dev_tool(miacode_audio_probe
     SOURCES
         src/devtools/AudioProbe.cpp

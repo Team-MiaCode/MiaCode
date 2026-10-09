@@ -451,6 +451,13 @@ Item {
                 isChartFrame && layerItem.frameBgMode === "transparent"
                 && canvas.chartFrameDiskDiameter > 0
                 && layerItem.frameBgTransparency < 1.0
+            // PV mode: the PV frame at this layer's chart time (pv/<key> in the
+            // "coverchart" provider) takes the image mode's place in the disk.
+            readonly property bool showsPvDiskBg:
+                isChartFrame && layerItem.frameBgMode === "pv"
+                && canvas.chartFrameDiskDiameter > 0
+                && layerItem.ld && layerItem.ld.pvFrameRevision >= 0
+            readonly property bool showsMediaDiskBg: showsImageDiskBg || showsPvDiskBg
 
             width: canvas.layerContentW(ld)
             height: canvas.layerContentH(ld)
@@ -484,7 +491,8 @@ Item {
                     autoPaddingEnabled: true
                 }
                 // B1 — chart-frame inner-ring background, BEHIND the overlay. The
-                // crisp cover background, circular-masked to the playfield disk and
+                // crisp cover background (PV mode: the PV frame at the layer's chart
+                // time), circular-masked to the playfield disk and
                 // dimmed (MultiEffect.brightness); only the BG is masked, so the
                 // overlay (notes/ring/effects) still extends across the square as in
                 // A2. Hidden for the card layer / transparent bg. The source Image is
@@ -495,7 +503,10 @@ Item {
                     id: chartBgDiskImage
                     anchors.fill: parent
                     visible: false
-                    source: layerItem.isChartFrame ? canvas.backdropSourceUrl : ""
+                    source: !layerItem.isChartFrame ? ""
+                            : layerItem.showsPvDiskBg
+                              ? ("image://coverchart/pv/" + layerItem.ld.key + "?r=" + layerItem.ld.pvFrameRevision)
+                              : canvas.backdropSourceUrl
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: false
                     cache: false
@@ -524,7 +535,7 @@ Item {
                 }
                 MultiEffect {
                     anchors.fill: parent
-                    visible: layerItem.showsImageDiskBg
+                    visible: layerItem.showsMediaDiskBg
                     source: chartBgDiskImage
                     maskEnabled: true
                     maskSource: chartBgDiskMaskTex
@@ -535,7 +546,7 @@ Item {
                 // → media × brightness). MultiEffect.brightness is ADDITIVE
                 // (crushes dark pixels straight to black) so it is NOT used here.
                 Rectangle {
-                    visible: layerItem.showsImageDiskBg
+                    visible: layerItem.showsMediaDiskBg
                     anchors.centerIn: parent
                     width: canvas.chartFrameDiskDiameter * parent.width
                     height: width

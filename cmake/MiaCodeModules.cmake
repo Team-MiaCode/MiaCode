@@ -518,6 +518,8 @@ miacode_add_module(miacode_export
         src/export/cover_export/CoverFrameSceneBinder.h
         src/export/cover_export/CoverLayoutModel.cpp
         src/export/cover_export/CoverLayoutModel.h
+        src/export/cover_export/CoverPvFrameSource.cpp
+        src/export/cover_export/CoverPvFrameSource.h
         src/export/cover_export/SceneFrameRenderer.cpp
         src/export/cover_export/SceneFrameRenderer.h
         src/export/session/PreviewQuickD3D11ExportSession.cpp

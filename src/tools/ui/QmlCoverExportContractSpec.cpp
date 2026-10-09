@@ -331,7 +331,7 @@ int main(int argc, char** argv)
            QStringLiteral("chart transport acquires focus without stealing numeric text input"),
            out, &failed);
     expect(page.contains(QStringLiteral(
-                   "enabled: root.activeLayer && root.activeLayer.frameBgMode === \"image\""))
+                   "&& (root.activeLayer.frameBgMode === \"image\" || root.activeLayer.frameBgMode === \"pv\")"))
                && page.contains(QStringLiteral(
                    "enabled: root.activeLayer && root.activeLayer.frameBgMode === \"transparent\"")),
            QStringLiteral("chart-frame brightness and transparency follow their background modes"),

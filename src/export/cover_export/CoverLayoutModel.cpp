@@ -85,6 +85,9 @@ QString normalizedFrameBgMode(const QString& mode)
     if (mode == QStringLiteral("image") || mode == QStringLiteral("jacket")) {
         return QStringLiteral("image");
     }
+    if (mode == QStringLiteral("pv") || mode == QStringLiteral("video")) {
+        return QStringLiteral("pv");
+    }
     return QStringLiteral("image");
 }
 }  // namespace
@@ -171,7 +174,7 @@ void CoverLayer::setFrameBgMode(const QString& v)
     if (frameBgMode_ == next) return;
     frameBgMode_ = next;
     emit frameBgModeChanged();
-    const bool nextEnabled = next == QStringLiteral("image");
+    const bool nextEnabled = next != QStringLiteral("transparent");
     if (frameBgEnabled_ != nextEnabled) {
         frameBgEnabled_ = nextEnabled;
         emit frameBgEnabledChanged();
@@ -462,6 +465,8 @@ CoverLayer* CoverLayoutModel::duplicateLayer(const QString& key)
     copy->opacity_ = src->opacity_;
     copy->frameImage_ = src->frameImage_;
     copy->imageRevision_ = src->imageRevision_;
+    copy->pvFrameImage_ = src->pvFrameImage_;
+    copy->pvFrameRevision_ = src->pvFrameRevision_;
     copy->frameSeconds_ = src->frameSeconds_;
     copy->frameBgEnabled_ = src->frameBgEnabled_;
     copy->frameBgMode_ = src->frameBgMode_;
@@ -638,6 +643,24 @@ void CoverLayoutModel::clearLayerImage(const QString& key)
     l->frameImage_ = QImage();
     l->imageRevision_ = -1;
     emit l->imageRevisionChanged();
+}
+
+void CoverLayoutModel::setLayerPvFrame(const QString& key, const QImage& image)
+{
+    CoverLayer* l = layer(key);
+    if (l == nullptr) return;
+    l->pvFrameImage_ = image;
+    l->pvFrameRevision_ += 1;
+    emit l->pvFrameRevisionChanged();
+}
+
+void CoverLayoutModel::clearLayerPvFrame(const QString& key)
+{
+    CoverLayer* l = layer(key);
+    if (l == nullptr || (l->pvFrameRevision_ < 0 && l->pvFrameImage_.isNull())) return;
+    l->pvFrameImage_ = QImage();
+    l->pvFrameRevision_ = -1;
+    emit l->pvFrameRevisionChanged();
 }
 
 int CoverLayoutModel::minZ() const

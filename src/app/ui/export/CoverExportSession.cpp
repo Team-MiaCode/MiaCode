@@ -12,6 +12,7 @@
 #include "export/cover_export/CoverFrameExportPlan.h"
 #include "export/cover_export/CoverFrameSceneBinder.h"
 #include "export/cover_export/CoverLayoutModel.h"
+#include "export/cover_export/CoverPvFrameSource.h"
 #include "export/cover_export/SceneFrameRenderer.h"
 #include "export/video_export/FontLibrary.h"
 #include "app/services/UserFontLibrary.h"
@@ -78,6 +79,7 @@ CoverExportSession::CoverExportSession(miacode::ExportEngine& exportEngine,
     , layout_(std::make_unique<miacode::cover_export::CoverLayoutModel>())
     , playback_(std::make_unique<miacode::cover_export::CoverFramePlaybackController>(this))
     , sceneBinder_(std::make_unique<miacode::cover_export::CoverFrameSceneBinder>(this))
+    , pvFrames_(std::make_unique<miacode::cover_export::CoverPvFrameSource>())
     , bannerTemplate_(loadBannerTemplate())
 {
 
@@ -99,6 +101,20 @@ CoverExportSession::CoverExportSession(miacode::ExportEngine& exportEngine,
             this, &CoverExportSession::chartFramePlayingChanged);
     connect(sceneBinder_.get(), &miacode::cover_export::CoverFrameSceneBinder::liveChartSceneBoundChanged,
             this, &CoverExportSession::liveChartSceneBoundChanged);
+    connect(pvFrames_.get(), &miacode::cover_export::CoverPvFrameSource::frameReady,
+            this, [this](const QString& key, double, const QImage& image) {
+        auto* layer = layout_ != nullptr ? layout_->layer(key) : nullptr;
+        if (layer != nullptr && layer->frameBgMode() == QStringLiteral("pv")) {
+            layout_->setLayerPvFrame(key, image);
+        }
+    });
+    // Playback moves the chart at 60 Hz; the PV frame follows once it stops.
+    connect(playback_.get(), &miacode::cover_export::CoverFramePlaybackController::playingChanged,
+            this, [this]() {
+        if (playback_ != nullptr && !playback_->playing()) {
+            requestPvFrame(activeCoverLayer());
+        }
+    });
 }
 
 CoverExportSession::~CoverExportSession()
@@ -325,6 +341,10 @@ void CoverExportSession::seedFromDifficulty(int difficultyId)
     }
     frameRenderer_ = std::make_unique<miacode::cover_export::SceneFrameRenderer>();
     chartFrameAvailable_ = !task_.noteMarkers.isEmpty() && frameRenderer_->bootstrap(task_);
+    pvMediaPath_ = miacode::chart_assets::isVideoBackgroundPath(task_.backgroundMediaPath)
+                       && QFileInfo::exists(task_.backgroundMediaPath)
+        ? task_.backgroundMediaPath
+        : QString();
     chartFrameDuration_ = chartFrameAvailable_ ? frameRenderer_->contentDurationSeconds() : 0.0;
 
     if (!hasLoadedPreferences_) {
@@ -372,6 +392,7 @@ void CoverExportSession::seedFromDifficulty(int difficultyId)
     // duration are both final.
     emit activeChartFrameSecondsChanged();
     rebindLiveChartScene();
+    refreshPvFrames();
     // Warm the secondary capture surface without making it a prerequisite for
     // the live preview. By the time the user switches away from the active
     // chart frame, the surface has had normal event-loop time to initialize.
@@ -472,6 +493,9 @@ void CoverExportSession::onPlaybackSecondsChanged()
     if (frameRenderer_ != nullptr) {
         frameRenderer_->setPlayheadSeconds(seconds);
     }
+    if (!playback_->playing()) {
+        requestPvFrame(layer);
+    }
     if (auto* liveScene = qobject_cast<PreviewQuickSceneRoot*>(sceneBinder_->liveChartScene())) {
         liveScene->update();
     }
@@ -499,8 +523,49 @@ bool CoverExportSession::renderVisibleChartFramesForExport(int sidePx)
         if (!renderChartFrame(layer, sidePx, true)) {
             return false;
         }
+        if (layer->frameBgMode() == QStringLiteral("pv") && !pvMediaPath_.isEmpty()) {
+            // The export composites synchronously, so take the PV frame at the
+            // exact export time rather than whatever the editor last decoded.
+            QString error;
+            const QImage pvFrame = miacode::cover_export::CoverPvFrameSource::decodeFrame(
+                pvMediaPath_, frame.seconds, sidePx, &error);
+            if (pvFrame.isNull()) {
+                notifyError(miacode::localizedText("cover.chart_frame"),
+                            miacode::localizedText("cover.could_not_render_the_chart"), error);
+                return false;
+            }
+            layout_->setLayerPvFrame(layer->key(), pvFrame);
+        }
     }
     return true;
+}
+
+void CoverExportSession::requestPvFrame(miacode::cover_export::CoverLayer* layer)
+{
+    if (layer == nullptr || layout_ == nullptr || layer->kind() != QStringLiteral("chartFrame")) {
+        return;
+    }
+    if (layer->frameBgMode() != QStringLiteral("pv") || !chartFramePvAvailable()) {
+        pvFrames_->cancel(layer->key());
+        layout_->clearLayerPvFrame(layer->key());
+        return;
+    }
+    // The editor canvas is far smaller than the export; the export decodes
+    // its own frame at full size (renderVisibleChartFramesForExport).
+    constexpr int kEditorPvFrameSidePx = 1024;
+    pvFrames_->request(layer->key(), pvMediaPath_, layer->frameSeconds(), kEditorPvFrameSidePx);
+}
+
+void CoverExportSession::refreshPvFrames()
+{
+    if (layout_ == nullptr) {
+        return;
+    }
+    for (auto* layer : layout_->chartFrameLayers()) {
+        // A PV frame belongs to the chart that produced it, like the stills.
+        layout_->clearLayerPvFrame(layer->key());
+        requestPvFrame(layer);
+    }
 }
 
 void CoverExportSession::rebindLiveChartScene()
@@ -767,6 +832,7 @@ void CoverExportSession::commitActiveLayerFrameSeconds()
     }
     layer->setFrameSeconds(qBound(0.0, layer->frameSeconds(), chartFrameDuration_));
     renderChartFrame(layer);
+    requestPvFrame(layer);
     persistComposition();
     emit activeChartFrameSecondsChanged();
 }
@@ -858,7 +924,9 @@ void CoverExportSession::unbindLiveChartScene(QObject* scene)
 void CoverExportSession::setActiveLayerFrameBackgroundMode(const QString& mode)
 {
     if (auto* layer = activeCoverLayer(); layer != nullptr && layer->kind() == QStringLiteral("chartFrame")) {
-        layer->setFrameBgMode(mode == QStringLiteral("transparent") ? mode : QStringLiteral("image"));
+        layer->setFrameBgMode(mode == QStringLiteral("transparent") || mode == QStringLiteral("pv")
+                                  ? mode : QStringLiteral("image"));
+        requestPvFrame(layer);
         persistComposition();
     }
 }
@@ -1168,6 +1236,7 @@ bool CoverExportSession::applyCompositionJsonInternal(const QJsonObject& root,
     emit activeLayerChanged();
     syncPlaybackFromActiveLayer();
     rebindLiveChartScene();
+    refreshPvFrames();
     emit activeChartFrameSecondsChanged();
     emit inputsChanged();
     emit outputChanged();

@@ -22,6 +22,7 @@ class CoverLayer;
 class CoverFramePlaybackController;
 class CoverFrameSceneBinder;
 class SceneFrameRenderer;
+class CoverPvFrameSource;
 }
 
 namespace miacode {
@@ -68,6 +69,8 @@ class CoverExportSession final : public QObject
     Q_PROPERTY(QString outputFilePath READ outputFilePath NOTIFY outputChanged)
     Q_PROPERTY(bool chartFrameAvailable READ chartFrameAvailable NOTIFY chartFrameAvailabilityChanged)
     Q_PROPERTY(double chartFrameDuration READ chartFrameDuration NOTIFY chartFrameAvailabilityChanged)
+    // The chart has a video PV, so chart frames can use frameBgMode "pv".
+    Q_PROPERTY(bool chartFramePvAvailable READ chartFramePvAvailable NOTIFY chartFrameAvailabilityChanged)
     Q_PROPERTY(double chartFrameDiskDiameter READ chartFrameDiskDiameter NOTIFY chartFrameAvailabilityChanged)
     Q_PROPERTY(QObject* chartSceneBinder READ chartSceneBinder CONSTANT)
     Q_PROPERTY(bool chartFramePlaying READ chartFramePlaying NOTIFY chartFramePlayingChanged)
@@ -118,6 +121,7 @@ public:
     QString outputFilePath() const;
     bool chartFrameAvailable() const { return chartFrameAvailable_; }
     double chartFrameDuration() const { return chartFrameDuration_; }
+    bool chartFramePvAvailable() const { return chartFrameAvailable_ && !pvMediaPath_.isEmpty(); }
     double chartFrameDiskDiameter() const;
     QObject* chartSceneBinder() const;
     bool chartFramePlaying() const;
@@ -222,6 +226,10 @@ private:
                           bool reportErrors = false);
     void syncPlaybackFromActiveLayer();
     bool renderVisibleChartFramesForExport(int sidePx);
+    // frameBgMode "pv": queue the layer's PV frame (latest-wins), or drop it
+    // when the layer is in another mode / the chart has no video PV.
+    void requestPvFrame(miacode::cover_export::CoverLayer* layer);
+    void refreshPvFrames();
     void onPlaybackSecondsChanged();
     void onPlaybackReachedEnd();
     void rebindLiveChartScene();
@@ -254,6 +262,9 @@ private:
     std::unique_ptr<miacode::cover_export::SceneFrameRenderer> frameRenderer_;
     std::unique_ptr<miacode::cover_export::CoverFramePlaybackController> playback_;
     std::unique_ptr<miacode::cover_export::CoverFrameSceneBinder> sceneBinder_;
+    std::unique_ptr<miacode::cover_export::CoverPvFrameSource> pvFrames_;
+    // The chart's video PV (task_.backgroundMediaPath when it is a video).
+    QString pvMediaPath_;
     QPointer<QObject> lastLiveChartScene_;
     VideoExportTask task_;
     QVariantMap bannerTemplate_;

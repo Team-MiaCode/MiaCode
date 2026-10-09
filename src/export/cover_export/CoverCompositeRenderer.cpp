@@ -43,10 +43,16 @@ public:
         if (queryPos >= 0) {
             key.truncate(queryPos);
         }
+        // "<key>" serves the chart still, "pv/<key>" the layer's PV background.
+        const QString pvPrefix = QStringLiteral("pv/");
+        const bool pvFrame = key.startsWith(pvPrefix);
+        if (pvFrame) {
+            key.remove(0, pvPrefix.size());
+        }
         QImage image;
         if (model_ != nullptr) {
             if (CoverLayer* layer = model_->layer(key)) {
-                image = layer->frameImage();
+                image = pvFrame ? layer->pvFrameImage() : layer->frameImage();
             }
         }
         if (image.isNull()) {

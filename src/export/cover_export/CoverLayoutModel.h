@@ -49,6 +49,9 @@ class CoverLayer : public QObject
     Q_PROPERTY(QString frameStyle READ frameStyle WRITE setFrameStyle NOTIFY frameStyleChanged)
     // -1 = no still rendered yet (QML shows nothing); >= 0 bumps on each new grab.
     Q_PROPERTY(int imageRevision READ imageRevision NOTIFY imageRevisionChanged)
+    // frameBgMode=="pv": the PV frame at frameSeconds, served by the "coverchart"
+    // provider as "pv/<key>". Same -1 / bump contract as imageRevision.
+    Q_PROPERTY(int pvFrameRevision READ pvFrameRevision NOTIFY pvFrameRevisionChanged)
     // ---- kind=="image" (custom image layer) ----
     // Absolute path to the source image; empty shows nothing.
     Q_PROPERTY(QString imagePath READ imagePath WRITE setImagePath NOTIFY imagePathChanged)
@@ -79,6 +82,8 @@ public:
     qreal opacity() const { return opacity_; }
     int imageRevision() const { return imageRevision_; }
     QImage frameImage() const { return frameImage_; }
+    int pvFrameRevision() const { return pvFrameRevision_; }
+    QImage pvFrameImage() const { return pvFrameImage_; }
     double frameSeconds() const { return frameSeconds_; }
     bool frameBgEnabled() const { return frameBgEnabled_; }
     QString frameBgMode() const { return frameBgMode_; }
@@ -129,6 +134,7 @@ signals:
     void frameBgTransparencyChanged();
     void frameStyleChanged();
     void imageRevisionChanged();
+    void pvFrameRevisionChanged();
     void imagePathChanged();
     void textChanged();
     void fontPathChanged();
@@ -150,6 +156,8 @@ private:
     qreal opacity_ = 1.0;
     QImage frameImage_;
     int imageRevision_ = -1;
+    QImage pvFrameImage_;
+    int pvFrameRevision_ = -1;
     double frameSeconds_ = 0.0;
     bool frameBgEnabled_ = true;
     QString frameBgMode_ = QStringLiteral("image");
@@ -225,6 +233,9 @@ public:
     // Drop a still when the renderer/difficulty changes. Reusing a layer object
     // must not make a frame from the previous chart look current.
     void clearLayerImage(const QString& key);
+    // The PV-background frame of `key`'s chart-frame layer (frameBgMode "pv").
+    void setLayerPvFrame(const QString& key, const QImage& image);
+    void clearLayerPvFrame(const QString& key);
 
     // Paint-order helpers (z based, list order untouched). Bounds-checked.
     Q_INVOKABLE void bringToFront(int index);

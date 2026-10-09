@@ -3,7 +3,7 @@
 Generated from `cmake/devtools/specs/` by `cmake -P cmake/devtools/SpecCatalog.cmake`.
 Check without writing: `cmake -DMIACODE_SPEC_CATALOG_CHECK=ON -P cmake/devtools/SpecCatalog.cmake`.
 
-127 independent specs; source lists and link dependencies are maintained only in CMake.
+128 independent specs; source lists and link dependencies are maintained only in CMake.
 
 `platform:all` means the target is registered on every platform, not that all platforms
 have been tested. Platform-specific source branches and link additions remain in their manifests.
@@ -20,6 +20,7 @@ Owners name production modules; kinds describe the checked boundary, not runtime
 | `src/tools/cover_export/CoverFramePlaybackControllerSpec.cpp` | `cover_frame_playback_controller_spec` | `src/export/cover_export` | `cover-export.cover-frame-playback-controller` | cover_export | behavior | normal | all | ctest | active |
 | `src/tools/cover_export/CoverFrameSceneBinderSpec.cpp` | `cover_frame_scene_binder_spec` | `src/export/cover_export` | `cover-export.cover-frame-scene-binder` | cover_export | behavior | normal | all | ctest | active |
 | `src/tools/cover_export/CoverLayoutModelSpec.cpp` | `cover_layout_model_spec` | `src/export/cover_export` | `cover-export.cover-layout-model` | cover_export | behavior | normal | all | ctest | active |
+| `src/tools/cover_export/CoverPvFrameSourceSpec.cpp` | `cover_pv_frame_source_spec` | `src/export/cover_export` | `cover-export.cover-pv-frame-source` | cover_export | behavior | normal | all | ctest | active |
 | `src/tools/debug_index/DebugFlagIndexSpec.cpp` | `debug_flag_index_spec` | `src/common` | `debug-index.debug-flag-index` | debug_index | source-contract | normal | all | ctest | active |
 | `src/tools/debug_index/DebugOptionsSpec.cpp` | `debug_options_spec` | `src/common` | `debug-index.debug-options` | debug_index | behavior | normal | all | ctest | active |
 | `src/tools/debug_index/IdleFreezeReproScriptSpec.cpp` | `idle_freeze_repro_script_spec` | `scripts/debug` | `debug-index.idle-freeze-repro-script` | debug_index | source-contract | normal | all | ctest | active |

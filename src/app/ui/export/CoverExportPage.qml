@@ -919,13 +919,22 @@ Rectangle {
                                                 }
                                             }
                                         }
+                                        // PV: the chart's video PV at this frame's time; offered only
+                                        // when the chart has one.
                                         LabeledCombo {
+                                            objectName: "coverFrameBackgroundCombo"
                                             label: qsTrId("cover.inner")
                                             labelWidth: root.labelWidth
-                                            options: [
-                                                { value: "image", label: qsTrId("cover.inner_bg") },
-                                                { value: "transparent", label: qsTrId("cover.transparent") }
-                                            ]
+                                            options: root.session && root.session.chartFramePvAvailable
+                                                ? [
+                                                    { value: "image", label: qsTrId("cover.inner_bg") },
+                                                    { value: "pv", label: qsTrId("cover.inner_pv") },
+                                                    { value: "transparent", label: qsTrId("cover.transparent") }
+                                                ]
+                                                : [
+                                                    { value: "image", label: qsTrId("cover.inner_bg") },
+                                                    { value: "transparent", label: qsTrId("cover.transparent") }
+                                                ]
                                             currentValue: root.activeLayer ? root.activeLayer.frameBgMode : "image"
                                             onPicked: function(value) { if (root.session) root.session.setActiveLayerFrameBackgroundMode(value) }
                                         }
@@ -935,7 +944,8 @@ Rectangle {
                                             from: 0
                                             to: 1
                                             stepSize: 0.01
-                                            enabled: root.activeLayer && root.activeLayer.frameBgMode === "image"
+                                            enabled: root.activeLayer
+                                                     && (root.activeLayer.frameBgMode === "image" || root.activeLayer.frameBgMode === "pv")
                                             readout: Math.round((root.activeLayer ? root.activeLayer.frameBgBrightness : 0.8) * 100) + "%"
                                             value: root.activeLayer ? root.activeLayer.frameBgBrightness : 0.8
                                             onMoved: function(value) { if (root.session) root.session.setActiveLayerFrameBackgroundBrightness(value) }

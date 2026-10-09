@@ -269,4 +269,7 @@ public:
         const VideoExportTask& task,
         const VideoExportProgressCallback& progressCallback = {}
     );
+    // The ffmpeg binary the export uses (MIACODE_FFMPEG_PATH, bundled, PATH);
+    // empty when none is found.
+    static QString ffmpegExecutablePath();
 };
