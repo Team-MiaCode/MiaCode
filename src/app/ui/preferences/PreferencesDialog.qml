@@ -5,8 +5,8 @@ import MiaCode.UI
 
 // 偏好设置. Every control writes straight through to the model, which persists
 // on each change — there is no OK/Apply, matching the Widgets dialog it
-// replaces. Language and theme are the exceptions: they need a restart, so the
-// page says so instead of pretending the change already took.
+// replaces. Language is applied live; theme and platform decoder restart
+// requirements are reported by the model.
 //
 // 快捷键 is a page here, not a dialog of its own: a modal opened from a modal
 // stacked two scrims over the same settings and put the key capture behind an
@@ -19,6 +19,7 @@ AppDialog {
     required property var preferences
     required property var appBackground
     property var updateService: null
+    property Component platformOptions: null
 
     signal updateRequested()
 
@@ -40,6 +41,12 @@ AppDialog {
     onAboutToShow: {
         root.capturingId = ""
         root.refreshShortcuts()
+    }
+    Connections {
+        target: root.preferencesModel
+        function onInterfaceChanged() {
+            if (root.visible && root.capturingId.length === 0) root.refreshShortcuts()
+        }
     }
 
     // Reassigning the model resets ListView.contentY, which threw the reader
@@ -128,100 +135,18 @@ AppDialog {
                 font.family: Theme.uiFont
                 wrapMode: Text.WordWrap
             }
+            Loader {
+                Layout.fillWidth: true
+                sourceComponent: root.platformOptions
+                visible: sourceComponent !== null
+            }
         }
 
         // ---- 背景 ----
-        ColumnLayout {
-            objectName: "preferencesBackgroundPage"
+        AppBackgroundPage {
             Layout.fillWidth: true
             visible: root.activePage === 1
-            spacing: 10
-
-            AppSwitch {
-                text: qsTrId("qml.enable_application_background")
-                checked: root.appBackground.enabled
-                onToggled: root.appBackground.enabled = checked
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                Text {
-                    Layout.fillWidth: true
-                    text: root.appBackground.imagePath.length > 0
-                          ? root.appBackground.imagePath
-                          : qsTrId("qml.no_background_image_selected")
-                    color: root.appBackground.imageReadable
-                           ? Theme.colors.text.primary : Theme.colors.text.secondary
-                    elide: Text.ElideMiddle
-                    font.family: Theme.uiFont
-                }
-                AppButton {
-                    text: qsTrId("cover.choose_image")
-                    onClicked: root.appBackground.chooseImage()
-                }
-                AppButton {
-                    text: qsTrId("dialog.preferences.background.clear")
-                    enabled: root.appBackground.imagePath.length > 0
-                    onClicked: root.appBackground.clearImage()
-                }
-            }
-            Text {
-                Layout.fillWidth: true
-                visible: root.appBackground.errorMessage.length > 0
-                text: root.appBackground.errorMessage
-                color: Theme.colors.syntax.error
-                font.family: Theme.uiFont
-                wrapMode: Text.WordWrap
-            }
-            LabeledSlider {
-                label: qsTrId("qml.image_opacity")
-                from: 0.1; to: 0.8; stepSize: 0.01
-                value: root.appBackground.opacity
-                readout: Math.round(root.appBackground.opacity * 100) + "%"
-                onMoved: function(value) { root.appBackground.opacity = value }
-            }
-            LabeledSlider {
-                label: qsTrId("qml.background_mask_opacity")
-                from: 0; to: 1; stepSize: 0.01
-                value: root.appBackground.panelAlpha / 255.0
-                readout: Math.round(root.appBackground.panelAlpha / 255.0 * 100) + "%"
-                onMoved: function(value) { root.appBackground.panelAlpha = Math.round(value * 255) }
-            }
-            LabeledSlider {
-                label: qsTrId("qml.blur_radius")
-                from: 0; to: 64; stepSize: 1
-                value: root.appBackground.blur
-                readout: Math.round(root.appBackground.blur)
-                onMoved: function(value) { root.appBackground.blur = Math.round(value) }
-            }
-            LabeledCombo {
-                label: qsTrId("qml.scale_mode")
-                options: [
-                    { value: "cover", label: qsTrId("dialog.preferences.background.scale.cover") },
-                    { value: "contain", label: qsTrId("dialog.preferences.background.scale.contain") },
-                    { value: "stretch", label: qsTrId("dialog.preferences.background.scale.stretch") },
-                    { value: "center", label: qsTrId("dialog.preferences.background.scale.center") },
-                    { value: "repeat", label: qsTrId("dialog.preferences.background.scale.repeat") }
-                ]
-                currentValue: root.appBackground.sizeMode
-                onPicked: function(value) { root.appBackground.sizeMode = value }
-            }
-            LabeledCombo {
-                label: qsTrId("dialog.preferences.background.position")
-                options: [
-                    { value: "center", label: qsTrId("dialog.preferences.background.position.center") },
-                    { value: "left", label: qsTrId("dialog.preferences.background.position.left") },
-                    { value: "right", label: qsTrId("dialog.preferences.background.position.right") },
-                    { value: "top", label: qsTrId("dialog.preferences.background.position.top") },
-                    { value: "bottom", label: qsTrId("dialog.preferences.background.position.bottom") },
-                    { value: "left_top", label: qsTrId("dialog.preferences.background.position.left_top") },
-                    { value: "right_top", label: qsTrId("dialog.preferences.background.position.right_top") },
-                    { value: "left_bottom", label: qsTrId("dialog.preferences.background.position.left_bottom") },
-                    { value: "right_bottom", label: qsTrId("dialog.preferences.background.position.right_bottom") }
-                ]
-                currentValue: root.appBackground.position
-                onPicked: function(value) { root.appBackground.position = value }
-            }
-
+            appBackground: root.appBackground
         }
 
         // ---- 编辑器 ----
@@ -290,6 +215,15 @@ AppDialog {
                 currentValue: root.preferencesModel.videoDecodePrefersSoftware
                 onPicked: function(value) { root.preferencesModel.videoDecodePrefersSoftware = value }
             }
+            Text {
+                objectName: "preferencesDecoderRestartHint"
+                Layout.fillWidth: true
+                visible: root.preferencesModel.decoderRestartRequired
+                text: qsTrId("preferences.decoder_restart_required")
+                color: Theme.colors.text.secondary
+                font.family: Theme.uiFont
+                wrapMode: Text.WordWrap
+            }
             LabeledCombo {
                 objectName: "preferencesCanvasFrameRateCombo"
                 label: qsTrId("qml.canvas_frame_rate")
@@ -343,6 +277,10 @@ AppDialog {
                 focus: true
                 model: root.shortcutRows
                 ScrollBar.vertical: AppScrollBar {}
+
+                Keys.onShortcutOverride: event => {
+                    if (root.capturingId.length > 0) event.accepted = true
+                }
 
                 Keys.onPressed: function(event) {
                     if (root.capturingId.length === 0)

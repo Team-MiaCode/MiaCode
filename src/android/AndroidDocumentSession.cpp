@@ -8,11 +8,13 @@
 #include <QFontDatabase>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QLoggingCategory>
 #include <QSaveFile>
 #include <QStringDecoder>
 #include <QUuid>
 
 namespace miacode::android {
+Q_LOGGING_CATEGORY(mobileFileLog, "miacode.android.files", QtWarningMsg)
 namespace {
 constexpr qint64 maxChartBytes = 16 * 1024 * 1024;
 }
@@ -81,11 +83,20 @@ QVariantList AndroidDocumentSession::difficulties() const
     QVariantList result;
     for (const int id : workspace_.document().difficultyIds()) {
         const auto* difficulty = workspace_.document().difficulty(id);
-        result.append(QVariantMap{{"id", id}, {"name", SimaiDocument::difficultyName(id)},
-            {"label", SimaiDocument::difficultyName(id)}, {"level", difficulty->level},
+        const QString name = SimaiDocument::difficultyName(id);
+        result.append(QVariantMap{{"id", id}, {"name", name},
+            {"label", difficulty->level.trimmed().isEmpty()
+                ? name : QStringLiteral("%1 %2").arg(name, difficulty->level)}, {"level", difficulty->level},
             {"designer", difficulty->designer}, {"dirty", workspace_.snapshot().dirtyDifficultyIds.contains(id)}});
     }
     return result;
+}
+
+QString AndroidDocumentSession::currentDifficultyLabel() const
+{
+    const QString name = SimaiDocument::difficultyName(activeDifficulty());
+    const QString level = currentDifficultyLevel().trimmed();
+    return level.isEmpty() ? name : QStringLiteral("%1 %2").arg(name, level);
 }
 
 QString AndroidDocumentSession::previewAssetPath(const QString& kind) const
@@ -192,6 +203,7 @@ void AndroidDocumentSession::setBackgroundExportAllowed(bool allowed)
 void AndroidDocumentSession::completeIo(const QJsonObject& result)
 {
     const QString kind = result.value("kind").toString();
+    qCDebug(mobileFileLog) << "File result received:" << kind << result.value("ok").toBool();
     if (kind != pendingKind_ || pendingKind_.isEmpty()) return;
     pendingKind_.clear();
     if (!result.value("ok").toBool()) {
@@ -213,7 +225,9 @@ void AndroidDocumentSession::completeIo(const QJsonObject& result)
         QString workingPath = result.value("path").toString();
         if (workingPath.isEmpty()) workingPath = storageRoot_ + "/projects/"
             + QUuid::createUuid().toString(QUuid::WithoutBraces) + "/maidata.txt";
+        qCDebug(mobileFileLog) << "Opening workspace source";
         const auto accepted = workspace_.openSource(source, workingPath);
+        qCDebug(mobileFileLog) << "Workspace source returned:" << accepted.accepted;
         if (!accepted.accepted) {
             status_ = tr("谱面字段格式无效，当前工程保留。");
             emit changed();
@@ -225,7 +239,9 @@ void AndroidDocumentSession::completeIo(const QJsonObject& result)
         videoDisabled_ = false;
         editorFont_.clear();
         loadFonts();
+        qCDebug(mobileFileLog) << "Publishing imported media";
         emit mediaAssetsChanged();
+        qCDebug(mobileFileLog) << "Imported media published";
         status_ = tr("已打开谱面；工程素材已载入，可继续导入音频、图片和视频。");
     } else if (kind == "save" || kind == "saveAs") {
         sourceUri_ = result.value("uri").toString();

@@ -44,6 +44,7 @@ public:
 
     AnalysisSnapshot snapshot() const;
     void requestAnalysis();
+    void setLocale(SimaiNativeValidationLocale locale);
     // The panel follows the preview's muri parameters. Re-analyzes only when one the
     // analyzer reads (hand radius, wifi C rule, tail threshold) actually moved, so a
     // render-mode or overlay toggle does not re-run the whole analysis.

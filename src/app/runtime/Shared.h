@@ -7,6 +7,7 @@
 #include <QStringList>
 #include <QtGlobal>
 
+#include "common/EditorAppearance.h"
 #include "SimaiNativeParser.h"
 #include "chrome/WindowParityMetrics.h"
 #include "common/DebugLog.h"
@@ -111,9 +112,6 @@ void writePreviewPlayingFlag(
 inline constexpr int kEmbeddedPreviewPanelMinWidth = miacode::window_parity::kEmbeddedPreviewPanelMinWidth;
 inline constexpr int kPreviewPanelMarginX = miacode::window_parity::kPreviewPanelMarginX;
 inline constexpr int kPreviewControlStatsCardMinWidth = miacode::window_parity::kPreviewControlStatsCardMinWidth;
-inline constexpr int kEditorTextFontSizeMin = 8;
-inline constexpr int kEditorTextFontSizeMax = 28;
-inline constexpr double kEditorLineSpacingFactorDefault = 1.0;
 inline constexpr int kAutosaveIntervalMs = 2 * 60 * 1000;
 inline constexpr int kAutosaveHistoryMaxVersions = 30;
 inline constexpr int kAutosaveLatestIdleMs = 2 * 1000;
@@ -122,10 +120,7 @@ inline constexpr double kTimelineMaxUiUpdateFps = 3600.0;
 // preview-slider dragging do not spam seek work faster than the video path can settle.
 inline constexpr int kPreviewScrubRenderIntervalMs = 67;
 
-extern const QList<double> kEditorLineSpacingFactorOptions;
 
-double normalizeEditorLineSpacingFactor(double factor);
-QString editorLineSpacingFactorLabel(double factor);
 int nearestPreviewPlaybackRateIndex(double rate);
 double steppedPreviewPlaybackRate(double rate, int direction);
 // The parser validation locale matching the session UI language.
@@ -133,8 +128,6 @@ SimaiNativeValidationLocale uiValidationLocale();
 QByteArray autosaveContentSignature(const QString& text);
 QString resolveProjectDataDirectoryPath(const QString& filePath);
 void appendStartupTimingStage(const QString& stage, qint64 elapsedMs, qint64 deltaMs);
-QFont editorFont(int pointSize = -1);
-int blockSpacingPixelsForPointSize(int pointSize, double spacingFactor);
 qint64 fileLastModifiedMs(const QFileInfo& fileInfo);
 double probeAudioDurationSeconds(const QString& trackPath);
 

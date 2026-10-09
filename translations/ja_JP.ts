@@ -5273,5 +5273,120 @@ Error: %1</source>
 
 [ロック診断] %1</translation>
     </message>
+    <message id="cover.batch_current">
+        <source>Current layout</source>
+        <translation>現在のレイアウト</translation>
+    </message>
+    <message id="cover.batch_title">
+        <source>Batch cover export</source>
+        <translation>カバーの一括書き出し</translation>
+    </message>
+    <message id="cover.batch_presets">
+        <source>Layouts and presets</source>
+        <translation>レイアウトとプリセット</translation>
+    </message>
+    <message id="cover.batch_description">
+        <source>Export each selected difficulty with each selected layout or preset, keeping the current canvas size.</source>
+        <translation>選択した各難易度を各レイアウトやプリセットで書き出します。現在のキャンバスサイズを保持します。</translation>
+    </message>
+    <message id="cover.batch_start">
+        <source>Start export</source>
+        <translation>書き出し開始</translation>
+    </message>
+    <message id="cover.batch_progress">
+        <source>Processed %1 / %2 jobs</source>
+        <translation>処理済み %1 / %2 件</translation>
+    </message>
+    <message id="cover.batch_selection_required">
+        <source>Select at least one difficulty and one layout or preset.</source>
+        <translation>難易度とレイアウトまたはプリセットを選択してください。</translation>
+    </message>
+    <message id="cover.batch_output_required">
+        <source>Select an output folder first.</source>
+        <translation>出力フォルダーを選択してください。</translation>
+    </message>
+    <message id="cover.batch_invalid_preset">
+        <source>The selected preset is missing or invalid. Select it again.</source>
+        <translation>選択したプリセットが存在しないか無効です。再度選択してください。</translation>
+    </message>
+    <message id="cover.batch_missing_asset">
+        <source>A background, image, or font file used by this layout is missing.</source>
+        <translation>このレイアウトの背景、画像またはフォントが見つかりません。</translation>
+    </message>
+    <message id="cover.batch_empty_chart">
+        <source>This difficulty has no notes for a chart frame.</source>
+        <translation>この難易度には譜面フレーム用のノーツがありません。</translation>
+    </message>
+    <message id="cover.batch_other_export">
+        <source>Another export is running. Wait for it to finish.</source>
+        <translation>別の書き出しが実行中です。完了をお待ちください。</translation>
+    </message>
+    <message id="cover.batch_foreground_required">
+        <source>Background export is disabled. Return to the app before starting.</source>
+        <translation>バックグラウンド書き出しが無効です。アプリに戻って開始してください。</translation>
+    </message>
+    <message id="cover.batch_service_failed">
+        <source>Cannot start the background export service.</source>
+        <translation>バックグラウンド書き出しサービスを開始できません。</translation>
+    </message>
+    <message id="cover.batch_output_directory">
+        <source>Output folder</source>
+        <translation>出力フォルダー</translation>
+    </message>
+    <message id="cover.batch_status_queued">
+        <source>Queued</source>
+        <translation>待機中</translation>
+    </message>
+    <message id="cover.batch_status_rendering">
+        <source>Rendering</source>
+        <translation>生成中</translation>
+    </message>
+    <message id="cover.batch_status_publishing">
+        <source>Writing to output folder</source>
+        <translation>出力フォルダーへ保存中</translation>
+    </message>
+    <message id="cover.batch_status_success">
+        <source>Succeeded</source>
+        <translation>成功</translation>
+    </message>
+    <message id="cover.batch_status_failed">
+        <source>Failed</source>
+        <translation>失敗</translation>
+    </message>
+    <message id="cover.batch_status_canceled">
+        <source>Canceled</source>
+        <translation>キャンセル済み</translation>
+    </message>
+</context>
+<context>
+    <name></name>
+    <message id="android.preferences.background_export">
+        <source>Allow export in the background</source>
+        <translation>バックグラウンドでの書き出しを許可</translation>
+    </message>
+    <message id="android.assets.title">
+        <source>Project assets</source>
+        <translation>プロジェクト素材</translation>
+    </message>
+    <message id="android.assets.audio">
+        <source>Import audio</source>
+        <translation>音声を読み込む</translation>
+    </message>
+    <message id="android.assets.image">
+        <source>Import image</source>
+        <translation>画像を読み込む</translation>
+    </message>
+    <message id="android.assets.video">
+        <source>Import video</source>
+        <translation>動画を読み込む</translation>
+    </message>
+    <message id="android.assets.font">
+        <source>Import font</source>
+        <translation>フォントを読み込む</translation>
+    </message>
+    <message id="preferences.decoder_restart_required">
+        <source>The selected video decoding policy takes effect after restarting MiaCode.</source>
+        <translation>選択した動画のデコード方式は MiaCode の再起動後に適用されます。</translation>
+    </message>
 </context>
 </TS>

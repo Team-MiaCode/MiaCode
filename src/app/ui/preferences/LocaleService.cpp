@@ -37,7 +37,7 @@ LocaleService::LocaleService(QObject* parent)
 LocaleService::~LocaleService()
 {
     if (translator_ != nullptr) {
-        QCoreApplication::removeTranslator(translator_);
+        if (QCoreApplication::instance()) QCoreApplication::removeTranslator(translator_);
         delete translator_;
         translator_ = nullptr;
     }

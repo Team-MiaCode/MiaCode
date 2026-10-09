@@ -26,6 +26,27 @@ bool verifyPolicy(QTextStream& err)
     using miacode::video_export::shouldUsePremultipliedExportPipe;
     using miacode::video_export::videoExportSizePolicy;
     using miacode::video_export::videoExportSizePresetToken;
+    using miacode::video_export::videoExportTargetBitrateKbps;
+
+    if (!require(videoExportTargetBitrateKbps(false, VideoExportSizePreset::Standard, 1024, 1024, 60) == 4719
+                     && videoExportTargetBitrateKbps(true, VideoExportSizePreset::Standard, 1024, 1024, 60) == 5662,
+                 QStringLiteral("standard quality tiers must retain the v2 target rates"), err)
+        || !require(videoExportTargetBitrateKbps(false, VideoExportSizePreset::Compact, 1024, 1024, 60) == 4404
+                        && videoExportTargetBitrateKbps(true, VideoExportSizePreset::Compact, 1024, 1024, 60) == 4404,
+                    QStringLiteral("compact mode applies its shared size policy to both encoders"), err)
+        || !require(videoExportTargetBitrateKbps(false, VideoExportSizePreset::UltraCompact, 720, 720, 30) == 4000
+                        && videoExportTargetBitrateKbps(true, VideoExportSizePreset::UltraCompactWithPv, 3840, 2160, 120) == 4000,
+                    QStringLiteral("ultra modes retain the v2 4 Mbps target with either PV choice"), err)
+        || !require(videoExportTargetBitrateKbps(false, VideoExportSizePreset::Standard, 3840, 2160, 120) == 8500
+                        && videoExportTargetBitrateKbps(true, VideoExportSizePreset::Standard, 3840, 2160, 120) == 10500
+                        && videoExportTargetBitrateKbps(false, VideoExportSizePreset::Compact, 3840, 2160, 120) == 8000,
+                    QStringLiteral("large-frame exports respect preset bitrate ceilings"), err)
+        || !require(videoExportTargetBitrateKbps(false, VideoExportSizePreset::Standard, 0, -1, 0) == 2200
+                        && videoExportTargetBitrateKbps(true, VideoExportSizePreset::Standard, 1, 1, 1) == 2600
+                        && videoExportTargetBitrateKbps(false, VideoExportSizePreset::Compact, 720, 720, 30) == 1800,
+                    QStringLiteral("small inputs retain the v2 bitrate floors"), err)) {
+        return false;
+    }
 
     const auto standard = videoExportSizePolicy(VideoExportSizePreset::Standard);
     const auto compact = videoExportSizePolicy(VideoExportSizePreset::Compact);

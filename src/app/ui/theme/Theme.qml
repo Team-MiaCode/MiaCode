@@ -516,7 +516,7 @@ QtObject {
     readonly property var colors: activeTheme.colors
 
     readonly property string uiFont: preferences ? preferences.uiFontFamily : ""
-    readonly property font codeFont: preferences ? preferences.codeFont : Qt.font({})
+    readonly property font codeFont: preferences ? preferences.renderedCodeFont : Qt.font({})
     // 行距, in the pixels of bottom margin each text block carries.
     readonly property int codeBlockSpacing: preferences ? preferences.editorBlockSpacing : 0
     readonly property int uiFontSize: preferences ? preferences.fontSize : 13

@@ -40,6 +40,7 @@ class AndroidDocumentSession final : public QObject
     Q_PROPERTY(QString currentFileName READ currentFileName NOTIFY changed)
     Q_PROPERTY(QString currentFilePath READ currentFilePath NOTIFY changed)
     Q_PROPERTY(QString currentDifficultyLevel READ currentDifficultyLevel WRITE setCurrentDifficultyLevel NOTIFY changed)
+    Q_PROPERTY(QString currentDifficultyLabel READ currentDifficultyLabel NOTIFY changed)
     Q_PROPERTY(QString currentDifficultyDesigner READ currentDifficultyDesigner WRITE setCurrentDifficultyDesigner NOTIFY changed)
     Q_PROPERTY(bool hasDocument READ hasDocument NOTIFY documentStateChanged)
     Q_PROPERTY(QString metadataTitle READ title WRITE setTitle NOTIFY metadataChanged)
@@ -55,6 +56,7 @@ class AndroidDocumentSession final : public QObject
     Q_PROPERTY(QVariantList designerSlots READ designerSlots NOTIFY metadataChanged)
     Q_PROPERTY(bool unifiedDesignerEnabled READ unifiedDesignerEnabled NOTIFY metadataChanged)
 public:
+    QString currentDifficultyLabel() const;
     explicit AndroidDocumentSession(QString storageRoot, QObject* parent = nullptr);
     QString chartText() const;
     QString title() const { return workspace_.document().title; }

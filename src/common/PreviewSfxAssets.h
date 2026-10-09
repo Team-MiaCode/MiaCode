@@ -116,8 +116,22 @@ inline QString assetFileNameForKind(const QString& kind)
     return fileNames.isEmpty() ? QString() : fileNames.constFirst();
 }
 
+inline QString& musicDirectoryOverrideStorage()
+{
+    static QString directory;
+    return directory;
+}
+
+// The platform host sets this once before audio workers start. Packaged assets
+// remain read-only; imported sounds share one persistent local library.
+inline void setMusicDirectoryOverride(const QString& directory)
+{
+    musicDirectoryOverrideStorage() = directory.isEmpty() ? QString() : QDir::cleanPath(directory);
+}
+
 inline QString assetMusicDirectory()
 {
+    if (!musicDirectoryOverrideStorage().isEmpty()) return musicDirectoryOverrideStorage();
     return miacode::assets::assetPath(QStringLiteral("music"));
 }
 

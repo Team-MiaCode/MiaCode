@@ -5273,5 +5273,120 @@ Error: %1</translation>
 
 [Lock diagnosis] %1</translation>
     </message>
+    <message id="cover.batch_current">
+        <source>Current layout</source>
+        <translation>Current layout</translation>
+    </message>
+    <message id="cover.batch_title">
+        <source>Batch cover export</source>
+        <translation>Batch cover export</translation>
+    </message>
+    <message id="cover.batch_presets">
+        <source>Layouts and presets</source>
+        <translation>Layouts and presets</translation>
+    </message>
+    <message id="cover.batch_description">
+        <source>Export each selected difficulty with each selected layout or preset, keeping the current canvas size.</source>
+        <translation>Export each selected difficulty with each selected layout or preset, keeping the current canvas size.</translation>
+    </message>
+    <message id="cover.batch_start">
+        <source>Start export</source>
+        <translation>Start export</translation>
+    </message>
+    <message id="cover.batch_progress">
+        <source>Processed %1 / %2 jobs</source>
+        <translation>Processed %1 / %2 jobs</translation>
+    </message>
+    <message id="cover.batch_selection_required">
+        <source>Select at least one difficulty and one layout or preset.</source>
+        <translation>Select at least one difficulty and one layout or preset.</translation>
+    </message>
+    <message id="cover.batch_output_required">
+        <source>Select an output folder first.</source>
+        <translation>Select an output folder first.</translation>
+    </message>
+    <message id="cover.batch_invalid_preset">
+        <source>The selected preset is missing or invalid. Select it again.</source>
+        <translation>The selected preset is missing or invalid. Select it again.</translation>
+    </message>
+    <message id="cover.batch_missing_asset">
+        <source>A background, image, or font file used by this layout is missing.</source>
+        <translation>A background, image, or font file used by this layout is missing.</translation>
+    </message>
+    <message id="cover.batch_empty_chart">
+        <source>This difficulty has no notes for a chart frame.</source>
+        <translation>This difficulty has no notes for a chart frame.</translation>
+    </message>
+    <message id="cover.batch_other_export">
+        <source>Another export is running. Wait for it to finish.</source>
+        <translation>Another export is running. Wait for it to finish.</translation>
+    </message>
+    <message id="cover.batch_foreground_required">
+        <source>Background export is disabled. Return to the app before starting.</source>
+        <translation>Background export is disabled. Return to the app before starting.</translation>
+    </message>
+    <message id="cover.batch_service_failed">
+        <source>Cannot start the background export service.</source>
+        <translation>Cannot start the background export service.</translation>
+    </message>
+    <message id="cover.batch_output_directory">
+        <source>Output folder</source>
+        <translation>Output folder</translation>
+    </message>
+    <message id="cover.batch_status_queued">
+        <source>Queued</source>
+        <translation>Queued</translation>
+    </message>
+    <message id="cover.batch_status_rendering">
+        <source>Rendering</source>
+        <translation>Rendering</translation>
+    </message>
+    <message id="cover.batch_status_publishing">
+        <source>Writing to output folder</source>
+        <translation>Writing to output folder</translation>
+    </message>
+    <message id="cover.batch_status_success">
+        <source>Succeeded</source>
+        <translation>Succeeded</translation>
+    </message>
+    <message id="cover.batch_status_failed">
+        <source>Failed</source>
+        <translation>Failed</translation>
+    </message>
+    <message id="cover.batch_status_canceled">
+        <source>Canceled</source>
+        <translation>Canceled</translation>
+    </message>
+</context>
+<context>
+    <name></name>
+    <message id="android.preferences.background_export">
+        <source>Allow export in the background</source>
+        <translation>Allow export in the background</translation>
+    </message>
+    <message id="android.assets.title">
+        <source>Project assets</source>
+        <translation>Project assets</translation>
+    </message>
+    <message id="android.assets.audio">
+        <source>Import audio</source>
+        <translation>Import audio</translation>
+    </message>
+    <message id="android.assets.image">
+        <source>Import image</source>
+        <translation>Import image</translation>
+    </message>
+    <message id="android.assets.video">
+        <source>Import video</source>
+        <translation>Import video</translation>
+    </message>
+    <message id="android.assets.font">
+        <source>Import font</source>
+        <translation>Import font</translation>
+    </message>
+    <message id="preferences.decoder_restart_required">
+        <source>The selected video decoding policy takes effect after restarting MiaCode.</source>
+        <translation>The selected video decoding policy takes effect after restarting MiaCode.</translation>
+    </message>
 </context>
 </TS>

@@ -58,6 +58,14 @@ bool UpdateService::checkEnabled() const
     return store_.checkEnabled();
 }
 
+void UpdateService::setLanguageToken(const QString& token)
+{
+    if (environment_.languageToken == token) return;
+    environment_.languageToken = token;
+    emit settingsChanged();
+    emit findingChanged();
+}
+
 void UpdateService::setCheckEnabled(bool enabled)
 {
     if (enabled == store_.checkEnabled()) {

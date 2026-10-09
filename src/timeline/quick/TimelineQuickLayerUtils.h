@@ -12,6 +12,7 @@
 #include "timeline/TimelineSceneState.h"
 
 class QSGNode;
+class QSGClipNode;
 class QSGTexture;
 class QQuickWindow;
 
@@ -22,6 +23,8 @@ QSGNode* buildTimelineTextNode(
 QSGNode* buildTimelineLineNode(const miacode::timeline::TimelineSceneLine& line);
 QSGNode* buildTimelineRectNode(const miacode::timeline::TimelineSceneRect& rect);
 QSGNode* buildTimelineTriangleNode(const miacode::timeline::TimelineSceneTriangle& triangle);
+QSGClipNode* createTimelineClipNode();
+void setTimelineClipRect(QSGClipNode* node, const QRectF& rect);
 
 // beta7 leak gauge — cumulative count of QSGGeometry objects allocated by ALL timeline render
 // layers (the per-rebuild churn that backs Qt's RHI deferred buffer release). Monotonic; read

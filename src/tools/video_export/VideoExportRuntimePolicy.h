@@ -32,6 +32,8 @@ struct VideoExportSizePolicy {
 };
 
 VideoExportSizePolicy videoExportSizePolicy(VideoExportSizePreset preset);
+qint64 videoExportTargetBitrateKbps(bool highQuality, VideoExportSizePreset sizePreset,
+    int outputWidth, int outputHeight, int fps);
 QString videoExportSizePresetToken(VideoExportSizePreset preset);
 int effectiveVideoExportAudioBitrateKbps(VideoExportSizePreset preset, int requestedKbps);
 int effectiveVideoExportX264Crf(VideoExportSizePreset preset, int baseCrf);

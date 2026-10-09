@@ -9,15 +9,10 @@
 
 #include <QCryptographicHash>
 #include <QFileInfo>
-#include <QFontDatabase>
 #include <QStringList>
 #include <QtMath>
 
 namespace miacode::runtime::shared {
-
-const QList<double> kEditorLineSpacingFactorOptions{
-    1.0, 1.5, 2.0, 3.0, 5.0,
-};
 
 namespace {
 
@@ -33,32 +28,6 @@ QString normalizeLanguageToken(QString token)
 }
 
 }  // namespace
-
-double normalizeEditorLineSpacingFactor(double factor)
-{
-    if (kEditorLineSpacingFactorOptions.isEmpty()) {
-        return kEditorLineSpacingFactorDefault;
-    }
-    double best = kEditorLineSpacingFactorOptions.first();
-    double bestDiff = qAbs(best - factor);
-    for (double candidate : kEditorLineSpacingFactorOptions) {
-        const double diff = qAbs(candidate - factor);
-        if (diff < bestDiff) {
-            best = candidate;
-            bestDiff = diff;
-        }
-    }
-    return best;
-}
-
-QString editorLineSpacingFactorLabel(double factor)
-{
-    if (qFuzzyCompare(factor + 1.0, 1.0)) {
-        return QStringLiteral("0x");
-    }
-    const QString text = QString::number(factor, 'f', qFuzzyCompare(factor, qRound(factor)) ? 0 : 1);
-    return text + QStringLiteral("x");
-}
 
 int nearestPreviewPlaybackRateIndex(double rate)
 {
@@ -107,33 +76,6 @@ QString resolveProjectDataDirectoryPath(const QString& filePath)
 void appendStartupTimingStage(const QString& stage, qint64 elapsedMs, qint64 deltaMs)
 {
     miacode::debug_log::appendStartupTimingStage(stage, elapsedMs, deltaMs);
-}
-
-QFont editorFont(int pointSize)
-{
-    QFont font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
-    static const QString bundledEditorFontFamily = []() -> QString {
-        const int fontId = QFontDatabase::addApplicationFont(QStringLiteral(":/fonts/maple_mono_cn.ttf"));
-        const QStringList families = QFontDatabase::applicationFontFamilies(fontId);
-        return families.isEmpty() ? QString() : families.first();
-    }();
-    if (!bundledEditorFontFamily.isEmpty()) {
-        font.setFamily(bundledEditorFontFamily);
-    }
-    font.setStyleHint(QFont::Monospace);
-    font.setFixedPitch(true);
-    if (pointSize > 0) {
-        font.setPointSize(pointSize);
-    }
-    font.setStyleStrategy(QFont::PreferAntialias);
-    font.setHintingPreference(QFont::PreferNoHinting);
-    return font;
-}
-
-int blockSpacingPixelsForPointSize(int pointSize, double spacingFactor)
-{
-    const int baseSpacing = qBound(1, qRound(static_cast<double>(pointSize) * 0.18), 6);
-    return qMax(0, qRound(static_cast<double>(baseSpacing) * qMax(0.0, spacingFactor)));
 }
 
 qint64 fileLastModifiedMs(const QFileInfo& fileInfo)

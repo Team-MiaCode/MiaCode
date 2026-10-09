@@ -11,46 +11,93 @@ ApplicationWindow {
     visible: true
     title: "MiaCode Mobile"
     color: Theme.colors.background.surface
-    property Item backdropSource: workspace
+    property Item backdropSource: sceneContent
+    readonly property string documentTitle: {
+        if (!androidSession.hasDocument) return ""
+        const metadataTitle = androidSession.title.trim()
+        const baseTitle = metadataTitle.length > 0 ? metadataTitle : androidSession.currentFileName
+        return state.difficultyEditorActive
+            ? baseTitle + " — " + androidSession.currentDifficultyLabel : baseTitle
+    }
     property string activePage: "chart"
+    property bool coverOpen: false
+    onCoverOpenChanged: {
+        if (coverOpen) mobileCover.enter()
+        else mobileCover.leave()
+    }
     onActivePageChanged: {
         if (activePage === "export") mobileExport.enter()
         else mobileExport.leave()
+        if (activePage !== "chart") mobileLatency.leave()
+        else if (state.latencyEditorActive) mobileLatency.enter()
     }
-    property bool showSidebar: true
-    property bool showBottom: true
+    readonly property bool showSidebar: mobilePreferences.sidebarVisible
+    readonly property bool showBottom: mobilePreferences.bottomPanelVisible
+    property bool sidebarResizing: false
+    property real sidebarDragWidth: mobilePreferences.sidebarWidth
+    property bool sidebarDragVisible: mobilePreferences.sidebarVisible
+    property bool previewPointerResizing: false
+    readonly property bool sidebarEffectivelyVisible: sidebarResizing ? sidebarDragVisible : showSidebar
+    readonly property bool bottomPanelEffectivelyVisible: showBottom && window.activePage === "chart"
+        && (state.difficultyEditorActive || state.latencyEditorActive)
+    readonly property real previewEditorAvailableWidth: Math.max(1, workspaceSplit.width - Theme.splitDividerThickness)
     property bool previewFullscreen: false
     property bool sourceEditorOverlayHeld: false
+    property bool sourceEditorFocused: false
+    readonly property bool previewOnLeft: mobilePreferencesStore.panelsSwapped
     // Fit the complete v2 workbench using the actual panes' minimum geometry.
     // Painting and touch hit testing share the same Item transform.
     readonly property real workbenchScale: Math.min(1,
-        width / (activityBar.implicitWidth + 140 + Math.max(300, bottomPanel.minimumWidth) + previewPane.minimumWidth),
-        height / (titleBar.implicitHeight + mainToolbar.implicitHeight + previewPane.stableMinimumHeight
-            + statusBar.implicitHeight + (statusMessage.visible ? statusMessage.implicitHeight : 0)))
+        sceneContent.width / Math.max(activityBar.implicitWidth + mobilePreferences.sidebarMaximumContentWidth
+            + Math.max(300, bottomPanel.minimumWidth) + previewPane.minimumWidth + 2 * Theme.splitDividerThickness,
+            coverLoader.item ? coverLoader.item.implicitWidth : 0),
+        sceneContent.height / (titleBar.implicitHeight + mainToolbar.implicitHeight
+            + Math.max(previewPane.stableMinimumHeight, 180 + bottomPanel.minimumHeight + Theme.splitDividerThickness)
+            + statusBar.implicitHeight))
+
+    // v2 MainSplitView keeps transient geometry during a drag and persists on
+    // release. The stable fitting budget above covers the whole sidebar range,
+    // so changing a divider cannot change the pointer's coordinate transform.
+    function resizeSidebar(contentWidth) {
+        sidebarDragWidth = Math.max(mobilePreferences.sidebarMinimumContentWidth,
+            Math.min(mobilePreferences.sidebarMaximumContentWidth, contentWidth))
+        sidebarDragVisible = contentWidth >= mobilePreferences.sidebarMinimumContentWidth / 2
+    }
+    function persistSidebarWidth() {
+        if (sidebarDragVisible) mobilePreferences.sidebarWidth = Math.round(sidebarDragWidth)
+        mobilePreferences.sidebarVisible = sidebarDragVisible
+    }
+    function persistPreviewWidthRatio() {
+        if (!workspaceSplit.previewDragStarted || previewPane.width === workspaceSplit.previewWidthAtPress) return
+        mobilePreferences.previewWidthRatio = previewPane.width / previewEditorAvailableWidth
+    }
+    function syncWorkspacePanelOrder() {
+        const targetIndex = window.previewOnLeft ? 0 : 1
+        const currentIndex = workspaceSplit.itemAt(0) === previewPane ? 0 : 1
+        if (targetIndex !== currentIndex) workspaceSplit.moveItem(currentIndex, targetIndex)
+    }
+    onPreviewOnLeftChanged: Qt.callLater(syncWorkspacePanelOrder)
+    function persistBottomPanelHeightRatio() {
+        if (!bottomPanelEffectivelyVisible || centerSplit.height <= 0 || !centerSplit.resizing
+            || bottomPanel.height === centerSplit.panelHeightAtPress) return
+        mobilePreferences.bottomPanelHeightRatio = bottomPanel.height <= bottomPanel.SplitView.minimumHeight
+            ? mobilePreferences.bottomPanelMinimumHeightRatio
+            : bottomPanel.height >= bottomPanel.SplitView.maximumHeight
+                ? mobilePreferences.bottomPanelMaximumHeightRatio : bottomPanel.height / centerSplit.height
+    }
 
     // Popup.Item reparents its visual content to the window overlay. Keep that
     // layer in the same logical coordinate space as the fitted v2 workbench.
-    Overlay.overlay.width: window.width / window.workbenchScale
-    Overlay.overlay.height: window.height / window.workbenchScale
+    Overlay.overlay.objectName: "mobileWorkbenchOverlay"
+    Overlay.overlay.x: window.contentItem.x
+    Overlay.overlay.y: window.contentItem.y
+    Overlay.overlay.width: sceneContent.width / window.workbenchScale
+    Overlay.overlay.height: sceneContent.height / window.workbenchScale
     Overlay.overlay.transform: Scale {
         xScale: window.workbenchScale
         yScale: window.workbenchScale
     }
 
-    QtObject {
-        id: mobilePreferences
-        property bool darkTheme: true
-        property string activeThemeToken: darkTheme ? "dark" : "light"
-        property string uiFontFamily: Qt.application.font.family
-        property font codeFont: Qt.font({ family: androidSession.editorFont || mobileCodeFontFamily, pixelSize: 15 })
-        property int fontSize: 13
-        property int editorBlockSpacing: 3
-        property bool editorScrollPastEnd: true
-        property bool editorSelectionBeatDisplay: true
-        property bool previewCanvasFreeAspect: false
-        property bool previewHidePv: false
-        signal editorSettingsChanged()
-    }
     QtObject {
         id: mobilePlatform
         property bool embeddedMenuInTitleBar: true
@@ -81,9 +128,11 @@ ApplicationWindow {
         onChartTransformRequested: opId => editorPane.applyChartTransform(opId)
         onNormalizeChartRequested: normalizeDialog.open()
         onMetadataRequested: pages.activateMetadataPage()
+        onLatencyCalibrationRequested: pages.openLatencyPage()
         onPreferencesRequested: settings.open()
-        onAudioSettingsRequested: settings.open()
-        onPreviewSettingsRequested: settings.open()
+        onAudioSettingsRequested: audioSettingsDialog.open()
+        onPreviewSettingsRequested: previewSettingsDialog.open()
+        onMediaToolsRequested: assetsDialog.open()
         onPreviewRateStepRequested: direction => mobilePreview.rate = Math.max(0.25, Math.min(2, mobilePreview.rate + direction * 0.25))
         onCloseDocumentRequested: window.confirmReplace("new")
         onExitRequested: { androidSession.flushRecovery(); Qt.quit() }
@@ -117,6 +166,10 @@ ApplicationWindow {
     ViewState {
         id: state
         onDifficultyEditorActivationRequested: id => { window.activePage = "chart"; androidSession.selectDifficulty(id) }
+        onLatencyEditorActiveChanged: {
+            if (latencyEditorActive && window.activePage === "chart") mobileLatency.enter()
+            else mobileLatency.leave()
+        }
     }
     QtObject {
         id: commands
@@ -127,13 +180,17 @@ ApplicationWindow {
     }
     QtObject {
         id: pages
-        readonly property string activePageId: window.activePage === "export" ? "export" : ""
+        objectName: "mobilePages"
+        readonly property string activePageId: window.activePage === "export" ? "export"
+            : state.latencyEditorActive ? "latency" : ""
+        readonly property bool overlayActive: false
         readonly property var exportSession: mobileExport.session
         function activateMetadataPage() { window.activePage = "chart"; state.openMetadataEditor(); return true }
+        function activateDifficultyPage() { window.activePage = "chart"; state.openDifficultyEditor(androidSession.currentDifficultyId) }
         function openVideoExportPage() { window.activePage = "export" }
-        function openCoverExport() { statusMessage.text = "封面导出尚未可用" }
-        function packAsZip() { statusMessage.text = "工程打包尚未可用" }
-        function openLatencyPage() { statusMessage.text = "延迟校准尚在移植中" }
+        function openCoverExport() { window.coverOpen = true }
+        function packAsZip() { mobileZipExport.requestExport() }
+        function openLatencyPage() { window.activePage = "chart"; state.openLatencyEditor() }
     }
     Connections {
         target: mobileExport.session
@@ -142,29 +199,46 @@ ApplicationWindow {
         }
     }
     Component.onCompleted: {
+        Qt.callLater(syncWorkspacePanelOrder)
         Theme.preferences = mobilePreferences
+        Theme.appBackground = mobileAppBackground
         state.resetEditorTabs(androidSession.currentDifficultyId)
         if (androidSession.recoveryAvailable) recovery.open()
     }
     Connections {
         target: androidSession
-        function onDocumentReplaced() { state.resetEditorTabs(androidSession.currentDifficultyId) }
+        function onDocumentReplaced() { window.coverOpen = false; state.resetEditorTabs(androidSession.currentDifficultyId) }
         function onDocumentStateChanged() { state.syncDifficultyEditors(androidSession.difficulties, androidSession.currentDifficultyId) }
         function onDifficultyCloseRequested(id) { state.closeEditor(state.difficultyEditorKey(id)) }
         function onBookmarkNavigationRequested(id, line) {
-            editorSync.requestNavigation(id, androidSession.documentRevision,
+            mobileEditorSync.requestNavigation(id, androidSession.documentRevision,
                 androidSession.chartPosition(line, 1), androidSession.chartPosition(line, 1), true, true)
         }
     }
 
+    // Direct children preserve wallpaper -> workspace -> fullscreen paint order.
+    // Dialogs stay in Overlay so backdrop capture cannot sample its own effect.
+    Rectangle {
+        id: sceneContent
+        objectName: "mobileSceneContent"
+        anchors.fill: parent
+        color: Theme.colors.background.surface
+        ApplicationBackground {
+            anchors.fill: parent
+            appBackground: mobileAppBackground
+        }
     Item {
         id: workbench
-        width: window.width / window.workbenchScale
-        height: window.height / window.workbenchScale
+        objectName: "mobileWorkbenchRoot"
+        // ApplicationWindow content already excludes its safe-area padding.
+        // Fit painting and pointer coordinates to that same available region.
+        width: sceneContent.width / window.workbenchScale
+        height: sceneContent.height / window.workbenchScale
         scale: window.workbenchScale
         transformOrigin: Item.TopLeft
     ColumnLayout {
         anchors.fill: parent
+        visible: !window.coverOpen
         spacing: 0
         WindowTitleBar {
             id: titleBar
@@ -176,17 +250,19 @@ ApplicationWindow {
             documentSession: androidSession
             platform: mobilePlatform
             pet: mobilePet
-            documentTitle: androidSession.title || "未命名谱面"
+            documentTitle: window.documentTitle
             saveEnabled: !androidSession.busy
             toolCommandsEnabled: false
         }
         MainToolBar {
             id: mainToolbar
+            objectName: "mobileMainToolbar"
             Layout.fillWidth: true
             Layout.preferredHeight: implicitHeight
             hostWindow: window
             sidebarActive: window.showSidebar
-            bottomActive: window.showBottom
+            bottomActive: window.bottomPanelEffectivelyVisible
+            bottomPanelEnabled: state.difficultyEditorActive || state.latencyEditorActive
             canUndo: v2EditorController.canUndo
             canRedo: v2EditorController.canRedo
             saveEnabled: !androidSession.busy
@@ -194,10 +270,10 @@ ApplicationWindow {
             onSaveRequested: androidSession.save()
             onUndoRequested: editorPane.undo()
             onRedoRequested: editorPane.redo()
-            onToggleSidebarRequested: window.showSidebar = !window.showSidebar
-            onToggleBottomRequested: window.showBottom = !window.showBottom
-            onAudioSettingsRequested: settings.open()
-            onPreviewSettingsRequested: settings.open()
+            onToggleSidebarRequested: mobilePreferences.sidebarVisible = !mobilePreferences.sidebarVisible
+            onToggleBottomRequested: mobilePreferences.bottomPanelVisible = !mobilePreferences.bottomPanelVisible
+            onAudioSettingsRequested: audioSettingsDialog.open()
+            onPreviewSettingsRequested: previewSettingsDialog.open()
         }
         RowLayout {
             id: workspace
@@ -211,95 +287,266 @@ ApplicationWindow {
                 activeView: window.activePage === "export" ? "export" : "chart"
                 normalizationEnabled: false
                 onViewRequested: view => window.activePage = view
-                onToolRequested: tool => settings.open()
-                onSettingsRequested: settings.open()
+                onToolRequested: tool => assetsDialog.open()
+                onSettingsRequested: previewSettingsDialog.open()
             }
-            SplitView {
+            Item {
+                id: workspaceHost
+                objectName: "mobileWorkspaceHost"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                orientation: Qt.Horizontal
-                handle: SplitHandle {}
+                readonly property int orientation: Qt.Horizontal
                 Rectangle {
-                    visible: window.showSidebar
-                    SplitView.preferredWidth: Math.max(150, workspace.width * 0.17)
-                    SplitView.minimumWidth: 140
-                    SplitView.maximumWidth: workspace.width * 0.3
-                    color: Theme.colors.background.panel
-                    Column {
-                        width: parent.width
+                    id: sidebarContent
+                    objectName: "mobileSidebarContent"
+                    visible: window.sidebarEffectivelyVisible
+                    width: visible ? (window.sidebarResizing ? window.sidebarDragWidth : mobilePreferences.sidebarWidth) : 0
+                    height: parent.height
+                    color: Theme.surfaceColor(Theme.colors.background.panel)
+                    ChartFieldSidebar {
+                        anchors.fill: parent
                         visible: window.activePage === "chart"
-                        PanelHeader { width: parent.width; title: "谱面"; sidebarTitle: true }
-                        NavRow { width: parent.width; text: "谱面信息"; onClicked: pages.activateMetadataPage() }
-                        DifficultyList { width: parent.width; viewState: state; documentSession: androidSession; commands: commands }
+                        viewState: state
+                        documentSession: androidSession
+                        commands: commands
+                        pages: pages
                     }
                     ExportSidebarPage { anchors.fill: parent; visible: window.activePage === "export"; pages: pages; documentAvailable: androidSession.hasDocument }
                 }
                 SplitView {
-                    SplitView.fillWidth: true
-                    SplitView.minimumWidth: 300
-                    orientation: Qt.Vertical
-                    handle: SplitHandle {}
-                    Item {
-                        SplitView.fillHeight: true
-                        SplitView.minimumHeight: 130
-                        EditorPane {
-                            id: editorPane
-                            anchors.fill: parent
-                            visible: window.activePage === "chart"
-                            viewState: state
-                            documentSession: androidSession
-                            commands: commands
-                            editorController: v2EditorController
-                            editorSync: editorSync
-                            preferences: mobilePreferences
-                            latency: null
-                            pages: pages
-                            onOpenRequested: openProjectDialog.open()
-                        }
-                        ExportVideoPage {
-                            anchors.fill: parent
-                            visible: window.activePage === "export"
-                            pages: pages
-                            previewSession: mobilePreview
-                            previewSettings: mobileExport.settings
+                    id: workspaceSplit
+                    objectName: "mobileWorkspaceSplit"
+                    x: sidebarContent.width + sidebarHandle.width
+                    width: parent.width - x
+                    height: parent.height
+                    orientation: Qt.Horizontal
+                    property real previewWidthAtPress: 0
+                    property bool previewDragStarted: false
+                    onResizingChanged: {
+                        if (resizing) {
+                            previewWidthAtPress = previewPane.width
+                            previewDragStarted = true
+                        } else if (previewDragStarted) {
+                            window.persistPreviewWidthRatio()
+                            previewDragStarted = false
                         }
                     }
-                    BottomPanel {
-                        id: bottomPanel
-                        visible: window.showBottom && window.activePage === "chart"
-                        SplitView.preferredHeight: workspace.height * 0.30
-                        SplitView.minimumHeight: minimumHeight
-                        documentSession: androidSession
-                        analysisSession: mobileAnalysis
-                        preferences: mobilePreferences
-                        timelineSession: mobileTimeline
-                        previewSession: mobilePreview
-                        onAnalysisRowActivated: (difficultyId, revision, line, column, endColumn, second) => {
-                            if (!mobileAnalysis.completeRowActivation(difficultyId, revision, line, column, endColumn, second)) return
-                            const start = androidSession.chartPosition(line, column)
-                            const end = androidSession.chartPosition(line, endColumn)
-                            editorSync.requestNavigation(difficultyId, revision, start, end, true, true)
-                            if (second >= 0) mobilePreview.positionSeconds = second
+                    handle: SplitHandle {
+                        objectName: "mobilePreviewDivider"
+                        Accessible.role: Accessible.Splitter
+                        Accessible.name: qsTrId("dialog.render_settings.preview_group")
+                        handlePressed: previewPointerArea.pressed
+                        handleHovered: previewPointerArea.containsMouse
+                    }
+                    SplitView {
+                        id: centerSplit
+                        objectName: "mobileCenterSplit"
+                        SplitView.fillWidth: true
+                        SplitView.minimumWidth: Math.max(bottomPanel.minimumWidth,
+                            Math.min(window.previewEditorAvailableWidth * (1 - mobilePreferences.previewMaximumWidthRatio),
+                                window.previewEditorAvailableWidth - previewPane.minimumWidth))
+                        orientation: Qt.Vertical
+                        property real panelHeightAtPress: 0
+                        onResizingChanged: if (resizing) panelHeightAtPress = bottomPanel.height
+                        handle: SplitHandle {
+                            objectName: "mobileBottomDivider"
+                            Accessible.role: Accessible.Splitter
+                            Accessible.name: mobileTimeline.timelineTabLabel
+                            onReleased: window.persistBottomPanelHeightRatio()
                         }
+                        Item {
+                            id: editorHost
+                            objectName: "mobileEditorHost"
+                            SplitView.fillHeight: true
+                            SplitView.minimumHeight: 180
+                            EditorPane {
+                                id: editorPane
+                                anchors.fill: parent
+                                visible: window.activePage === "chart"
+                                viewState: state
+                                documentSession: androidSession
+                                commands: commands
+                                editorController: v2EditorController
+                                editorSync: mobileEditorSync
+                                preferences: mobilePreferences
+                                latency: mobileLatency
+                                pages: pages
+                                onOpenRequested: openProjectDialog.open()
+                            }
+                            ExportVideoPage {
+                                anchors.fill: parent
+                                visible: window.activePage === "export"
+                                pages: pages
+                                previewSession: mobilePreview
+                                previewSettings: mobileExport.settings
+                            }
+                        }
+                        BottomPanel {
+                            id: bottomPanel
+                            objectName: "mobileBottomPanel"
+                            visible: window.bottomPanelEffectivelyVisible
+                            SplitView.minimumHeight: visible ? Math.max(minimumHeight,
+                                centerSplit.height * mobilePreferences.bottomPanelMinimumHeightRatio) : 0
+                            SplitView.maximumHeight: visible ? Math.max(minimumHeight, Math.min(
+                                centerSplit.height * mobilePreferences.bottomPanelMaximumHeightRatio,
+                                centerSplit.height - editorHost.SplitView.minimumHeight - Theme.splitDividerThickness)) : 0
+                            documentSession: androidSession
+                            analysisSession: mobileAnalysis
+                            preferences: mobilePreferences
+                            timelineSession: mobileTimeline
+                            previewSession: mobilePreview
+                            onAnalysisRowActivated: (difficultyId, revision, line, column, endColumn, second) => {
+                                if (!mobileAnalysis.completeRowActivation(difficultyId, revision, line, column, endColumn, second)) return
+                                const start = androidSession.chartPosition(line, column)
+                                const end = androidSession.chartPosition(line, endColumn)
+                                mobileEditorSync.requestNavigation(difficultyId, revision, start, end, true, true)
+                                if (second >= 0) mobilePreview.positionSeconds = second
+                            }
+                        }
+                    }
+                    PreviewPane {
+                        id: previewPane
+                        objectName: "v2PreviewPane"
+                        minimumStageSize: minimumWidth
+                        SplitView.minimumWidth: Math.max(minimumWidth,
+                            Math.min(window.previewEditorAvailableWidth * mobilePreferences.previewMinimumWidthRatio,
+                                window.previewEditorAvailableWidth - bottomPanel.minimumWidth))
+                        SplitView.maximumWidth: Math.max(minimumWidth,
+                            Math.min(window.previewEditorAvailableWidth * mobilePreferences.previewMaximumWidthRatio,
+                                window.previewEditorAvailableWidth - bottomPanel.minimumWidth))
+                        previewSession: mobilePreview
+                        exportPageActive: window.activePage === "export"
+                        preferences: mobilePreferences
+                        rangePreviewState: mobileRangePreview
+                        surfaceActive: !window.previewFullscreen
+                        onFullscreenRequested: window.previewFullscreen = true
                     }
                 }
-                PreviewPane {
-                    id: previewPane
-                    objectName: "v2PreviewPane"
-                    minimumStageSize: minimumWidth
-                    SplitView.preferredWidth: workspace.width * 0.32
-                    SplitView.minimumWidth: 200
-                    previewSession: mobilePreview
-                    exportPageActive: window.activePage === "export"
-                    preferences: mobilePreferences
-                    rangePreviewState: mobileRangePreview
-                    surfaceActive: !window.previewFullscreen
-                    onFullscreenRequested: window.previewFullscreen = true
+                // Put the preview gesture band above both pane owners, as the
+                // sidebar gesture is. The source ScrollView and preview surface
+                // cannot consume a touch that begins on this shared boundary.
+                Item {
+                    width: Theme.splitHandleHitExtent
+                    height: workspaceSplit.height
+                    x: workspaceSplit.x + previewPane.x
+                        + (window.previewOnLeft ? previewPane.width : -Theme.splitDividerThickness)
+                        - (width - Theme.splitDividerThickness) / 2
+                    enabled: !window.previewFullscreen
+                    MouseArea {
+                        id: previewPointerArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.SplitHCursor
+                        preventStealing: true
+                        property real startX: 0
+                        property real startWidth: 0
+                        property real desiredWidth: 0
+                        function updateWidth(mouse) {
+                            desiredWidth = Math.max(previewPane.SplitView.minimumWidth,
+                                Math.min(previewPane.SplitView.maximumWidth,
+                                    startWidth + (window.previewOnLeft ? 1 : -1)
+                                        * (mapToItem(workspaceHost, mouse.x, mouse.y).x - startX)))
+                            previewPane.SplitView.preferredWidth = desiredWidth
+                        }
+                        function finishDrag() {
+                            if (Math.abs(desiredWidth - startWidth) > 0.01)
+                                mobilePreferences.previewWidthRatio = desiredWidth / window.previewEditorAvailableWidth
+                            window.previewPointerResizing = false
+                        }
+                        onPressed: mouse => {
+                            startX = mapToItem(workspaceHost, mouse.x, mouse.y).x
+                            startWidth = previewPane.width
+                            desiredWidth = startWidth
+                            window.previewPointerResizing = true
+                        }
+                        onPositionChanged: mouse => { if (pressed) updateWidth(mouse) }
+                        onReleased: mouse => { updateWidth(mouse); finishDrag() }
+                        onCanceled: finishDrag()
+                    }
+                }
+                SplitHandle {
+                    id: sidebarHandle
+                    objectName: "mobileSidebarDivider"
+                    Accessible.role: Accessible.Splitter
+                    Accessible.name: qsTrId("qml.toggle_sidebar")
+                    x: sidebarContent.width
+                    width: window.sidebarEffectivelyVisible ? Theme.splitDividerThickness : 0
+                    height: parent.height
+                    showDivider: window.sidebarEffectivelyVisible
+                    handlePressed: sidebarDrag.pressed
+                    handleHovered: sidebarDrag.containsMouse
+                    MouseArea {
+                        id: sidebarDrag
+                        anchors.centerIn: parent
+                        width: Theme.splitHandleHitExtent
+                        height: parent.height
+                        hoverEnabled: true
+                        cursorShape: Qt.SplitHCursor
+                        preventStealing: true
+                        property real startX: 0
+                        property real startWidth: 0
+                        onPressed: mouse => {
+                            startX = mapToItem(workspaceHost, mouse.x, mouse.y).x
+                            startWidth = window.showSidebar ? mobilePreferences.sidebarWidth : 0
+                            window.sidebarDragWidth = mobilePreferences.sidebarWidth
+                            window.sidebarDragVisible = window.showSidebar
+                            window.sidebarResizing = true
+                        }
+                        onPositionChanged: mouse => {
+                            if (pressed) window.resizeSidebar(startWidth + mapToItem(workspaceHost, mouse.x, mouse.y).x - startX)
+                        }
+                        onReleased: { window.persistSidebarWidth(); window.sidebarResizing = false }
+                        onCanceled: { window.persistSidebarWidth(); window.sidebarResizing = false }
+                    }
                 }
             }
         }
-        Label { id: statusMessage; Layout.fillWidth: true; visible: text.length > 0; text: androidSession.status; color: Theme.colors.text.secondary; font.pixelSize: 11; maximumLineCount: 1; elide: Text.ElideRight }
-        StatusBar { id: statusBar; Layout.fillWidth: true; documentName: androidSession.currentFileName; cursorLine: state.editorCursorLine; cursorColumn: state.editorCursorColumn; difficultyActive: true; selectionBeatText: editorPane.selectionBeatStatusText }
+        StatusBar {
+            id: statusBar
+            objectName: "mobileStatusBar"
+            Layout.fillWidth: true
+            documentName: statusNoticeTimer.running && statusMessage.text.length > 0
+                ? statusMessage.text : androidSession.currentFilePath
+            cursorLine: state.editorCursorLine
+            cursorColumn: state.editorCursorColumn
+            difficultyActive: state.difficultyEditorActive
+            selectionBeatText: editorPane.selectionBeatStatusText
+        }
+    }
+    QtObject {
+        id: statusMessage
+        property string text: androidSession.status
+        onTextChanged: statusNoticeTimer.restart()
+    }
+    Timer { id: statusNoticeTimer; interval: 5000 }
+    // SplitView writes preferred dimensions while dragging. Reattach the
+    // stored proportions after release so window size changes keep the layout.
+    Binding {
+        target: previewPane.SplitView
+        property: "preferredWidth"
+        value: window.previewEditorAvailableWidth * mobilePreferences.previewWidthRatio
+        when: !workspaceSplit.resizing && !window.previewPointerResizing
+        restoreMode: Binding.RestoreNone
+    }
+    Binding {
+        target: bottomPanel.SplitView
+        property: "preferredHeight"
+        value: window.bottomPanelEffectivelyVisible ? centerSplit.height * mobilePreferences.bottomPanelHeightRatio : 0
+        when: !centerSplit.resizing
+        restoreMode: Binding.RestoreNone
+    }
+    // The cover workspace follows the workbench in paint order. Its geometry
+    // and touch coordinates use the same logical-to-screen transform.
+    Loader {
+        id: coverLoader
+        anchors.fill: parent
+        active: window.coverOpen
+        sourceComponent: CoverExportPage {
+            objectName: "mobileCoverPage"
+            coverSession: mobileCover.session
+            batchExportController: mobileCover.batch
+            onCloseRequested: window.coverOpen = false
+        }
     }
     }
     // Same stage / transport composition as v2 MainSplitView fullscreen.
@@ -348,6 +595,7 @@ ApplicationWindow {
             showCanvasMenuButton: false
         }
     }
+    }
     Shortcut { sequence: "Escape"; enabled: window.previewFullscreen; onActivated: window.previewFullscreen = false }
     AppMenu {
         id: fileMenu
@@ -392,23 +640,85 @@ ApplicationWindow {
         dismissChoiceId: "recover"
         onChosen: id => { if (id === "recover") androidSession.recover(); else androidSession.newProject() }
     }
-    AppDialog {
+    AudioSettingsDialog {
+        id: audioSettingsDialog
+        objectName: "shellAudioSettingsDialog"
+        audioSettings: mobileExport.audioSettings
+    }
+    PreviewSettingsDialog {
+        id: previewSettingsDialog
+        objectName: "shellPreviewSettingsDialog"
+        previewSettings: mobileExport.settings
+    }
+    PreferencesDialog {
         id: settings
-        title: "设置与素材"
-        preferredWidth: Math.min(window.width - 48, 600)
-        preferredHeight: Math.min(window.height - 48, 420)
-        body: ScrollView {
-            Column {
-                spacing: 8
-                AppSwitch { text: "深色主题"; checked: mobilePreferences.darkTheme; onToggled: mobilePreferences.darkTheme = checked }
-                AppSwitch { text: "允许在后台导出"; checked: androidSession.backgroundExportAllowed; onToggled: androidSession.backgroundExportAllowed = checked }
-                Row { spacing: 8; AppButton { text: "导入音频"; onClicked: androidSession.importAsset("audio") } AppButton { text: "导入图片"; onClicked: androidSession.importAsset("image") } }
-                Row { spacing: 8; AppButton { text: "导入视频"; onClicked: androidSession.importAsset("video") } AppButton { text: "导入字体"; onClicked: androidSession.importAsset("font") } }
-                Label { text: "开发验证"; color: Theme.colors.text.secondary }
-                Row { spacing: 8; AppButton { text: "运行编码探针"; enabled: !androidSession.busy; onClicked: androidSession.runMediaProbe() } AppButton { text: "保存探针结果"; enabled: !androidSession.busy; onClicked: androidSession.exportProbeResults() } }
+        objectName: "mobilePreferencesDialog"
+        preferencesModel: mobilePreferencesModel
+        preferences: mobilePreferences
+        appBackground: mobileAppBackground
+        shortcuts: mobileShortcuts
+        updateService: mobileUpdates
+        onUpdateRequested: updatePrompt.present()
+        platformOptions: Component {
+            AppSwitch {
+                objectName: "mobileBackgroundExportSwitch"
+                text: qsTrId("android.preferences.background_export")
+                checked: androidSession.backgroundExportAllowed
+                onToggled: androidSession.backgroundExportAllowed = checked
             }
         }
-        footer: DialogFooter { acceptText: "关闭"; onAccepted: settings.close() }
+    }
+    ShortcutBindings {
+        enabled: !settings.visible
+        shortcuts: mobileShortcuts
+        commands: editorTools
+        previewSession: mobilePreview
+        preferencesModel: mobilePreferencesModel
+        sourceEditorFocused: window.sourceEditorFocused
+        chartCommandsEnabled: androidSession.hasDocument && !settings.visible
+        playbackCommandsEnabled: androidSession.hasDocument && !settings.visible
+        menuOwnsChartTransformShortcuts: false
+        menuOwnsPreviewRateShortcuts: false
+        onChartTransformRequested: opId => editorPane.applyChartTransform(opId)
+    }
+    ChoiceDialog {
+        id: updatePrompt
+        objectName: "shellUpdateAvailableDialog"
+        function present() {
+            if (!mobileUpdates.updateAvailable) return
+            const detail = mobileUpdates.availableDetail()
+            title = qsTrId("dialog.update.title")
+            message = qsTrId("dialog.update.message").arg(detail.version)
+            let lines = []
+            if (detail.releasedAt) lines.push(qsTrId("dialog.update.released").arg(detail.releasedAt))
+            if (detail.sizeText) lines.push(qsTrId("dialog.update.size").arg(detail.sizeText))
+            if (detail.notes) lines.push(detail.notes)
+            details = lines.join("\n")
+            choices = [
+                { id: "download", label: qsTrId("dialog.update.download"), role: "accept", enabled: !!detail.releasePageUrl },
+                { id: "later", label: qsTrId("action.later"), role: "reject" },
+                { id: "skip", label: qsTrId("dialog.update.skip"), role: "reject" }
+            ]
+            dismissChoiceId = "later"
+            open()
+        }
+        onChosen: choiceId => {
+            if (choiceId === "download") mobileUpdates.openDownloadPage()
+            else if (choiceId === "skip") mobileUpdates.skipAvailableVersion()
+        }
+    }
+    AppDialog {
+        id: assetsDialog
+        objectName: "mobileAssetsDialog"
+        title: qsTrId("android.assets.title")
+        preferredWidth: 700
+        preferredHeight: Theme.dialogHeight
+        body: ColumnLayout {
+            spacing: 10
+            RowLayout { AppButton { text: qsTrId("android.assets.audio"); onClicked: androidSession.importAsset("audio") } AppButton { text: qsTrId("android.assets.image"); onClicked: androidSession.importAsset("image") } }
+            RowLayout { AppButton { text: qsTrId("android.assets.video"); onClicked: androidSession.importAsset("video") } AppButton { text: qsTrId("android.assets.font"); onClicked: androidSession.importAsset("font") } }
+        }
+        footer: DialogFooter { cancelText: qsTrId("action.close"); onRejected: assetsDialog.close() }
     }
     UiRequestHost { requests: mobileExport.requests; externalFileDialogs: Qt.platform.os === "android" }
     JobProgressOverlay { progress: mobileExport.progress }

@@ -57,6 +57,12 @@ QString themePaletteToken(ThemePalette palette);
 ThemePalette themePaletteFromToken(const QString& token);
 bool themePaletteIsDark(ThemePalette palette);
 QString preferencesFilePath();
+// Platform composition may choose its private settings file. Set once before
+// constructing preference consumers; empty keeps the desktop standard path.
+void setPreferencesFilePath(const QString& path);
+// Import missing keys from an earlier platform location once. The current
+// document wins, including arrays and explicit nulls; the source stays intact.
+bool migrateFromFile(const QString& sourcePath, const QString& migrationId, QString* error = nullptr);
 QString currentPreferencesSchema();
 QString storedPreferencesSchema();
 QJsonObject loadPreferencesObject();

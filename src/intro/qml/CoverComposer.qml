@@ -21,6 +21,7 @@
 import QtQuick
 import QtQuick.Effects
 import MiaCode.Preview
+import "TextureSources.js" as TextureSources
 
 Item {
     id: canvas
@@ -376,7 +377,7 @@ Item {
     Image {
         id: bgSrc
         anchors.fill: parent
-        source: canvas.backdropSourceUrl
+        source: TextureSources.source(canvas.backdropSourceUrl)
         fillMode: Image.PreserveAspectCrop
         // Cap the decoded texture to the canvas size — at export the canvas IS the
         // output resolution (full quality), at preview it's small (saves VRAM); a
@@ -495,7 +496,7 @@ Item {
                     id: chartBgDiskImage
                     anchors.fill: parent
                     visible: false
-                    source: layerItem.isChartFrame ? canvas.backdropSourceUrl : ""
+                    source: layerItem.isChartFrame ? TextureSources.source(canvas.backdropSourceUrl) : ""
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: false
                     cache: false
@@ -614,7 +615,9 @@ Item {
                     asynchronous: false
                     cache: false
                     smooth: true
-                    mipmap: true
+                    // Android GLES can reject mipmaps for Qt's BGRA still
+                    // textures, leaving inactive chart frames blank.
+                    mipmap: Qt.platform.os !== "android"
                 }
 
                 // Custom image layer. The box aspect already tracks the image's
@@ -625,7 +628,7 @@ Item {
                     anchors.fill: parent
                     visible: layerItem.isImage
                     source: (layerItem.isImage && layerItem.ld && layerItem.ld.imagePath)
-                            ? canvas.localFileUrl(layerItem.ld.imagePath) : ""
+                            ? TextureSources.source(canvas.localFileUrl(layerItem.ld.imagePath)) : ""
                     fillMode: Image.PreserveAspectFit
                     // Cap the decoded texture to the on-screen size (preview small,
                     // export full-res) so a huge source doesn't decode at native

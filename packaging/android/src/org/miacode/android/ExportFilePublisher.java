@@ -11,6 +11,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.security.MessageDigest;
 import java.util.Locale;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -77,7 +79,15 @@ public final class ExportFilePublisher {
                 byte[] digest = written.digest();
                 if (checked != size || !MessageDigest.isEqual(digest, read.digest())) throw new java.io.IOException("导出后的文件校验失败");
                 StringBuilder sha = new StringBuilder(); for (byte value : digest) sha.append(String.format(Locale.ROOT, "%02x", value & 255));
-                send(token, true, true, 100, outputUri, sha.toString(), count, "");
+                String displayPath = target.optString("displayPath");
+                if (target.optBoolean("tree")) {
+                    String relative = target.getString("relativePath").replace('\\', '/');
+                    int slash = relative.lastIndexOf('/');
+                    String parentPath = slash < 0 ? "" : relative.substring(0, slash + 1);
+                    String actualName = documentName(app, outputUri);
+                    displayPath = (displayPath.isEmpty() ? "" : displayPath + "/") + parentPath + actualName;
+                }
+                send(token, true, true, 100, outputUri, sha.toString(), count, "", displayPath);
             } catch (Exception error) {
                 send(token, true, false, 0, outputUri, "", 0, error.getMessage() == null ? error.toString() : error.getMessage());
             } finally { jobs.remove(token); }
@@ -96,14 +106,24 @@ public final class ExportFilePublisher {
             boolean folder = index < parts.length - 1;
             Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getDocumentId(parent));
             Uri child = null;
+            Set<String> existingNames = new HashSet<>();
             try (Cursor cursor = context.getContentResolver().query(children, new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID,
                     DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE}, null, null, null)) {
                 if (cursor == null) throw new java.io.IOException("无法读取导出文件夹");
-                while (cursor.moveToNext()) if (name.equals(cursor.getString(1))) {
-                    if (folder != DocumentsContract.Document.MIME_TYPE_DIR.equals(cursor.getString(2)))
-                        throw new java.io.IOException("导出路径与已有文件类型冲突");
-                    child = DocumentsContract.buildDocumentUriUsingTree(tree, cursor.getString(0)); break;
+                while (cursor.moveToNext()) {
+                    existingNames.add(cursor.getString(1));
+                    if (folder && name.equals(cursor.getString(1))) {
+                        if (!DocumentsContract.Document.MIME_TYPE_DIR.equals(cursor.getString(2)))
+                            throw new java.io.IOException("导出路径与已有文件类型冲突");
+                        child = DocumentsContract.buildDocumentUriUsingTree(tree, cursor.getString(0));
+                    }
                 }
+            }
+            if (!folder) {
+                int dot = name.lastIndexOf('.');
+                String stem = dot > 0 ? name.substring(0, dot) : name;
+                String suffix = dot > 0 ? name.substring(dot) : "";
+                for (int number = 1; existingNames.contains(name); ++number) name = stem + "(" + number + ")" + suffix;
             }
             if (child == null) child = DocumentsContract.createDocument(context.getContentResolver(), parent,
                 folder ? DocumentsContract.Document.MIME_TYPE_DIR : mimeForName(name), name);
@@ -112,11 +132,23 @@ public final class ExportFilePublisher {
         }
         return parent;
     }
+    private static String documentName(Context context, Uri document) throws Exception {
+        try (Cursor cursor = context.getContentResolver().query(document,
+                new String[]{DocumentsContract.Document.COLUMN_DISPLAY_NAME}, null, null, null)) {
+            if (cursor == null || !cursor.moveToFirst() || cursor.isNull(0))
+                throw new java.io.IOException("无法读取导出文件名");
+            return cursor.getString(0);
+        }
+    }
     private static void send(String token, boolean done, boolean ok, int percent, Uri uri, String sha, long bytes, String error) {
+        send(token, done, ok, percent, uri, sha, bytes, error, "");
+    }
+    private static void send(String token, boolean done, boolean ok, int percent, Uri uri, String sha, long bytes, String error, String displayPath) {
         try {
             JSONObject result = new JSONObject().put("kind", "exportPublish").put("token", token).put("done", done).put("ok", ok)
                 .put("percent", percent).put("sha256", sha).put("bytes", bytes).put("error", error);
             if (uri != null) result.put("uri", uri.toString());
+            if (!displayPath.isEmpty()) result.put("displayPath", displayPath);
             MiaCodeActivity.deliverResult(result.toString());
         } catch (Exception errorMakingResult) { android.util.Log.e("MiaCode", "Export response failed", errorMakingResult); }
     }

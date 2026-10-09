@@ -19,10 +19,10 @@ class MobileTimeline final : public QObject {
     Q_PROPERTY(bool timelineTabVisible READ tabVisible CONSTANT)
     Q_PROPERTY(bool validationTabVisible READ tabVisible CONSTANT)
     Q_PROPERTY(bool muriTabVisible READ tabVisible CONSTANT)
-    Q_PROPERTY(QString timelineTabLabel READ timelineTabLabel CONSTANT)
-    Q_PROPERTY(QString validationTabLabel READ validationTabLabel CONSTANT)
-    Q_PROPERTY(QString muriTabLabel READ muriTabLabel CONSTANT)
-    Q_PROPERTY(QString followCodeLabel READ followCodeLabel CONSTANT)
+    Q_PROPERTY(QString timelineTabLabel READ timelineTabLabel NOTIFY labelsChanged)
+    Q_PROPERTY(QString validationTabLabel READ validationTabLabel NOTIFY labelsChanged)
+    Q_PROPERTY(QString muriTabLabel READ muriTabLabel NOTIFY labelsChanged)
+    Q_PROPERTY(QString followCodeLabel READ followCodeLabel NOTIFY labelsChanged)
 public:
     MobileTimeline(AndroidDocumentSession& document, MobilePreview& preview,
         EditorSyncController& editor, AnalysisService& analysis, QObject* parent = nullptr);
@@ -33,6 +33,7 @@ public:
     QString validationTabLabel() const;
     QString muriTabLabel() const;
     QString followCodeLabel() const;
+    void setFrameRate(PreviewCanvasFrameRateMode mode, double refreshHz);
     Q_INVOKABLE void setCurrentTabId(const QString& tab);
     Q_INVOKABLE void headerNavigate(double second);
     Q_INVOKABLE void wheelNavigate(double second);
@@ -44,6 +45,7 @@ public:
     Q_INVOKABLE void followPreviewToggled(bool enabled);
 signals:
     void tabChanged();
+    void labelsChanged();
 private:
     void rebuild();
     void publishPosition();
@@ -58,5 +60,8 @@ private:
     QString trackIdentity_;
     quint64 waveformRequest_ = 0;
     bool navigating_ = false;
+    QTimer presentationTimer_;
+    QElapsedTimer presentationClock_;
+    MobileFrameCadence cadence_;
 };
 }

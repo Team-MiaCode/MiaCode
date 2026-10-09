@@ -18,7 +18,7 @@ output.mkdir(parents=True, exist_ok=True)
 prefix = [str(args.adb), "-s", args.serial]
 
 def call(*command):
-    return subprocess.check_output(prefix + list(command))
+    return subprocess.check_output(prefix + list(command), timeout=40)
 
 if args.action == "capture":
     if not args.value:
@@ -29,7 +29,9 @@ if args.action == "capture":
     target.write_bytes(call("exec-out", "screencap", "-p"))
     print(target)
 else:
-    call("shell", "uiautomator", "dump", "/sdcard/miacode-mobile-qa.xml")
+    dump = call("shell", "uiautomator", "dump", "/sdcard/miacode-mobile-qa.xml")
+    if b"/sdcard/miacode-mobile-qa.xml" not in dump:
+        raise RuntimeError("Android accessibility hierarchy unavailable; no click performed")
     xml = call("exec-out", "cat", "/sdcard/miacode-mobile-qa.xml")
     (output / "current-ui.xml").write_bytes(xml)
     nodes = list(ET.fromstring(xml).iter("node"))
@@ -53,4 +55,4 @@ else:
             raise RuntimeError(f"Expected one visible target; found {len(matches)} for {args.value!r}")
         x1, y1, x2, y2 = matches[0]
         call("shell", "input", "tap", str((x1 + x2) // 2), str((y1 + y2) // 2))
-        print("Clicked", ascii(args.value))
+        print("Clicked", ascii(args.value), "at", (x1 + x2) // 2, (y1 + y2) // 2)

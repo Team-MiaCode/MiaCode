@@ -41,7 +41,7 @@ Item {
             sequence: root.shortcuts.revision >= 0
                 ? root.shortcuts.sequence(modelData)
                 : ""
-            enabled: root.chartCommandsEnabled
+            enabled: root.enabled && root.chartCommandsEnabled
                      && !root.menuOwnsChartTransformShortcuts
                      && sequence !== ""
             context: Qt.WindowShortcut
@@ -55,7 +55,7 @@ Item {
         sequence: root.shortcuts.revision >= 0
             ? root.shortcuts.sequence("editor.font_decrease", "Ctrl+Alt+-")
             : ""
-        enabled: sequence !== ""
+        enabled: root.enabled && sequence !== ""
         context: Qt.WindowShortcut
         onActivated: root.preferencesModel.setEditorFontSize(
                          root.preferencesModel.editorFontSize - 1)
@@ -65,7 +65,7 @@ Item {
         sequence: root.shortcuts.revision >= 0
             ? root.shortcuts.sequence("editor.font_increase", "Ctrl+Alt+=")
             : ""
-        enabled: sequence !== ""
+        enabled: root.enabled && sequence !== ""
         context: Qt.WindowShortcut
         onActivated: root.preferencesModel.setEditorFontSize(
                          root.preferencesModel.editorFontSize + 1)
@@ -75,7 +75,7 @@ Item {
         sequence: root.shortcuts.revision >= 0
             ? root.shortcuts.sequence("preview.stop_or_play", "Ctrl+X")
             : ""
-        enabled: root.playbackCommandsEnabled && sequence !== ""
+        enabled: root.enabled && root.playbackCommandsEnabled && sequence !== ""
         context: Qt.WindowShortcut
         onActivated: root.previewSession.stop()
     }
@@ -84,7 +84,7 @@ Item {
         sequence: root.shortcuts.revision >= 0
             ? root.shortcuts.sequence("preview.play_pause_global", "Ctrl+Shift+X")
             : ""
-        enabled: root.playbackCommandsEnabled && sequence !== "" && !root.sourceEditorFocused
+        enabled: root.enabled && root.playbackCommandsEnabled && sequence !== "" && !root.sourceEditorFocused
         context: Qt.ApplicationShortcut
         onActivated: root.previewSession.togglePlayback()
     }
@@ -93,7 +93,7 @@ Item {
         sequence: root.shortcuts.revision >= 0
             ? root.shortcuts.sequence("preview.speed_down", "Ctrl+O")
             : ""
-        enabled: root.playbackCommandsEnabled
+        enabled: root.enabled && root.playbackCommandsEnabled
                  && !root.menuOwnsPreviewRateShortcuts
                  && sequence !== ""
         context: Qt.WindowShortcut
@@ -104,7 +104,7 @@ Item {
         sequence: root.shortcuts.revision >= 0
             ? root.shortcuts.sequence("preview.speed_up", "Ctrl+P")
             : ""
-        enabled: root.playbackCommandsEnabled
+        enabled: root.enabled && root.playbackCommandsEnabled
                  && !root.menuOwnsPreviewRateShortcuts
                  && sequence !== ""
         context: Qt.WindowShortcut

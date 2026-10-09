@@ -1,4 +1,7 @@
 #include "export/CoverExportSession.h"
+#ifdef MIACODE_MOBILE
+#include "android/ExportDestination.h"
+#endif
 
 #include "common/ChartAssetPaths.h"
 #include "core/chart/document/SimaiDocument.h"
@@ -27,6 +30,19 @@
 
 namespace miacode::ui {
 namespace {
+
+QVariantMap coverTrack(const VideoExportTask& task, const QString& mode,
+                      bool levelText, const QString& longText)
+{
+    const auto& banner = task.intro;
+    return {{QStringLiteral("title"), banner.title}, {QStringLiteral("artist"), banner.artist},
+        {QStringLiteral("designer"), banner.designer}, {QStringLiteral("level"), banner.level},
+        {QStringLiteral("difficulty"), banner.difficulty}, {QStringLiteral("bpm"), banner.bpm},
+        {QStringLiteral("mode"), isAutoIntroBannerMode(mode)
+            ? normalizedIntroBannerMode(banner.mode) : normalizedIntroBannerMode(mode)},
+        {QStringLiteral("lvRenderMode"), levelText ? QStringLiteral("text") : QStringLiteral("atlas")},
+        {QStringLiteral("stillTextMode"), longText}};
+}
 
 struct CoverResolutionPreset {
     int width;
@@ -108,21 +124,56 @@ QVariantMap CoverExportSession::templateMap() const
 
 QVariantMap CoverExportSession::trackOverrides() const
 {
-    QVariantMap track;
-    const IntroBannerSpec& banner = task_.intro;
-    track.insert(QStringLiteral("title"), banner.title);
-    track.insert(QStringLiteral("artist"), banner.artist);
-    track.insert(QStringLiteral("designer"), banner.designer);
-    track.insert(QStringLiteral("level"), banner.level);
-    track.insert(QStringLiteral("difficulty"), banner.difficulty);
-    track.insert(QStringLiteral("bpm"), banner.bpm);
-    track.insert(QStringLiteral("mode"), isAutoIntroBannerMode(cardMode_)
-        ? normalizedIntroBannerMode(banner.mode)
-        : normalizedIntroBannerMode(cardMode_));
-    track.insert(QStringLiteral("lvRenderMode"), levelTextRender_ ? QStringLiteral("text")
-                                                                     : QStringLiteral("atlas"));
-    track.insert(QStringLiteral("stillTextMode"), longTextMode_);
-    return track;
+    return coverTrack(task_, cardMode_, levelTextRender_, longTextMode_);
+}
+
+void CoverExportSession::setBatchBusy(bool value)
+{
+    if (batchBusy_ == value) return;
+    batchBusy_ = value;
+    if (value && chartFramePlaying()) toggleActiveLayerPlayback();
+    emit busyChanged();
+}
+
+QJsonObject CoverExportSession::batchComposition(const QString& kind, const QString& name) const
+{
+    const auto current = compositionJson();
+    if (kind == QStringLiteral("current")) return current;
+    QJsonObject root;
+    if (kind == QStringLiteral("builtin")) root = builtinPresetComposition(name);
+    else if (kind == QStringLiteral("user")) {
+        for (const auto& preset : miacode::cover_export::CoverCompositionState::loadUserPresets())
+            if (preset.name == name) { root = preset.composition; break; }
+    }
+    if (root.isEmpty()) return {};
+    root.insert(QStringLiteral("size"), current.value(QStringLiteral("size")));
+    root.insert(QStringLiteral("output"), current.value(QStringLiteral("output")));
+    return root;
+}
+
+miacode::cover_export::CoverComposerInputs CoverExportSession::batchInputs(
+    const VideoExportTask& task, const QJsonObject& root) const
+{
+    miacode::cover_export::CoverComposerInputs inputs;
+    const auto card = root.value(QStringLiteral("card")).toObject();
+    const auto background = root.value(QStringLiteral("background")).toObject();
+    inputs.templateMap = bannerTemplate_;
+    miacode::video_export::applyBannerFontOverride(inputs.templateMap,
+        card.value(QStringLiteral("fontDisplay")).toString(), card.value(QStringLiteral("fontBody")).toString());
+    inputs.trackOverrides = coverTrack(task, card.value(QStringLiteral("mode")).toString(QStringLiteral("auto")),
+        card.value(QStringLiteral("levelTextRender")).toBool(),
+        card.value(QStringLiteral("longText")).toString(QStringLiteral("shrink")));
+    inputs.jacketPath = task.intro.jacketPath;
+    inputs.backgroundPath = background.value(QStringLiteral("customPath")).toString();
+    const auto mode = background.value(QStringLiteral("mode")).toString();
+    inputs.backgroundMode = mode == QStringLiteral("transparent")
+        ? miacode::cover_export::CoverBackgroundMode::Transparent
+        : mode == QStringLiteral("custom") ? miacode::cover_export::CoverBackgroundMode::Custom
+                                          : miacode::cover_export::CoverBackgroundMode::Jacket;
+    inputs.blurBackground = background.value(QStringLiteral("blur")).toBool(true);
+    inputs.coverBgBrightness = background.value(QStringLiteral("brightness")).toDouble(0.45);
+    inputs.cardShadow = card.value(QStringLiteral("shadow")).toBool();
+    return inputs;
 }
 
 QUrl CoverExportSession::jacketImage() const
@@ -211,7 +262,9 @@ void CoverExportSession::enter(int preferredDifficultyId)
         emit pageSessionActiveChanged();
     }
     rebuildDifficultyList();
-    selectDifficulty(defaultDifficultyId(preferredDifficultyId));
+    const int next = defaultDifficultyId(preferredDifficultyId);
+    if (next > 0 && next == selectedDifficultyId_) seedFromDifficulty(next);
+    else selectDifficulty(next);
     refreshSavedLists();
     emit fontLibraryChanged();
 }
@@ -226,6 +279,16 @@ void CoverExportSession::leave()
     persistComposition();
     pageSessionActive_ = false;
     emit pageSessionActiveChanged();
+}
+
+void CoverExportSession::invalidateDocument()
+{
+    leave();
+    if (!difficulties_.isEmpty()) {
+        difficulties_.clear();
+        emit difficultiesChanged();
+    }
+    selectDifficulty(0);
 }
 
 double CoverExportSession::chartFrameDiskDiameter() const
@@ -273,6 +336,29 @@ void CoverExportSession::rebuildDifficultyList()
 void CoverExportSession::selectDifficulty(int difficultyId)
 {
     const int next = containsDifficulty(difficultyId) ? difficultyId : 0;
+    if (next == 0) {
+        stopAndDetachLiveChartScene();
+        // The page can also lose its last difficulty without replacing the
+        // document. Detach before destroying the borrowed frame state.
+        frameRenderer_.reset();
+        task_ = {};
+        chartFrameAvailable_ = false;
+        chartFrameDuration_ = 0.0;
+        for (auto* layer : layout_->chartFrameLayers()) {
+            layout_->clearLayerImage(layer->key());
+        }
+        if (selectedDifficultyId_ != 0) {
+            selectedDifficultyId_ = 0;
+            emit selectedDifficultyIdChanged();
+        }
+        activeLayerKey_ = miacode::cover_export::CoverLayoutModel::cardKey();
+        emit activeLayerChanged();
+        syncPlaybackFromActiveLayer();
+        emit chartFrameAvailabilityChanged();
+        emit activeChartFrameSecondsChanged();
+        emit inputsChanged();
+        return;
+    }
     if (selectedDifficultyId_ == next) {
         return;
     }
@@ -363,6 +449,14 @@ void CoverExportSession::seedFromDifficulty(int difficultyId)
         frameRenderer_->prepareCaptureWindow(
             qBound(512, qMax(outputWidth(), outputHeight()), 2048),
             activeChartFrameSeconds());
+#ifdef MIACODE_MOBILE
+        // The Android offscreen surface is ready synchronously. Inactive
+        // layers have no live scene, so rebuild their stills when reopening
+        // the page after clearing the previous chart's images above.
+        for (auto* layer : visibleChartFrames) {
+            if (layer->key() != activeLayerKey_) renderChartFrame(layer);
+        }
+#endif
     }
     setBusy(false);
 }
@@ -919,6 +1013,9 @@ void CoverExportSession::setOutputDirectory(const QString& path)
 {
     QString input = path.trimmed();
     if (input.isEmpty()) return;
+#ifdef MIACODE_MOBILE
+    if (input == outputDirectoryDisplay()) return;
+#endif
 #ifndef Q_OS_WIN
     if (input == QStringLiteral("~") || input.startsWith(QStringLiteral("~/"))) {
         input = QDir::homePath() + input.mid(1);
@@ -938,6 +1035,10 @@ void CoverExportSession::setOutputDirectory(const QString& path)
 QString CoverExportSession::outputDirectoryDisplay() const
 {
     if (outputDirectory_.isEmpty()) return {};
+#ifdef MIACODE_MOBILE
+    if (!miacode::android::exportDestination(outputDirectory_).isEmpty())
+        return miacode::android::exportDestinationDisplayPath(outputDirectory_);
+#endif
     if (!task_.chartPath.isEmpty()) {
         const QString relative = QDir(QFileInfo(task_.chartPath).absolutePath()).relativeFilePath(outputDirectory_);
         if (relative == QStringLiteral(".")) return relative;
@@ -1227,7 +1328,11 @@ void CoverExportSession::saveLayout()
     request.saveMode = true;
     uiRequests_->requestFile(request, [this](QString path) {
         if (path.isEmpty()) return;
-        if (!path.endsWith(QStringLiteral(".miacover"), Qt::CaseInsensitive)) path += QStringLiteral(".miacover");
+        if (!path.endsWith(QStringLiteral(".miacover"), Qt::CaseInsensitive)
+#ifdef MIACODE_MOBILE
+            && miacode::android::exportDestination(path).isEmpty()
+#endif
+        ) path += QStringLiteral(".miacover");
         QFile file(path);
         if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)
             || file.write(QJsonDocument(sharedCompositionJson()).toJson(QJsonDocument::Indented)) < 0) {
@@ -1237,6 +1342,13 @@ void CoverExportSession::saveLayout()
         }
         miacode::cover_export::CoverCompositionState::pushRecentFile(path);
         refreshSavedLists();
+        file.close();
+        if (filePublisher_) {
+            const QPointer<CoverExportSession> guard(this);
+            filePublisher_(path, [guard](bool ok, const QString&, const QString& error) {
+                if (guard && !ok) guard->notifyError(qtTrId("cover.save_layout_2"), error);
+            });
+        }
     });
 }
 
@@ -1337,6 +1449,7 @@ void CoverExportSession::browseOutputDirectory()
     request.title = qtTrId("net.choose_output_directory");
     request.startPath = outputDirectory_;
     request.selectFolder = true;
+    request.saveMode = true;
     uiRequests_->requestFile(request, [this](const QString& path) { setOutputDirectory(path); });
 }
 
@@ -1362,7 +1475,7 @@ miacode::cover_export::CoverComposerInputs CoverExportSession::buildInputs() con
 
 void CoverExportSession::exportCover()
 {
-    if (layout_ == nullptr || busy_) {
+    if (layout_ == nullptr || busy()) {
         return;
     }
     // v1's onExportCover refused the same way before it ever opened the
@@ -1426,17 +1539,29 @@ void CoverExportSession::exportCover()
     if (wasPlaying && isActiveChartFrame(activeCoverLayer())) {
         playback_->play();
     }
+    if (result.success && filePublisher_) {
+        const QPointer<CoverExportSession> guard(this);
+        filePublisher_(result.outputPath, [guard](bool ok, const QString& path, const QString& error) {
+            if (guard) guard->finishCoverPublication(ok, path, error);
+        });
+        return;
+    }
+    finishCoverPublication(result.success, result.outputPath, result.errorMessage);
+}
+
+void CoverExportSession::finishCoverPublication(bool success, const QString& path, const QString& error)
+{
     setBusy(false);
-    if (!result.success) {
+    emit exportFinished(success, path, error);
+    if (!success) {
         notifyError(qtTrId("cover.export_cover"),
-                    qtTrId("cover.cover_export_failed_1").arg(result.errorMessage),
-                    result.errorMessage);
+                    qtTrId("cover.cover_export_failed_1").arg(error), error);
         return;
     }
     uiRequests_->postNotice(miacode::NoticeSeverity::Information,
                             qtTrId("cover.export_cover"),
                             qtTrId("cover.cover_export_completed"),
-                            result.outputPath);
+                            path);
 }
 
 void CoverExportSession::setBusy(bool busy)

@@ -6,6 +6,7 @@
 #include <QVariantMap>
 
 class QQmlEngine;
+class PreviewQuickExportSession;
 
 namespace miacode::cover_export {
 
@@ -48,11 +49,14 @@ void registerCoverChartImageProvider(QQmlEngine* engine, CoverLayoutModel* model
 QImage renderCoverComposite(CoverLayoutModel* model,
                             const CoverComposerInputs& inputs,
                             const QSize& fullSize,
-                            QString* errorMessage);
+                            QString* errorMessage,
+                            PreviewQuickExportSession* reusableRenderer = nullptr);
 
 CoverExportResult exportCoverComposite(CoverLayoutModel* model,
                                        const CoverComposerInputs& inputs,
                                        const QSize& fullSize,
-                                       const QString& outputDirectory);
+                                       const QString& outputDirectory,
+                                       const QString& baseName = QStringLiteral("card"),
+                                       PreviewQuickExportSession* reusableRenderer = nullptr);
 
 }  // namespace miacode::cover_export

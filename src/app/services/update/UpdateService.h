@@ -43,6 +43,7 @@ public:
     void setCheckEnabled(bool enabled);
     QString channelToken() const;
     void setChannelToken(const QString& token);
+    void setLanguageToken(const QString& token);
     QString lastCheckText() const;
     bool checkInFlight() const { return inFlight_; }
     bool updateAvailable() const { return updateAvailable_; }

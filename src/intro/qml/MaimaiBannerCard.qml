@@ -18,6 +18,7 @@
 import QtQuick
 import QtQuick.Effects
 import QtQuick.Window
+import "TextureSources.js" as TextureSources
 
 Item {
     id: root
@@ -290,7 +291,7 @@ Item {
         var dir = template.assetsRoot || ""
         if (dir.length > 0 && dir.charAt(dir.length - 1) !== "/")
             dir += "/"
-        return dir + filename
+        return TextureSources.source(dir + filename)
     }
 
     // ----- LV digit sprite atlas helpers -----
@@ -565,7 +566,7 @@ Item {
         id: backdropSource
         cache: root.cacheDynamicImages
         anchors.fill: parent
-        source: root.effectiveBackdrop
+        source: TextureSources.source(root.effectiveBackdrop)
         fillMode: Image.PreserveAspectCrop
         visible: !root.transparentBackground && !root.backdropBlurEnabled
                  && root.effectiveBackdrop.toString().length > 0
@@ -687,7 +688,7 @@ Item {
 
             Image {
                 anchors.fill: parent
-                source: root.effectiveJacket
+                source: TextureSources.source(root.effectiveJacket)
                 cache: root.cacheDynamicImages
                 fillMode: Image.PreserveAspectCrop
                 visible: root.effectiveJacket.toString().length > 0
@@ -818,7 +819,7 @@ Item {
                     cache: root.cacheStaticImages
                     height: 60
                     width: root.lvGlyphWidth(14)
-                    source: root.lvAtlasUrl()
+                    source: TextureSources.source(root.lvAtlasUrl(), sourceClipRect)
                     sourceClipRect: root.lvCellRectTight(14)
                     smooth: true
                     mipmap: true
@@ -834,7 +835,7 @@ Item {
                             cache: root.cacheStaticImages
                             height: 60
                             width: root.lvGlyphWidth(modelData)
-                            source: root.lvAtlasUrl()
+                            source: TextureSources.source(root.lvAtlasUrl(), sourceClipRect)
                             sourceClipRect: root.lvCellRectTight(modelData)
                             smooth: true
                             mipmap: true

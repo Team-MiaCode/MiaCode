@@ -9,7 +9,7 @@
 
 
 namespace miacode::latency {
-class LatencySandboxController;
+class LatencyAudition;
 }
 
 namespace miacode::ui {
@@ -73,7 +73,7 @@ signals:
 private:
     bool ensureAudioEnvelopeReady();
     void clearAudioEnvelopeCache();
-    miacode::latency::LatencySandboxController* sandbox() const;
+    miacode::latency::LatencyAudition* sandbox() const;
 
     // Bound to the assembly's slot, not a snapshot.
     miacode::LatencyEngine** engineSlot_ = nullptr;
@@ -88,7 +88,8 @@ private:
     QString bpmDetectResult_;
     QString offsetDetectResult_;
 
-    QString cachedAudioPath_;
+    QString cachedAudioIdentity_;
+    quint64 contextEpoch_ = 0;
     miacode::latency_analysis::Envelope cachedOnsetEnvelope_;
     miacode::latency_analysis::Envelope cachedTransientEnvelope_;
     double cachedAudioDurationSeconds_ = 0.0;

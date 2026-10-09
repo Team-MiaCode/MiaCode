@@ -4,6 +4,7 @@ param(
     [string]$QtAndroidRoot = '',
     [string]$SdkRoot = '',
     [string]$Ninja = '',
+    [string]$Lrelease = '',
     [ValidateRange(-1,65535)][int]$ProxyPort = -1,
     [switch]$NativeOnly,
     [switch]$SignForTesting
@@ -44,6 +45,7 @@ $configure = @('-S',$repoRoot,'-B',$buildDir,'-G','Ninja','-DCMAKE_BUILD_TYPE=Re
     "-DQT_HOST_PATH=$QtHostRoot", "-DANDROID_SDK_ROOT=$SdkRoot", "-DANDROID_NDK=$ndkRoot",
     "-DANDROID_NDK_ROOT=$ndkRoot", '-DANDROID_ABI=arm64-v8a','-DANDROID_PLATFORM=android-31')
 if ($Ninja) { $configure += "-DCMAKE_MAKE_PROGRAM=$Ninja" }
+if ($Lrelease) { $configure += "-DMIACODE_LRELEASE_EXECUTABLE=$Lrelease" }
 & cmake @configure
 if ($LASTEXITCODE -ne 0) { throw 'Android configure failed' }
 & cmake --build $buildDir --parallel 4 --target MiaCodeAndroid

@@ -5,6 +5,7 @@
 #include "preview/quick_scene/PreviewQuickSceneRoot.h"
 
 #include <QElapsedTimer>
+#include <QLoggingCategory>
 #include <QOffscreenSurface>
 #include <QOpenGLContext>
 #include <QOpenGLExtraFunctions>
@@ -12,6 +13,7 @@
 #include <QOpenGLFunctions>
 #include <QQmlComponent>
 #include <QQmlEngine>
+#include "common/IntroAssetImages.h"
 #include <QQuickGraphicsDevice>
 #include <QQuickItem>
 #include <QQuickRenderControl>
@@ -22,6 +24,8 @@
 #endif
 
 #include <cstring>
+
+Q_LOGGING_CATEGORY(coverCompositionLog, "miacode.cover.composition", QtWarningMsg)
 
 namespace {
 
@@ -1313,6 +1317,12 @@ void PreviewQuickExportSession::applyIntroGeometry()
     if (introItem_ == nullptr) {
         return;
     }
+    if (compositionMode_) {
+        introItem_->setPosition(QPointF(0, 0));
+        introItem_->setSize(QSizeF(frameSize_));
+        introItem_->setScale(1.0);
+        return;
+    }
     // IntroOverlay authors at a native 16:9 1920x1080. Scale it to the output
     // height around its centre and centre it horizontally; anything past the
     // frame edges is clipped by the framebuffer viewport, which gives the
@@ -1335,6 +1345,54 @@ void PreviewQuickExportSession::destroyIntroOverlay()
     // with the window during invalidate(); here we only drop our references.
     introItem_ = nullptr;
     introActive_ = false;
+    compositionMode_ = false;
+}
+
+bool PreviewQuickExportSession::setupComposition(
+    const QUrl& qmlUrl, const QVariantMap& properties,
+    const std::function<void(QQmlEngine*)>& configureEngine, QString* errorMessage)
+{
+    // A still batch keeps its graphics context alive across jobs, including
+    // while the Android activity is hidden. Replace only the QML composition;
+    // a fresh engine also isolates image-provider caches between difficulties.
+    if (compositionMode_ && introItem_ != nullptr) {
+        introItem_->setParentItem(nullptr);
+        delete introItem_;
+        introItem_ = nullptr;
+        delete qmlEngine_;
+        qmlEngine_ = nullptr;
+        compositionMode_ = false;
+    }
+    if (!isInitialized() || introItem_ != nullptr) {
+        if (errorMessage) *errorMessage = QStringLiteral("composition requires an initialized, unused export session");
+        return false;
+    }
+    qCDebug(coverCompositionLog) << "engine begin";
+    if (qmlEngine_ == nullptr) qmlEngine_ = new QQmlEngine(this);
+    miacode::intro::registerIntroAssetImages(qmlEngine_);
+    qCDebug(coverCompositionLog) << "engine ready";
+    if (configureEngine) configureEngine(qmlEngine_);
+    qCDebug(coverCompositionLog) << "component begin";
+    QQmlComponent component(qmlEngine_, qmlUrl);
+    qCDebug(coverCompositionLog) << "component ready" << component.status();
+    QObject* object = component.createWithInitialProperties(properties);
+    qCDebug(coverCompositionLog) << "item created" << (object != nullptr);
+    auto* item = qobject_cast<QQuickItem*>(object);
+    if (item == nullptr) {
+        if (errorMessage) *errorMessage = QStringLiteral("composition QML failed: %1").arg(component.errorString());
+        delete object;
+        return false;
+    }
+    compositionMode_ = true;
+    introItem_ = item;
+    introItem_->setParentItem(rootItem_);
+    introItem_->setParent(rootItem_);
+    introItem_->setZ(2.0);
+    introItem_->setVisible(true);
+    sceneRoot_->setVisible(false);
+    hudLayer_->setVisible(false);
+    applyIntroGeometry();
+    return true;
 }
 
 bool PreviewQuickExportSession::setupIntroOverlay(const QUrl& qmlUrl, QString* errorMessage)
@@ -1351,6 +1409,8 @@ bool PreviewQuickExportSession::setupIntroOverlay(const QUrl& qmlUrl, QString* e
     if (qmlEngine_ == nullptr) {
         qmlEngine_ = new QQmlEngine(this);
     }
+
+    miacode::intro::registerIntroAssetImages(qmlEngine_);
 
     QQmlComponent component(qmlEngine_, qmlUrl);
     if (component.isError()) {

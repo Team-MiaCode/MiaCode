@@ -7,6 +7,9 @@
 #include "core/scene/PreviewLayerOrder.h"
 #include "core/scene/PreviewProgressStatsCache.h"
 #include "preview/quick_scene/PreviewQuickSceneRoot.h"
+#ifdef MIACODE_MOBILE
+#include "preview/runtime/PreviewQuickExportSession.h"
+#endif
 
 #include <QColor>
 #include <QGuiApplication>
@@ -155,6 +158,15 @@ bool SceneFrameRenderer::prepareCaptureWindow(int sidePx, double seconds,
         return false;
     }
     const int side = qBound(16, sidePx, 4096);
+#ifdef MIACODE_MOBILE
+    if (!offscreen_) offscreen_ = std::make_unique<PreviewQuickExportSession>();
+    frameState_.playheadSeconds = seconds;
+    miacode::preview::scene::refreshPreviewFrameStateHudStatsSnapshot(frameState_);
+    offscreen_->setFrameState(frameState_);
+    offscreen_->setFrameSize(QSize(side, side));
+    offscreen_->setLayerFlags(miacode::preview::scene::kPreviewExportOverlayRenderLayers);
+    return offscreen_->isInitialized() || offscreen_->initialize(QSurfaceFormat(), nullptr, errorMessage);
+#else
     if (!ensureWindow(errorMessage)) {
         return false;
     }
@@ -172,17 +184,25 @@ bool SceneFrameRenderer::prepareCaptureWindow(int sidePx, double seconds,
     sceneRoot_->setFrameState(&frameState_);
     window_->update();
     return true;
+#endif
 }
 
 bool SceneFrameRenderer::captureReady() const
 {
+#ifdef MIACODE_MOBILE
+    return offscreen_ && offscreen_->isInitialized();
+#else
     return window_ != nullptr && window_->isVisible() && window_->isExposed()
         && sceneGraphReady_ && window_->isSceneGraphInitialized() && window_->rhi() != nullptr
         && sceneGraphError_.isEmpty();
+#endif
 }
 
 QString SceneFrameRenderer::captureReadinessError() const
 {
+#ifdef MIACODE_MOBILE
+    return captureReady() ? QString() : QStringLiteral("offscreen chart renderer is not initialized");
+#else
     if (!sceneGraphError_.isEmpty()) {
         return sceneGraphError_;
     }
@@ -202,6 +222,7 @@ QString SceneFrameRenderer::captureReadinessError() const
         return QStringLiteral("capture window has no active QRhi");
     }
     return {};
+#endif
 }
 
 QImage SceneFrameRenderer::renderAt(double seconds, int sidePx, QString* errorMessage)
@@ -221,7 +242,11 @@ QImage SceneFrameRenderer::renderAt(double seconds, int sidePx, QString* errorMe
     // processing: re-entrant events can reset the session or destroy the window
     // while Qt is preparing the scene graph. The session retries this operation
     // on a later event-loop turn until the lifecycle checks above pass.
+#ifdef MIACODE_MOBILE
+    QImage image = offscreen_->renderFrame(errorMessage);
+#else
     QImage image = window_->grabWindow();
+#endif
     if (image.isNull()) {
         if (errorMessage != nullptr) {
             *errorMessage = QStringLiteral("grabWindow returned an empty image");

@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QString>
 #include <QVariantList>
+#include <functional>
 
 #include "app/services/PreviewSurface.h"
 
@@ -26,9 +27,17 @@ class AudioSettingsModel final : public QObject
                    WRITE setBreakSlideTailCheerMuted NOTIFY changed)
 
 public:
+    struct AuditionCallbacks {
+        std::function<bool(const QString&, const QString&, const PreviewAudioSettings&)> play;
+        std::function<void()> release;
+    };
     // No MainWindow: the mixer reaches everything through the preview surface.
+#ifndef MIACODE_MOBILE
     explicit AudioSettingsModel(miacode::PreviewSurface*& surfaceSlot,
                                    QObject* parent = nullptr);
+#endif
+    AudioSettingsModel(miacode::PreviewSurface*& surfaceSlot, AuditionCallbacks audition,
+                       QObject* parent = nullptr);
     ~AudioSettingsModel() override;
 
     // [{ key, label, percent, muted }] in the order the page shows them.
@@ -74,6 +83,7 @@ private:
     // runtime spins up an audio worker thread, and most sessions never open
     // this page.
     QtPreviewSfxRuntime* auditionRuntime_ = nullptr;
+    AuditionCallbacks auditionCallbacks_;
     QTimer* auditionTimer_ = nullptr;
     QString pendingAudition_;
     QString auditionSfxDir_;

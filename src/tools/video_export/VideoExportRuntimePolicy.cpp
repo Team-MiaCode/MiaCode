@@ -36,6 +36,21 @@ VideoExportSizePolicy videoExportSizePolicy(VideoExportSizePreset preset)
     }
 }
 
+qint64 videoExportTargetBitrateKbps(bool highQuality, VideoExportSizePreset sizePreset,
+    int outputWidth, int outputHeight, int fps)
+{
+    const double pixelsPerSecond = static_cast<double>(qMax(1, outputWidth))
+        * qMax(1, outputHeight) * qMax(1, fps);
+    const auto policy = videoExportSizePolicy(sizePreset);
+    if (sizePreset != VideoExportSizePreset::Standard) {
+        return qBound(policy.minBitrateKbps,
+            qRound64(pixelsPerSecond * policy.bitrateCoefficient / 1000.0), policy.maxBitrateKbps);
+    }
+    return highQuality
+        ? qBound<qint64>(2600LL, qRound64(pixelsPerSecond * 0.090 / 1000.0), 10500LL)
+        : qBound<qint64>(2200LL, qRound64(pixelsPerSecond * 0.075 / 1000.0), 8500LL);
+}
+
 QString videoExportSizePresetToken(VideoExportSizePreset preset)
 {
     switch (preset) {

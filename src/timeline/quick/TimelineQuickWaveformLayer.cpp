@@ -13,6 +13,8 @@
 #include <QSGVertexColorMaterial>
 #include <QVector>
 
+#include "timeline/quick/TimelineQuickLayerUtils.h"
+
 namespace {
 
 struct WaveformEnvelopeSample {
@@ -215,7 +217,7 @@ QSGGeometryNode* buildWaveformEnvelopeNode(
     return node;
 }
 
-struct TimelineQuickWaveformRootNode : public QSGNode {
+struct TimelineQuickWaveformRootNode : public QSGTransformNode {
     quint64 revision = 0;
     quint64 layoutRevision = 0;
     quint64 appearanceRevision = 0;
@@ -234,8 +236,7 @@ QSGClipNode* ensureClipRoot(TimelineQuickWaveformRootNode* root)
         root->removeChildNode(child);
         delete child;
     }
-    clipRoot = new QSGClipNode();
-    clipRoot->setIsRectangular(true);
+    clipRoot = createTimelineClipNode();
     root->appendChildNode(clipRoot);
     return clipRoot;
 }
@@ -298,7 +299,7 @@ QSGNode* TimelineQuickWaveformLayer::updateNode(
     QSGTransformNode* transformRoot = ensureTransformRoot(clipRoot);
     QSGNode* contentRoot = ensureContentRoot(transformRoot);
     if (clipRoot != nullptr) {
-        clipRoot->setClipRect(QRectF(
+        setTimelineClipRect(clipRoot, QRectF(
             state.timelineLeft,
             state.timelineTop,
             qMax(0, state.viewportSize.width() - state.timelineLeft),

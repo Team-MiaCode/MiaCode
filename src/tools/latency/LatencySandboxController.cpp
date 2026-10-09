@@ -27,7 +27,7 @@ constexpr double kFallbackAudioDurationSeconds = 180.0;
 }  // namespace
 
 LatencySandboxController::LatencySandboxController(Session* owner, QObject* parent)
-    : QObject(parent)
+    : LatencyAudition(parent)
     , owner_(owner)
     , tickTimer_(new QTimer(this))
 {

@@ -6,6 +6,7 @@
 #include <QSGTextNode>
 #include <QTextLayout>
 #include <QSGFlatColorMaterial>
+#include <QSGClipNode>
 #include <QSGGeometry>
 #include <QSGGeometryNode>
 #include <QSGNode>
@@ -27,6 +28,30 @@ std::atomic<quint64> g_timelineGeometryCreateTotal{0};
 quint64 timelineQuickGeometryCreateTotal()
 {
     return g_timelineGeometryCreateTotal.load(std::memory_order_relaxed);
+}
+
+QSGClipNode* createTimelineClipNode()
+{
+    auto* node = new QSGClipNode();
+    auto* geometry = new QSGGeometry(QSGGeometry::defaultAttributes_Point2D(), 4);
+    g_timelineGeometryCreateTotal.fetch_add(1, std::memory_order_relaxed);
+    QSGGeometry::updateRectGeometry(geometry, QRectF());
+    node->setGeometry(geometry);
+    node->setFlag(QSGNode::OwnsGeometry);
+    node->setIsRectangular(true);
+    return node;
+}
+
+void setTimelineClipRect(QSGClipNode* node, const QRectF& rect)
+{
+    if (node->clipRect() == rect) {
+        return;
+    }
+    // Rectangular clipping is an optimization hint. The stencil fallback
+    // still needs geometry, including when an ancestor has a transform.
+    node->setClipRect(rect);
+    QSGGeometry::updateRectGeometry(node->geometry(), rect);
+    node->markDirty(QSGNode::DirtyGeometry);
 }
 
 QImage makeTimelineGlyphImage(const miacode::timeline::TimelineSceneGlyph& glyph)

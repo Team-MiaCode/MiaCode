@@ -1,8 +1,10 @@
 #include "preview/AudioSettingsModel.h"
 
 #include "audio/PreviewAudioSettings.h"
+#ifndef MIACODE_MOBILE
 #include "audio/PreviewAudioWorkerProtocol.h"
 #include "audio/QtPreviewSfxRuntime.h"
+#endif
 #include "common/PreviewSfxAssets.h"
 #include "common/PreviewSfxSemantics.h"
 
@@ -90,14 +92,22 @@ const ChannelSpec* specForKey(const QString& key)
 
 }  // namespace
 
+#ifndef MIACODE_MOBILE
 AudioSettingsModel::AudioSettingsModel(miacode::PreviewSurface*& surfaceSlot,
                                              QObject* parent)
     : QObject(parent)
     , surfaceSlot_(&surfaceSlot)
 {
 }
+#endif
 
-AudioSettingsModel::~AudioSettingsModel() = default;
+AudioSettingsModel::AudioSettingsModel(miacode::PreviewSurface*& surfaceSlot,
+    AuditionCallbacks audition, QObject* parent)
+    : QObject(parent), surfaceSlot_(&surfaceSlot), auditionCallbacks_(std::move(audition))
+{
+}
+
+AudioSettingsModel::~AudioSettingsModel() { releaseAudition(); }
 
 QVariantList AudioSettingsModel::channels() const
 {
@@ -178,6 +188,7 @@ void AudioSettingsModel::restoreSoftwareDefault()
         // The restored mix is not any one channel's edit, so there is no
         // channel to audition — drop whatever the last edit had queued.
         queueAudition(QString());
+        if (auditionCallbacks_.release) auditionCallbacks_.release();
         emit changed();
     }
 }
@@ -207,8 +218,11 @@ void AudioSettingsModel::releaseAudition()
     auditionReloadSequence_ = 0;
     auditionSfxDir_.clear();
     auditionHeld_ = false;
+    if (auditionCallbacks_.release) auditionCallbacks_.release();
+#ifndef MIACODE_MOBILE
     delete auditionRuntime_;
     auditionRuntime_ = nullptr;
+#endif
 }
 
 void AudioSettingsModel::queueAudition(const QString& kind)
@@ -263,6 +277,9 @@ bool AudioSettingsModel::playAudition(const QString& kind)
         resolvedKind = QStringLiteral("break_slide_start");
     }
 
+    if (auditionCallbacks_.play)
+        return auditionCallbacks_.play(resolvedKind, sfxDir, surface()->audioSettings());
+#ifndef MIACODE_MOBILE
     if (auditionRuntime_ == nullptr) {
         auditionRuntime_ = new QtPreviewSfxRuntime(this);
         connect(auditionRuntime_,
@@ -305,6 +322,9 @@ bool AudioSettingsModel::playAudition(const QString& kind)
     auditionRuntime_->applyLevels(surface()->audioSettings());
     auditionRuntime_->stopAll();
     return auditionRuntime_->audition(resolvedKind);
+#else
+    return false;
+#endif
 }
 
 bool AudioSettingsModel::breakSlideTailCheerMuted() const

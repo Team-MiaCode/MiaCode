@@ -2,7 +2,7 @@
 
 #include "layout/WorkbenchSettings.h"
 #include "app/services/PreferencesStore.h"
-#include "runtime/Shared.h"
+#include "common/EditorAppearance.h"
 #include "ui/preferences/LocaleService.h"
 #include "ui/preferences/PreferenceDocument.h"
 
@@ -304,6 +304,7 @@ void PreferencesModel::setVideoDecodePrefersSoftware(bool preferSoftware)
         return;
     }
     store()->setVideoDecodePrefersSoftware(preferSoftware, true);
+    decoderRestartRequired_ = store()->videoDecodeRequiresRestart();
     emit performanceChanged();
 }
 

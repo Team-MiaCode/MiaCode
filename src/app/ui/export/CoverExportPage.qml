@@ -22,8 +22,15 @@ Rectangle {
     id: root
 
     required property var coverSession
+    property var batchExportController: null
     readonly property var session: root.coverSession
     signal closeRequested()
+
+    CoverBatchExportDialog {
+        id: batchDialog
+        coverSession: root.session
+        controller: root.batchExportController
+    }
 
     // 右栏分组。选中任意图层后都回到图层检查器，保证当前选择的属性可见。
     property string inspectorTab: "canvas"
@@ -157,6 +164,13 @@ Rectangle {
                 selected: layoutMenu.active
                 enabled: !!root.session && !root.session.busy
                 onClicked: layoutMenu.active ? layoutMenu.close() : layoutMenu.openAt(layoutMenuButton)
+            }
+            AppButton {
+                objectName: "coverBatchExportButton"
+                visible: !!root.batchExportController
+                text: qsTrId("action.batch_export")
+                enabled: !!root.session && !root.session.busy
+                onClicked: batchDialog.open()
             }
             AppButton {
                 objectName: "coverExportButton"

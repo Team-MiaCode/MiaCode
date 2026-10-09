@@ -1,6 +1,6 @@
 #include "layout/WorkbenchSettings.h"
 
-#include "runtime/Shared.h"
+#include "common/EditorAppearance.h"
 #include "AppVersion.h"
 #include "ui/preferences/PreferenceDocument.h"
 #include "ui/theme/ThemeVariantResolver.h"
@@ -206,7 +206,31 @@ QString WorkbenchSettings::activeThemeToken() const
     return darkAppearance ? darkThemeToken() : lightThemeToken();
 }
 bool WorkbenchSettings::darkTheme() const { return darkTheme_; }
-QFont WorkbenchSettings::codeFont() const { return codeFont_; }
+QFont WorkbenchSettings::codeFont() const
+{
+    QFont font = codeFont_;
+    if (!editorFontFamilyOverride_.isEmpty()) font.setFamily(editorFontFamilyOverride_);
+    return font;
+}
+
+QFont WorkbenchSettings::renderedCodeFont() const
+{
+    QFont font = codeFont();
+#ifdef Q_OS_ANDROID
+    // The v2 workbench uses 96 logical pixels per inch. Android's point-size
+    // conversion uses a different logical DPI; use the same workbench pixels
+    // before its existing proportional transform and device pixel ratio.
+    if (font.pointSizeF() > 0) font.setPixelSize(qRound(font.pointSizeF() * 96.0 / 72.0));
+#endif
+    return font;
+}
+
+void WorkbenchSettings::setEditorFontFamilyOverride(const QString& family)
+{
+    if (editorFontFamilyOverride_ == family) return;
+    editorFontFamilyOverride_ = family;
+    emit editorSettingsChanged();
+}
 int WorkbenchSettings::editorBlockSpacing() const { return editorBlockSpacing_; }
 int WorkbenchSettings::fontSize() const { return fontSize_; }
 bool WorkbenchSettings::editorHalfWidthInputEnabled() const { return editorHalfWidthInputEnabled_; }
@@ -389,6 +413,16 @@ void WorkbenchSettings::setEditorAppearance(int pointSize, double lineSpacingFac
     }
     codeFont_ = font;
     editorBlockSpacing_ = blockSpacing;
+    emit editorSettingsChanged();
+}
+
+void WorkbenchSettings::applyEditorInputPreferences(bool halfWidth, bool autoCompletion, bool imeDisabled)
+{
+    if (editorHalfWidthInputEnabled_ == halfWidth && editorAutoCompletionEnabled_ == autoCompletion
+        && editorImeInputDisabled_ == imeDisabled) return;
+    editorHalfWidthInputEnabled_ = halfWidth;
+    editorAutoCompletionEnabled_ = autoCompletion;
+    editorImeInputDisabled_ = imeDisabled;
     emit editorSettingsChanged();
 }
 

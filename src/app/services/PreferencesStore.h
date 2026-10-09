@@ -50,6 +50,7 @@ public:
 
     // ---- decode + layout ----
     virtual bool videoDecodePrefersSoftware() const = 0;
+    virtual bool videoDecodeRequiresRestart() const { return false; }
     virtual void setVideoDecodePrefersSoftware(bool preferSoftware, bool persist) = 0;
     virtual bool workspacePanelsSwapped() const = 0;
     virtual void setWorkspacePanelsSwapped(bool swapped, bool persist) = 0;

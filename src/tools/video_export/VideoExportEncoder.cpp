@@ -380,20 +380,12 @@ VideoBitratePlan chooseVideoBitratePlan(
     int fps
 )
 {
-    const int safeWidth = qMax(1, outputWidth);
-    const int safeHeight = qMax(1, outputHeight);
-    const int safeFps = qMax(1, fps);
-
     VideoBitratePlan plan;
+    plan.bitrateKbps = miacode::video_export::videoExportTargetBitrateKbps(
+        preset == VideoExportPreset::HighQuality, sizePreset, outputWidth, outputHeight, fps);
     const miacode::video_export::VideoExportSizePolicy sizePolicy =
         miacode::video_export::videoExportSizePolicy(sizePreset);
     if (sizePreset != VideoExportSizePreset::Standard) {
-        plan.bitrateKbps = qBound<qint64>(
-            sizePolicy.minBitrateKbps,
-            qRound64(static_cast<double>(safeWidth) * safeHeight * safeFps
-                     * sizePolicy.bitrateCoefficient / 1000.0),
-            sizePolicy.maxBitrateKbps
-        );
         plan.maxRateKbps = qMax<qint64>(
             plan.bitrateKbps,
             qRound64(static_cast<double>(plan.bitrateKbps) * sizePolicy.maxRateMultiplier)
@@ -405,11 +397,6 @@ VideoBitratePlan chooseVideoBitratePlan(
         return plan;
     }
     if (preset == VideoExportPreset::HighQuality) {
-        plan.bitrateKbps = qBound<qint64>(
-            2600LL,
-            qRound64(static_cast<double>(safeWidth) * safeHeight * safeFps * 0.090 / 1000.0),
-            10500LL
-        );
         plan.maxRateKbps = qBound<qint64>(
             plan.bitrateKbps,
             qRound64(static_cast<double>(plan.bitrateKbps) * 1.35),
@@ -423,11 +410,6 @@ VideoBitratePlan chooseVideoBitratePlan(
         return plan;
     }
 
-    plan.bitrateKbps = qBound<qint64>(
-        2200LL,
-        qRound64(static_cast<double>(safeWidth) * safeHeight * safeFps * 0.075 / 1000.0),
-        8500LL
-    );
     plan.maxRateKbps = qBound<qint64>(
         plan.bitrateKbps,
         qRound64(static_cast<double>(plan.bitrateKbps) * 1.40),

@@ -33,7 +33,13 @@ public final class MiaCodeActivity extends QtActivity {
     private String pendingKind = "";
     private String pendingPayload = "";
     private volatile boolean foregroundProbeActive;
+    private volatile boolean uiResumed;
     public static native void deliverResult(String json);
+    public boolean isUiResumed() { return uiResumed; }
+    @Override protected void onResume() {
+        uiResumed = true;
+        super.onResume();
+    }
     public void requestUiFile(String payload) { uiFiles.request(payload); }
     boolean hasPendingFileOperation() { return !pendingKind.isEmpty(); }
 
@@ -300,6 +306,7 @@ public final class MiaCodeActivity extends QtActivity {
     }
 
     @Override protected void onPause() {
+        uiResumed = false;
         super.onPause();
         foregroundProbeActive = false;
     }

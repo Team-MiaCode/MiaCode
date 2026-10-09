@@ -89,12 +89,39 @@ bool verifyProductionPublicationDropsStaleWork(QTextStream& out)
 
 }  // namespace
 
+bool verifyLiveLocaleDropsPreviousLanguage(QTextStream& out)
+{
+    miacode::ChartWorkspace workspace;
+    workspace.openSource(sourceText());
+    miacode::AnalysisService service(workspace, SimaiNativeValidationLocale::English);
+    QVector<miacode::AnalysisSnapshot> published;
+    QEventLoop loop;
+    QObject::connect(&service, &miacode::AnalysisService::analysisReady, &loop, [&] {
+        published.append(service.snapshot());
+        if (service.snapshot().locale == SimaiNativeValidationLocale::Japanese) loop.quit();
+    });
+    // The same chart revision requests two languages while its initial worker
+    // is still pending. Revision checks alone cannot distinguish these jobs.
+    service.setLocale(SimaiNativeValidationLocale::Chinese);
+    service.setLocale(SimaiNativeValidationLocale::Japanese);
+    QTimer::singleShot(10000, &loop, &QEventLoop::quit);
+    loop.exec();
+    bool wrongLanguage = false;
+    for (const auto& snapshot : published)
+        wrongLanguage |= snapshot.locale != SimaiNativeValidationLocale::Japanese;
+    return expect(service.snapshot().available && !service.snapshot().pending
+                      && service.snapshot().locale == SimaiNativeValidationLocale::Japanese
+                      && published.size() == 1 && !wrongLanguage,
+                  QStringLiteral("live locale changes retain the newest request and never publish a previous language for the same revision"), out);
+}
+
 int main(int argc, char** argv)
 {
     QCoreApplication app(argc, argv);
     QTextStream out(stderr);
     if (!verifyRevisionStampedAnalysis(out)
-        || !verifyProductionPublicationDropsStaleWork(out)) return 1;
+        || !verifyProductionPublicationDropsStaleWork(out)
+        || !verifyLiveLocaleDropsPreviousLanguage(out)) return 1;
     QTextStream result(stdout);
     result << "Analysis service checks passed." << Qt::endl;
     return 0;

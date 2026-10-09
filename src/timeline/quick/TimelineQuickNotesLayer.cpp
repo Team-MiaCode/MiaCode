@@ -13,7 +13,7 @@
 
 namespace {
 
-struct TimelineQuickNotesRootNode : public QSGNode {
+struct TimelineQuickNotesRootNode : public QSGTransformNode {
     quint64 revision = 0;
     quint64 layoutRevision = 0;
     quint64 appearanceRevision = 0;
@@ -36,8 +36,7 @@ void rebuildNoteSlots(TimelineQuickNotesRootNode* root)
         return;
     }
     clearChildren(root);
-    auto* clipRoot = new QSGClipNode();
-    clipRoot->setIsRectangular(true);
+    auto* clipRoot = createTimelineClipNode();
     auto* transformRoot = new QSGTransformNode();
     transformRoot->appendChildNode(new QSGNode());
     clipRoot->appendChildNode(transformRoot);
@@ -206,7 +205,7 @@ QSGNode* TimelineQuickNotesLayer::updateNode(
     QSGTransformNode* transformRoot = transformRootFor(clipRoot);
     QSGNode* bodyRoot = contentRootFor(transformRoot);
     if (clipRoot != nullptr) {
-        clipRoot->setClipRect(QRectF(
+        setTimelineClipRect(clipRoot, QRectF(
             state.timelineLeft,
             state.timelineTop,
             qMax(0, state.viewportSize.width() - state.timelineLeft),

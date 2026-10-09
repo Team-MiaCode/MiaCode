@@ -11,6 +11,7 @@
 #include <QtGui/qopengl.h>
 
 #include <atomic>
+#include <functional>
 #include <condition_variable>
 #include <limits>
 #include <mutex>
@@ -80,6 +81,12 @@ public:
         const QVariantMap& style = QVariantMap());
     void setIntroFrame(int authoringFrame, bool active);
     bool introOverlayReady() const { return introItem_ != nullptr; }
+
+    // A still composition uses the same offscreen surface/readback as video,
+    // with QML authored directly at the requested output size.
+    bool setupComposition(const QUrl& qmlUrl, const QVariantMap& properties,
+                          const std::function<void(QQmlEngine*)>& configureEngine,
+                          QString* errorMessage = nullptr);
 
     bool initialize(
         const QSurfaceFormat& requestedFormat = QSurfaceFormat(),
@@ -154,6 +161,7 @@ private:
     QQmlEngine* qmlEngine_ = nullptr;
     QQuickItem* introItem_ = nullptr;
     bool introActive_ = false;
+    bool compositionMode_ = false;
     QOffscreenSurface* offscreenSurface_ = nullptr;
     QOpenGLContext* context_ = nullptr;
     QOpenGLFramebufferObject* framebuffer_ = nullptr;

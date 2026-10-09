@@ -77,10 +77,12 @@ AppDialog {
             spacing: 8
 
             AppButton {
+                objectName: "audioSaveDefaultButton"
                 text: qsTrId("qml.set_as_local_default")
                 onClicked: root.audioSettings.saveAsSoftwareDefault()
             }
             AppButton {
+                objectName: "audioRestoreDefaultButton"
                 text: qsTrId("qml.restore_local_defaults")
                 onClicked: root.audioSettings.restoreSoftwareDefault()
             }
@@ -114,6 +116,7 @@ AppDialog {
                     font.pixelSize: Theme.uiFontSize
                 }
                 IconButton {
+                    objectName: "audioMute_" + channelRow.modelData
                     iconSource: Qt.resolvedUrl(channelRow.channel.muted
                                                ? "icons/volume-x.svg"
                                                : "icons/volume-2.svg")
@@ -124,6 +127,9 @@ AppDialog {
                 }
                 AppSlider {
                     id: levelSlider
+                    objectName: "audioLevel_" + channelRow.modelData
+                    Accessible.name: channelRow.channel.label
+                    Accessible.description: channelRow.channel.percent + "%"
                     Layout.fillWidth: true
                     from: 0
                     to: 100

@@ -1,14 +1,19 @@
 #include "tools/cover_export/CoverCompositeRenderer.h"
 
 #include "common/ChartAssetPaths.h"
+#include "common/IntroAssetImages.h"
 #include "tools/cover_export/CoverLayoutModel.h"
 #include "preview/quick_scene/PreviewQuickSceneRoot.h"
+#ifdef MIACODE_MOBILE
+#include "preview/runtime/PreviewQuickExportSession.h"
+#endif
 
 #include <QColor>
 #include <QCoreApplication>
 #include <QDir>
 #include <QEventLoop>
 #include <QFileInfo>
+#include <QLoggingCategory>
 #include <QPointer>
 #include <QQmlComponent>
 #include <QQmlContext>
@@ -20,6 +25,9 @@
 #include <QUrl>
 #include <Qt>
 #include <QtQml>
+#include <memory>
+
+Q_LOGGING_CATEGORY(coverCompositeLog, "miacode.cover.composite", QtWarningMsg)
 
 namespace miacode::cover_export {
 namespace {
@@ -30,7 +38,8 @@ constexpr char kCoverChartImageProviderId[] = "coverchart";
 void ensureComposerQmlTypesRegistered()
 {
     static const bool registered = [] {
-        qmlRegisterType<PreviewQuickSceneRoot>("MiaCode.Preview", 1, 0, "PreviewQuickSceneRoot");
+        if (qmlTypeId("MiaCode.Preview", 1, 0, "PreviewQuickSceneRoot") < 0)
+            qmlRegisterType<PreviewQuickSceneRoot>("MiaCode.Preview", 1, 0, "PreviewQuickSceneRoot");
         return true;
     }();
     Q_UNUSED(registered);
@@ -86,37 +95,55 @@ void settleEvents(bool cold)
     QCoreApplication::processEvents(QEventLoop::AllEvents, 2);
 }
 
-void applyComposerInputs(QQuickItem* root,
-                         CoverLayoutModel* model,
-                         const CoverComposerInputs& inputs,
-                         bool editable)
+QVariantMap composerProperties(CoverLayoutModel* model,
+                               const CoverComposerInputs& inputs, bool editable)
 {
-    if (root == nullptr) {
-        return;
-    }
-    root->setProperty("coverLayout", QVariant::fromValue<QObject*>(model));
-    root->setProperty("coverTemplate", inputs.templateMap);
-    root->setProperty("trackOverrides", inputs.trackOverrides);
-    root->setProperty("jacketImage", miacode::chart_assets::displayBackgroundImageUrl(inputs.jacketPath));
-    root->setProperty("backgroundImage", miacode::chart_assets::displayBackgroundImageUrl(inputs.backgroundPath));
-    root->setProperty("backgroundMode", static_cast<int>(inputs.backgroundMode));
-    root->setProperty("blurEnabled", inputs.blurBackground);
-    root->setProperty("coverBgBrightness", inputs.coverBgBrightness);
-    root->setProperty("cardShadowEnabled", inputs.cardShadow);
-    root->setProperty("chartFrameBgEnabled", inputs.chartFrameBackground);
-    root->setProperty("chartFrameBgTransparency", inputs.chartFrameBgTransparency);
-    root->setProperty("chartFrameBgBrightness", inputs.chartFrameBgBrightness);
-    root->setProperty("chartFrameDiskDiameter", inputs.chartFrameDiskDiameter);
-    root->setProperty("activeChartFrameKey", QString());
-    root->setProperty("editable", editable);
+    return {
+        {QStringLiteral("coverLayout"), QVariant::fromValue<QObject*>(model)},
+        {QStringLiteral("coverTemplate"), inputs.templateMap},
+        {QStringLiteral("trackOverrides"), inputs.trackOverrides},
+        {QStringLiteral("jacketImage"), miacode::chart_assets::displayBackgroundImageUrl(inputs.jacketPath)},
+        {QStringLiteral("backgroundImage"), miacode::chart_assets::displayBackgroundImageUrl(inputs.backgroundPath)},
+        {QStringLiteral("backgroundMode"), static_cast<int>(inputs.backgroundMode)},
+        {QStringLiteral("blurEnabled"), inputs.blurBackground},
+        {QStringLiteral("coverBgBrightness"), inputs.coverBgBrightness},
+        {QStringLiteral("cardShadowEnabled"), inputs.cardShadow},
+        {QStringLiteral("chartFrameBgEnabled"), inputs.chartFrameBackground},
+        {QStringLiteral("chartFrameBgTransparency"), inputs.chartFrameBgTransparency},
+        {QStringLiteral("chartFrameBgBrightness"), inputs.chartFrameBgBrightness},
+        {QStringLiteral("chartFrameDiskDiameter"), inputs.chartFrameDiskDiameter},
+        {QStringLiteral("activeChartFrameKey"), QString()},
+        {QStringLiteral("editable"), editable},
+    };
 }
 
-QString uniqueCoverPath(const QDir& dir, const QString& extension)
+void applyComposerInputs(QQuickItem* root, CoverLayoutModel* model,
+                         const CoverComposerInputs& inputs, bool editable)
 {
-    QString candidate = dir.filePath(QStringLiteral("card.") + extension);
+    if (!root) return;
+    const auto properties = composerProperties(model, inputs, editable);
+    for (auto it = properties.cbegin(); it != properties.cend(); ++it)
+        root->setProperty(it.key().toUtf8().constData(), it.value());
+}
+
+QString uniqueCoverPath(const QDir& dir, const QString& extension, const QString& baseName)
+{
+    // Only a file name is accepted, even when a caller supplies chart metadata.
+    QString name = baseName;
+    for (auto& ch : name) {
+        if (ch.unicode() < 32 || QStringLiteral("<>:\"/\\|?*").contains(ch)) ch = QChar('_');
+    }
+    name = name.trimmed().left(120);
+    // Android providers commonly enforce a byte limit per file name. Leave
+    // room for collision suffixes and the extension with CJK chart titles.
+    while (name.toUtf8().size() > 180) name.chop(1);
+    if (!name.isEmpty() && name.back().isHighSurrogate()) name.chop(1);
+    while (name.endsWith('.') || name.endsWith(' ')) name.chop(1);
+    if (name.isEmpty()) name = QStringLiteral("card");
+    QString candidate = dir.filePath(name + '.' + extension);
     int copyIndex = 1;
     while (QFileInfo::exists(candidate)) {
-        candidate = dir.filePath(QStringLiteral("card(%1).%2").arg(copyIndex).arg(extension));
+        candidate = dir.filePath(QStringLiteral("%1(%2).%3").arg(name).arg(copyIndex).arg(extension));
         ++copyIndex;
     }
     return QFileInfo(candidate).absoluteFilePath();
@@ -129,6 +156,7 @@ void registerCoverChartImageProvider(QQmlEngine* engine, CoverLayoutModel* model
     if (engine == nullptr) {
         return;
     }
+    miacode::intro::registerIntroAssetImages(engine);
     engine->addImageProvider(QString::fromLatin1(kCoverChartImageProviderId),
                              new CoverChartImageProvider(model));
 }
@@ -136,7 +164,7 @@ void registerCoverChartImageProvider(QQmlEngine* engine, CoverLayoutModel* model
 QImage renderCoverComposite(CoverLayoutModel* model,
                             const CoverComposerInputs& inputs,
                             const QSize& fullSize,
-                            QString* errorMessage)
+                            QString* errorMessage, PreviewQuickExportSession* reusableRenderer)
 {
     const int width = qMax(1, fullSize.width());
     const int height = qMax(1, fullSize.height());
@@ -149,6 +177,32 @@ QImage renderCoverComposite(CoverLayoutModel* model,
     }
 
     ensureComposerQmlTypesRegistered();
+#ifdef MIACODE_MOBILE
+    std::unique_ptr<PreviewQuickExportSession> ownedRenderer;
+    if (!reusableRenderer) ownedRenderer = std::make_unique<PreviewQuickExportSession>();
+    auto& renderer = reusableRenderer ? *reusableRenderer : *ownedRenderer;
+    renderer.setFrameSize(QSize(width, height));
+    qCDebug(coverCompositeLog) << "initialize begin";
+    if (!renderer.initialize(QSurfaceFormat(), nullptr, errorMessage)) return {};
+    qCDebug(coverCompositeLog) << "composition begin";
+    if (!renderer.setupComposition(QUrl(QString::fromLatin1(kComposerQmlUrl)),
+            composerProperties(model, inputs, false),
+            [model](QQmlEngine* engine) { registerCoverChartImageProvider(engine, model); }, errorMessage))
+        return {};
+    qCDebug(coverCompositeLog) << "composition ready";
+    // Local images and fonts load synchronously. Drive the composition's own
+    // polish/render directly: pumping the application's event loop here can
+    // enter an Android window-surface wait during Home or lock transitions.
+    // Queue cancellation and publication are handled between bounded captures.
+    QImage image;
+    for (int i = 0; i < 3; ++i) {
+        qCDebug(coverCompositeLog) << "render begin" << i;
+        image = renderer.renderFrame(errorMessage);
+        qCDebug(coverCompositeLog) << "render returned" << i << !image.isNull();
+        if (image.isNull()) return {};
+    }
+#else
+    Q_UNUSED(reusableRenderer);
     auto* window = new QQuickWindow();
     window->setFlags(window->flags() | Qt::FramelessWindowHint | Qt::Tool
                      | Qt::WindowTransparentForInput | Qt::WindowDoesNotAcceptFocus);
@@ -191,6 +245,7 @@ QImage renderCoverComposite(CoverLayoutModel* model,
         image = window->grabWindow();
     }
     delete window;
+#endif
     if (image.isNull()) {
         if (errorMessage != nullptr) {
             *errorMessage = QStringLiteral("grabWindow returned an empty image");
@@ -207,7 +262,8 @@ QImage renderCoverComposite(CoverLayoutModel* model,
 CoverExportResult exportCoverComposite(CoverLayoutModel* model,
                                        const CoverComposerInputs& inputs,
                                        const QSize& fullSize,
-                                       const QString& outputDirectory)
+                                       const QString& outputDirectory, const QString& baseName,
+                                       PreviewQuickExportSession* reusableRenderer)
 {
     CoverExportResult result;
     QDir outputDir(outputDirectory);
@@ -216,7 +272,7 @@ CoverExportResult exportCoverComposite(CoverLayoutModel* model,
         result.errorMessage = QStringLiteral("invalid output directory: %1").arg(outputDirectory);
         return result;
     }
-    QImage image = renderCoverComposite(model, inputs, fullSize, &result.errorMessage);
+    QImage image = renderCoverComposite(model, inputs, fullSize, &result.errorMessage, reusableRenderer);
     if (image.isNull()) {
         if (result.errorMessage.isEmpty()) {
             result.errorMessage = QStringLiteral("failed to render the cover");
@@ -225,7 +281,7 @@ CoverExportResult exportCoverComposite(CoverLayoutModel* model,
     }
     const bool transparent = inputs.backgroundMode == CoverBackgroundMode::Transparent;
     const QString outputPath = uniqueCoverPath(outputDir, transparent ? QStringLiteral("png")
-                                                                    : QStringLiteral("jpg"));
+                                                                    : QStringLiteral("jpg"), baseName);
     if (!image.save(outputPath, transparent ? "PNG" : "JPG", transparent ? -1 : 95)) {
         result.errorMessage = QStringLiteral("failed to write image: %1").arg(outputPath);
         return result;

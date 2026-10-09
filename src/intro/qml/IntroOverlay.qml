@@ -1,4 +1,5 @@
 import QtQuick
+import "TextureSources.js" as TextureSources
 import QtQuick.Effects
 
 // Integrated chart-export intro overlay: maimai wipe -> live banner card ->
@@ -191,7 +192,7 @@ Item {
     Image {
         id: bgFill
         anchors.fill: parent
-        source: root.effectiveBackdrop
+        source: TextureSources.source(root.effectiveBackdrop)
         fillMode: Image.PreserveAspectCrop
         visible: false
         asynchronous: false
@@ -283,7 +284,7 @@ Item {
     MaimaiTransition {
         id: transition
         anchors.fill: parent
-        assetsRoot: "qrc:/intro/assets"
+        assetsRoot: Qt.platform.os === "android" ? "image://introasset/intro/assets" : "qrc:/intro/assets"
         frame: root.frame
         cycleStartFrame: root.currentCycleStart()
         enterTrimFrames: root.currentCycleStart() === root.cycle1Start ? root.cycle1EnterTrim : 0

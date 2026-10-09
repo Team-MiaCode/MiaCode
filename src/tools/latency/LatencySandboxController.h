@@ -8,6 +8,7 @@
 
 #include "PreviewAudioSettings.h"
 #include "app/services/LatencyEngine.h"
+#include "app/services/LatencyAudition.h"
 #include "timeline/TimelineData.h"
 #include "timeline/TimelineRenderData.h"
 
@@ -40,7 +41,7 @@ namespace miacode::latency {
 //
 // Lives as a member of Session (a friend), so it can reuse Session's
 // preview/timeline/transport helpers directly.
-class LatencySandboxController : public QObject, public miacode::LatencyEngine
+class LatencySandboxController : public LatencyAudition, public miacode::LatencyEngine
 {
     Q_OBJECT
 
@@ -84,11 +85,6 @@ public:
     // Stop any in-progress audition playback (used on file-path change). Only
     // acts while on the latency page; never touches normal-difficulty playback.
     void exitIfActive();
-
-signals:
-    void auditionStateChanged(bool running);
-    void parametersChanged();
-    void playheadAdvanced(double seconds);
 
 private:
     void onTick();                 // UI poll: mirror real playback state → page

@@ -91,6 +91,7 @@ Rectangle {
         width: Theme.activityButtonSize
         height: Theme.activityButtonSize
         hoverEnabled: true
+        Accessible.name: tooltip
 
         contentItem: ControlsImpl.IconImage {
             anchors.centerIn: parent

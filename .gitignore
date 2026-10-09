@@ -156,6 +156,10 @@ scripts/build/*
 !scripts/build/extract-android-sdk.py
 !scripts/build/audit-android-apk.py
 !scripts/build/android-ui-qa.py
+!scripts/build/validate-mobile-preferences.py
+!scripts/build/validate-mobile-background.py
+!scripts/build/validate-mobile-cover-background.py
+!scripts/build/validate-mobile-workbench.py
 !scripts/build/mobile-qml-closure.py
 !scripts/debug/
 scripts/debug/*

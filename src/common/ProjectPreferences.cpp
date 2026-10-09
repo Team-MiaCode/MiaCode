@@ -6,6 +6,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
+#include <QSaveFile>
 
 namespace miacode::project_preferences {
 
@@ -57,15 +58,15 @@ bool save(const QString& chartFilePath, const QJsonObject& preferences)
             return false;
         }
     }
-    QFile file(path);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+    QSaveFile file(path);
+    file.setDirectWriteFallback(false);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         return false;
     }
     const QJsonDocument doc(preferences);
     const QByteArray payload = doc.toJson(QJsonDocument::Indented);
     const qint64 written = file.write(payload);
-    file.close();
-    return written == payload.size();
+    return written == payload.size() && file.commit();
 }
 
 }  // namespace miacode::project_preferences

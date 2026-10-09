@@ -24,13 +24,18 @@ public:
     MobileVideoExport(AndroidDocumentSession& document, MobilePreview& preview, QObject* parent = nullptr);
     ~MobileVideoExport() override;
     VideoExportTask buildTask(int difficultyId = 0) const;
-    bool start(const VideoExportTask& task, QString* error = nullptr);
+    bool start(const VideoExportTask& task, QString* error = nullptr, bool independentChart = false);
+    bool beginBatchExecution(QString* error);
+    void endBatchExecution();
+    void updateBatchProgress(int percent);
+    bool batchCancellationRequested() const { return batchActive_ && batchCanceled_; }
     Q_INVOKABLE void cancel();
     void publicationUpdate(const QJsonObject& result);
     bool running() const { return running_; }
     int percent() const { return percent_; }
     QString outputPath() const { return task_.outputPath; }
     QString error() const { return error_; }
+    bool cancellationRequested() const { return cancelled_.load(); }
 signals:
     void changed();
     void finished(bool success, const QString& output, const QString& error);
@@ -40,6 +45,8 @@ private:
     void complete(bool success, const QString& error = {});
     bool commitFile(const QString& source, const QString& destination, QString* error);
     void finishOutput(const QString& source, const QString& destination);
+    bool beginBackgroundService(QString* error);
+    void endBackgroundService();
     AndroidDocumentSession& document_;
     MobilePreview& preview_;
     VideoExportTask task_;
@@ -56,6 +63,7 @@ private:
     int frame_ = 0, percent_ = 0;
     qint64 decodedVideoUs_ = -1;
     bool running_ = false, videoRequested_ = false, inputFinished_ = false;
+    bool batchActive_ = false, batchCanceled_ = false, backgroundServiceActive_ = false;
 #ifdef Q_OS_ANDROID
     QJniObject encoder_;
 #endif

@@ -37,6 +37,7 @@ class WorkbenchSettings final : public QObject
     Q_PROPERTY(QString activeThemeToken READ activeThemeToken NOTIFY themeChanged)
     Q_PROPERTY(bool darkTheme READ darkTheme NOTIFY themeChanged)
     Q_PROPERTY(QFont codeFont READ codeFont NOTIFY editorSettingsChanged)
+    Q_PROPERTY(QFont renderedCodeFont READ renderedCodeFont NOTIFY editorSettingsChanged)
     Q_PROPERTY(int editorBlockSpacing READ editorBlockSpacing NOTIFY editorSettingsChanged)
     Q_PROPERTY(int fontSize READ fontSize WRITE setFontSize NOTIFY fontSizeChanged)
     Q_PROPERTY(bool editorHalfWidthInputEnabled READ editorHalfWidthInputEnabled NOTIFY editorSettingsChanged)
@@ -72,6 +73,7 @@ public:
     QString activeThemeToken() const;
     bool darkTheme() const;
     QFont codeFont() const;
+    QFont renderedCodeFont() const;
     int editorBlockSpacing() const;
     int fontSize() const;
     bool editorHalfWidthInputEnabled() const;
@@ -91,10 +93,14 @@ public:
     void setFontSize(int value);
     void reloadEditorSettings();
     void reloadTheme();
-    void setThemeModeToken(const QString& token);
+    Q_INVOKABLE void setThemeModeToken(const QString& token);
     void setLightThemeToken(const QString& token);
     void setDarkThemeToken(const QString& token);
     void setEditorAppearance(int pointSize, double lineSpacingFactor);
+    void applyEditorInputPreferences(bool halfWidth, bool autoCompletion, bool imeDisabled);
+    // Platform file import may provide a project font. Point size and spacing
+    // still come from the shared editor preferences.
+    void setEditorFontFamilyOverride(const QString& family);
     void setEditorScrollPastEnd(bool enabled);
     void setEditorSelectionBeatDisplay(bool enabled);
 
@@ -127,6 +133,7 @@ private:
     bool previewHidePv_ = false;
     QString uiFontFamily_;
     QFont codeFont_;
+    QString editorFontFamilyOverride_;
     int editorBlockSpacing_ = 0;
     int fontSize_ = 13;
     bool editorHalfWidthInputEnabled_ = true;

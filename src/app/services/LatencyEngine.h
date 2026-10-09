@@ -3,7 +3,7 @@
 #include <QString>
 
 namespace miacode::latency {
-class LatencySandboxController;
+class LatencyAudition;
 }
 
 namespace miacode {
@@ -39,7 +39,7 @@ public:
     virtual void applyDetectorClockCount(int clockCount) = 0;
 
     // The audition sandbox. Null before the window has built one.
-    virtual miacode::latency::LatencySandboxController* sandbox() const = 0;
+    virtual miacode::latency::LatencyAudition* sandbox() const = 0;
 
     // Stop any in-progress audition playback (used on file-path change). Only
     // acts while the latency page is selected; never touches normal-difficulty

@@ -4,12 +4,14 @@
 #include <QMetaObject>
 #include <QSize>
 #include <QString>
+#include <memory>
 
 #include "core/scene/PreviewFrameState.h"
 #include "preview/runtime/PreviewSceneAssetRepository.h"
 
 class QQuickWindow;
 class PreviewQuickSceneRoot;
+class PreviewQuickExportSession;
 struct VideoExportTask;
 
 namespace miacode::cover_export {
@@ -109,6 +111,9 @@ private:
     miacode::preview::scene::PreviewFrameState frameState_;
     QQuickWindow* window_ = nullptr;
     PreviewQuickSceneRoot* sceneRoot_ = nullptr;   // owned by window_'s content item
+#ifdef MIACODE_MOBILE
+    std::unique_ptr<PreviewQuickExportSession> offscreen_;
+#endif
     QMetaObject::Connection sceneGraphInitializedConnection_;
     QMetaObject::Connection sceneGraphInvalidatedConnection_;
     QMetaObject::Connection sceneGraphErrorConnection_;

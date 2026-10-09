@@ -21,6 +21,16 @@
 | 配置、资源、日志 | `src/common/` | 共享配置与纯 helper；不要把单一功能私有状态放进 common |
 
 装配细节查 `src/app/runtime/ASSEMBLY.md` 和 `ApplicationServices` 的实际安装点；其中的阶段计划不代表代码已实现。
+
+Android 校准页复用 `LatencyModel`、`LatencyPage`、`LatencyAnalysis` 和测试谱面生成器。
+`LatencyEngine` 的试听端口为 `LatencyAudition`；桌面控制器与 Android `MobileLatency`
+分别连接各自现有播放权威。Android 测试谱面仅覆盖 `MobilePreview` 的预览数据源，
+`MobileTimeline` 读取同一数据源；用户正文仍归 `AndroidDocumentSession` 的 ChartWorkspace。
+
+Android 的自定义片头音源库由 `MobilePreferencesStore` 在启动时设置到偏好目录旁的
+`music` 私有目录；`PreviewSfxAssets` 是导入、试听与离线导出的共同路径解析入口。
+`MobileExportComposition` 连接共享导出页与片头场景，`MobilePreview` 持有传输，
+`MobileSfxOutput` 负责 PCM 输出及可替换的片头解码；音源回调必须匹配当前代次。
 历史中的 MainWindow、v1 QuickShell 外壳、DComp 渲染器和外置预览 worker 已退役，不能作为新功能入口。部分类型名仍含 QuickShell，不等于有第二套产品前端。
 
 ## QML 可复用组件

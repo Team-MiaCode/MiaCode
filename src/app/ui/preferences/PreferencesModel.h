@@ -50,7 +50,7 @@ public:
 
     // Performance
     Q_PROPERTY(bool videoDecodePrefersSoftware READ videoDecodePrefersSoftware WRITE setVideoDecodePrefersSoftware NOTIFY performanceChanged)
-    Q_PROPERTY(double displayRefreshRate READ displayRefreshRate CONSTANT)
+    Q_PROPERTY(double displayRefreshRate READ displayRefreshRate NOTIFY performanceChanged)
     Q_PROPERTY(QVariantList canvasFrameRateOptions READ canvasFrameRateOptions NOTIFY performanceChanged)
     Q_PROPERTY(QVariantList appFrameRateOptions READ appFrameRateOptions NOTIFY performanceChanged)
     Q_PROPERTY(int canvasFrameRateMode READ canvasFrameRateMode WRITE setCanvasFrameRateMode NOTIFY performanceChanged)
@@ -59,6 +59,7 @@ public:
 
     // True once a change was made that only takes effect after a restart.
     Q_PROPERTY(bool restartRequired READ restartRequired NOTIFY interfaceChanged)
+    Q_PROPERTY(bool decoderRestartRequired READ decoderRestartRequired NOTIFY performanceChanged)
 
 public:
     // No MainWindow: every value the page shows or writes goes through the
@@ -84,7 +85,7 @@ public:
     void setPreviewOnLeft(bool onLeft);
 
     int editorFontSize() const;
-    void setEditorFontSize(int pointSize);
+    Q_INVOKABLE void setEditorFontSize(int pointSize);
     int editorFontSizeMinimum() const { return kEditorFontSizeMinimum; }
     int editorFontSizeMaximum() const { return kEditorFontSizeMaximum; }
     QVariantList lineSpacingOptions() const;
@@ -116,6 +117,7 @@ public:
     void setTimelineFrameRateMode(int mode);
 
     bool restartRequired() const { return restartRequired_; }
+    bool decoderRestartRequired() const { return decoderRestartRequired_; }
 
 signals:
     void interfaceChanged();
@@ -136,6 +138,7 @@ private:
     }
     WorkbenchSettings* settings_ = nullptr;
     bool restartRequired_ = false;
+    bool decoderRestartRequired_ = false;
 };
 
 }  // namespace miacode::ui

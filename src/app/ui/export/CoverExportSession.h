@@ -14,6 +14,7 @@
 
 #include <memory>
 #include <iterator>
+#include <functional>
 
 namespace miacode::cover_export {
 class CoverLayoutModel;
@@ -83,6 +84,9 @@ public:
                           miacode::PlaybackControl*& playbackControlSlot,
                           QObject* parent = nullptr);
     ~CoverExportSession() override;
+    using PublicationResult = std::function<void(bool, QString, QString)>;
+    using FilePublisher = std::function<void(const QString&, PublicationResult)>;
+    void setFilePublisher(FilePublisher publisher) { filePublisher_ = std::move(publisher); }
 
     QObject* uiRequests() const;
     bool pageSessionActive() const { return pageSessionActive_; }
@@ -125,10 +129,19 @@ public:
     QVariantList builtinPresets() const;
     QVariantList presets() const { return presets_; }
     QStringList recentLayoutFiles() const { return recentLayoutFiles_; }
-    bool busy() const { return busy_; }
+    bool busy() const { return busy_ || batchBusy_; }
+    // Frozen inputs for an independent batch renderer; these do not select a
+    // difficulty, apply a preset, or write the interactive composition.
+    QJsonObject batchComposition(const QString& kind, const QString& name) const;
+    miacode::cover_export::CoverComposerInputs batchInputs(
+        const VideoExportTask& task, const QJsonObject& composition) const;
+    void setBatchBusy(bool busy);
 
     void enter(int preferredDifficultyId);
     void leave();
+    // A document replacement invalidates borrowed chart state even while the
+    // page is closed. Keep the user's composition and output selection.
+    void invalidateDocument();
 
     Q_INVOKABLE void selectDifficulty(int difficultyId);
     Q_INVOKABLE void selectLayerKey(const QString& key);
@@ -208,6 +221,7 @@ signals:
     void presetsChanged();
     void recentLayoutFilesChanged();
     void busyChanged();
+    void exportFinished(bool success, const QString& path, const QString& error);
 
 private:
     miacode::cover_export::CoverLayer* activeCoverLayer() const;
@@ -236,6 +250,7 @@ private:
     void persistComposition();
     void requestFont(bool displayFont, bool textLayerFont);
     void setBusy(bool busy);
+    void finishCoverPublication(bool success, const QString& path, const QString& error);
     void notifyError(const QString& title, const QString& text, const QString& details = QString()) const;
     // Bound to the assembly's slot, not a snapshot; same shape as the other
     // v2 QML models that reach the coordinator's single playback authority.
@@ -273,6 +288,8 @@ private:
     bool levelTextRender_ = false;
     bool chartFrameAvailable_ = false;
     bool busy_ = false;
+    bool batchBusy_ = false;
+    FilePublisher filePublisher_;
     double backgroundBrightness_ = 0.45;
     double chartFrameDuration_ = 0.0;
     miacode::cover_export::CoverBackgroundMode backgroundMode_ =

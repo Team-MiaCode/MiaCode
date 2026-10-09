@@ -14,6 +14,7 @@ public final class ChartExportService extends Service {
     private static volatile ChartExportService current;
     private PowerManager.WakeLock wakeLock;
     private int percent;
+    private long lastProgressNotification;
 
     public static void begin(Context context) {
         context.startForegroundService(new Intent(context, ChartExportService.class));
@@ -24,7 +25,13 @@ public final class ChartExportService extends Service {
     public static void progress(int percent) {
         ChartExportService service = current;
         if (service != null) service.getMainExecutor().execute(() -> {
-            service.percent = percent;
+            int next = Math.max(0, Math.min(100, percent));
+            if (current != service || service.percent == next) return;
+            service.percent = next;
+            long now = SystemClock.uptimeMillis();
+            // Rendering polls frequently; keep the system shade responsive.
+            if (next < 100 && now - service.lastProgressNotification < 1500) return;
+            service.lastProgressNotification = now;
             service.getSystemService(NotificationManager.class).notify(NOTIFICATION, service.notification());
         });
     }
@@ -35,11 +42,13 @@ public final class ChartExportService extends Service {
         PendingIntent stop = PendingIntent.getService(this, 1, cancel, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         return new Notification.Builder(this, CHANNEL).setSmallIcon(android.R.drawable.stat_sys_upload)
             .setContentTitle("MiaCode 谱面导出").setContentText("正在本机离线导出")
+            .setOnlyAlertOnce(true).setShowWhen(false)
             .setProgress(100, percent, percent == 0).setOngoing(true).setContentIntent(content)
             .addAction(new Notification.Action.Builder(null, "取消", stop).build()).build();
     }
     @Override public void onCreate() {
         super.onCreate(); current = this;
+        lastProgressNotification = SystemClock.uptimeMillis();
         NotificationManager notifications = getSystemService(NotificationManager.class);
         notifications.createNotificationChannel(new NotificationChannel(CHANNEL, "谱面导出", NotificationManager.IMPORTANCE_LOW));
         int type = Build.VERSION.SDK_INT >= 35 ? ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING

@@ -16,7 +16,7 @@ inline int inspectExportVideo(QGuiApplication& app, const QString& input, const 
     QVideoSink sink;
     player.setVideoSink(&sink);
     QJsonArray samples;
-    const QList<qint64> targets{0, 3200, 6400};
+    QList<qint64> targets{0, 3200, 6400};
     int index = 0;
     bool accepting = false;
     if (!QDir().mkpath(output)) return 40;
@@ -29,7 +29,12 @@ inline int inspectExportVideo(QGuiApplication& app, const QString& input, const 
         player.play();
     };
     QObject::connect(&player, &QMediaPlayer::mediaStatusChanged, &app, [&](auto status) {
-        if (status == QMediaPlayer::LoadedMedia && index == 0 && !accepting) seek();
+        if (status == QMediaPlayer::LoadedMedia && index == 0 && !accepting) {
+            const auto duration = player.duration();
+            if (duration > 0 && duration <= targets.last())
+                targets = {0, duration / 2, qMax<qint64>(0, duration - 200)};
+            seek();
+        }
     });
     QObject::connect(&sink, &QVideoSink::videoFrameChanged, &app, [&](const QVideoFrame& frame) {
         if (!accepting || !frame.isValid() || frame.startTime() < targets[index] * 1000) return;

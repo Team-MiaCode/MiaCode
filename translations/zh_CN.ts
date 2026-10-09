@@ -5273,5 +5273,120 @@ Error: %1</source>
 
 [占用诊断] %1</translation>
     </message>
+    <message id="cover.batch_current">
+        <source>Current layout</source>
+        <translation>当前布局</translation>
+    </message>
+    <message id="cover.batch_title">
+        <source>Batch cover export</source>
+        <translation>批量封面导出</translation>
+    </message>
+    <message id="cover.batch_presets">
+        <source>Layouts and presets</source>
+        <translation>布局与预设</translation>
+    </message>
+    <message id="cover.batch_description">
+        <source>Export each selected difficulty with each selected layout or preset, keeping the current canvas size.</source>
+        <translation>每个所选难度分别使用每个所选布局或预设生成封面，保留当前画板尺寸。</translation>
+    </message>
+    <message id="cover.batch_start">
+        <source>Start export</source>
+        <translation>开始导出</translation>
+    </message>
+    <message id="cover.batch_progress">
+        <source>Processed %1 / %2 jobs</source>
+        <translation>已处理 %1 / %2 项</translation>
+    </message>
+    <message id="cover.batch_selection_required">
+        <source>Select at least one difficulty and one layout or preset.</source>
+        <translation>请选择至少一个难度及一个布局或预设。</translation>
+    </message>
+    <message id="cover.batch_output_required">
+        <source>Select an output folder first.</source>
+        <translation>请先选择输出目录。</translation>
+    </message>
+    <message id="cover.batch_invalid_preset">
+        <source>The selected preset is missing or invalid. Select it again.</source>
+        <translation>所选预设已不存在或内容无效，请重新选择。</translation>
+    </message>
+    <message id="cover.batch_missing_asset">
+        <source>A background, image, or font file used by this layout is missing.</source>
+        <translation>此布局使用的背景、图片或字体文件缺失。</translation>
+    </message>
+    <message id="cover.batch_empty_chart">
+        <source>This difficulty has no notes for a chart frame.</source>
+        <translation>此难度没有可用于谱面帧的音符。</translation>
+    </message>
+    <message id="cover.batch_other_export">
+        <source>Another export is running. Wait for it to finish.</source>
+        <translation>另一个导出任务正在进行，请等待完成。</translation>
+    </message>
+    <message id="cover.batch_foreground_required">
+        <source>Background export is disabled. Return to the app before starting.</source>
+        <translation>后台导出未启用，请返回应用后开始。</translation>
+    </message>
+    <message id="cover.batch_service_failed">
+        <source>Cannot start the background export service.</source>
+        <translation>无法启动后台导出服务。</translation>
+    </message>
+    <message id="cover.batch_output_directory">
+        <source>Output folder</source>
+        <translation>输出目录</translation>
+    </message>
+    <message id="cover.batch_status_queued">
+        <source>Queued</source>
+        <translation>等待中</translation>
+    </message>
+    <message id="cover.batch_status_rendering">
+        <source>Rendering</source>
+        <translation>正在生成</translation>
+    </message>
+    <message id="cover.batch_status_publishing">
+        <source>Writing to output folder</source>
+        <translation>正在写入输出目录</translation>
+    </message>
+    <message id="cover.batch_status_success">
+        <source>Succeeded</source>
+        <translation>成功</translation>
+    </message>
+    <message id="cover.batch_status_failed">
+        <source>Failed</source>
+        <translation>失败</translation>
+    </message>
+    <message id="cover.batch_status_canceled">
+        <source>Canceled</source>
+        <translation>已取消</translation>
+    </message>
+</context>
+<context>
+    <name></name>
+    <message id="android.preferences.background_export">
+        <source>Allow export in the background</source>
+        <translation>允许在后台导出</translation>
+    </message>
+    <message id="android.assets.title">
+        <source>Project assets</source>
+        <translation>工程素材</translation>
+    </message>
+    <message id="android.assets.audio">
+        <source>Import audio</source>
+        <translation>导入音频</translation>
+    </message>
+    <message id="android.assets.image">
+        <source>Import image</source>
+        <translation>导入图片</translation>
+    </message>
+    <message id="android.assets.video">
+        <source>Import video</source>
+        <translation>导入视频</translation>
+    </message>
+    <message id="android.assets.font">
+        <source>Import font</source>
+        <translation>导入字体</translation>
+    </message>
+    <message id="preferences.decoder_restart_required">
+        <source>The selected video decoding policy takes effect after restarting MiaCode.</source>
+        <translation>视频解码策略将在重启 MiaCode 后生效。</translation>
+    </message>
 </context>
 </TS>

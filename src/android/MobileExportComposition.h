@@ -9,6 +9,8 @@
 #include "app/services/JobProgressService.h"
 #include "app/ui/export/ExportSession.h"
 #include "app/ui/preview/PreviewSettingsModel.h"
+#include "app/ui/preview/AudioSettingsModel.h"
+#include "MobileAudioAudition.h"
 #include <QFileInfo>
 
 namespace miacode::android {
@@ -19,6 +21,7 @@ class MobileExportComposition final : public QObject, public ExportEngine, publi
     Q_OBJECT
     Q_PROPERTY(QObject* session READ session CONSTANT)
     Q_PROPERTY(QObject* settings READ settings CONSTANT)
+    Q_PROPERTY(QObject* audioSettings READ audioSettingsModel CONSTANT)
     Q_PROPERTY(QObject* requests READ requests CONSTANT)
     Q_PROPERTY(QObject* progress READ progress CONSTANT)
 public:
@@ -26,8 +29,10 @@ public:
     ~MobileExportComposition() override;
     QObject* session() { return &session_; }
     QObject* settings() { return &settings_; }
+    QObject* audioSettingsModel() { return &audioSettingsModel_; }
     QObject* requests() { return &requests_; }
     QObject* progress() { return &progress_; }
+    bool exportActive() const { return batchRunning_ || exporter_.running(); }
     Q_INVOKABLE void enter() { session_.enter(document_.activeDifficulty()); }
     Q_INVOKABLE void leave() { session_.leave(); }
 
@@ -84,7 +89,13 @@ public:
     void saveAudioSettingsAsSoftwareDefault() override;
     void restoreAudioSettingsFromSoftwareDefault() override;
 private:
+    void updateIntroFrame();
     void applyEffectiveOutline();
+    void savePreviewPreferences();
+    void restorePreviewPreferences();
+    void loadProjectAudioPreferences();
+    void saveProjectAudioPreferences();
+    void applyRuntimeAudioSettings(const PreviewAudioSettings&);
     AndroidDocumentSession& document_;
     MobilePreview& preview_;
     MobileVideoExport& exporter_;
@@ -96,9 +107,16 @@ private:
     PreviewSurface* surfaceSlot_ = this;
     ui::ExportSession session_;
     ui::PreviewSettingsModel settings_;
+    MobileAudioAudition audioAudition_;
+    ui::AudioSettingsModel audioSettingsModel_;
     PreviewAudioSettings audioSettings_;
+    bool restoringPreferences_ = true;
+    bool editedAudioWithoutProject_ = false;
+    bool breakSlideTailCheerMutedPreference_ = false;
+    QString audioProjectPath_;
     QString customOutline_;
     bool forceLabeledJudgeLineWhenPaused_ = true;
+    bool batchRunning_ = false;
     int previousDifficulty_ = 0;
     quint64 jobToken_ = 0;
 };

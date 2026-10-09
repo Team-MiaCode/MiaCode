@@ -2,6 +2,7 @@
 #include "ExportDestination.h"
 #include "common/AssetPaths.h"
 #include "common/IntroConfig.h"
+#include "common/ContentDurationConfig.h"
 #include "common/ChartAssetPaths.h"
 #include "timeline/TimelineMarkerOffset.h"
 #include "tools/video_export/VideoExportPauseOverlay.h"
@@ -33,6 +34,58 @@ MobileVideoExport::MobileVideoExport(AndroidDocumentSession& document, MobilePre
 MobileVideoExport::~MobileVideoExport() {
     cancel();
     if (audioWorker_.joinable()) audioWorker_.join();
+    endBackgroundService();
+}
+
+bool MobileVideoExport::beginBackgroundService(QString* error) {
+#ifdef Q_OS_ANDROID
+    if (!backgroundServiceActive_ && document_.backgroundExportAllowed()) {
+        QJniObject::callStaticMethod<void>("org/miacode/android/ChartExportService", "begin", "(Landroid/content/Context;)V",
+            QNativeInterface::QAndroidApplication::context().object());
+        QJniEnvironment env;
+        if (env.checkAndClearExceptions()) {
+            if (error) *error = QStringLiteral("Background export service could not start");
+            return false;
+        }
+        backgroundServiceActive_ = true;
+    }
+#else
+    Q_UNUSED(error);
+#endif
+    return true;
+}
+void MobileVideoExport::endBackgroundService() {
+#ifdef Q_OS_ANDROID
+    if (backgroundServiceActive_) {
+        QJniObject::callStaticMethod<void>("org/miacode/android/ChartExportService", "end", "(Landroid/content/Context;)V",
+            QNativeInterface::QAndroidApplication::context().object());
+        QJniEnvironment env;
+        env.checkAndClearExceptions();
+    }
+#endif
+    backgroundServiceActive_ = false;
+}
+bool MobileVideoExport::beginBatchExecution(QString* error) {
+    if (batchActive_ || running_) {
+        if (error) *error = QStringLiteral("An export is already running");
+        return false;
+    }
+    if (!beginBackgroundService(error)) return false;
+    batchActive_ = true;
+    batchCanceled_ = false;
+    return true;
+}
+void MobileVideoExport::endBatchExecution() {
+    batchActive_ = false;
+    endBackgroundService();
+}
+void MobileVideoExport::updateBatchProgress(int percent) {
+#ifdef Q_OS_ANDROID
+    if (batchActive_ && backgroundServiceActive_)
+        QJniObject::callStaticMethod<void>("org/miacode/android/ChartExportService", "progress", "(I)V", qBound(0, percent, 100));
+#else
+    Q_UNUSED(percent);
+#endif
 }
 
 VideoExportTask MobileVideoExport::buildTask(int id) const {
@@ -52,7 +105,13 @@ VideoExportTask MobileVideoExport::buildTask(int id) const {
     task.skinDirectory = preview_.sceneRuntime().skinDirectory();
     task.muriRenderOptions = preview_.muriRenderOptions();
     task.staticTapOnSlideThresholdSeconds = preview_.muriTapOnSlideThresholdMs() / 1000.0;
-    task.contentDurationSeconds = qMax(parsed.durationSeconds + first, preview_.durationSeconds());
+    double chartEnd = 0;
+    for (const auto& marker : task.noteMarkers) {
+        chartEnd = qMax(chartEnd, qMax(qMax(marker.second, marker.endSecond),
+            qMax(marker.slideTraceSecond, marker.availableSecond)));
+        for (double second : marker.slideSegmentShootSeconds) chartEnd = qMax(chartEnd, second);
+    }
+    task.contentDurationSeconds = content_duration::totalContentDurationSeconds(chartEnd, preview_.trackDurationSeconds());
     task.chartTitle = doc.title; task.chartArtist = doc.artist;
     task.chartDesigner = difficulty->designer.trimmed().isEmpty() ? doc.designer : difficulty->designer;
     task.chartDifficultyLabel = SimaiDocument::difficultyShortName(id) + " " + difficulty->level;
@@ -71,9 +130,11 @@ VideoExportTask MobileVideoExport::buildTask(int id) const {
     return task;
 }
 
-bool MobileVideoExport::start(const VideoExportTask& task, QString* error) {
+bool MobileVideoExport::start(const VideoExportTask& task, QString* error, bool independentChart) {
     const auto reject = [error](const QString& message) { if (error) *error = message; return false; };
     if (running_) return reject(QStringLiteral("An export is already running"));
+    if (batchActive_ && (batchCanceled_ || !independentChart))
+        return reject(QStringLiteral("Batch export is canceled or already owns the exporter"));
 #ifdef Q_OS_ANDROID
     if (!document_.backgroundExportAllowed() && qGuiApp->applicationState() != Qt::ApplicationActive)
         return reject(QStringLiteral("Return to the app to start export, or enable background export"));
@@ -83,17 +144,25 @@ bool MobileVideoExport::start(const VideoExportTask& task, QString* error) {
         || task.outputWidth <= 0 || task.outputHeight <= 0 || task.outputWidth % 2 || task.outputHeight % 2
         || qint64(task.outputWidth) * task.outputHeight > 0x7fffffffLL / 4)
         return reject(QStringLiteral("Invalid export output, range or frame format"));
-    bool validFirst = false;
-    timeline::offset::parsedFirstSeconds(document_.metadataFirst(), &validFirst);
-    if (!validFirst) return reject(QStringLiteral("The chart offset must be a finite number"));
+    if (!independentChart) {
+        bool validFirst = false;
+        timeline::offset::parsedFirstSeconds(document_.metadataFirst(), &validFirst);
+        if (!validFirst) return reject(QStringLiteral("The chart offset must be a finite number"));
+    }
     if (!video_export::buildVideoExportAudioRenderPlan(task, &plan_, error)) return false;
+    if (!batchActive_ && !beginBackgroundService(error)) return false;
     if (audioWorker_.joinable()) audioWorker_.join();
     task_ = task; cancelled_.store(false); running_ = true; error_.clear();
+    const auto sizePolicy = video_export::videoExportSizePolicy(task_.sizePreset);
+    if (sizePolicy.disableVideoBackground && chart_assets::isVideoBackgroundPath(task_.backgroundMediaPath)) {
+        task_.backgroundMediaPath = chart_assets::resolvePreferredBackgroundMediaPath(
+            task_.chartPath, task_.backgroundMediaPath, false);
+    }
     percent_ = 0; frame_ = 0; videoRequested_ = false; inputFinished_ = false; pendingFrame_ = {};
     decodedVideoUs_ = -1;
     publicationToken_.clear(); publishedUri_.clear(); publicationDetails_ = {};
     directory_ = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/export-jobs/" + QUuid::createUuid().toString(QUuid::WithoutBraces);
-    state_ = preview_.sceneRuntime().frameState();
+    state_ = {};
     state_.noteMarkers = task.noteMarkers;
     auto statistics = std::make_shared<preview::scene::PreviewProgressStatsCache>();
     statistics->rebuild(task.noteMarkers); state_.progressStatsCache = statistics;
@@ -110,18 +179,10 @@ bool MobileVideoExport::start(const VideoExportTask& task, QString* error) {
     state_.render.showChartInfoHud = task.showChartInfoHud; state_.render.fixHudTextLayout = task.fixHudTextLayout;
     state_.render.centerDisplayMode = task.centerDisplayMode;
     state_.media = {};
-#ifdef Q_OS_ANDROID
-    if (document_.backgroundExportAllowed()) {
-        QJniObject::callStaticMethod<void>("org/miacode/android/ChartExportService", "begin", "(Landroid/content/Context;)V",
-            QNativeInterface::QAndroidApplication::context().object());
-        QJniEnvironment env;
-        if (env.checkAndClearExceptions()) { running_ = false; return reject(QStringLiteral("Background export service could not start")); }
-    }
-#endif
     const auto audioPlan = plan_;
     const auto directory = directory_;
     emit changed();
-    audioWorker_ = std::thread([this, audioPlan, directory, capturedTask = task] {
+    audioWorker_ = std::thread([this, audioPlan, directory, capturedTask = task_] {
         QString wav, error;
         preview::runtime::PreviewSceneAssetLoadResult assets;
         try {
@@ -200,18 +261,23 @@ void MobileVideoExport::prepared(const QString& wav, const QString& error, previ
     }
 #ifdef Q_OS_ANDROID
     const QString video = chart_assets::isVideoBackgroundPath(task_.backgroundMediaPath) ? task_.backgroundMediaPath : QString();
-    encoder_ = QJniObject("org/miacode/android/ChartExportEncoder", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IIIII)V",
+    const int audioBitrate = video_export::effectiveVideoExportAudioBitrateKbps(task_.sizePreset, task_.audioBitrateKbps);
+    const int videoBitrate = static_cast<int>(video_export::videoExportTargetBitrateKbps(
+        task_.preset == VideoExportPreset::HighQuality, task_.sizePreset,
+        task_.outputWidth, task_.outputHeight, task_.fps) * 1000);
+    encoder_ = QJniObject("org/miacode/android/ChartExportEncoder", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IIIIIII)V",
         QJniObject::fromString(directory_ + "/video.mp4").object<jstring>(), QJniObject::fromString(wav_).object<jstring>(),
-        QJniObject::fromString(video).object<jstring>(), task_.outputWidth, task_.outputHeight, task_.fps, plan_.frameCount, task_.audioBitrateKbps);
+        QJniObject::fromString(video).object<jstring>(), task_.outputWidth, task_.outputHeight, task_.fps,
+        plan_.frameCount, audioBitrate, videoBitrate, video_export::videoExportSizePolicy(task_.sizePreset).gopSeconds);
     if (!encoder_.isValid()) { complete(false, QStringLiteral("Cannot create Android chart encoder")); return; }
 #else
     // Host validation emits three rendered samples and the exact WAV. Actual
     // MP4 encoding is verified separately through the Android codec worker.
     if (chart_assets::isVideoBackgroundPath(task_.backgroundMediaPath)) {
-        QImageReader image(document_.previewAssetPath("image"));
+        QImageReader image(task_.intro.jacketPath);
         image.setDecideFormatFromContent(true);
         state_.media.mediaFrame = image.read();
-        if (!document_.previewAssetPath("image").isEmpty() && state_.media.mediaFrame.isNull()) {
+        if (!task_.intro.jacketPath.isEmpty() && state_.media.mediaFrame.isNull()) {
             complete(false, image.errorString()); return;
         }
         state_.media.stageMediaAvailable = !state_.media.mediaFrame.isNull(); ++state_.media.stageMediaSerial;
@@ -306,13 +372,14 @@ void MobileVideoExport::advance() {
     if (next != percent_) {
         percent_ = next; emit changed();
 #ifdef Q_OS_ANDROID
-        if (document_.backgroundExportAllowed())
+        if (!batchActive_ && backgroundServiceActive_)
             QJniObject::callStaticMethod<void>("org/miacode/android/ChartExportService", "progress", "(I)V", percent_);
 #endif
     }
 }
 
 void MobileVideoExport::cancel() {
+    if (batchActive_) batchCanceled_ = true;
     cancelled_.store(true);
 #ifdef Q_OS_ANDROID
     if (encoder_.isValid()) encoder_.callMethod<void>("cancel");
@@ -352,7 +419,7 @@ void MobileVideoExport::publicationUpdate(const QJsonObject& result) {
     if (!result.value("done").toBool()) {
         percent_ = qBound(95, 95 + result.value("percent").toInt() / 20, 99);
 #ifdef Q_OS_ANDROID
-        if (document_.backgroundExportAllowed()) QJniObject::callStaticMethod<void>("org/miacode/android/ChartExportService", "progress", "(I)V", percent_);
+        if (!batchActive_ && backgroundServiceActive_) QJniObject::callStaticMethod<void>("org/miacode/android/ChartExportService", "progress", "(I)V", percent_);
 #endif
         emit changed(); return;
     }
@@ -366,9 +433,8 @@ void MobileVideoExport::complete(bool success, const QString& error) {
 #ifdef Q_OS_ANDROID
     if (encoder_.isValid() && !success) encoder_.callMethod<void>("cancel");
     encoder_ = {};
-    QJniObject::callStaticMethod<void>("org/miacode/android/ChartExportService", "end", "(Landroid/content/Context;)V",
-        QNativeInterface::QAndroidApplication::context().object());
 #endif
+    if (!batchActive_) endBackgroundService();
     running_ = false; percent_ = success ? 100 : percent_; error_ = error;
     QSaveFile report(directory_ + "/report.json");
     if (report.open(QIODevice::WriteOnly)) {
@@ -377,6 +443,13 @@ void MobileVideoExport::complete(bool success, const QString& error) {
             {"publishedUri", publishedUri_}, {"publication", publicationDetails_},
             {"wav", wav_}, {"renderedFrames", frame_}, {"expectedFrames", plan_.frameCount}, {"fps", task_.fps},
             {"width", task_.outputWidth}, {"height", task_.outputHeight}, {"startSecond", plan_.segmentStartSecond},
+            {"qualityPreset", task_.preset == VideoExportPreset::HighQuality ? "high_quality" : "fast"},
+            {"sizePreset", video_export::videoExportSizePresetToken(task_.sizePreset)},
+            {"targetVideoBitrateKbps", video_export::videoExportTargetBitrateKbps(
+                task_.preset == VideoExportPreset::HighQuality, task_.sizePreset, task_.outputWidth, task_.outputHeight, task_.fps)},
+            {"requestedAudioBitrateKbps", task_.audioBitrateKbps},
+            {"effectiveAudioBitrateKbps", video_export::effectiveVideoExportAudioBitrateKbps(task_.sizePreset, task_.audioBitrateKbps)},
+            {"backgroundMediaPath", task_.backgroundMediaPath},
             {"endSecond", plan_.segmentEndSecond}, {"leadInSeconds", plan_.leadInSeconds},
             {"introSeconds", plan_.introLeadSeconds}, {"durationSeconds", plan_.alignedTotalSeconds},
             {"stageImageWidth", stageImage.width()}, {"stageImageHeight", stageImage.height()},
@@ -384,6 +457,7 @@ void MobileVideoExport::complete(bool success, const QString& error) {
         report.write(QJsonDocument(details).toJson()); report.commit();
     }
     qInfo() << "Mobile chart export:" << (success ? "passed" : "failed") << task_.outputPath << error;
-    emit changed(); emit finished(success, task_.outputPath, error);
+    const QString publishedPath = publicationDetails_.value("displayPath").toString();
+    emit changed(); emit finished(success, publishedPath.isEmpty() ? task_.outputPath : publishedPath, error);
 }
 }

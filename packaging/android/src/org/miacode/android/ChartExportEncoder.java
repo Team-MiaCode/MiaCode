@@ -30,14 +30,17 @@ public final class ChartExportEncoder {
     private volatile byte[] videoPixels;
     private volatile int videoWidth, videoHeight;
     private MediaMetadataRetriever retriever;
-    private final int width, height, fps, expectedFrames, audioBitrate;
+    private final int width, height, fps, expectedFrames, audioBitrate, requestedVideoBitrate, gopSeconds;
+    private int configuredVideoBitrate, bitrateMode;
+    private String videoCodecName = "";
     private final String output, wav, videoPath;
 
     public ChartExportEncoder(String output, String wav, String videoPath, int width, int height,
-                              int fps, int expectedFrames, int audioBitrate) {
+                              int fps, int expectedFrames, int audioBitrate, int videoBitrate, int gopSeconds) {
         this.output = output; this.wav = wav; this.videoPath = videoPath;
         this.width = width; this.height = height; this.fps = fps;
         this.expectedFrames = expectedFrames; this.audioBitrate = audioBitrate;
+        this.requestedVideoBitrate = videoBitrate; this.gopSeconds = gopSeconds;
         new Thread(this::run, "MiaCode chart encoder").start();
     }
     public boolean hasCapacity() { return !done && !cancelled && frames.remainingCapacity() > 0; }
@@ -138,7 +141,10 @@ public final class ChartExportEncoder {
         JSONObject report = new JSONObject().put("schema",1).put("width",width).put("height",height)
             .put("fps",fps).put("expectedFrames",expectedFrames).put("videoFrames",videoCount)
             .put("audioPackets",audioCount).put("lastVideoPtsUs",lastVideoPts)
-            .put("pvEnabled",!videoPath.isEmpty()).put("containerVerified",true);
+            .put("pvEnabled",!videoPath.isEmpty()).put("containerVerified",true)
+            .put("requestedVideoBitrateBps",requestedVideoBitrate).put("configuredVideoBitrateBps",configuredVideoBitrate)
+            .put("audioBitrateKbps",audioBitrate).put("gopSeconds",gopSeconds)
+            .put("bitrateMode",bitrateMode).put("videoCodec",videoCodecName);
         AtomicFile atomic = new AtomicFile(new File(output + ".json"));
         FileOutputStream file = atomic.startWrite();
         try { file.write(report.toString().getBytes(StandardCharsets.UTF_8)); atomic.finishWrite(file); }
@@ -154,10 +160,20 @@ public final class ChartExportEncoder {
             pcm.seek(44);
             MediaFormat vf = MediaFormat.createVideoFormat("video/avc", width, height);
             vf.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
-            vf.setInteger(MediaFormat.KEY_BIT_RATE, Math.max(2000000, (int)Math.min(40000000L, (long)width * height * fps / 5)));
-            vf.setInteger(MediaFormat.KEY_FRAME_RATE, fps); vf.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
-            vf.setInteger(MediaFormat.KEY_MAX_B_FRAMES, 0);
             video = MediaCodec.createEncoderByType("video/avc");
+            videoCodecName = video.getName();
+            MediaCodecInfo.CodecCapabilities capabilities = video.getCodecInfo().getCapabilitiesForType("video/avc");
+            configuredVideoBitrate = capabilities.getVideoCapabilities().getBitrateRange().clamp(requestedVideoBitrate);
+            MediaCodecInfo.EncoderCapabilities encoderCapabilities = capabilities.getEncoderCapabilities();
+            if (encoderCapabilities.isBitrateModeSupported(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR))
+                bitrateMode = MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR;
+            else if (encoderCapabilities.isBitrateModeSupported(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR))
+                bitrateMode = MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR;
+            else throw new java.io.IOException("AVC encoder does not support bitrate-controlled export");
+            vf.setInteger(MediaFormat.KEY_BIT_RATE, configuredVideoBitrate);
+            vf.setInteger(MediaFormat.KEY_BITRATE_MODE, bitrateMode);
+            vf.setInteger(MediaFormat.KEY_FRAME_RATE, fps); vf.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, gopSeconds);
+            vf.setInteger(MediaFormat.KEY_MAX_B_FRAMES, 0);
             video.configure(vf, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
             surface = video.createInputSurface(); egl = new EglTarget(surface, width, height); video.start();
             MediaFormat af = MediaFormat.createAudioFormat("audio/mp4a-latm", 48000, 2);

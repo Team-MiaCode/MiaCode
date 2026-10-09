@@ -25,9 +25,11 @@ constexpr auto kLanguageKey = "language";
 constexpr auto kThemeKey = "theme";
 constexpr auto kLightThemeKey = "light_theme";
 constexpr auto kDarkThemeKey = "dark_theme";
+QString platformPreferencesPath;
 
 QString preferencesPath()
 {
+    if (!platformPreferencesPath.isEmpty()) return platformPreferencesPath;
     const QString configRoot = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
     if (configRoot.isEmpty()) {
         return QString();
@@ -684,6 +686,58 @@ PreferenceDocument::LanguagePreference PreferenceDocument::resolvedLanguage()
 QString PreferenceDocument::preferencesFilePath()
 {
     return preferencesPath();
+}
+
+void PreferenceDocument::setPreferencesFilePath(const QString& path)
+{
+    platformPreferencesPath = path;
+}
+
+bool PreferenceDocument::migrateFromFile(const QString& sourcePath, const QString& migrationId, QString* error)
+{
+    const QString targetPath = preferencesPath();
+    if (QFileInfo(sourcePath).absoluteFilePath() == QFileInfo(targetPath).absoluteFilePath()
+        || !QFileInfo::exists(sourcePath)) return true;
+    if (migrationId.isEmpty() || targetPath.isEmpty()) {
+        if (error) *error = QStringLiteral("invalid preferences migration destination or identity");
+        return false;
+    }
+    const auto readStrict = [error](const QString& path, QJsonObject* root) {
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly)) {
+            if (error) *error = QStringLiteral("cannot read preferences: %1: %2").arg(path, file.errorString());
+            return false;
+        }
+        QJsonParseError parse;
+        const auto document = QJsonDocument::fromJson(file.readAll(), &parse);
+        if (parse.error != QJsonParseError::NoError || !document.isObject()) {
+            if (error) *error = QStringLiteral("invalid preferences document: %1: %2").arg(path, parse.errorString());
+            return false;
+        }
+        *root = document.object();
+        return true;
+    };
+    QJsonObject current;
+    if (QFileInfo::exists(targetPath) && !readStrict(targetPath, &current)) return false;
+    auto migrations = current.value("migrations").toObject();
+    if (migrations.value(migrationId).toBool()) return true;
+    QJsonObject legacy;
+    if (!readStrict(sourcePath, &legacy)) return false;
+    const auto mergeMissing = [](auto&& self, QJsonObject target, const QJsonObject& source) -> QJsonObject {
+        for (auto it = source.begin(); it != source.end(); ++it) {
+            if (!target.contains(it.key())) target.insert(it.key(), it.value());
+            else if (target.value(it.key()).isObject() && it.value().isObject())
+                target.insert(it.key(), self(self, target.value(it.key()).toObject(), it.value().toObject()));
+        }
+        return target;
+    };
+    current = mergeMissing(mergeMissing, current, legacy);
+    migrations = current.value("migrations").toObject();
+    migrations.insert(migrationId, true);
+    current.insert("migrations", migrations);
+    if (savePreferencesObject(current)) return true;
+    if (error) *error = QStringLiteral("cannot save migrated preferences: %1").arg(targetPath);
+    return false;
 }
 
 QString PreferenceDocument::currentPreferencesSchema()

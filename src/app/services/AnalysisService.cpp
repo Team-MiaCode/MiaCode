@@ -34,6 +34,13 @@ AnalysisSnapshot AnalysisService::snapshot() const
     return snapshot_;
 }
 
+void AnalysisService::setLocale(SimaiNativeValidationLocale locale)
+{
+    if (locale_ == locale) return;
+    locale_ = locale;
+    requestAnalysis();
+}
+
 void AnalysisService::setMuriParameters(
     const MuriRenderOptions& renderOptions, double staticTapOnSlideThresholdSeconds)
 {
@@ -157,10 +164,11 @@ void AnalysisService::dispatchPendingRequest()
                 guard->workerRunning_ = false;
                 if (guard->pendingRequest_.has_value()
                     && guard->pendingRequest_->workspace.activeDifficultyId == result.difficultyId
-                    && guard->pendingRequest_->workspace.revision == result.revision) {
+                    && guard->pendingRequest_->workspace.revision == result.revision
+                    && guard->pendingRequest_->locale == result.locale) {
                     guard->pendingRequest_.reset();
                 }
-                if (guard->identityIsCurrent(result.difficultyId, result.revision)) {
+                if (result.locale == guard->locale_ && guard->identityIsCurrent(result.difficultyId, result.revision)) {
                     guard->snapshot_ = std::move(result);
                     emit guard->snapshotChanged(
                         guard->snapshot_.difficultyId, guard->snapshot_.revision);
