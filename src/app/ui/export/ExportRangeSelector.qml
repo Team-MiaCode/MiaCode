@@ -127,7 +127,10 @@ Item {
             if (!dragMoved && Math.abs(x - dragPressX) < 3)
                 return
             dragMoved = true
-            dragPreviewSecond = moveWindowTo(dragStartSeconds + lane.secondForX(x) - dragPressSecond)
+            const second = lane.unclampedSecondForX(x)
+            dragPreviewSecond = moveWindowTo(second <= 0 ? 0
+                                             : second >= totalSeconds ? totalSeconds
+                                             : dragStartSeconds + second - dragPressSecond)
         } else {
             return
         }
@@ -179,21 +182,28 @@ Item {
         previewSession.beginScrub()
     }
 
+    // `second` is the pointer's unclamped lane second. The edge follows the
+    // pointer by the grab offset, so a press beside the handle centre would
+    // stop short of the lane end; a pointer at or past the end of the track
+    // pins the edge to it.
     function updateDrag(second) {
+        const atStart = second <= 0
+        const atEnd = second >= totalSeconds
         const delta = second - dragPressSecond
         if (draggingTarget === "start") {
             const nextStart = Math.max(0, Math.min(dragEndSeconds - minimumRangeSeconds,
-                                                    dragStartSeconds + delta))
+                                                    atStart ? 0 : dragStartSeconds + delta))
             root.applyRange(nextStart, dragEndSeconds)
             dragPreviewSecond = nextStart
         } else if (draggingTarget === "end") {
             const nextEnd = Math.max(dragStartSeconds + minimumRangeSeconds,
-                                     Math.min(totalSeconds, dragEndSeconds + delta))
+                                     Math.min(totalSeconds, atEnd ? totalSeconds : dragEndSeconds + delta))
             root.applyRange(dragStartSeconds, nextEnd)
             dragPreviewSecond = nextEnd
         } else if (draggingTarget === "range") {
-            const boundedDelta = Math.max(-dragStartSeconds,
-                                          Math.min(totalSeconds - dragEndSeconds, delta))
+            const boundedDelta = atStart ? -dragStartSeconds
+                : atEnd ? totalSeconds - dragEndSeconds
+                : Math.max(-dragStartSeconds, Math.min(totalSeconds - dragEndSeconds, delta))
             const nextStart = dragStartSeconds + boundedDelta
             const nextEnd = dragEndSeconds + boundedDelta
             root.applyRange(nextStart, nextEnd)
@@ -326,9 +336,13 @@ Item {
             return sideInset + Math.max(0, Math.min(1, second / root.totalSeconds)) * availableWidth
         }
 
-        function secondForX(x) {
+        function unclampedSecondForX(x) {
             const availableWidth = Math.max(1, width - sideInset * 2)
-            return Math.max(0, Math.min(1, (x - sideInset) / availableWidth)) * root.totalSeconds
+            return (x - sideInset) / availableWidth * root.totalSeconds
+        }
+
+        function secondForX(x) {
+            return Math.max(0, Math.min(root.totalSeconds, unclampedSecondForX(x)))
         }
 
         function targetAt(x, y) {
@@ -471,7 +485,7 @@ Item {
                     root.beginWindowGesture(target, mouse.x)
                     return
                 }
-                root.beginDrag(target, root.hoverSecond)
+                root.beginDrag(target, lane.unclampedSecondForX(mouse.x))
             }
             onPositionChanged: function(mouse) {
                 root.hoverSecond = lane.secondForX(mouse.x)
@@ -480,7 +494,7 @@ Item {
                 if (root.fixedLength)
                     root.updateWindowGesture(mouse.x)
                 else
-                    root.updateDrag(root.hoverSecond)
+                    root.updateDrag(lane.unclampedSecondForX(mouse.x))
             }
             onReleased: root.fixedLength ? root.endWindowGesture() : root.endDrag()
             onCanceled: root.fixedLength ? root.endWindowGesture() : root.endDrag()
