@@ -9,7 +9,9 @@
 #include <QWheelEvent>
 #include <QScopedValueRollback>
 #include <QStyleHints>
+#include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace miacode::ui {
 using miacode::editor::normalizeSimaiInput;
@@ -25,9 +27,10 @@ ScintillaEditorBridge::ScintillaEditorBridge(QQuickItem* parent)
     connect(this, &ScintillaQuick_item::cursorPositionChanged, this, [this] {
         refreshSelection(!programmatic_);
     });
-    connect(this, &ScintillaQuick_item::updateUi, this, [this](Scintilla::Update) {
+    connect(this, &ScintillaQuick_item::updateUi, this, [this](Scintilla::Update update) {
         refreshSelection(!programmatic_);
         emit availabilityChanged();
+        const int flags = int(update);
         // 选区使用选择高亮；插入光标所在行使用当前行背景。
         const bool showLine = send(SCI_GETSELECTIONEMPTY);
         if (bool(send(SCI_GETCARETLINEVISIBLE)) != showLine) {
@@ -37,11 +40,24 @@ ScintillaEditorBridge::ScintillaEditorBridge(QQuickItem* parent)
                      quint32(scintillaquick::rgb_from_color(fill)) | (quint32(fill.alpha()) << 24));
             } else send(SCI_RESETELEMENTCOLOUR, SC_ELEMENT_CARET_LINE_BACK);
         }
+        if (flags & SC_UPDATE_CONTENT)
+            scheduleOverviewProjectionRefresh(OverviewMarkersDirty | OverviewCurrentLineDirty);
+        else if (flags & SC_UPDATE_V_SCROLL)
+            scheduleOverviewProjectionRefresh(OverviewCurrentLineDirty);
     });
-    connect(this, &QQuickItem::activeFocusChanged, this, [this] { publishContext(false); emit followVisualChanged(); });
+    connect(this, &ScintillaQuick_item::displayLayoutChanged, this, [this] {
+        // Wrapping can shift markers even when the total display-row count stays equal.
+        scheduleOverviewProjectionRefresh(OverviewAllDirty);
+    });
+    connect(this, &QQuickItem::activeFocusChanged, this, [this] {
+        publishContext(false);
+        emit followVisualChanged();
+        scheduleOverviewProjectionRefresh(OverviewCurrentLineDirty);
+    });
     connect(this, &ScintillaQuick_item::fontChanged, this, [this] {
         preserveViewport();
         styler_.setAppearance(property("font").value<QFont>(), palette_);
+        scheduleOverviewProjectionRefresh(OverviewAllDirty);
     });
     connect(this, &ScintillaQuick_item::notificationReceived, this, [this](const ScintillaQuick_notification& notification) {
         const int flags = int(notification.modificationType);
@@ -81,9 +97,11 @@ void ScintillaEditorBridge::componentComplete()
     ready_ = true;
     refreshSettings();
     synchronizeDocument();
+    scheduleOverviewProjectionRefresh(OverviewAllDirty);
 }
 void ScintillaEditorBridge::updatePolish()
 {
+    overviewRefreshPending_ = true;
     prepareLayout();
     if (document_.restoreViewport()) {
         viewportToRestore_.reset();
@@ -130,6 +148,8 @@ void ScintillaEditorBridge::updatePolish()
     document_.captureViewport();
     if (navigation && syncController_)
         syncController_->acknowledgeNavigation(navigation->sequence, applied);
+    overviewRefreshPending_ = false;
+    refreshOverviewProjection();
 }
 
 void ScintillaEditorBridge::preserveViewport()
@@ -139,7 +159,10 @@ void ScintillaEditorBridge::preserveViewport()
 
 void ScintillaEditorBridge::geometryChange(const QRectF& newGeometry, const QRectF& oldGeometry)
 {
-    if (newGeometry.size() != oldGeometry.size()) preserveViewport();
+    if (newGeometry.size() != oldGeometry.size()) {
+        preserveViewport();
+        scheduleOverviewProjectionRefresh(OverviewAllDirty);
+    }
     ScintillaQuick_item::geometryChange(newGeometry, oldGeometry);
 }
 
@@ -177,6 +200,7 @@ void ScintillaEditorBridge::publishLayout()
     anchorRectangle_ = anchor;
     followCursorRectangle_ = follow;
     if (metricsChanged) emit layoutChanged();
+    if (metricsChanged) scheduleOverviewProjectionRefresh(OverviewAllDirty);
     if (cursorChanged) emit cursorRectangleChanged();
     if (followChanged) emit followVisualChanged();
     if (hasActiveFocus() && (metricsChanged || cursorChanged || anchorChanged))
@@ -194,6 +218,8 @@ void ScintillaEditorBridge::setDocumentSession(DocumentModel* value)
         connect(value, &DocumentModel::syntaxIssuesChanged, this, &ScintillaEditorBridge::refreshDiagnostics);
     }
     synchronizeDocument();
+    if (ready_) refreshDiagnostics();
+    scheduleOverviewProjectionRefresh(OverviewAllDirty);
     emit bindingsChanged();
 }
 void ScintillaEditorBridge::setController(EditorController* value)
@@ -254,11 +280,14 @@ void ScintillaEditorBridge::setEditorColors(const QVariantMap& value)
 }
 void ScintillaEditorBridge::setBlockSpacing(int value)
 {
+    const int spacing = qMax(0, value);
+    if (blockSpacing_ == spacing) return;
     preserveViewport();
-    blockSpacing_ = qMax(0, value);
+    blockSpacing_ = spacing;
     send(SCI_SETEXTRAASCENT, blockSpacing_ / 2);
     send(SCI_SETEXTRADESCENT, blockSpacing_ - blockSpacing_ / 2);
     emit appearanceChanged();
+    scheduleOverviewProjectionRefresh(OverviewAllDirty);
 }
 void ScintillaEditorBridge::setAutoWrap(bool value)
 {
@@ -270,6 +299,7 @@ void ScintillaEditorBridge::setAutoWrap(bool value)
     send(SCI_SETSCROLLWIDTHTRACKING, !value);
     if (value) send(SCI_SETXOFFSET, 0);
     emit appearanceChanged();
+    scheduleOverviewProjectionRefresh(OverviewAllDirty);
 }
 void ScintillaEditorBridge::setScrollPastEnd(bool value)
 {
@@ -277,6 +307,7 @@ void ScintillaEditorBridge::setScrollPastEnd(bool value)
     scrollPastEnd_ = value;
     send(SCI_SETENDATLASTLINE, !value);
     emit appearanceChanged();
+    scheduleOverviewProjectionRefresh(OverviewCurrentLineDirty);
 }
 int ScintillaEditorBridge::cursorPosition() const { return document_.utf16Position(send(SCI_GETCURRENTPOS)); }
 void ScintillaEditorBridge::setCursorPosition(int value) { select(value, value); }
@@ -359,6 +390,7 @@ void ScintillaEditorBridge::synchronizeDocument()
     publishContext(false);
     emit selectionChanged();
     emit availabilityChanged();
+    scheduleOverviewProjectionRefresh(OverviewAllDirty);
 }
 void ScintillaEditorBridge::textMutated()
 {
@@ -376,6 +408,7 @@ void ScintillaEditorBridge::textMutated()
     }
     emit selectionChanged();
     emit availabilityChanged();
+    scheduleOverviewProjectionRefresh(OverviewAllDirty);
 }
 void ScintillaEditorBridge::refreshDecorations()
 {
@@ -388,20 +421,197 @@ void ScintillaEditorBridge::refreshDecorations()
     }
     refreshDiagnostics();
     applyFollow();
+    scheduleOverviewProjectionRefresh(OverviewMarkersDirty);
 }
 void ScintillaEditorBridge::refreshDiagnostics()
 {
+    const qulonglong generation = documentSession_
+        ? documentSession_->documentOpenGeneration() : ~qulonglong(0);
+    const int difficulty = documentSession_ ? documentSession_->currentDifficultyId() : -1;
+    if (overviewDiagnosticGeneration_ != generation || overviewDiagnosticDifficulty_ != difficulty) {
+        overviewDiagnosticGeneration_ = generation;
+        overviewDiagnosticDifficulty_ = difficulty;
+        overviewSyntaxRows_.clear();
+        overviewMuriRows_.clear();
+        scheduleOverviewProjectionRefresh(OverviewMarkersDirty);
+    }
+
+    bool overviewRowsChanged = false;
     if (documentSession_ && !documentSession_->validationPending()
-        && documentSession_->validationRevision() == documentSession_->documentRevision())
-        styler_.diagnostics(documentSession_->syntaxIssues(), false);
-    if (!analysisSession_) styler_.diagnostics({}, true);
-    else if (!analysisSession_->pending()) {
+        && documentSession_->validationRevision() == documentSession_->documentRevision()) {
+        const QVariantList rows = documentSession_->syntaxIssues();
+        if (overviewSyntaxRows_ != rows) {
+            overviewSyntaxRows_ = rows;
+            overviewRowsChanged = true;
+        }
+        styler_.diagnostics(rows, false);
+    }
+    if (!analysisSession_) {
+        styler_.diagnostics({}, true);
+        if (!overviewMuriRows_.isEmpty()) {
+            overviewMuriRows_.clear();
+            overviewRowsChanged = true;
+        }
+    } else if (!analysisSession_->pending()) {
         if (documentSession_ && analysisSession_->available()
             && analysisSession_->difficultyId() == documentSession_->currentDifficultyId()
-            && analysisSession_->revision() == documentSession_->documentRevision())
-            styler_.diagnostics(analysisSession_->muriRows(), true);
-        else if (!analysisSession_->available()) styler_.diagnostics({}, true);
+            && analysisSession_->revision() == documentSession_->documentRevision()) {
+            const QVariantList rows = analysisSession_->muriRows();
+            if (overviewMuriRows_ != rows) {
+                overviewMuriRows_ = rows;
+                overviewRowsChanged = true;
+            }
+            styler_.diagnostics(rows, true);
+        } else if (!analysisSession_->available()) {
+            styler_.diagnostics({}, true);
+            if (!overviewMuriRows_.isEmpty()) {
+                overviewMuriRows_.clear();
+                overviewRowsChanged = true;
+            }
+        }
     }
+    if (overviewRowsChanged)
+        scheduleOverviewProjectionRefresh(OverviewMarkersDirty);
+}
+
+int ScintillaEditorBridge::overviewDisplayLineCount() const
+{
+    return overviewDisplayLineCount_;
+}
+
+int ScintillaEditorBridge::overviewDisplayLineForPosition(int utf16Position) const
+{
+    if (!ready_ || !documentSession_ || documentSession_->currentDifficultyId() <= 0 || utf16Position < 0
+        || utf16Position > document_.text().size()) return -1;
+    const int bytePosition = document_.bytePosition(utf16Position);
+    const int documentLine = send(SCI_LINEFROMPOSITION, bytePosition);
+    const int documentLineCount = send(SCI_GETLINECOUNT);
+    if (documentLine < 0 || documentLine >= documentLineCount
+        || !send(SCI_GETLINEVISIBLE, documentLine)) return -1;
+
+    const int firstDisplayLine = send(SCI_VISIBLEFROMDOCLINE, documentLine);
+    const int wrappedLineCount = qMax(1, int(send(SCI_WRAPCOUNT, documentLine)));
+    const int lineHeight = send(SCI_TEXTHEIGHT, 0);
+    if (firstDisplayLine < 0 || lineHeight <= 0) return -1;
+
+    // Scintilla returns a viewport-relative y coordinate; topLine restores the absolute display row.
+    const int y = send(SCI_POINTYFROMPOSITION, 0, bytePosition);
+    const int displayLine = int(send(SCI_GETFIRSTVISIBLELINE))
+        + int(std::floor(qreal(y) / lineHeight));
+    if (displayLine < firstDisplayLine || displayLine >= firstDisplayLine + wrappedLineCount
+        || send(SCI_DOCLINEFROMVISIBLE, displayLine) != documentLine) return -1;
+    return displayLine;
+}
+
+void ScintillaEditorBridge::scheduleOverviewProjectionRefresh(int parts)
+{
+    if (!parts) return;
+    overviewDirtyParts_ |= parts;
+    if (overviewRefreshPending_) return;
+    overviewRefreshPending_ = true;
+    polish();
+}
+
+void ScintillaEditorBridge::refreshOverviewProjection()
+{
+    if (!ready_ || !overviewDirtyParts_) return;
+    const int dirtyParts = overviewDirtyParts_;
+    overviewDirtyParts_ = 0;
+    bool changed = false;
+
+    if (dirtyParts & OverviewDisplayLineCountDirty) {
+        int displayLineCount = 0;
+        if (documentSession_ && documentSession_->currentDifficultyId() > 0) {
+            const int documentLineCount = send(SCI_GETLINECOUNT);
+            // ContractionState keeps the total display-row count at the document's end boundary.
+            displayLineCount = send(SCI_VISIBLEFROMDOCLINE, documentLineCount);
+        }
+        if (overviewDisplayLineCount_ != displayLineCount) {
+            overviewDisplayLineCount_ = displayLineCount;
+            changed = true;
+        }
+    }
+
+    if (dirtyParts & OverviewMarkersDirty) {
+        struct MarkerInterval {
+            int lane;
+            int startDisplayLine;
+            int endDisplayLine;
+        };
+        QVector<MarkerInterval> intervals;
+        const int documentLineCount = documentSession_ && documentSession_->currentDifficultyId() > 0
+            ? int(send(SCI_GETLINECOUNT)) : 0;
+        const auto appendDiagnosticRows = [this, &intervals, documentLineCount](const QVariantList& rows) {
+            for (const QVariant& value : rows) {
+                const QVariantMap row = value.toMap();
+                const int line = row.value(QStringLiteral("line")).toInt();
+                if (line <= 0 || line > documentLineCount) continue;
+                const int logicalLine = line - 1;
+                const int start = document_.lineStart(logicalLine);
+                const int end = document_.utf16Position(send(SCI_GETLINEENDPOSITION, logicalLine));
+                const int column = qMax(1, row.value(QStringLiteral("column")).toInt());
+                const int position = start + qMin(column - 1, qMax(0, end - start));
+                const int displayLine = overviewDisplayLineForPosition(position);
+                if (displayLine < 0 || displayLine >= overviewDisplayLineCount_) continue;
+                const int lane = row.value(QStringLiteral("severity")) == QStringLiteral("warning") ? 0 : 2;
+                intervals.append({lane, displayLine, displayLine});
+            }
+        };
+        if (overviewDisplayLineCount_ > 0) {
+            appendDiagnosticRows(overviewSyntaxRows_);
+            appendDiagnosticRows(overviewMuriRows_);
+            for (const QVariant& value : bookmarks_) {
+                const int line = value.toMap().value(QStringLiteral("line")).toInt();
+                if (line <= 0 || line > documentLineCount) continue;
+                const int displayLine = overviewDisplayLineForPosition(document_.lineStart(line - 1));
+                if (displayLine >= 0 && displayLine < overviewDisplayLineCount_)
+                    intervals.append({1, displayLine, displayLine});
+            }
+        }
+
+        std::sort(intervals.begin(), intervals.end(), [](const MarkerInterval& left, const MarkerInterval& right) {
+            if (left.lane != right.lane) return left.lane < right.lane;
+            if (left.startDisplayLine != right.startDisplayLine)
+                return left.startDisplayLine < right.startDisplayLine;
+            return left.endDisplayLine < right.endDisplayLine;
+        });
+        QVariantList markers;
+        for (const MarkerInterval& interval : intervals) {
+            if (!markers.isEmpty()) {
+                QVariantMap previous = markers.last().toMap();
+                if (previous.value(QStringLiteral("lane")).toInt() == interval.lane
+                    && interval.startDisplayLine <= previous.value(QStringLiteral("endDisplayLine")).toInt() + 1) {
+                    previous.insert(QStringLiteral("endDisplayLine"),
+                        qMax(previous.value(QStringLiteral("endDisplayLine")).toInt(), interval.endDisplayLine));
+                    markers.last() = previous;
+                    continue;
+                }
+            }
+            markers.append(QVariantMap{
+                {QStringLiteral("lane"), interval.lane},
+                {QStringLiteral("startDisplayLine"), interval.startDisplayLine},
+                {QStringLiteral("endDisplayLine"), interval.endDisplayLine},
+            });
+        }
+        if (overviewMarkers_ != markers) {
+            overviewMarkers_ = std::move(markers);
+            changed = true;
+        }
+    }
+
+    if (dirtyParts & OverviewCurrentLineDirty) {
+        int currentDisplayLine = -1;
+        if (ready_ && documentSession_ && documentSession_->currentDifficultyId() > 0) {
+            const bool useFollowPosition = !hasActiveFocus() && styler_.following();
+            const int position = useFollowPosition ? followCaretPosition_ : cursorPosition();
+            currentDisplayLine = overviewDisplayLineForPosition(position);
+        }
+        if (overviewCurrentDisplayLine_ != currentDisplayLine) {
+            overviewCurrentDisplayLine_ = currentDisplayLine;
+            changed = true;
+        }
+    }
+    if (changed) emit overviewChanged();
 }
 void ScintillaEditorBridge::refreshSettings()
 {
@@ -426,6 +636,7 @@ void ScintillaEditorBridge::refreshSelection(bool userCaret)
     if (anchor == reportedAnchor_ && caret == reportedCaret_) return;
     reportedAnchor_ = anchor;
     reportedCaret_ = caret;
+    scheduleOverviewProjectionRefresh(OverviewCurrentLineDirty);
     emit selectionChanged();
     if (!synchronizing_ && !handlingIme_) {
         publishContext(userCaret);
@@ -459,6 +670,7 @@ void ScintillaEditorBridge::applyFollow(bool reveal)
     emit followVisualChanged();
     if (reveal && active && navigationVisible_ && syncController_->followReveal())
         revealPosition(syncController_->followCaret(), syncController_->followPlaybackActive());
+    scheduleOverviewProjectionRefresh(OverviewCurrentLineDirty);
 }
 void ScintillaEditorBridge::navigate(qulonglong sequence, int difficulty, qulonglong revision, int start, int end, bool focus, bool reveal)
 {
@@ -572,9 +784,12 @@ void ScintillaEditorBridge::dropDocument(const QString& key)
     if (current) {
         styler_.reset();
         bookmarks_.clear();
+        overviewSyntaxRows_.clear();
+        overviewMuriRows_.clear();
         emit bookmarksChanged();
         emit selectionChanged();
         emit availabilityChanged();
+        scheduleOverviewProjectionRefresh(OverviewAllDirty);
     }
 }
 void ScintillaEditorBridge::configureSearch(const QString& query, const QString& replacement, bool matchCase, bool wholeWord)

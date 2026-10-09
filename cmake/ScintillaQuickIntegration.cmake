@@ -113,11 +113,31 @@ void ScintillaQuick_item::captureFrame()
     set(generated_include "${CMAKE_CURRENT_BINARY_DIR}/miacode_include")
     file(READ "${CMAKE_CURRENT_SOURCE_DIR}/include/scintillaquick/scintillaquick_item.h" item_header)
     string(REPLACE "    void updatePolish() override;" "    void prepareLayout();\n    void captureFrame();\n    void updatePolish() override;" item_header "${item_header}")
+    set(display_layout_signal "    void verticalRangeChanged(int max, int page);")
+    string(REPLACE "${display_layout_signal}" "${display_layout_signal}\n    // Emitted after display layout synchronizes scroll ranges, including unchanged ranges.\n    void displayLayoutChanged();" item_header "${item_header}")
+    set(display_layout_connection "    connect(m_core, SIGNAL(notifyChange()), this, SIGNAL(notifyChange()));")
+    string(REPLACE "${display_layout_connection}" "    connect(m_core, &ScintillaQuick_core::displayLayoutChanged, this, &ScintillaQuick_item::displayLayoutChanged);\n\n${display_layout_connection}" patched_code "${patched_code}")
     file(CONFIGURE OUTPUT "${generated_include}/scintillaquick/scintillaquick_item.h" CONTENT "${item_header}" @ONLY)
     file(READ "${CMAKE_CURRENT_SOURCE_DIR}/src/core/scintillaquick_core.h" core_header)
     string(REPLACE "public:\n" "public:\n    void prepare_layout() { RefreshStyleData(); WrapLines(WrapScope::wsVisible); }\n" core_header "${core_header}")
+    string(REPLACE "${display_layout_signal}" "${display_layout_signal}\n    void displayLayoutChanged();" core_header "${core_header}")
     file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/scintillaquick_core.h" CONTENT "${core_header}" @ONLY)
     file(READ "${CMAKE_CURRENT_SOURCE_DIR}/src/core/scintillaquick_core.cpp" core_code)
+    set(display_layout_original [=[    return modified;
+}
+
+void ScintillaQuick_core::CopyToModeClipboard]=])
+    set(display_layout_replacement [=[    // Display-row heights may change while the total scroll range stays equal.
+    emit displayLayoutChanged();
+    return modified;
+}
+
+void ScintillaQuick_core::CopyToModeClipboard]=])
+    string(FIND "${core_code}" "${display_layout_original}" match)
+    if(match EQUAL -1)
+        message(FATAL_ERROR "Update the MiaCode ScintillaQuick display-layout patch for this dependency revision")
+    endif()
+    string(REPLACE "${display_layout_original}" "${display_layout_replacement}" core_code "${core_code}")
     file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/miacode_scintillaquick_core.cpp" CONTENT "${core_code}" @ONLY)
     target_include_directories(ScintillaQuick BEFORE PUBLIC "$<BUILD_INTERFACE:${generated_include}>")
     set(patched_source "${CMAKE_CURRENT_BINARY_DIR}/miacode_scintillaquick_item.cpp")
