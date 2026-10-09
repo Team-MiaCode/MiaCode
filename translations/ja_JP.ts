@@ -4455,6 +4455,126 @@ Error: %1</source>
         <source>Status: descending</source>
         <translation>状態：降順</translation>
     </message>
+    <message id="guide.title">
+        <source>Getting started</source>
+        <translation>初心者ガイド</translation>
+    </message>
+    <message id="guide.page_one">
+        <source>Getting started · Page 1</source>
+        <translation>初心者ガイド · 1 ページ</translation>
+    </message>
+    <message id="guide.exit">
+        <source>Exit guide</source>
+        <translation>ガイドを閉じる</translation>
+    </message>
+    <message id="guide.step_counter">
+        <source>%1 / %2</source>
+        <translation>%1 / %2</translation>
+    </message>
+    <message id="guide.previous">
+        <source>Previous</source>
+        <translation>前へ</translation>
+    </message>
+    <message id="guide.next">
+        <source>Next</source>
+        <translation>次へ</translation>
+    </message>
+    <message id="guide.finish">
+        <source>Finish</source>
+        <translation>ガイドを終了</translation>
+    </message>
+    <message id="guide.document_actions.title">
+        <source>File actions</source>
+        <translation>ファイル操作</translation>
+    </message>
+    <message id="guide.navigation.title">
+        <source>Navigation</source>
+        <translation>機能の入口</translation>
+    </message>
+    <message id="guide.navigation.hint">
+        <source>The sidebar button opens navigation.</source>
+        <translation>サイドバーボタンでナビゲーションを開けます。</translation>
+    </message>
+    <message id="guide.sidebar.title">
+        <source>Chart and difficulties</source>
+        <translation>譜面と難易度</translation>
+    </message>
+    <message id="guide.sidebar.hint">
+        <source>Expand the sidebar and select the chart page.</source>
+        <translation>サイドバーを開き、譜面ページを選びます。</translation>
+    </message>
+    <message id="guide.workspace_actions.title">
+        <source>Settings and panels</source>
+        <translation>設定とパネル</translation>
+    </message>
+    <message id="guide.editor.title">
+        <source>Write a chart</source>
+        <translation>譜面を書く</translation>
+    </message>
+    <message id="guide.editor.hint">
+        <source>Open a chart and select a difficulty.</source>
+        <translation>譜面を開き、難易度を選びます。</translation>
+    </message>
+    <message id="guide.transport.title">
+        <source>Preview options</source>
+        <translation>プレビュー設定</translation>
+    </message>
+    <message id="guide.transport.hint">
+        <source>Playback controls are in the detached preview window.</source>
+        <translation>再生操作は分離したプレビューウィンドウにあります。</translation>
+    </message>
+    <message id="guide.editor.metadata_save">
+        <source>Changes to the level, offset and designer above are saved immediately.</source>
+        <translation>上部のレベル、オフセット、譜面作者の変更は即時保存されます。</translation>
+    </message>
+    <message id="guide.editor.measure">
+        <source>Start a new measure here and switch to 3/4 time.</source>
+        <translation>この位置から新しい小節を始め、3/4 拍子に切り替えます。</translation>
+    </message>
+    <message id="guide.editor.comment">
+        <source>Write an ordinary comment after three vertical bars.</source>
+        <translation>縦線を 3 つ書くと、その後の文字が通常のコメントになります。</translation>
+    </message>
+    <message id="guide.editor.bookmark">
+        <source>Name a bookmark in brackets; click it in the sidebar to jump to its line.</source>
+        <translation>角括弧でブックマークを命名し、サイドバーからその行へ移動できます。</translation>
+    </message>
+    <message id="guide.transport.rate">
+        <source>Playback speed: adjust the preview speed.</source>
+        <translation>再生速度：プレビューの速度を調整します。</translation>
+    </message>
+    <message id="guide.transport.canvas">
+        <source>Picture options: toggle free aspect ratio or hide the PV.</source>
+        <translation>画面設定：自由比例の切り替えや PV の非表示を設定します。</translation>
+    </message>
+    <message id="guide.transport.detach">
+        <source>Detach preview: move the preview to a separate window.</source>
+        <translation>プレビューを分離：別のウィンドウに移動します。</translation>
+    </message>
+    <message id="guide.sidebar_panel">
+        <source>Sidebar</source>
+        <translation>サイドバー</translation>
+    </message>
+    <message id="guide.bottom_panel">
+        <source>Bottom panel</source>
+        <translation>下部パネル</translation>
+    </message>
+    <message id="guide.navigation.chart">
+        <source>Chart editing: the main chart-writing features are here.</source>
+        <translation>譜面編集：譜面制作に関する主な機能がここにあります。</translation>
+    </message>
+    <message id="guide.navigation.export">
+        <source>Export page: export videos and covers, or package the chart as a ZIP.</source>
+        <translation>エクスポートページ：動画やカバーの出力、ZIP へのパッケージ化ができます。</translation>
+    </message>
+    <message id="guide.navigation.tools">
+        <source>Toolbox: chart normalization, audio and video processing, Net management and more.</source>
+        <translation>ツールボックス：譜面の整理、音声・動画処理ツール、Net 管理など。</translation>
+    </message>
+    <message id="guide.navigation.preferences">
+        <source>Preferences: configure interface appearance and styling, the editor and shortcuts.</source>
+        <translation>環境設定：画面の外観やスタイル、エディター、ショートカットを設定します。</translation>
+    </message>
 </context>
 
 

@@ -198,7 +198,7 @@ Rectangle {
                 shortcuts: root.shortcuts
                 documentSession: root.documentSession
                 pet: root.pet
-                commandsEnabled: root.visible
+                commandsEnabled: root.visible && root.menuCommands.commandsEnabled
                 saveEnabled: root.saveEnabled
                 wholeDocumentSaveEnabled: root.wholeDocumentSaveEnabled
                 documentAvailable: root.documentAvailable

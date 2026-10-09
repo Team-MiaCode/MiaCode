@@ -654,6 +654,12 @@ Item {
             id: extrasMenu
             title: root.menuTitle(qsTrId("menu.extras"))
             AppMenuAction {
+                text: qsTrId("guide.title")
+                enabled: root.commandsEnabled
+                onTriggered: root.commands.beginnerGuideRequested()
+            }
+            AppMenuSeparator {}
+            AppMenuAction {
                 text: root.pet.visible ? qsTrId("pet.hide") : qsTrId("pet.show")
                 enabled: root.commandsEnabled
                 onTriggered: root.pet.visible = !root.pet.visible

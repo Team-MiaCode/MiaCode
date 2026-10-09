@@ -11,6 +11,8 @@ Item {
     required property var pages
     property bool compact: false
     readonly property bool primarySidebarVisible: compact || viewState.sidebarVisible
+    readonly property Item navigationItem: activityBar
+    readonly property Item chartSidebarItem: chartSidebar.navigationContentItem
     readonly property real activityBarWidth: activityBar.width
     readonly property Item cornerSourceItem: root.viewState.activeSidebarView === "export"
         ? exportSidebar.cornerSourceItem : chartSidebar.cornerSourceItem

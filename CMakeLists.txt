@@ -635,6 +635,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/layout/MainView.qml
     src/app/ui/layout/MainSplitView.qml
     src/app/ui/layout/WelcomePage.qml
+    src/app/ui/layout/BeginnerGuideOverlay.qml
     src/app/ui/layout/CompactPanelLayer.qml
     src/app/ui/sidebar/Sidebar.qml
     src/app/ui/sidebar/ActivityBar.qml

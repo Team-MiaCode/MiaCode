@@ -22,6 +22,7 @@ Item {
     required property var preferencesModel
     required property bool sourceEditorFocused
     // Transforms edit the chart, so they are inert without one.
+    property bool commandsEnabled: true
     property bool chartCommandsEnabled: true
     property bool playbackCommandsEnabled: true
     property bool menuOwnsChartTransformShortcuts: false
@@ -55,7 +56,7 @@ Item {
         sequence: root.shortcuts.revision >= 0
             ? root.shortcuts.sequence("editor.font_decrease", "Ctrl+Alt+-")
             : ""
-        enabled: sequence !== ""
+        enabled: root.commandsEnabled && sequence !== ""
         context: Qt.WindowShortcut
         onActivated: root.preferencesModel.setEditorFontSize(
                          root.preferencesModel.editorFontSize - 1)
@@ -65,7 +66,7 @@ Item {
         sequence: root.shortcuts.revision >= 0
             ? root.shortcuts.sequence("editor.font_increase", "Ctrl+Alt+=")
             : ""
-        enabled: sequence !== ""
+        enabled: root.commandsEnabled && sequence !== ""
         context: Qt.WindowShortcut
         onActivated: root.preferencesModel.setEditorFontSize(
                          root.preferencesModel.editorFontSize + 1)

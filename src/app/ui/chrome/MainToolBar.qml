@@ -28,6 +28,8 @@ Rectangle {
     property real titleBarLeadingInset: 0
     property bool previewSettingsVisible: true
 
+    readonly property Item documentActionsItem: leftActions
+    readonly property Item workspaceActionsItem: rightActions
     readonly property real leadingActionsRight: leftActions.x + leftActions.width
     readonly property real trailingActionsWidth: width - rightActions.x
     readonly property real minimumWidth: leftActions.anchors.leftMargin + leftActions.width

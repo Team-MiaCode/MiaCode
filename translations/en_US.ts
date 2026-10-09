@@ -4455,6 +4455,126 @@ Error: %1</translation>
         <source>Status: descending</source>
         <translation>Status: descending</translation>
     </message>
+    <message id="guide.title">
+        <source>Getting started</source>
+        <translation>Getting started</translation>
+    </message>
+    <message id="guide.page_one">
+        <source>Getting started · Page 1</source>
+        <translation>Getting started · Page 1</translation>
+    </message>
+    <message id="guide.exit">
+        <source>Exit guide</source>
+        <translation>Exit guide</translation>
+    </message>
+    <message id="guide.step_counter">
+        <source>%1 / %2</source>
+        <translation>%1 / %2</translation>
+    </message>
+    <message id="guide.previous">
+        <source>Previous</source>
+        <translation>Previous</translation>
+    </message>
+    <message id="guide.next">
+        <source>Next</source>
+        <translation>Next</translation>
+    </message>
+    <message id="guide.finish">
+        <source>Finish</source>
+        <translation>Finish</translation>
+    </message>
+    <message id="guide.document_actions.title">
+        <source>File actions</source>
+        <translation>File actions</translation>
+    </message>
+    <message id="guide.navigation.title">
+        <source>Navigation</source>
+        <translation>Navigation</translation>
+    </message>
+    <message id="guide.navigation.hint">
+        <source>The sidebar button opens navigation.</source>
+        <translation>The sidebar button opens navigation.</translation>
+    </message>
+    <message id="guide.sidebar.title">
+        <source>Chart and difficulties</source>
+        <translation>Chart and difficulties</translation>
+    </message>
+    <message id="guide.sidebar.hint">
+        <source>Expand the sidebar and select the chart page.</source>
+        <translation>Expand the sidebar and select the chart page.</translation>
+    </message>
+    <message id="guide.workspace_actions.title">
+        <source>Settings and panels</source>
+        <translation>Settings and panels</translation>
+    </message>
+    <message id="guide.editor.title">
+        <source>Write a chart</source>
+        <translation>Write a chart</translation>
+    </message>
+    <message id="guide.editor.hint">
+        <source>Open a chart and select a difficulty.</source>
+        <translation>Open a chart and select a difficulty.</translation>
+    </message>
+    <message id="guide.transport.title">
+        <source>Preview options</source>
+        <translation>Preview options</translation>
+    </message>
+    <message id="guide.transport.hint">
+        <source>Playback controls are in the detached preview window.</source>
+        <translation>Playback controls are in the detached preview window.</translation>
+    </message>
+    <message id="guide.editor.metadata_save">
+        <source>Changes to the level, offset and designer above are saved immediately.</source>
+        <translation>Changes to the level, offset and designer above are saved immediately.</translation>
+    </message>
+    <message id="guide.editor.measure">
+        <source>Start a new measure here and switch to 3/4 time.</source>
+        <translation>Start a new measure here and switch to 3/4 time.</translation>
+    </message>
+    <message id="guide.editor.comment">
+        <source>Write an ordinary comment after three vertical bars.</source>
+        <translation>Write an ordinary comment after three vertical bars.</translation>
+    </message>
+    <message id="guide.editor.bookmark">
+        <source>Name a bookmark in brackets; click it in the sidebar to jump to its line.</source>
+        <translation>Name a bookmark in brackets; click it in the sidebar to jump to its line.</translation>
+    </message>
+    <message id="guide.transport.rate">
+        <source>Playback speed: adjust the preview speed.</source>
+        <translation>Playback speed: adjust the preview speed.</translation>
+    </message>
+    <message id="guide.transport.canvas">
+        <source>Picture options: toggle free aspect ratio or hide the PV.</source>
+        <translation>Picture options: toggle free aspect ratio or hide the PV.</translation>
+    </message>
+    <message id="guide.transport.detach">
+        <source>Detach preview: move the preview to a separate window.</source>
+        <translation>Detach preview: move the preview to a separate window.</translation>
+    </message>
+    <message id="guide.sidebar_panel">
+        <source>Sidebar</source>
+        <translation>Sidebar</translation>
+    </message>
+    <message id="guide.bottom_panel">
+        <source>Bottom panel</source>
+        <translation>Bottom panel</translation>
+    </message>
+    <message id="guide.navigation.chart">
+        <source>Chart editing: the main chart-writing features are here.</source>
+        <translation>Chart editing: the main chart-writing features are here.</translation>
+    </message>
+    <message id="guide.navigation.export">
+        <source>Export page: export videos and covers, or package the chart as a ZIP.</source>
+        <translation>Export page: export videos and covers, or package the chart as a ZIP.</translation>
+    </message>
+    <message id="guide.navigation.tools">
+        <source>Toolbox: chart normalization, audio and video processing, Net management and more.</source>
+        <translation>Toolbox: chart normalization, audio and video processing, Net management and more.</translation>
+    </message>
+    <message id="guide.navigation.preferences">
+        <source>Preferences: configure interface appearance and styling, the editor and shortcuts.</source>
+        <translation>Preferences: configure interface appearance and styling, the editor and shortcuts.</translation>
+    </message>
 </context>
 
 

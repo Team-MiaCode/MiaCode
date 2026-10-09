@@ -19,6 +19,8 @@ Item {
     required property var net
     required property var netUpload
 
+    readonly property Item sourceEditorItem: sourceEditor
+    readonly property Item difficultyFieldsItem: difficultyHeader
     readonly property bool sourceVisible: viewState.difficultyEditorActive
     readonly property bool canUndo: sourceVisible && sourceEditor.canUndo
     readonly property bool canRedo: sourceVisible && sourceEditor.canRedo

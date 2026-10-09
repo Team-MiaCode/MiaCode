@@ -29,6 +29,11 @@ Item {
     property string documentTitle: ""
     property real sidebarDragWidth: 0
     property bool sidebarResizing: false
+    readonly property Item navigationItem: sidebar.navigationItem
+    readonly property Item chartSidebarItem: sidebar.chartSidebarItem
+    readonly property Item sourceEditorItem: editorPane.sourceEditorItem
+    readonly property Item difficultyFieldsItem: editorPane.difficultyFieldsItem
+    readonly property Item transportItem: preview.transportItem
     readonly property bool previewDetached: root.preferences.previewDetached
     readonly property Item settingsDialogParent: root.previewDetached
         ? detachedPreviewWindow.Overlay.overlay : root.Overlay.overlay

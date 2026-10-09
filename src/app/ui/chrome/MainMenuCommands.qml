@@ -38,6 +38,7 @@ QtObject {
     signal chartTransformRequested(string opId)
     signal normalizeChartRequested()
     signal aboutRequested()
+    signal beginnerGuideRequested()
     signal preferencesRequested()
     signal newDocumentRequested()
     signal openRecentRequested(string path)

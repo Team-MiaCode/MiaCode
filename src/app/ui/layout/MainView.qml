@@ -37,11 +37,13 @@ Item {
             ? baseTitle + " — " + documentSession.currentDifficultyLabel
             : baseTitle
     }
+    readonly property bool beginnerGuideActive: beginnerGuide.visible
     readonly property bool editorActive: state.hasActiveEditor && !pages.overlayActive
+        && !beginnerGuideActive
     readonly property bool editorCommandsAvailable: state.difficultyEditorActive
-        && !pages.overlayActive
+        && !pages.overlayActive && !beginnerGuideActive
     readonly property bool chartEditorActive: documentSession.hasDocument
-        && documentSession.currentDifficultyId > 0 && !pages.overlayActive
+        && documentSession.currentDifficultyId > 0 && !pages.overlayActive && !beginnerGuideActive
     readonly property alias mainMenuCommands: menuCommands
     readonly property string windowTitle: titleBar.titleText
     readonly property real minimumWidth: Math.max(splitView.minimumWorkspaceWidth,
@@ -103,6 +105,7 @@ Item {
     MainMenuCommands {
         id: menuCommands
         netEnabled: root.pages.netEnabled
+        commandsEnabled: !root.beginnerGuideActive
         canUndo: root.editorCommandsAvailable && splitView.canUndo
         canRedo: root.editorCommandsAvailable && splitView.canRedo
         canCut: root.editorCommandsAvailable && splitView.canCut
@@ -147,6 +150,7 @@ Item {
                 root.pages.openNormalizeWholeChart()
         }
         onAboutRequested: aboutDialog.open()
+        onBeginnerGuideRequested: beginnerGuide.open()
         onPreferencesRequested: preferencesDialog.open()
         onNewDocumentRequested: root.commands.newDocument()
         onOpenRecentRequested: path => root.commands.openRecentDocument(path)
@@ -624,6 +628,103 @@ Item {
         anchors.fill: parent
         progress: root.jobProgress
         imageResources: root.imageResources
+    }
+
+    BeginnerGuideOverlay {
+        id: beginnerGuide
+        objectName: "beginnerGuideOverlay"
+        sections: [
+            {
+                id: "document-actions",
+                target: mainToolBar.documentActionsItem,
+                title: qsTrId("guide.document_actions.title"),
+                features: [
+                    { icon: Qt.resolvedUrl("icons/folder-open.svg"), label: qsTrId("action.open") },
+                    { icon: Qt.resolvedUrl("icons/save.svg"), label: qsTrId("action.save") },
+                    { icon: Qt.resolvedUrl("icons/undo.svg"), label: qsTrId("qml.undo") },
+                    { icon: Qt.resolvedUrl("icons/redo.svg"), label: qsTrId("action.redo") }
+                ],
+                placement: "below",
+                alignment: "start"
+            },
+            {
+                id: "navigation",
+                target: splitView.navigationItem,
+                fallbackTarget: mainToolBar.workspaceActionsItem,
+                hint: qsTrId("guide.navigation.hint"),
+                title: qsTrId("guide.navigation.title"),
+                columns: 1,
+                features: [
+                    { icon: Qt.resolvedUrl("icons/file.svg"), label: qsTrId("guide.navigation.chart") },
+                    { icon: Qt.resolvedUrl("icons/export.svg"), label: qsTrId("guide.navigation.export") },
+                    { icon: Qt.resolvedUrl("icons/tools.svg"), label: qsTrId("guide.navigation.tools") },
+                    { icon: Qt.resolvedUrl("icons/settings.svg"), label: qsTrId("guide.navigation.preferences") }
+                ],
+                placement: "right",
+                alignment: "start"
+            },
+            {
+                id: "chart-sidebar",
+                target: splitView.chartSidebarItem,
+                fallbackTarget: mainToolBar.workspaceActionsItem,
+                hint: qsTrId("guide.sidebar.hint"),
+                title: qsTrId("guide.sidebar.title"),
+                features: [
+                    { icon: Qt.resolvedUrl("icons/metadata.svg"), label: qsTrId("dialog.unsaved_field_changes.field.metadata") },
+                    { icon: Qt.resolvedUrl("icons/metronome.svg"), label: qsTrId("qml.latency_calibration") },
+                    { icon: Qt.resolvedUrl("icons/add.svg"), label: qsTrId("sidebar.add_difficulty") },
+                    { icon: Qt.resolvedUrl("icons/remove.svg"), label: qsTrId("qml.delete_current_difficulty") }
+                ],
+                placement: "right",
+                alignment: "start"
+            },
+            {
+                id: "workspace-actions",
+                target: mainToolBar.workspaceActionsItem,
+                title: qsTrId("guide.workspace_actions.title"),
+                features: [
+                    { icon: Qt.resolvedUrl("icons/audio-settings.svg"), label: qsTrId("action.audio_settings") },
+                    { icon: Qt.resolvedUrl("icons/preview-settings.svg"), label: qsTrId("action.video_settings") },
+                    { icon: Qt.resolvedUrl("icons/panel-left.svg"), label: qsTrId("guide.sidebar_panel") },
+                    { icon: Qt.resolvedUrl("icons/panel-bottom.svg"), label: qsTrId("guide.bottom_panel") }
+                ],
+                placement: "below",
+                alignment: "end"
+            },
+            {
+                id: "source-editor",
+                target: splitView.sourceEditorItem,
+                secondaryTarget: splitView.difficultyFieldsItem,
+                fallbackTarget: mainToolBar.documentActionsItem,
+                hint: qsTrId("guide.editor.hint"),
+                title: qsTrId("guide.editor.title"),
+                columns: 1,
+                features: [
+                    { icon: Qt.resolvedUrl("icons/metadata.svg"), label: qsTrId("guide.editor.metadata_save") },
+                    { kind: "code", sample: "|| 3/4", label: qsTrId("guide.editor.measure") },
+                    { kind: "code", sample: "|||", label: qsTrId("guide.editor.comment") },
+                    { kind: "code", sample: "|| [A]", label: qsTrId("guide.editor.bookmark") }
+                ],
+                placement: "right",
+                alignment: "start",
+                focusHeight: Theme.controlMinHeight * 5
+            },
+            {
+                id: "preview-transport",
+                target: splitView.transportItem,
+                fallbackTarget: mainToolBar.workspaceActionsItem,
+                hint: qsTrId("guide.transport.hint"),
+                title: qsTrId("guide.transport.title"),
+                columns: 1,
+                features: [
+                    { sample: "1×", label: qsTrId("guide.transport.rate") },
+                    { icon: Qt.resolvedUrl("icons/preview-settings.svg"), label: qsTrId("guide.transport.canvas") },
+                    { icon: Qt.resolvedUrl("icons/preview-detach.svg"), label: qsTrId("guide.transport.detach") }
+                ],
+                placement: "above",
+                alignment: "end"
+            }
+        ]
     }
 
     // Input-heavy media tools keep their own dialogs; the launcher is a submenu.

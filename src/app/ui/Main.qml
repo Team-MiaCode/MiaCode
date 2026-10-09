@@ -26,6 +26,7 @@ ApplicationWindow {
         documentSession: mainView.documentSession
         pet: window.applicationContext.pet
         commandsEnabled: window.platform.nativeMenuBar
+            && mainView.mainMenuCommands.commandsEnabled
         saveEnabled: mainView.editorActive
         wholeDocumentSaveEnabled: mainView.documentSession.hasDocument
         documentAvailable: mainView.documentSession.hasDocument
@@ -257,6 +258,7 @@ ApplicationWindow {
         previewSession: window.applicationContext.preview
         preferencesModel: window.applicationContext.preferencesModel
         sourceEditorFocused: window.sourceEditorFocused
+        commandsEnabled: !mainView.beginnerGuideActive
         chartCommandsEnabled: mainView.chartEditorActive
         playbackCommandsEnabled: window.playbackCommandsEnabled
         menuOwnsChartTransformShortcuts: window.platform.nativeMenuBar
