@@ -565,10 +565,6 @@
         <source>Cover layout (*.miacover)</source>
         <translation>カバーレイアウト (*.miacover)</translation>
     </message>
-    <message id="cover.cover_layout_miacover_legacy_json">
-        <source>Cover layout (*.miacover);;Legacy JSON (*.json)</source>
-        <translation>カバーレイアウト (*.miacover);;旧版 JSON (*.json)</translation>
-    </message>
     <message id="cover.custom_image">
         <source>Custom image</source>
         <translation>カスタム画像</translation>
@@ -1036,8 +1032,8 @@ Failed: %2</source>
         <translation>選択した画像を読み込めません。</translation>
     </message>
     <message id="dialog.preferences.background.image_filter">
-        <source>Images (*.png *.jpg *.jpeg *.bmp *.webp);;All Files (*)</source>
-        <translation>画像 (*.png *.jpg *.jpeg *.bmp *.webp);;すべてのファイル (*)</translation>
+        <source>Images (*.png *.jpg *.jpeg *.bmp *.webp)</source>
+        <translation>画像 (*.png *.jpg *.jpeg *.bmp *.webp)</translation>
     </message>
     <message id="dialog.preferences.background.position">
         <source>Position</source>

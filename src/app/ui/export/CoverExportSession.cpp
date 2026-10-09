@@ -1325,7 +1325,7 @@ void CoverExportSession::importLayout()
 {
     miacode::FileRequest request;
     request.title = miacode::localizedText("cover.import_cover_layout");
-    request.nameFilters = {miacode::localizedText("cover.cover_layout_miacover_legacy_json")};
+    request.nameFilters = {miacode::localizedText("cover.cover_layout_miacover")};
     uiRequests_->requestFile(request, [this](const QString& path) { openRecentLayout(path); });
 }
 

@@ -565,10 +565,6 @@
         <source>Cover layout (*.miacover)</source>
         <translation>封面布局 (*.miacover)</translation>
     </message>
-    <message id="cover.cover_layout_miacover_legacy_json">
-        <source>Cover layout (*.miacover);;Legacy JSON (*.json)</source>
-        <translation>封面布局 (*.miacover);;旧版 JSON (*.json)</translation>
-    </message>
     <message id="cover.custom_image">
         <source>Custom image</source>
         <translation>自定义图片</translation>
@@ -1036,8 +1032,8 @@ Failed: %2</source>
         <translation>所选图片无法读取。</translation>
     </message>
     <message id="dialog.preferences.background.image_filter">
-        <source>Images (*.png *.jpg *.jpeg *.bmp *.webp);;All Files (*)</source>
-        <translation>图片 (*.png *.jpg *.jpeg *.bmp *.webp);;所有文件 (*)</translation>
+        <source>Images (*.png *.jpg *.jpeg *.bmp *.webp)</source>
+        <translation>图片 (*.png *.jpg *.jpeg *.bmp *.webp)</translation>
     </message>
     <message id="dialog.preferences.background.position">
         <source>Position</source>

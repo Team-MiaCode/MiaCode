@@ -565,10 +565,6 @@
         <source>Cover layout (*.miacover)</source>
         <translation>Cover layout (*.miacover)</translation>
     </message>
-    <message id="cover.cover_layout_miacover_legacy_json">
-        <source>Cover layout (*.miacover);;Legacy JSON (*.json)</source>
-        <translation>Cover layout (*.miacover);;Legacy JSON (*.json)</translation>
-    </message>
     <message id="cover.custom_image">
         <source>Custom image</source>
         <translation>Custom image</translation>
@@ -1036,8 +1032,8 @@ Failed: %2</translation>
         <translation>The selected image cannot be read.</translation>
     </message>
     <message id="dialog.preferences.background.image_filter">
-        <source>Images (*.png *.jpg *.jpeg *.bmp *.webp);;All Files (*)</source>
-        <translation>Images (*.png *.jpg *.jpeg *.bmp *.webp);;All Files (*)</translation>
+        <source>Images (*.png *.jpg *.jpeg *.bmp *.webp)</source>
+        <translation>Images (*.png *.jpg *.jpeg *.bmp *.webp)</translation>
     </message>
     <message id="dialog.preferences.background.position">
         <source>Position</source>
