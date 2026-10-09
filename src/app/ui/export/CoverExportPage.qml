@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQml.Models
 import QtQuick.Controls
 import QtQuick.Layouts
 import MiaCode.UI
@@ -118,6 +119,20 @@ Rectangle {
         return parts[parts.length - 1] || path
     }
 
+    // Rows whose model changes at runtime go through Instantiator +
+    // insertItem: a Repeater among a Menu's static rows inserts its new rows
+    // at an unrelated position once its model changes.
+    function menuItemIndex(menu, item) {
+        for (let i = 0; i < menu.count; ++i) {
+            if (menu.itemAt(i) === item)
+                return i
+        }
+        return -1
+    }
+    function insertMenuItemAfter(menu, anchor, offset, item) {
+        menu.insertItem(menuItemIndex(menu, anchor) + 1 + offset, item)
+    }
+
     function showLayerInspector(key) {
         if (key)
             inspectorTabs.setCurrentIndex(1)
@@ -199,20 +214,20 @@ Rectangle {
                 text: qsTrId("cover.import_layout_file")
                 onTriggered: root.session.importLayout()
             }
-            AppMenuSeparator {}
-            AppMenuItem {
-                text: qsTrId("cover.no_recent_files")
-                enabled: false
-                height: visible ? implicitHeight : 0
-                visible: !root.session || root.session.recentLayoutFiles.length === 0
-            }
-            Repeater {
-                model: root.session ? root.session.recentLayoutFiles : []
+            AppMenuSeparator { id: recentLayoutsAnchor }
+            // The empty state is a model entry, so the list always has a row.
+            Instantiator {
+                model: root.session && root.session.recentLayoutFiles.length > 0
+                       ? root.session.recentLayoutFiles : [""]
                 delegate: AppMenuItem {
                     required property string modelData
-                    text: root.baseName(modelData)
-                    onTriggered: root.session.openRecentLayout(modelData)
+                    text: modelData.length > 0 ? root.baseName(modelData) : qsTrId("cover.no_recent_files")
+                    tooltip: modelData
+                    enabled: modelData.length > 0
+                    onTriggered: if (modelData.length > 0) root.session.openRecentLayout(modelData)
                 }
+                onObjectAdded: (index, item) => root.insertMenuItemAfter(layoutMenu, recentLayoutsAnchor, index, item)
+                onObjectRemoved: (index, item) => layoutMenu.removeItem(item)
             }
             AppMenuSeparator {}
             AppMenuItem {
@@ -228,7 +243,7 @@ Rectangle {
                 objectName: "coverPresetMenu"
                 title: qsTrId("cover.presets")
 
-                Repeater {
+                Instantiator {
                     model: root.session ? root.session.builtinPresets : []
                     delegate: AppMenuItem {
                         required property var modelData
@@ -237,18 +252,23 @@ Rectangle {
                                  && (!modelData.requiresChartFrame || root.session.chartFrameAvailable)
                         onTriggered: root.session.applyBuiltinPreset(modelData.id)
                     }
+                    onObjectAdded: (index, item) => presetMenu.insertItem(index, item)
+                    onObjectRemoved: (index, item) => presetMenu.removeItem(item)
                 }
                 AppMenuSeparator {
+                    id: userPresetsAnchor
                     visible: !!root.session && root.session.presets.length > 0
                     height: visible ? implicitHeight : 0
                 }
-                Repeater {
+                Instantiator {
                     model: root.session ? root.session.presets : []
                     delegate: AppMenuItem {
                         required property var modelData
                         text: modelData.name
                         onTriggered: root.session.applyPreset(modelData.name)
                     }
+                    onObjectAdded: (index, item) => root.insertMenuItemAfter(presetMenu, userPresetsAnchor, index, item)
+                    onObjectRemoved: (index, item) => presetMenu.removeItem(item)
                 }
                 AppMenuSeparator {}
                 AppMenuItem {

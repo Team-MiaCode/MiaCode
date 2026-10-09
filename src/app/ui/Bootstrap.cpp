@@ -329,7 +329,6 @@ void Bootstrap::openCoverExportWindow(int difficultyId)
     }
     auto* preferences = static_cast<WorkbenchSettings*>(applicationContext_->preferences());
     auto* window = new CoverExportWindow(*applicationServices_->exportEngine(),
-        applicationServices_->uiRequests(),
         applicationServices_->playbackControlSlot(),
         *preferences, appIcon_, this);
     coverWindow_ = window;

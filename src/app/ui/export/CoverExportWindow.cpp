@@ -15,7 +15,6 @@
 
 namespace miacode::ui {
 CoverExportWindow::CoverExportWindow(miacode::ExportEngine& exportEngine,
-                                           miacode::UiRequestService& requests,
                                            miacode::PlaybackControl*& playbackControlSlot,
                                            WorkbenchSettings& preferences,
                                            const QIcon& icon,
@@ -23,7 +22,7 @@ CoverExportWindow::CoverExportWindow(miacode::ExportEngine& exportEngine,
     : QObject(parent)
     , preferences_(preferences)
     , icon_(icon)
-    , session_(exportEngine, requests, playbackControlSlot, this)
+    , session_(exportEngine, requests_, playbackControlSlot, this)
 {
     // Export pumps events while capturing. Finish the active operation before
     // deleting its session, including when the application is closing.

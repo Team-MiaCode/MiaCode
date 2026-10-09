@@ -20,7 +20,6 @@ class CoverExportWindow final : public QObject
 
 public:
     CoverExportWindow(miacode::ExportEngine& exportEngine,
-                         miacode::UiRequestService& requests,
                          miacode::PlaybackControl*& playbackControlSlot,
                          WorkbenchSettings& preferences,
                          const QIcon& icon,
@@ -34,6 +33,9 @@ public:
 private:
     WorkbenchSettings& preferences_;
     QIcon icon_;
+    // The window's own request queue. It has its own UiRequestHost; on the shell's
+    // shared queue, the main window's host would open every pick a second time.
+    miacode::UiRequestService requests_;
     CoverExportSession session_;
     std::unique_ptr<QQmlApplicationEngine> engine_;
     QPointer<QQuickWindow> window_;
