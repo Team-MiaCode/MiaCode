@@ -71,6 +71,8 @@ class CoverExportSession final : public QObject
     Q_PROPERTY(double chartFrameDuration READ chartFrameDuration NOTIFY chartFrameAvailabilityChanged)
     // The chart has a video PV, so chart frames can use frameBgMode "pv".
     Q_PROPERTY(bool chartFramePvAvailable READ chartFramePvAvailable NOTIFY chartFrameAvailabilityChanged)
+    // The PV file, for the editor's silent PV playback while a chart frame plays.
+    Q_PROPERTY(QUrl chartFramePvSource READ chartFramePvSource NOTIFY chartFrameAvailabilityChanged)
     Q_PROPERTY(double chartFrameDiskDiameter READ chartFrameDiskDiameter NOTIFY chartFrameAvailabilityChanged)
     Q_PROPERTY(QObject* chartSceneBinder READ chartSceneBinder CONSTANT)
     Q_PROPERTY(bool chartFramePlaying READ chartFramePlaying NOTIFY chartFramePlayingChanged)
@@ -122,6 +124,10 @@ public:
     bool chartFrameAvailable() const { return chartFrameAvailable_; }
     double chartFrameDuration() const { return chartFrameDuration_; }
     bool chartFramePvAvailable() const { return chartFrameAvailable_ && !pvMediaPath_.isEmpty(); }
+    QUrl chartFramePvSource() const
+    {
+        return chartFramePvAvailable() ? QUrl::fromLocalFile(pvMediaPath_) : QUrl();
+    }
     double chartFrameDiskDiameter() const;
     QObject* chartSceneBinder() const;
     bool chartFramePlaying() const;

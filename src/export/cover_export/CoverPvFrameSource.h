@@ -15,7 +15,7 @@ namespace miacode::cover_export {
 // so a layer's frameSeconds picks its frame directly.
 //
 // Each decode is one input-seeked ffmpeg run (~150 ms for a 720p H.264 PV),
-// centre-cropped to a square and scaled to at most `sidePx` (never upscaled).
+// uncropped, its shorter side scaled to at most `sidePx` (never upscaled).
 // The async path runs in the ffmpeg child process, so the GUI thread only pays
 // for the QImage load of a small BMP. Requests are latest-wins per layer key:
 // scrubbing queues at most one pending decode behind the running one, and only

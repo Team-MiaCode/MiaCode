@@ -45,8 +45,11 @@ QStringList CoverPvFrameSource::decodeArguments(const Request& request)
         QStringLiteral("-i"), request.mediaPath,
         QStringLiteral("-frames:v"), QStringLiteral("1"),
         QStringLiteral("-an"),
+        // The whole frame, shorter side scaled down to `side` (never up): the
+        // composer fills or fits it into the playfield disk itself.
         QStringLiteral("-vf"),
-        QStringLiteral("crop='min(iw,ih)':'min(iw,ih)',scale='min(%1,iw)':-2:flags=bicubic").arg(side),
+        QStringLiteral("scale='2*trunc(iw*min(1,%1/min(iw,ih))/2)':'2*trunc(ih*min(1,%1/min(iw,ih))/2)'"
+                       ":flags=bicubic").arg(side),
         QStringLiteral("-f"), QStringLiteral("image2pipe"),
         QStringLiteral("-c:v"), QStringLiteral("bmp"),
         QStringLiteral("-"),

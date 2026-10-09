@@ -657,9 +657,13 @@
         <source>Inner bg</source>
         <translation>内側の背景</translation>
     </message>
-    <message id="cover.inner_pv">
-        <source>PV</source>
-        <translation>PV</translation>
+    <message id="cover.inner_pv_fill">
+        <source>PV (fill)</source>
+        <translation>PV（フィル）</translation>
+    </message>
+    <message id="cover.inner_pv_fit">
+        <source>PV (fit)</source>
+        <translation>PV（フィット）</translation>
     </message>
     <message id="cover.jacket">
         <source>Jacket</source>

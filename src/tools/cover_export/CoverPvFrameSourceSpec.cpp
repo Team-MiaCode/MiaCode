@@ -85,11 +85,11 @@ int main(int argc, char* argv[])
     QString error;
     const QImage red = CoverPvFrameSource::decodeFrame(pvPath, 0.5, 512, &error);
     bool ok = require(!red.isNull() && isRed(red), QStringLiteral("sync decode picks the frame at 0.5 s: %1").arg(error), err);
-    ok &= require(red.size() == QSize(180, 180),
-                  QStringLiteral("frames are centre-cropped square and never upscaled"), err);
+    ok &= require(red.size() == QSize(320, 180),
+                  QStringLiteral("frames keep the whole picture and are never upscaled"), err);
     const QImage blue = CoverPvFrameSource::decodeFrame(pvPath, 1.5, 64, &error);
-    ok &= require(!blue.isNull() && isBlue(blue) && blue.size() == QSize(64, 64),
-                  QStringLiteral("sync decode seeks and scales down to the requested side"), err);
+    ok &= require(!blue.isNull() && isBlue(blue) && blue.size() == QSize(112, 64),
+                  QStringLiteral("sync decode seeks and scales the shorter side down to the requested side"), err);
     ok &= require(CoverPvFrameSource::decodeFrame(tempDir.filePath(QStringLiteral("missing.mp4")), 0.0, 64, &error).isNull()
                       && !error.isEmpty(),
                   QStringLiteral("a missing PV fails with an error"), err);

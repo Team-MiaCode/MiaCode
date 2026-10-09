@@ -514,6 +514,9 @@ Rectangle {
                     Binding { target: composer.item; property: "cardShadowEnabled"; value: root.session ? root.session.cardShadow : false; when: composer.status === Loader.Ready }
                     Binding { target: composer.item; property: "chartFrameDiskDiameter"; value: root.session ? root.session.chartFrameDiskDiameter : 0; when: composer.status === Loader.Ready }
                     Binding { target: composer.item; property: "activeChartFrameKey"; value: root.session ? root.session.activeLayerKey : ""; when: composer.status === Loader.Ready }
+                    Binding { target: composer.item; property: "chartFramePvSource"; value: root.session ? root.session.chartFramePvSource : ""; when: composer.status === Loader.Ready }
+                    Binding { target: composer.item; property: "chartFramePlaying"; value: root.session ? root.session.chartFramePlaying : false; when: composer.status === Loader.Ready }
+                    Binding { target: composer.item; property: "activeChartFrameSeconds"; value: root.session ? root.session.activeChartFrameSeconds : 0; when: composer.status === Loader.Ready }
                     Binding { target: composer.item; property: "selectedKey"; value: root.session ? root.session.activeLayerKey : ""; when: composer.status === Loader.Ready }
                     Binding { target: composer.item; property: "selectionBinder"; value: root.session; when: composer.status === Loader.Ready }
                     Binding { target: composer.item; property: "chartSceneBinder"; value: root.session; when: composer.status === Loader.Ready }
@@ -940,20 +943,22 @@ Rectangle {
                                             }
                                         }
                                         // PV: the chart's video PV at this frame's time; offered only
-                                        // when the chart has one.
+                                        // when the chart has one. The frame is square, so the preview's
+                                        // Fit and 1:1 Fit coincide: fill, or the whole PV in the square.
                                         LabeledCombo {
                                             objectName: "coverFrameBackgroundCombo"
                                             label: qsTrId("cover.inner")
                                             labelWidth: root.labelWidth
                                             options: root.session && root.session.chartFramePvAvailable
                                                 ? [
+                                                    { value: "transparent", label: qsTrId("cover.transparent") },
                                                     { value: "image", label: qsTrId("cover.inner_bg") },
-                                                    { value: "pv", label: qsTrId("cover.inner_pv") },
-                                                    { value: "transparent", label: qsTrId("cover.transparent") }
+                                                    { value: "pv", label: qsTrId("cover.inner_pv_fill") },
+                                                    { value: "pvFit", label: qsTrId("cover.inner_pv_fit") }
                                                 ]
                                                 : [
-                                                    { value: "image", label: qsTrId("cover.inner_bg") },
-                                                    { value: "transparent", label: qsTrId("cover.transparent") }
+                                                    { value: "transparent", label: qsTrId("cover.transparent") },
+                                                    { value: "image", label: qsTrId("cover.inner_bg") }
                                                 ]
                                             currentValue: root.activeLayer ? root.activeLayer.frameBgMode : "image"
                                             onPicked: function(value) { if (root.session) root.session.setActiveLayerFrameBackgroundMode(value) }
@@ -965,7 +970,7 @@ Rectangle {
                                             to: 1
                                             stepSize: 0.01
                                             enabled: root.activeLayer
-                                                     && (root.activeLayer.frameBgMode === "image" || root.activeLayer.frameBgMode === "pv")
+                                                     && root.activeLayer.frameBgMode !== "transparent"
                                             readout: Math.round((root.activeLayer ? root.activeLayer.frameBgBrightness : 0.8) * 100) + "%"
                                             value: root.activeLayer ? root.activeLayer.frameBgBrightness : 0.8
                                             onMoved: function(value) { if (root.session) root.session.setActiveLayerFrameBackgroundBrightness(value) }

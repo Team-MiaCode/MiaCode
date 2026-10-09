@@ -49,8 +49,10 @@ class CoverLayer : public QObject
     Q_PROPERTY(QString frameStyle READ frameStyle WRITE setFrameStyle NOTIFY frameStyleChanged)
     // -1 = no still rendered yet (QML shows nothing); >= 0 bumps on each new grab.
     Q_PROPERTY(int imageRevision READ imageRevision NOTIFY imageRevisionChanged)
-    // frameBgMode=="pv": the PV frame at frameSeconds, served by the "coverchart"
-    // provider as "pv/<key>". Same -1 / bump contract as imageRevision.
+    // frameBgMode "pv" (the PV filling the square frame) or "pvFit" (the whole PV
+    // fitted into the square over black), clipped to the playfield disk: the PV frame at frameSeconds,
+    // served by the "coverchart" provider as "pv/<key>". Same -1 / bump
+    // contract as imageRevision.
     Q_PROPERTY(int pvFrameRevision READ pvFrameRevision NOTIFY pvFrameRevisionChanged)
     // ---- kind=="image" (custom image layer) ----
     // Absolute path to the source image; empty shows nothing.
@@ -87,6 +89,10 @@ public:
     double frameSeconds() const { return frameSeconds_; }
     bool frameBgEnabled() const { return frameBgEnabled_; }
     QString frameBgMode() const { return frameBgMode_; }
+    bool frameBgUsesPv() const
+    {
+        return frameBgMode_ == QStringLiteral("pv") || frameBgMode_ == QStringLiteral("pvFit");
+    }
     qreal frameBgBrightness() const { return frameBgBrightness_; }
     qreal frameBgTransparency() const { return frameBgTransparency_; }
     QString frameStyle() const { return frameStyle_; }

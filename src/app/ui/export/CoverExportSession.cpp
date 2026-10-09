@@ -104,7 +104,7 @@ CoverExportSession::CoverExportSession(miacode::ExportEngine& exportEngine,
     connect(pvFrames_.get(), &miacode::cover_export::CoverPvFrameSource::frameReady,
             this, [this](const QString& key, double, const QImage& image) {
         auto* layer = layout_ != nullptr ? layout_->layer(key) : nullptr;
-        if (layer != nullptr && layer->frameBgMode() == QStringLiteral("pv")) {
+        if (layer != nullptr && layer->frameBgUsesPv()) {
             layout_->setLayerPvFrame(key, image);
         }
     });
@@ -523,7 +523,7 @@ bool CoverExportSession::renderVisibleChartFramesForExport(int sidePx)
         if (!renderChartFrame(layer, sidePx, true)) {
             return false;
         }
-        if (layer->frameBgMode() == QStringLiteral("pv") && !pvMediaPath_.isEmpty()) {
+        if (layer->frameBgUsesPv() && !pvMediaPath_.isEmpty()) {
             // The export composites synchronously, so take the PV frame at the
             // exact export time rather than whatever the editor last decoded.
             QString error;
@@ -545,7 +545,7 @@ void CoverExportSession::requestPvFrame(miacode::cover_export::CoverLayer* layer
     if (layer == nullptr || layout_ == nullptr || layer->kind() != QStringLiteral("chartFrame")) {
         return;
     }
-    if (layer->frameBgMode() != QStringLiteral("pv") || !chartFramePvAvailable()) {
+    if (!layer->frameBgUsesPv() || !chartFramePvAvailable()) {
         pvFrames_->cancel(layer->key());
         layout_->clearLayerPvFrame(layer->key());
         return;
@@ -924,8 +924,7 @@ void CoverExportSession::unbindLiveChartScene(QObject* scene)
 void CoverExportSession::setActiveLayerFrameBackgroundMode(const QString& mode)
 {
     if (auto* layer = activeCoverLayer(); layer != nullptr && layer->kind() == QStringLiteral("chartFrame")) {
-        layer->setFrameBgMode(mode == QStringLiteral("transparent") || mode == QStringLiteral("pv")
-                                  ? mode : QStringLiteral("image"));
+        layer->setFrameBgMode(mode);
         requestPvFrame(layer);
         persistComposition();
     }

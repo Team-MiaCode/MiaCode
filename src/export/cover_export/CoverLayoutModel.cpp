@@ -88,6 +88,9 @@ QString normalizedFrameBgMode(const QString& mode)
     if (mode == QStringLiteral("pv") || mode == QStringLiteral("video")) {
         return QStringLiteral("pv");
     }
+    if (mode == QStringLiteral("pvFit")) {
+        return QStringLiteral("pvFit");
+    }
     return QStringLiteral("image");
 }
 }  // namespace

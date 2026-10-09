@@ -79,7 +79,7 @@ int main(int argc, char* argv[])
     parser.addOption({QStringLiteral("chart"), QStringLiteral("Chart folder or maidata.txt."), QStringLiteral("path")});
     parser.addOption({QStringLiteral("difficulty"), QStringLiteral("Difficulty id."), QStringLiteral("id"), QStringLiteral("5")});
     parser.addOption({QStringLiteral("seconds"), QStringLiteral("Chart second of the frame."), QStringLiteral("seconds"), QStringLiteral("0")});
-    parser.addOption({QStringLiteral("frame-bg"), QStringLiteral("Chart-frame background: pv, image or transparent."), QStringLiteral("mode"), QStringLiteral("pv")});
+    parser.addOption({QStringLiteral("frame-bg"), QStringLiteral("Chart-frame background: pv, pvFit, image or transparent."), QStringLiteral("mode"), QStringLiteral("pv")});
     parser.addOption({QStringLiteral("size"), QStringLiteral("Cover size WxH."), QStringLiteral("size"), QStringLiteral("1920x1080")});
     parser.addOption({QStringLiteral("skin"), QStringLiteral("Skin directory."), QStringLiteral("path")});
     parser.addOption({QStringLiteral("output"), QStringLiteral("Output .png/.jpg."), QStringLiteral("path")});
@@ -158,7 +158,7 @@ int main(int argc, char* argv[])
         }
     }
 
-    if (frame->frameBgMode() == QStringLiteral("pv")) {
+    if (frame->frameBgUsesPv()) {
         if (!miacode::chart_assets::isVideoBackgroundPath(task.backgroundMediaPath)) {
             return fail(QStringLiteral("chart has no video PV (%1)").arg(task.backgroundMediaPath));
         }

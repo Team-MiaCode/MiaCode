@@ -45,6 +45,11 @@ Item {
     property real chartFrameBgBrightness: 0.8   // 0..1; MultiEffect.brightness = this − 1
     property real chartFrameDiskDiameter: 0.0   // ring diameter / square side (0 = no disk)
     property string activeChartFrameKey: ""      // only this chart frame hosts the live scene
+    // Editor only: while the active chart frame plays, its PV disk plays the PV
+    // file silently instead of showing the still (chartFramePvSource empty = no PV).
+    property url chartFramePvSource: ""
+    property bool chartFramePlaying: false
+    property real activeChartFrameSeconds: 0
     // §4 — which layer wears the selection chrome (any kind, incl. the card). Driven
     // two-way: C++ pushes it (list / inspector selection → blue box moves), and a
     // canvas tap / drag pushes it back via selectionBinder.selectLayerKey. The
@@ -462,10 +467,16 @@ Item {
             // PV mode: the PV frame at this layer's chart time (pv/<key> in the
             // "coverchart" provider) takes the image mode's place in the disk.
             readonly property bool showsPvDiskBg:
-                isChartFrame && layerItem.frameBgMode === "pv"
+                isChartFrame && (layerItem.frameBgMode === "pv" || layerItem.frameBgMode === "pvFit")
                 && canvas.chartFrameDiskDiameter > 0
                 && layerItem.ld && layerItem.ld.pvFrameRevision >= 0
             readonly property bool showsMediaDiskBg: showsImageDiskBg || showsPvDiskBg
+            // "pvFit": the preview's Fit (完整显示) on the square frame — the whole
+            // PV inside the square over black, clipped by the disk like the rest.
+            readonly property bool fitsPvIntoFrame: showsPvDiskBg && layerItem.frameBgMode === "pvFit"
+            readonly property bool hostsPvVideo:
+                showsPvDiskBg && canvas.editable && layerItem.isActiveChartFrame
+                && canvas.chartFramePvSource.toString().length > 0
 
             width: canvas.layerContentW(ld)
             height: canvas.layerContentH(ld)
@@ -508,19 +519,70 @@ Item {
                 // a native texture provider while hidden; the circular mask is
                 // captured via ShaderEffectSource (the repo's proven hideSource
                 // pattern, cf. IntroOverlay.qml). Declared first → paints behind.
-                Image {
-                    id: chartBgDiskImage
+                // The disk media as one item, so the circular mask covers all of it.
+                Item {
+                    id: chartBgDiskContent
                     anchors.fill: parent
+                    readonly property real mediaAspect: chartBgDiskImage.implicitHeight > 0
+                        ? chartBgDiskImage.implicitWidth / chartBgDiskImage.implicitHeight : 16 / 9
+
+                    Rectangle {
+                        anchors.fill: parent
+                        visible: layerItem.fitsPvIntoFrame
+                        color: "#000000"
+                    }
+                    // The media at its own aspect, centred: covering the square
+                    // (fill, the square crops it evenly) or inside it (fit).
+                    Item {
+                        id: chartBgDiskMedia
+                        anchors.centerIn: parent
+                        readonly property real aspect: chartBgDiskContent.mediaAspect
+                        width: parent.width * (layerItem.fitsPvIntoFrame ? Math.min(1, aspect) : Math.max(1, aspect))
+                        height: parent.height * (layerItem.fitsPvIntoFrame ? Math.min(1, 1 / aspect) : Math.max(1, 1 / aspect))
+
+                        Image {
+                            id: chartBgDiskImage
+                            anchors.fill: parent
+                            source: !layerItem.isChartFrame ? ""
+                                    : layerItem.showsPvDiskBg
+                                      ? ("image://coverchart/pv/" + layerItem.ld.key + "?r=" + layerItem.ld.pvFrameRevision)
+                                      : canvas.backdropSourceUrl
+                            fillMode: Image.Stretch
+                            asynchronous: false
+                            cache: false
+                            smooth: true
+                            mipmap: true
+                        }
+                        // Silent PV playback over the still while the frame plays.
+                        Loader {
+                            anchors.fill: parent
+                            active: layerItem.hostsPvVideo
+                            source: "CoverPvVideo.qml"
+                            onLoaded: {
+                                item.source = Qt.binding(() => canvas.chartFramePvSource)
+                                item.seconds = Qt.binding(() => canvas.activeChartFrameSeconds)
+                                item.playing = Qt.binding(() => canvas.chartFramePlaying)
+                                item.stillRevision = Qt.binding(() => layerItem.ld ? layerItem.ld.pvFrameRevision : -1)
+                            }
+                        }
+                        // Brightness = the SAME multiplicative dim the realtime preview's
+                        // 内圈亮度 uses (stage-background draws black at alpha 1−brightness
+                        // → media × brightness). MultiEffect.brightness is ADDITIVE
+                        // (crushes dark pixels straight to black) so it is NOT used here.
+                        Rectangle {
+                            anchors.fill: parent
+                            color: "#000000"
+                            opacity: Math.max(0, Math.min(1, 1.0 - layerItem.frameBgBrightness))
+                        }
+                    }
+                }
+                ShaderEffectSource {
+                    id: chartBgDiskContentTex
+                    anchors.fill: parent
+                    sourceItem: chartBgDiskContent
+                    hideSource: true
+                    live: true
                     visible: false
-                    source: !layerItem.isChartFrame ? ""
-                            : layerItem.showsPvDiskBg
-                              ? ("image://coverchart/pv/" + layerItem.ld.key + "?r=" + layerItem.ld.pvFrameRevision)
-                              : canvas.backdropSourceUrl
-                    fillMode: Image.PreserveAspectCrop
-                    asynchronous: false
-                    cache: false
-                    smooth: true
-                    mipmap: true
                 }
                 Item {
                     id: chartBgDiskMaskContent
@@ -545,24 +607,10 @@ Item {
                 MultiEffect {
                     anchors.fill: parent
                     visible: layerItem.showsMediaDiskBg
-                    source: chartBgDiskImage
+                    source: chartBgDiskContentTex
                     maskEnabled: true
                     maskSource: chartBgDiskMaskTex
                     maskThresholdMin: 0.5
-                }
-                // Brightness = the SAME multiplicative dim the realtime preview's
-                // 内圈亮度 uses (stage-background draws black at alpha 1−brightness
-                // → media × brightness). MultiEffect.brightness is ADDITIVE
-                // (crushes dark pixels straight to black) so it is NOT used here.
-                Rectangle {
-                    visible: layerItem.showsMediaDiskBg
-                    anchors.centerIn: parent
-                    width: canvas.chartFrameDiskDiameter * parent.width
-                    height: width
-                    radius: width / 2
-                    antialiasing: true
-                    color: "#000000"
-                    opacity: Math.max(0, Math.min(1, 1.0 - layerItem.frameBgBrightness))
                 }
                 Rectangle {
                     visible: layerItem.showsTransparentDiskBg
