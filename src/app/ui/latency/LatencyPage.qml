@@ -53,7 +53,7 @@ Rectangle {
             SettingsSection {
                 objectName: "latencyBpmCard"
                 Layout.fillWidth: true
-                title: qsTrId("qml.bpm")
+                title: ""
                 first: true
 
                 RowLayout {
@@ -104,7 +104,8 @@ Rectangle {
             SettingsSection {
                 objectName: "latencyOffsetCard"
                 Layout.fillWidth: true
-                title: qsTrId("latency.offset")
+                title: ""
+                inlineRule: true
 
                 RowLayout {
                     Layout.fillWidth: true
@@ -137,7 +138,8 @@ Rectangle {
             SettingsSection {
                 objectName: "latencyAuditionCard"
                 Layout.fillWidth: true
-                title: qsTrId("dialog.render_settings.music.audition")
+                title: ""
+                inlineRule: true
 
                 AppButton {
                     objectName: "latencyAuditionButton"
