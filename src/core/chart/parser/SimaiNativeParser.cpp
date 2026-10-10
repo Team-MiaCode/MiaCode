@@ -44,6 +44,13 @@ struct ParseState {
     int meterNumerator = kDefaultMeterNumerator;
     int meterDenominator = kDefaultMeterDenominator;
     double currentMeasureStartSecond = 0.0;
+    // Strict-mode tracking for the explicit subdivision required after each
+    // valid BPM directive. The source range stays attached to the BPM so the
+    // resulting warning points at the directive that opened the state.
+    bool awaitingExplicitSubdivision = false;
+    int awaitingSubdivisionLine = 1;
+    int awaitingSubdivisionStartCol = 1;
+    int awaitingSubdivisionEndCol = 1;
     // Current HS (hi-speed) multiplier set by <HS*N>. Mutated only by that
     // directive; reset to 1.0 at chart-end (E marker) per Q2. Notes emitted
     // while this is N have their hsMultiplier frozen at N.
