@@ -10,6 +10,7 @@ Row {
 
     required property var hostWindow
     required property var windowChrome
+    readonly property var stateColors: Theme.chromeStateColorsFor(root.hostWindow.nativeMaterialActive)
 
     height: parent ? parent.height : 34
 
@@ -73,8 +74,8 @@ Row {
         background: Rectangle {
             color: button.isClose
                 ? (button.down ? "#B32617" : button.hovered ? "#C42B1C" : "transparent")
-                : (button.down ? Theme.overlayColor(Theme.chromeStateColors.pressed)
-                               : button.hovered ? Theme.overlayColor(Theme.chromeStateColors.hover)
+                : (button.down ? Theme.overlayColor(root.stateColors.pressed)
+                               : button.hovered ? Theme.overlayColor(root.stateColors.hover)
                                                 : "transparent")
         }
     }

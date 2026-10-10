@@ -605,6 +605,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/components/AppMenu.qml
     src/app/ui/components/AppMenuAction.qml
     src/app/ui/components/FloatingCard.qml
+    src/app/ui/components/WindowBackground.qml
     src/app/ui/components/BackdropBlur.qml
     src/app/ui/components/FadeTransition.qml
     src/app/ui/components/AppDialog.qml

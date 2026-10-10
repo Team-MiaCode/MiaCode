@@ -231,7 +231,7 @@ Item {
     ApplicationWindow {
         id: detachedPreviewWindow
         objectName: "detachedPreviewWindow"
-        readonly property Item backdropSource: detachedPreviewContent
+        readonly property Item backdropSource: detachedSceneContent
         property var windowChrome: null
         readonly property bool settingsInTitleBar: Qt.platform.os !== "windows"
         readonly property bool nativeMaterialActive: windowChrome
@@ -298,87 +298,96 @@ Item {
             restoreMode: Binding.RestoreNone
         }
 
-        WindowTitleBar {
-            id: detachedTitleBar
-            color: Theme.chromeSurfaceColor(Theme.colors.background.titleBar,
-                detachedPreviewWindow.nativeMaterialActive)
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            visible: detachedPreviewWindow.visibility !== Window.FullScreen
-            height: visible ? implicitHeight : 0
-            hostWindow: detachedPreviewWindow
-            windowChrome: detachedPreviewWindow.windowChrome
-            platform: root.Window.window.platform
-            applicationMenusVisible: false
-            titleText: detachedPreviewWindow.captionTitle
-            nativeHeight: detachedPreviewWindow.windowChrome
-                ? detachedPreviewWindow.windowChrome.titleBarHeight : 0
-            leadingInset: detachedPreviewWindow.windowChrome
-                ? detachedPreviewWindow.windowChrome.titleBarLeadingInset : 0
-            leadingToolAreaWidth: leadingInset
-            trailingToolAreaWidth: detachedPreviewWindow.settingsInTitleBar
-                ? detachedSettingsActions.width + 8 : 0
+        Item {
+            id: detachedSceneContent
+            anchors.fill: parent
 
-            Row {
-                id: detachedSettingsActions
-                parent: detachedPreviewWindow.settingsInTitleBar ? detachedTitleBar : detachedToolBar
-                anchors.right: parent.right
-                anchors.rightMargin: detachedPreviewWindow.settingsInTitleBar
-                    ? detachedTitleBar.captionButtonsWidth + 8 : 8
-                anchors.verticalCenter: parent.verticalCenter
-                height: parent.height
-                spacing: 5
-                z: 2
-
-                IconButton {
-                    objectName: "detachedPreviewAudioSettingsButton"
-                    height: Math.min(implicitHeight, detachedSettingsActions.height)
-                    anchors.verticalCenter: parent.verticalCenter
-                    stateColors: Theme.chromeStateColorsFor(detachedPreviewWindow.nativeMaterialActive)
-                    iconSource: Qt.resolvedUrl("icons/audio-settings.svg")
-                    label: qsTrId("action.audio_settings")
-                    tooltip: qsTrId("action.audio_settings")
-                    onClicked: root.audioSettingsRequested()
-                }
-
-                IconButton {
-                    objectName: "detachedPreviewPreviewSettingsButton"
-                    height: Math.min(implicitHeight, detachedSettingsActions.height)
-                    anchors.verticalCenter: parent.verticalCenter
-                    stateColors: Theme.chromeStateColorsFor(detachedPreviewWindow.nativeMaterialActive)
-                    iconSource: Qt.resolvedUrl("icons/preview-settings.svg")
-                    label: qsTrId("action.video_settings")
-                    tooltip: qsTrId("action.video_settings")
-                    onClicked: root.previewSettingsRequested()
-                }
-            }
-        }
-
-        Rectangle {
-            id: detachedToolBar
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: detachedTitleBar.bottom
-            visible: !detachedPreviewWindow.settingsInTitleBar && detachedTitleBar.visible
-            height: visible ? Theme.windowChromeRowHeight : 0
-            color: Theme.chromeSurfaceColor(Theme.colors.background.activityBar,
-                detachedPreviewWindow.nativeMaterialActive)
-
-            WindowGestureArea {
+            WindowBackground {
                 anchors.fill: parent
+                nativeMaterialActive: detachedPreviewWindow.nativeMaterialActive
+            }
+
+            WindowTitleBar {
+                id: detachedTitleBar
+                color: Theme.chromeSurfaceColor(Theme.colors.background.titleBar,
+                    detachedPreviewWindow.nativeMaterialActive)
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                visible: detachedPreviewWindow.visibility !== Window.FullScreen
+                height: visible ? implicitHeight : 0
                 hostWindow: detachedPreviewWindow
                 windowChrome: detachedPreviewWindow.windowChrome
-            }
-        }
+                platform: root.Window.window.platform
+                applicationMenusVisible: false
+                titleText: detachedPreviewWindow.captionTitle
+                nativeHeight: detachedPreviewWindow.windowChrome
+                    ? detachedPreviewWindow.windowChrome.titleBarHeight : 0
+                leadingInset: detachedPreviewWindow.windowChrome
+                    ? detachedPreviewWindow.windowChrome.titleBarLeadingInset : 0
+                leadingToolAreaWidth: leadingInset
+                trailingToolAreaWidth: detachedPreviewWindow.settingsInTitleBar
+                    ? detachedSettingsActions.width + 8 : 0
 
-        Rectangle {
-            id: detachedPreviewContent
-            color: Theme.colors.background.panel
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: detachedToolBar.bottom
-            anchors.bottom: parent.bottom
+                Row {
+                    id: detachedSettingsActions
+                    parent: detachedPreviewWindow.settingsInTitleBar ? detachedTitleBar : detachedToolBar
+                    anchors.right: parent.right
+                    anchors.rightMargin: detachedPreviewWindow.settingsInTitleBar
+                        ? detachedTitleBar.captionButtonsWidth + 8 : 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: parent.height
+                    spacing: 5
+                    z: 2
+
+                    IconButton {
+                        objectName: "detachedPreviewAudioSettingsButton"
+                        height: Math.min(implicitHeight, detachedSettingsActions.height)
+                        anchors.verticalCenter: parent.verticalCenter
+                        stateColors: Theme.chromeStateColorsFor(detachedPreviewWindow.nativeMaterialActive)
+                        iconSource: Qt.resolvedUrl("icons/audio-settings.svg")
+                        label: qsTrId("action.audio_settings")
+                        tooltip: qsTrId("action.audio_settings")
+                        onClicked: root.audioSettingsRequested()
+                    }
+
+                    IconButton {
+                        objectName: "detachedPreviewPreviewSettingsButton"
+                        height: Math.min(implicitHeight, detachedSettingsActions.height)
+                        anchors.verticalCenter: parent.verticalCenter
+                        stateColors: Theme.chromeStateColorsFor(detachedPreviewWindow.nativeMaterialActive)
+                        iconSource: Qt.resolvedUrl("icons/preview-settings.svg")
+                        label: qsTrId("action.video_settings")
+                        tooltip: qsTrId("action.video_settings")
+                        onClicked: root.previewSettingsRequested()
+                    }
+                }
+            }
+
+            Rectangle {
+                id: detachedToolBar
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: detachedTitleBar.bottom
+                visible: !detachedPreviewWindow.settingsInTitleBar && detachedTitleBar.visible
+                height: visible ? Theme.windowChromeRowHeight : 0
+                color: Theme.chromeSurfaceColor(Theme.colors.background.activityBar,
+                    detachedPreviewWindow.nativeMaterialActive)
+
+                WindowGestureArea {
+                    anchors.fill: parent
+                    hostWindow: detachedPreviewWindow
+                    windowChrome: detachedPreviewWindow.windowChrome
+                }
+            }
+
+            Item {
+                id: detachedPreviewContent
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: detachedToolBar.bottom
+                anchors.bottom: parent.bottom
+            }
         }
 
         Shortcut {

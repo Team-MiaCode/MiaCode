@@ -7,6 +7,7 @@ Rectangle {
 
     required property var hostWindow
     required property var windowChrome
+    readonly property var stateColors: Theme.chromeStateColorsFor(root.hostWindow.nativeMaterialActive)
     property var menuCommands: null
     property var shortcuts: null
     property var documentSession: null
@@ -98,7 +99,7 @@ Rectangle {
         rightPadding: root.brandContentPadding
         topPadding: 0
         bottomPadding: 0
-        stateColors: Theme.chromeStateColors
+        stateColors: root.stateColors
         selected: brandMenu.active
         Accessible.name: "MiaCode"
         z: 2

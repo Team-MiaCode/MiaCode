@@ -10,7 +10,7 @@ ApplicationWindow {
     required property var preferences
     required property var platform
     required property var windowChrome
-    readonly property Item backdropSource: page
+    readonly property Item backdropSource: sceneContent
     readonly property bool nativeMaterialActive: windowChrome.nativeMaterialAvailable
         && Theme.blurMaterialsEnabled && !Theme.backgroundActive
 
@@ -77,32 +77,42 @@ ApplicationWindow {
         restoreMode: Binding.RestoreNone
     }
 
-    WindowTitleBar {
-        id: titleBar
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        visible: window.visibility !== Window.FullScreen
-        height: visible ? implicitHeight : 0
-        hostWindow: window
-        windowChrome: window.windowChrome
-        platform: window.platform
-        applicationMenusVisible: false
-        titleText: window.title
-        nativeHeight: window.windowChrome.titleBarHeight
-        leadingInset: window.windowChrome.titleBarLeadingInset
-        leadingToolAreaWidth: leadingInset
-        color: Theme.chromeSurfaceColor(Theme.colors.background.titleBar,
-            window.nativeMaterialActive)
-    }
+    Item {
+        id: sceneContent
+        anchors.fill: parent
 
-    CoverExportPage {
-        id: page
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: titleBar.bottom
-        anchors.bottom: parent.bottom
-        coverSession: window.coverSession
+        WindowBackground {
+            anchors.fill: parent
+            nativeMaterialActive: window.nativeMaterialActive
+        }
+
+        WindowTitleBar {
+            id: titleBar
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            visible: window.visibility !== Window.FullScreen
+            height: visible ? implicitHeight : 0
+            hostWindow: window
+            windowChrome: window.windowChrome
+            platform: window.platform
+            applicationMenusVisible: false
+            titleText: window.title
+            nativeHeight: window.windowChrome.titleBarHeight
+            leadingInset: window.windowChrome.titleBarLeadingInset
+            leadingToolAreaWidth: leadingInset
+            color: Theme.chromeSurfaceColor(Theme.colors.background.titleBar,
+                window.nativeMaterialActive)
+        }
+
+        CoverExportPage {
+            id: page
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: titleBar.bottom
+            anchors.bottom: parent.bottom
+            coverSession: window.coverSession
+        }
     }
 
     UiRequestHost {

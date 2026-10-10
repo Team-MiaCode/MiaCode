@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Effects
 import MiaCode.UI
 
 ApplicationWindow {
@@ -154,56 +153,10 @@ ApplicationWindow {
         id: sceneContent
         anchors.fill: parent
 
-        // Wallpaper and plain modes share one opaque base inside the sampled
-        // scene; native material mode exposes the transparent window surface.
-        Rectangle {
-            anchors.fill: parent
-            visible: Theme.backgroundActive
-                || (window.color.a < 1 && !Theme.nativeMaterialActive)
-            color: Theme.colors.background.surface
-        }
-
-        // Direct children establish paint order: wallpaper, UI, drag hint.
-        Item {
+        WindowBackground {
             id: backgroundLayer
             anchors.fill: parent
-            enabled: false
-
-            Image {
-                id: backgroundImage
-                anchors.fill: parent
-                source: window.applicationContext.appBackground.sourceUrl
-                visible: Theme.backgroundActive
-                opacity: window.applicationContext.appBackground.opacity
-                asynchronous: false
-                smooth: true
-                fillMode: {
-                    switch (window.applicationContext.appBackground.sizeMode) {
-                    case "contain": return Image.PreserveAspectFit
-                    case "stretch": return Image.Stretch
-                    case "center": return Image.Pad
-                    case "repeat": return Image.Tile
-                    default: return Image.PreserveAspectCrop
-                    }
-                }
-                horizontalAlignment: {
-                    const value = window.applicationContext.appBackground.position
-                    return value.indexOf("left") >= 0 ? Image.AlignLeft
-                         : value.indexOf("right") >= 0 ? Image.AlignRight : Image.AlignHCenter
-                }
-                verticalAlignment: {
-                    const value = window.applicationContext.appBackground.position
-                    return value.indexOf("top") >= 0 ? Image.AlignTop
-                         : value.indexOf("bottom") >= 0 ? Image.AlignBottom : Image.AlignVCenter
-                }
-                layer.enabled: Theme.backgroundActive && Theme.blurMaterialsEnabled
-                    && window.applicationContext.appBackground.blur > 0
-                layer.effect: MultiEffect {
-                    blurEnabled: Theme.blurMaterialsEnabled
-                    blurMax: 64
-                    blur: Math.min(1.0, window.applicationContext.appBackground.blur / 64.0)
-                }
-            }
+            nativeMaterialActive: window.nativeMaterialActive
         }
 
         MainView {

@@ -321,9 +321,9 @@ QtObject {
             section: "#203040",
             primary: "#203040",
             secondary: "#5F6B7A",
-            disabled: "#9AA5B4",
+            disabled: "#728196",
             editor: "#203040",
-            lineNumber: "#7A8796",
+            lineNumber: "#697685",
             heading: "#203040",
             onAccent: "#FFFFFF",
             onDanger: "#FFFFFF",
@@ -358,25 +358,25 @@ QtObject {
             handle: "#FFFFFF"
         },
         state: {
-            hover: "#EEF5FF",
-            pressed: "#DCE9F8",
-            selected: "#DDEBFA",
-            menuSelection: "#DDEBFA",
+            hover: "#DBEAFF",
+            pressed: "#C4DAF3",
+            selected: "#CEE2F8",
+            menuSelection: "#CEE2F8",
             textSelection: "#B8CCE5",
             followHighlight: "#5A86D8",
             lineHighlight: "#EDF2F8",
-            focusLine: "#EEF5FF",
-            selectionHighlight: "#DDEBFA"
+            focusLine: "#DBEAFF",
+            selectionHighlight: "#CEE2F8"
         },
         listState: {
-            hover: "#EEF5FF",
-            pressed: "#DCE9F8",
-            selected: "#DDEBFA"
+            hover: "#DBEAFF",
+            pressed: "#C4DAF3",
+            selected: "#CEE2F8"
         },
         activityState: {
-            hover: "#E7F0FB",
-            pressed: "#D8E7F8",
-            selected: "#FFFFFF"
+            hover: "#DBE9F9",
+            pressed: "#C3DAF4",
+            selected: "#E3E3E3"
         },
         activityIcon: {
             active: "#2B3C4E",
@@ -384,14 +384,14 @@ QtObject {
             idle: "#5D6E83"
         },
         popupState: {
-            hover: "#EEF5FF",
-            pressed: "#DCE9F8",
-            selected: "#DDEBFA"
+            hover: "#DBEAFF",
+            pressed: "#C4DAF3",
+            selected: "#CEE2F8"
         },
         buttonState: {
-            hover: "#EEF5FF",
-            pressed: "#DCE9F8",
-            selected: "#DDEBFA"
+            hover: "#DBEAFF",
+            pressed: "#C4DAF3",
+            selected: "#CEE2F8"
         },
         accentState: {
             hover: "#3A86E8",
@@ -483,7 +483,7 @@ QtObject {
             knob: "#8494A6",
             border: "#5F6F82",
             knobBorder: Qt.rgba(0, 0, 0, 0.35),
-            checkedTrack: "#3A4B60",
+            checkedTrack: "#546D8C",
             checkedKnob: "#D8E0EA"
         },
         slider: {
@@ -492,25 +492,25 @@ QtObject {
             handle: "#E6EEF8"
         },
         state: {
-            hover: "#2C3846",
-            pressed: "#232C38",
-            selected: "#263344",
-            menuSelection: "#263344",
+            hover: "#303D4D",
+            pressed: "#3D4D62",
+            selected: "#364962",
+            menuSelection: "#364962",
             textSelection: Qt.rgba(0x31 / 255, 0x5D / 255, 0x9E / 255, 0xDD / 255),
             followHighlight: "#67A1F1",
             lineHighlight: "#1F2630",
             focusLine: "#232B35",
-            selectionHighlight: "#263344"
+            selectionHighlight: "#364962"
         },
         listState: {
-            hover: "#2C3846",
-            pressed: "#232C38",
-            selected: "#263344"
+            hover: "#303D4D",
+            pressed: "#3D4D62",
+            selected: "#364962"
         },
         activityState: {
-            hover: "#2C3846",
-            pressed: "#232C38",
-            selected: "#232B35"
+            hover: "#303D4D",
+            pressed: "#3D4D62",
+            selected: "#3C4A5C"
         },
         activityIcon: {
             active: "#D8E2EE",
@@ -518,14 +518,14 @@ QtObject {
             idle: "#95A4B7"
         },
         popupState: {
-            hover: "#2C3846",
+            hover: "#303D4D",
             pressed: "#384656",
-            selected: "#263344"
+            selected: "#364962"
         },
         buttonState: {
-            hover: "#2C3846",
-            pressed: "#232C38",
-            selected: "#263344"
+            hover: "#303D4D",
+            pressed: "#3D4D62",
+            selected: "#364962"
         },
         accentState: {
             hover: "#67A1F1",
@@ -578,7 +578,21 @@ QtObject {
     })
     readonly property string activeThemeToken: preferences ? preferences.activeThemeToken : "dark"
     readonly property var activeTheme: themeCatalog[activeThemeToken] || themeCatalog.dark
-    readonly property var colors: activeTheme.colors
+    // Compensate wallpaper highlights per semantic role, preserving palette hue.
+    readonly property var colors: {
+        const palette = activeTheme.colors
+        if (!backgroundActive)
+            return palette
+        const result = Object.assign({}, palette)
+        for (const role of ["state", "listState", "activityState", "popupState", "buttonState"])
+            result[role] = compensatedStateColorsFor(palette[role])
+        result.state.menuSelection = compensatedHighlightColor(palette.state.menuSelection, 0.16)
+        result.state.focusLine = compensatedHighlightColor(palette.state.focusLine, 0.08)
+        result.state.lineHighlight = compensatedHighlightColor(palette.state.lineHighlight, 0.08)
+        result.state.selectionHighlight = compensatedHighlightColor(palette.state.selectionHighlight, 0.16)
+        result.state.textSelection = compensatedHighlightColor(palette.state.textSelection, 0.22)
+        return result
+    }
 
     readonly property string uiFont: preferences ? preferences.uiFontFamily : ""
     readonly property font codeFont: preferences ? preferences.codeFont : Qt.font({})
@@ -597,15 +611,13 @@ QtObject {
         ? appBackground.panelAlpha / 255.0
         : 1.0
 
-    // Fill alpha only: text/icons and popup transition opacity stay independent.
-    readonly property real overlayOpacity: darkTheme ? 0.72 : 0.82
     readonly property real nativeMaterialTintOpacity: Qt.platform.os === "windows"
         ? (darkTheme ? 0.83 : 0.72)
         : (darkTheme ? 0.65 : 0.50)
     readonly property color separatorColor: Qt.tint(colors.background.panel, darkTheme
         ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.16))
     readonly property color chromeHighlightBaseColor: {
-        const c = Qt.color(colors.background.activityBar)
+        const c = Qt.color(activeTheme.colors.background.activityBar)
         return darkTheme
             ? Qt.rgba(Math.min(1, c.r + 14 / 255),
                       Math.min(1, c.g + 15 / 255),
@@ -614,12 +626,28 @@ QtObject {
     }
     readonly property var chromeStateColors: chromeStateColorsFor(nativeMaterialActive)
 
+    function compensatedHighlightColor(baseColor, amount) {
+        const source = Qt.color(baseColor)
+        const target = chromeHighlightColor(amount)
+        const lightness = darkTheme
+            ? Math.max(source.hslLightness, target.hslLightness)
+            : Math.min(source.hslLightness, target.hslLightness)
+        const opacity = backgroundActive ? Math.min(source.a, surfaceOpacity) : source.a
+        return Qt.hsla(Math.max(0, source.hslHue), source.hslSaturation, lightness, opacity)
+    }
+
+    function compensatedStateColorsFor(stateColors) {
+        return Object.assign({}, stateColors, {
+            hover: compensatedHighlightColor(stateColors.hover, 0.12),
+            pressed: compensatedHighlightColor(stateColors.pressed, 0.20),
+            selected: compensatedHighlightColor(stateColors.selected, 0.16)
+        })
+    }
+
     function chromeStateColorsFor(materialActive) {
-        return materialActive ? ({
-            hover: chromeHighlightColor(0.12),
-            pressed: chromeHighlightColor(0.20),
-            selected: chromeHighlightColor(0.16)
-        }) : colors.activityState
+        return materialActive || backgroundActive
+            ? compensatedStateColorsFor(activeTheme.colors.activityState)
+            : colors.activityState
     }
     readonly property real popupOpacity: 0.96
     readonly property int popupEnterDuration: 120
@@ -645,11 +673,13 @@ QtObject {
         return Qt.rgba(c.r, c.g, c.b, dialogTintOpacity)
     }
 
-    function overlayColor(baseColor, opacity = overlayOpacity) {
+    function overlayColor(baseColor, opacity = surfaceOpacity) {
         if (!backgroundActive)
             return baseColor
         const c = Qt.color(baseColor)
-        return Qt.rgba(c.r, c.g, c.b, c.a * opacity)
+        // Semantic highlights already carry their fill alpha. Cap it here so
+        // controls and direct color bindings compose the same wallpaper layer.
+        return Qt.rgba(c.r, c.g, c.b, Math.min(c.a, opacity))
     }
 
     // Content decoration may tint a surface, while surface ownership stays
@@ -664,15 +694,17 @@ QtObject {
         if (!backgroundActive)
             return baseColor
         const c = Qt.color(baseColor)
-        if (!darkTheme)
-            return Qt.rgba(c.r, c.g, c.b, surfaceOpacity)
-        const panel = Qt.color(colors.background.panel)
+        if (!darkTheme || surfaceOpacity === 0)
+            return Qt.rgba(c.r, c.g, c.b, c.a * surfaceOpacity)
+        const panel = Qt.color(activeTheme.colors.background.panel)
         const shade = Math.min(1, (c.r + c.g + c.b) / (panel.r + panel.g + panel.b))
-        // Preserve the theme's dark/panel ratio over wallpaper. Fold the shared
-        // surface fill and the darkening into one color instead of two layers.
-        const alpha = 1 - (1 - surfaceOpacity) * shade
-        const scale = alpha > 0 ? surfaceOpacity / alpha : 0
-        return Qt.rgba(c.r * scale, c.g * scale, c.b * scale, alpha)
+        // Darker surfaces also shade the wallpaper beneath them, retaining
+        // their depth relative to the panel. Fade this shading with the fill
+        // below 50%, keeping the fully transparent setting clear.
+        const alpha = surfaceOpacity + (1 - surfaceOpacity) * (1 - shade)
+            * Math.min(1, 2 * surfaceOpacity)
+        const scale = surfaceOpacity / alpha
+        return Qt.rgba(c.r * scale, c.g * scale, c.b * scale, c.a * alpha)
     }
 
     function nativeMaterialColor(baseColor) {
@@ -687,7 +719,7 @@ QtObject {
     }
 
     function chromeHighlightColor(amount) {
-        const c = Qt.color(colors.text.active)
+        const c = Qt.color(activeTheme.colors.text.active)
         return Qt.tint(chromeHighlightBaseColor, Qt.rgba(c.r, c.g, c.b, amount))
     }
 
