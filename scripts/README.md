@@ -120,7 +120,7 @@ Spec 按领域登记于 `cmake/devtools/specs/`，清单见
 ## ScintillaQuick 编辑器依赖
 
 `third_party/ScintillaQuick` 使用 Git submodule，固定提交
-`bfa6ae93315942b591878b0e709e1363bc07bfd6`，来源为
+`4065eb4830dffe84dde39206ab5071b5ec60e1dd`，来源为
 [imakris/ScintillaQuick](https://github.com/imakris/ScintillaQuick)。检出仓库时执行：
 
 ```sh
