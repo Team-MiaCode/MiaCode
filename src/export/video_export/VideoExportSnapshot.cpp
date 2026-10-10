@@ -560,13 +560,6 @@ bool buildVideoExportTaskFromSnapshot(
         built.muriRenderOptions,
         built.staticTapOnSlideThresholdSeconds);
 
-    if (built.noteMarkers.isEmpty()) {
-        if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("snapshot produced no parsed note markers");
-        }
-        return false;
-    }
-
     *task = built;
     return true;
 }

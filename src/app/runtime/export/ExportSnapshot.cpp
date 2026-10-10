@@ -410,7 +410,7 @@ QVector<TimelineNoteMarker> miacode::runtime::VideoExportHost::parseAndPublishTi
 {
     const SimaiDifficultyData* difficulty =
         session_.applicationServices_.workspace().document().difficulty(difficultyId);
-    if (difficulty == nullptr || difficulty->chart.trimmed().isEmpty()) {
+    if (difficulty == nullptr) {
         return {};
     }
     const miacode::simai::SimaiTimingMetadata timingMetadata =
@@ -440,8 +440,7 @@ void miacode::runtime::VideoExportHost::installExportPreviewAuditionScene(int di
     // export page even though activeDifficultyId_ == 0 (decision D4). The export
     // WYSIWYG forcing (beginExportPreviewSession) is applied separately and stays.
     const SimaiDifficultyData* difficulty = session_.applicationServices_.workspace().document().difficulty(difficultyId);
-    if (session_.scene_ == nullptr || difficulty == nullptr
-        || difficulty->chart.trimmed().isEmpty()) {
+    if (session_.scene_ == nullptr || difficulty == nullptr) {
         return;
     }
 
@@ -608,14 +607,8 @@ bool miacode::runtime::VideoExportHost::buildVideoExportSnapshot(
     }
 
     session_.refreshTimelineMetadata();
-    const bool hasMarkers = liveTimelineCoversDifficulty(resolvedDifficultyId)
-        ? !session_.latestTimelineNoteMarkers_.isEmpty()
-        : !parseAndPublishTimelineForDifficulty(resolvedDifficultyId).isEmpty();
-    if (!hasMarkers) {
-        if (errorMessage != nullptr) {
-            *errorMessage = qtTrId("dialog.video_export.error.no_markers");
-        }
-        return false;
+    if (!liveTimelineCoversDifficulty(resolvedDifficultyId)) {
+        parseAndPublishTimelineForDifficulty(resolvedDifficultyId);
     }
 
     VideoExportSnapshot built;
@@ -787,13 +780,6 @@ bool miacode::runtime::VideoExportHost::buildVideoExportSnapshotForChartDirector
     const SimaiParseResult parsedTimeline = SimaiParser::parseForTimeline(
         difficulty->chart,
         timingMetadata);
-    if (parsedTimeline.noteMarkers.isEmpty()) {
-        if (errorMessage != nullptr) {
-            *errorMessage = qtTrId("dialog.batch_export.error.no_markers");
-        }
-        return false;
-    }
-
     const auto markerEndSecond = [](const TimelineNoteMarker& marker) {
         double value = qMax(marker.second, marker.endSecond);
         value = qMax(value, marker.slideTraceSecond);
@@ -1001,22 +987,9 @@ bool miacode::runtime::VideoExportHost::exportPreviewVideoFromCli(
     }
 
     session_.refreshTimelineMetadata();
-    // The timeline marker parse runs on a worker thread and delivers its result
-    // through a queued (event-loop) call; difficulty switching also defers work via
-    // QTimer::singleShot(0). The CLI has no running event loop, so pump events until
-    // the markers populate (bounded) — otherwise the check below always sees empty.
-    {
-        QElapsedTimer markerWaitTimer;
-        markerWaitTimer.start();
-        constexpr int kMarkerWaitTimeoutMs = 15000;
-        while (session_.latestTimelineNoteMarkers_.isEmpty()
-               && markerWaitTimer.elapsed() < kMarkerWaitTimeoutMs) {
-            QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
-            QThread::msleep(5);
-        }
-    }
-    if (session_.latestTimelineNoteMarkers_.isEmpty()) {
-        return fail(qtTrId("cli.export.notes_missing"));
+    // Publish the requested chart synchronously, including a valid empty timeline.
+    if (!liveTimelineCoversDifficulty(difficultyId)) {
+        parseAndPublishTimelineForDifficulty(difficultyId);
     }
 
     const QString previewSkinDir = session_.resolvePreviewSkinDir();

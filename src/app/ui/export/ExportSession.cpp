@@ -324,14 +324,6 @@ bool ExportSession::difficultyExists(int difficultyId) const
         && engine()->difficultyIds().contains(difficultyId);
 }
 
-bool ExportSession::difficultyHasChartBody(int difficultyId) const
-{
-    if (!difficultyExists(difficultyId)) {
-        return false;
-    }
-    return !engine()->difficultyChartText(difficultyId).trimmed().isEmpty();
-}
-
 int ExportSession::resolveDefaultDifficultyId(int previousActiveDifficultyId) const
 {
     if (difficultyExists(previousActiveDifficultyId)) {
@@ -442,7 +434,7 @@ void ExportSession::replaceDocument(int preferredDifficultyId)
         seedFromDifficulty(selectedDifficultyId_);
         syncAudition();
     }
-    if (selectedDifficultyId_ <= 0 || !difficultyHasChartBody(selectedDifficultyId_)) {
+    if (!difficultyExists(selectedDifficultyId_)) {
         emit outputChanged();
         emit videoChanged();
         emit introChanged();
@@ -559,7 +551,7 @@ void ExportSession::savePreferences() const
 
 void ExportSession::seedFromDifficulty(int difficultyId)
 {
-    if (engine() == nullptr || !difficultyHasChartBody(difficultyId)) {
+    if (!difficultyExists(difficultyId)) {
         VideoExportTask emptyTask;
         if (hasSeededTask_) {
             miacode::video_export::copyVideoExportUserSettings(task_, &emptyTask);
@@ -570,10 +562,7 @@ void ExportSession::seedFromDifficulty(int difficultyId)
             applyPreferences();
             hasSeededTask_ = true;
         }
-        setUnavailableReason(
-            difficultyExists(difficultyId)
-                ? qtTrId("export_page.the_selected_difficulty_has_no")
-                : qtTrId("export_page.no_difficulty_is_available_to"));
+        setUnavailableReason(qtTrId("export_page.no_difficulty_is_available_to"));
         setRangePlaybackEnabled(false);
         clearPendingSelectionRangeExport();
         emit outputChanged();
@@ -618,7 +607,7 @@ void ExportSession::syncAudition()
     if (engine() == nullptr || !pageSessionActive_) {
         return;
     }
-    if (!difficultyHasChartBody(selectedDifficultyId_)) {
+    if (!difficultyExists(selectedDifficultyId_)) {
         engine()->clearAudition();
         return;
     }
@@ -819,7 +808,7 @@ void ExportSession::startExport()
         return;
     }
 
-    if (!difficultyHasChartBody(selectedDifficultyId_)) {
+    if (!difficultyExists(selectedDifficultyId_)) {
         return;
     }
     savePreferences();

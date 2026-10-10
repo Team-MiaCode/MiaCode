@@ -264,19 +264,7 @@ bool buildVideoExportAudioRenderPlan(
         built.timelineOriginSecond,
         built.segmentEndSecond);
 
-    if (built.sfxDirectory.isEmpty()) {
-        if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("preview SFX directory could not be resolved");
-        }
-        return false;
-    }
-    if (built.exportMarkers.isEmpty()) {
-        if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("export marker window is empty");
-        }
-        return false;
-    }
-
+    // Empty note windows still carry the selected duration and background track.
     const QString normalizedTrackPath = (task.trackPath.isEmpty() || !QFileInfo::exists(task.trackPath))
         ? QString()
         : normalizePath(task.trackPath);
@@ -398,6 +386,14 @@ bool buildVideoExportAudioRenderPlan(
 
     if (!task.fullRangeExport) {
         suppressSfxBeforePreRangeEnd(built.leadInSeconds, &built);
+    }
+
+    if (built.sfxDirectory.isEmpty()
+        && (!built.scheduledSfxPlaybacks.isEmpty() || !built.touchholdSpanPlaybacks.isEmpty())) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("preview SFX directory could not be resolved");
+        }
+        return false;
     }
 
     *plan = built;

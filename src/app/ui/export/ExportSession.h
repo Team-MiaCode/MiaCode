@@ -286,7 +286,6 @@ private:
     void savePreferences() const;
     void setUnavailableReason(const QString& reason);
     bool difficultyExists(int difficultyId) const;
-    bool difficultyHasChartBody(int difficultyId) const;
     int resolveDefaultDifficultyId(int previousActiveDifficultyId) const;
     VideoExportTask buildRequestedTask() const;
     void applyOwnerLiveFields(VideoExportTask* task) const;

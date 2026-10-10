@@ -751,7 +751,6 @@ void miacode::runtime::VideoExportHost::ensureExportTrackDuration()
 bool miacode::runtime::VideoExportHost::liveTimelineCoversDifficulty(int difficultyId) const
 {
     if (difficultyId <= 0 || !session_.latestTimelinePreviewSnapshotReady_
-        || session_.latestTimelineNoteMarkers_.isEmpty()
         || session_.lastTimelineParseDifficultyId_ != difficultyId) {
         return false;
     }
