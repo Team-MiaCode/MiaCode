@@ -382,7 +382,7 @@ Item {
         }
 
         Shortcut {
-            sequence: StandardKey.Close
+            sequences: [StandardKey.Close]
             onActivated: detachedPreviewWindow.close()
         }
 
@@ -528,7 +528,8 @@ Item {
                     : root.exportVideoActive ? exportVideoPage.cornerSourceItem
                         : editorPane.cornerSourceItem
             panelOffset: Qt.point(0, 0)
-            panelBaseColor: Theme.colors.background.panel
+            panelBackingColor: panelItem === editorPane.cornerSourceItem
+                ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
         }
 
         Rectangle {
@@ -536,7 +537,7 @@ Item {
             y: 0
             width: parent.width - x
             height: 1 / root.Screen.devicePixelRatio
-            color: Theme.chromeSeparatorColor
+            color: workspaceCorner.separatorColor
             enabled: false
         }
 
@@ -546,7 +547,7 @@ Item {
             width: 1 / root.Screen.devicePixelRatio
             height: parent.height - y
             visible: sidebar.visible
-            color: Theme.chromeSeparatorColor
+            color: workspaceCorner.separatorColor
             enabled: false
         }
 

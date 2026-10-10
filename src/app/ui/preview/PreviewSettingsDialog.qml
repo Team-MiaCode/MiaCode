@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Controls
 import QtQuick.Layouts
 import MiaCode.UI
@@ -35,8 +36,8 @@ AppDialog {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 1
-            color: Theme.colors.border.normal
+            Layout.preferredHeight: 1 / Screen.devicePixelRatio
+            color: Theme.separatorColor
         }
 
         PreviewAppearancePages {

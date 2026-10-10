@@ -39,6 +39,7 @@ class ScintillaEditorBridge : public ScintillaQuick_item
     Q_PROPERTY(QString text READ editorText NOTIFY textChanged)
     Q_PROPERTY(QString selectedText READ selectedText NOTIFY selectionChanged)
     Q_PROPERTY(QRectF cursorRectangle READ cursorRectangle NOTIFY cursorRectangleChanged)
+    Q_PROPERTY(QRectF currentLineRectangle READ currentLineRectangle NOTIFY currentLineRectangleChanged)
     Q_PROPERTY(QRectF followCursorRectangle READ followCursorRectangle NOTIFY followVisualChanged)
     Q_PROPERTY(bool followCaretVisible READ followCaretVisible NOTIFY followVisualChanged)
     Q_PROPERTY(int cursorLine READ cursorLine NOTIFY selectionChanged)
@@ -83,6 +84,7 @@ public:
     QString selectedText() const;
     QString editorText() const { return document_.text(); }
     QRectF cursorRectangle() const;
+    QRectF currentLineRectangle() const { return currentLineRectangle_; }
     QRectF followCursorRectangle() const;
     bool followCaretVisible() const;
     int cursorLine() const;
@@ -128,6 +130,7 @@ signals:
     void scenePositionChanged();
     void selectionChanged();
     void cursorRectangleChanged();
+    void currentLineRectangleChanged();
     void followVisualChanged();
     void availabilityChanged();
     void bookmarksChanged();
@@ -197,6 +200,7 @@ private:
     int lineHeight_ = 0;
     QSizeF layoutSize_;
     QRectF cursorRectangle_;
+    QRectF currentLineRectangle_;
     QRectF anchorRectangle_;
     QRectF followCursorRectangle_;
     int followCaretPosition_ = 0;

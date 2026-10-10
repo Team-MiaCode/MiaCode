@@ -16,6 +16,8 @@ AbstractButton {
     property bool compact: false
     property int iconWidth: compact ? 14 : 16
     property int iconHeight: compact ? 14 : 16
+    property real cornerRadius: compact ? Theme.compactControlRadius : Theme.controlRadius
+    property real highlightOutset: 0
     property var stateColors: Theme.colors.buttonState
     property Item keyForwardTarget: null
     readonly property real horizontalInset: chrome.horizontalInset
@@ -89,7 +91,8 @@ AbstractButton {
 
     background: HoverChrome {
         id: chrome
-        cornerRadius: root.compact ? Theme.compactControlRadius : Theme.controlRadius
+        cornerRadius: root.cornerRadius
+        highlightOutset: root.highlightOutset
         contentWidth: root.contentImplicitWidth
         contentHeight: root.glyph.length > 0 ? glyphLabel.implicitHeight : root.iconHeight
         stateColors: root.stateColors

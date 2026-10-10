@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Layouts
 import MiaCode.UI
 
@@ -49,8 +50,8 @@ ColumnLayout {
         Rectangle {
             Layout.fillWidth: true
             Layout.alignment: Qt.AlignVCenter
-            implicitHeight: 1
-            color: Theme.colors.border.normal
+            implicitHeight: 1 / Screen.devicePixelRatio
+            color: Theme.separatorColor
         }
     }
 

@@ -186,13 +186,13 @@ Item {
         }
     }
 
-    // Header/form background stops where the independently shaded source begins.
+    // The active tab, difficulty header and source share the editor surface.
     Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         y: tabs.height
         height: (root.sourceVisible ? sourceEditor.y : root.height) - y
-        color: Theme.surfaceColor(Theme.colors.background.panel)
+        color: Theme.surfaceColor(Theme.colors.background.surface)
         visible: root.documentSession.hasDocument || root.viewState.netEditorActive
     }
 
@@ -266,6 +266,8 @@ Item {
 
         AppTextField {
             id: fieldEditor
+            backgroundColor: Theme.colors.background.panel
+            outlined: true
             readonly property real editorWidth: fieldGroup.editorWidth
 
             x: fieldGroup.stacked ? 0 : fieldLabel.width + 8
@@ -634,6 +636,8 @@ Item {
 
                 AppTextArea {
                     id: extraFieldsEdit
+                    backgroundColor: Theme.colors.background.panel
+                    outlined: true
                     property bool userEdited: false
 
                     Layout.fillWidth: true
@@ -718,6 +722,8 @@ Item {
             AppTextField {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
+                backgroundColor: Theme.colors.background.panel
+                outlined: true
                 text: field.value
                 onEditingFinished: field.committed(text)
             }

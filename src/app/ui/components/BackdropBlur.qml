@@ -46,7 +46,7 @@ Item {
     }
 
     function queueSourceRectUpdate() {
-        Qt.callLater(root.updateSourceRects)
+        sourceRectUpdate.restart()
     }
 
     function sampleRect(item) {
@@ -55,9 +55,15 @@ Item {
     }
 
     function updateSourceRects() {
-        sceneRect = sampleRect(sourceItem)
-        if (overlaySource)
-            overlayRect = sampleRect(overlaySource)
+        root.sceneRect = root.sampleRect(root.sourceItem)
+        if (root.overlaySource)
+            root.overlayRect = root.sampleRect(root.overlaySource)
+    }
+
+    Timer {
+        id: sourceRectUpdate
+        interval: 0
+        onTriggered: root.updateSourceRects()
     }
 
     Component.onCompleted: updateSourceRects()

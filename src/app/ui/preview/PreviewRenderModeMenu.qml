@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Controls
 import QtQuick.Controls.impl as ControlsImpl
 import MiaCode.UI
@@ -19,7 +20,7 @@ AppStickyPopup {
             required property string label
             required property bool active
 
-            implicitHeight: 28
+            implicitHeight: Theme.menuRowHeight
             implicitWidth: Math.ceil(14 + 10 + labelMetrics.advanceWidth + leftPadding + rightPadding)
             leftPadding: 12
             rightPadding: 16
@@ -38,7 +39,7 @@ AppStickyPopup {
             contentItem: Item {
                 ControlsImpl.IconImage {
                     id: checkMark
-                    anchors.left: parent.left
+                    anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     width: 14
                     height: 14
@@ -50,8 +51,9 @@ AppStickyPopup {
 
                 Text {
                     id: modeLabel
-                    anchors.left: checkMark.right
-                    anchors.leftMargin: 10
+                    anchors.left: parent.left
+                    anchors.right: checkMark.left
+                    anchors.rightMargin: 10
                     anchors.verticalCenter: parent.verticalCenter
                     text: modeRow.label
                     color: !modeRow.enabled ? Theme.colors.text.disabled
@@ -59,6 +61,7 @@ AppStickyPopup {
                          : Theme.colors.text.secondary
                     font.family: Theme.uiFont
                     font.pixelSize: Theme.uiFontSize
+                    elide: Text.ElideRight
                 }
             }
         }
@@ -74,54 +77,59 @@ AppStickyPopup {
             required property real value
             signal edited(int newValue)
 
-            spacing: 4
+            height: Theme.menuParameterRowHeight
+            spacing: 0
+            topPadding: 4
+            bottomPadding: 4
 
             TextMetrics {
                 id: titleMetrics
                 font.family: Theme.uiFont
-                font.pixelSize: Theme.compactFontSize
-                font.weight: Font.DemiBold
+                font.pixelSize: Theme.uiFontSize
                 text: parameterRow.title
             }
 
             TextMetrics {
                 id: valueMetrics
                 font.family: Theme.uiFont
-                font.pixelSize: Theme.compactFontSize
+                font.pixelSize: Theme.uiFontSize
                 text: parameterRow.valueText
             }
 
             Item {
                 width: parent.width
                 implicitWidth: titleMetrics.advanceWidth + 8 + valueMetrics.advanceWidth
-                implicitHeight: Math.max(parameterTitle.implicitHeight, parameterValue.implicitHeight)
+                implicitHeight: Theme.menuRowHeight
 
                 Text {
                     id: parameterTitle
                     anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
                     anchors.right: parameterValue.left
                     anchors.rightMargin: 8
                     text: parameterRow.title
                     elide: Text.ElideRight
                     color: Theme.colors.text.primary
                     font.family: Theme.uiFont
-                    font.pixelSize: Theme.compactFontSize
-                    font.weight: Font.DemiBold
+                    font.pixelSize: Theme.uiFontSize
                 }
 
                 Text {
                     id: parameterValue
                     anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
                     text: parameterRow.valueText
                     color: Theme.colors.text.secondary
                     font.family: Theme.uiFont
-                    font.pixelSize: Theme.compactFontSize
+                    font.pixelSize: Theme.uiFontSize
                     horizontalAlignment: Text.AlignRight
                 }
             }
 
             AppSlider {
                 id: parameterSlider
+                implicitWidth: 160
+                implicitHeight: Theme.menuRowHeight
                 width: parent.width
                 from: parameterRow.from
                 to: parameterRow.to
@@ -165,8 +173,8 @@ AppStickyPopup {
                 anchors.leftMargin: 6
                 anchors.rightMargin: 6
                 anchors.verticalCenter: parent.verticalCenter
-                height: 1
-                color: Theme.colors.border.normal
+                height: 1 / Screen.devicePixelRatio
+                color: Theme.separatorColor
             }
         }
 
@@ -197,11 +205,11 @@ AppStickyPopup {
             id: muriParameters
             visible: root.previewSession.muriCheckEnabled
             width: parent.width
-            spacing: 8
+            spacing: 0
             leftPadding: 12
             rightPadding: 16
-            topPadding: 4
-            bottomPadding: 8
+            topPadding: 0
+            bottomPadding: 0
 
             readonly property var ranges: root.previewSession.muriParameterRanges
             readonly property real rowContentWidth: Math.max(0, width - leftPadding - rightPadding)

@@ -232,7 +232,7 @@ ApplicationWindow {
                 anchors.centerIn: parent
                 width: Math.min(parent.width - 48, 420)
                 height: 72
-                radius: 8
+                radius: Theme.controlRadius
                 color: Theme.overlayColor(Theme.colors.background.elevated, Theme.popupOpacity)
                 border.color: Theme.colors.text.active
                 border.width: 1

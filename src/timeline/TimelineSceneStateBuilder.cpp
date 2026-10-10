@@ -27,7 +27,7 @@ using miacode::timeline::TimelineThemeColors;
 
 constexpr int kPlayableLaneCount = 8;
 constexpr int kLaneCount = kPlayableLaneCount + 1;
-constexpr int kHeaderHeight = 26;
+constexpr int kHeaderHeight = 20;
 constexpr int kLaneHeight = 20;
 constexpr double kMinimumContentScale = 0.25;
 constexpr double kMinimumTextScale = 0.5;
@@ -102,7 +102,7 @@ const miacode::timeline::TimelineNoteAssetSet& sceneNoteAssets(const TimelineSce
 QFont timelineHeaderLabelFont(const QFont& sourceFont)
 {
     QFont font(sourceFont);
-    font.setPixelSize(10);
+    font.setPixelSize(11);
     return font;
 }
 
@@ -115,7 +115,7 @@ double normalizedContentScale(double scale)
 QFont timelineLaneLabelFont(const QFont& sourceFont, double contentScale)
 {
     QFont font(sourceFont);
-    font.setPointSizeF(10.0 * qMax(kMinimumTextScale, normalizedContentScale(contentScale)));
+    font.setPointSizeF(11.0 * qMax(kMinimumTextScale, normalizedContentScale(contentScale)));
     return font;
 }
 
@@ -486,10 +486,10 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
     state.skinDirectory = trimmedSkinDirectory.isEmpty() ? QString() : QDir::cleanPath(trimmedSkinDirectory);
 
     const qreal headerScrollX = state.horizontalScrollValue;
-    const qreal headerSafeLeft = qMax<qreal>(state.timelineLeft, state.headerLeftLimit);
+    const qreal headerSafeLeft = qMax<qreal>(0.0, state.headerLeftLimit);
     const qreal headerSafeRight =
         qMin<qreal>(state.viewportSize.width(), qMax<qreal>(headerSafeLeft, state.headerRightLimit));
-    const qreal headerMarkerSafeLeft = qMax<qreal>(state.timelineLeft, state.headerMarkerLeftLimit);
+    const qreal headerMarkerSafeLeft = qMax<qreal>(0.0, state.headerMarkerLeftLimit);
     const qreal headerMarkerSafeRight =
         qMin<qreal>(state.viewportSize.width(), qMax<qreal>(headerMarkerSafeLeft, state.headerMarkerRightLimit));
     const qreal headerEmitPadding = qMax<qreal>(0.0, static_cast<qreal>(request.horizontalCullPaddingPx));

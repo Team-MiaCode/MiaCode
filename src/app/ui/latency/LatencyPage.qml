@@ -3,13 +3,12 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import MiaCode.UI
 
-Rectangle {
+Item {
     id: root
 
     required property var latency
     required property var pages
 
-    color: Theme.surfaceColor(Theme.colors.background.panel)
     clip: true
 
     readonly property int labelWidth: 120
@@ -55,6 +54,8 @@ Rectangle {
                 FormLabel { text: qsTrId("qml.bpm") }
                 AppTextField {
                     objectName: "latencyBpmField"
+                    backgroundColor: Theme.colors.background.panel
+                    outlined: true
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
                     text: root.latency.bpm.toFixed(3)
@@ -85,6 +86,8 @@ Rectangle {
                 FormLabel { text: qsTrId("qml.count_in_beats") }
                 AppTextField {
                     objectName: "latencyClockCountField"
+                    backgroundColor: Theme.colors.background.panel
+                    outlined: true
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
                     text: String(root.latency.clockCount)
@@ -104,6 +107,8 @@ Rectangle {
                 FormLabel { text: qsTrId("latency.offset") }
                 AppTextField {
                     objectName: "latencyOffsetField"
+                    backgroundColor: Theme.colors.background.panel
+                    outlined: true
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
                     text: root.latency.offsetSeconds.toFixed(3)

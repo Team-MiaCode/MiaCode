@@ -777,15 +777,15 @@ int main(int argc, char** argv)
         const QString editorDisplay = qmlSource(
             QStringLiteral("src/app/runtime/editor/EditorDisplay.cpp"));
         const QString zoomMenu = qmlSource(QStringLiteral("src/app/ui/timeline/TimelineZoomMenu.qml"));
-        const QString brightnessMenu = qmlSource(QStringLiteral("src/app/ui/timeline/TimelineBrightnessMenu.qml"));
+        const QString settingsMenu = qmlSource(QStringLiteral("src/app/ui/timeline/TimelineSettingsMenu.qml"));
         expect(!panel.isEmpty() && !tabBar.isEmpty() && !splitView.isEmpty()
                    && !viewState.isEmpty() && !timelineSession.isEmpty() && !timelineTick.isEmpty()
-                   && !editorDisplay.isEmpty() && !zoomMenu.isEmpty() && !brightnessMenu.isEmpty(),
+                   && !editorDisplay.isEmpty() && !zoomMenu.isEmpty() && !settingsMenu.isEmpty(),
                QStringLiteral("v2 timeline control QML sources are available to the developer spec"));
-        const QString controls = panel + tabBar;
+        const QString controls = panel + tabBar + settingsMenu;
         expect(zoomMenu.contains(QStringLiteral("applyZoomPreset"))
-                   && brightnessMenu.contains(QStringLiteral("waveformBrightness"))
-                   && brightnessMenu.contains(QStringLiteral("measureLineBrightness"))
+                   && settingsMenu.contains(QStringLiteral("waveformBrightness"))
+                   && settingsMenu.contains(QStringLiteral("measureLineBrightness"))
                    && controls.contains(QStringLiteral("followPreviewToggled")),
                QStringLiteral("v2 timeline zoom and brightness menus are QML and follow-code stays on the session"));
         expect(!timelineSession.contains(QStringLiteral("openTimelineZoomMenu"))
@@ -794,7 +794,7 @@ int main(int argc, char** argv)
                QStringLiteral("v2 timeline zoom and brightness no longer pop QWidget menus"));
         expect(!controls.contains(QStringLiteral("openTimelineFollowSettingsMenu"))
                    && !timelineSession.contains(QStringLiteral("FollowSettingsCheckItem")),
-               QStringLiteral("v2 exposes follow-code directly without extra follow settings"));
+               QStringLiteral("v2 timeline settings expose follow-code through the session"));
         expect(tabBar.contains(QStringLiteral("currentTabId"))
                    && tabBar.contains(QStringLiteral("setCurrentTabId"))
                    && !tabBar.contains(QStringLiteral("activeBottomTab"))

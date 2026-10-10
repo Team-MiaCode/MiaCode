@@ -1,22 +1,12 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Window
 import QtQml.Models
 import QtQuick.Controls
 import QtQuick.Layouts
 import MiaCode.UI
 
-// v2 封面合成器。三栏工作区：左图层、中同源 CoverComposer 预览、右检查器。
-//
-// 版式与 v2 其余表面同构，不再自成一套：
-//   * 工作区照抄 MainSplitView —— 面板是平的 surface + PanelHeader，彼此只靠
-//     SplitHandle 的 1px 线分隔，没有圆角卡片边框；
-//   * 表单行一律走 LabeledCombo / LabeledSlider，标签列因此对齐，滑杆也拿到了
-//     读数和双击输入（直接给 AppSlider 绑 value 会在第一次拖动后把绑定打断，
-//     LabeledSlider 的 `Binding ... when: !pressed` 就是为这个存在的）；
-//   * 右栏按 画板 / 图层 分成 panelTab；图层页只显示选中那一层的设置，难度卡
-//     设置跟着「难度卡」这一层走；预设是「布局 ▾」里的二级菜单。
-//
 Rectangle {
     id: root
 
@@ -279,8 +269,8 @@ Rectangle {
 
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 1
-            color: Theme.colors.border.normal
+            Layout.preferredHeight: 1 / Screen.devicePixelRatio
+            color: Theme.separatorColor
         }
 
         SplitView {
@@ -495,8 +485,8 @@ Rectangle {
 
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 1
-                        color: Theme.colors.border.normal
+                        Layout.preferredHeight: 1 / Screen.devicePixelRatio
+                        color: Theme.separatorColor
                     }
 
                     Flickable {

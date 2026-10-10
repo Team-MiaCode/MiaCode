@@ -21,7 +21,7 @@ CheckBox {
     indicator: Item {
         implicitWidth: root.compact ? 13 : 15
         implicitHeight: root.compact ? 13 : 15
-        x: root.leftPadding
+        x: root.width - root.rightPadding - width
         y: (root.height - height) / 2
 
         Rectangle {
@@ -59,7 +59,7 @@ CheckBox {
     contentItem: Text {
         id: label
 
-        leftPadding: root.indicator.width + root.spacing
+        rightPadding: root.indicator.width + root.spacing
         text: root.text
         font: root.font
         color: root.enabled ? Theme.colors.text.primary : Theme.colors.text.disabled

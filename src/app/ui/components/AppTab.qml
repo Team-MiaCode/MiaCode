@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.impl as ControlsImpl
 import QtQuick.Layouts
+import QtQuick.Window
 import MiaCode.UI
 
 Item {
@@ -15,7 +16,9 @@ Item {
     property string tooltip
     property bool active: false
     property bool closable: false
+    property bool showSeparator: false
     property real preferredTabWidth: 160
+    readonly property real outlineWidth: 1 / Screen.devicePixelRatio
     readonly property bool hovered: tabButton.hovered || closeButton.hovered
 
     signal clicked()
@@ -23,11 +26,13 @@ Item {
 
     implicitHeight: Theme.workspaceHeaderHeight
     implicitWidth: preferredTabWidth
+    z: active ? 1 : 0
 
     AbstractButton {
         id: tabButton
 
         anchors.fill: parent
+        padding: 0
         hoverEnabled: true
         focusPolicy: Qt.TabFocus
         Accessible.name: root.secondaryText.length > 0
@@ -49,8 +54,8 @@ Item {
                 id: contentRow
 
                 anchors.fill: parent
-                anchors.leftMargin: 10
-                anchors.rightMargin: 5
+                anchors.leftMargin: 14
+                anchors.rightMargin: 9
                 spacing: 6
 
                 DifficultySwatch {
@@ -116,10 +121,12 @@ Item {
                         sourceSize: Qt.size(14, 14)
                         color: Theme.colors.text.secondary
                     }
-                    background: HoverChrome {
-                        hovered: closeButton.hovered
-                        pressed: closeButton.down
-                        focused: closeButton.visualFocus
+                    background: Rectangle {
+                        radius: Theme.smallControlRadius
+                        color: closeButton.down ? Theme.colors.buttonState.pressed
+                            : closeButton.hovered ? Theme.colors.buttonState.hover : "transparent"
+                        border.width: closeButton.visualFocus ? Theme.controlBorderWidth : 0
+                        border.color: Theme.colors.accent.focus
                     }
                     Tooltip {
                         visible: closeButton.hovered
@@ -129,14 +136,33 @@ Item {
             }
         }
 
-        background: HoverChrome {
-            cornerRadius: Theme.controlRadius
-            stateColors: Theme.colors.state
-            contentHeight: label.implicitHeight
-            selected: root.active
-            hovered: tabButton.hovered && !closeButton.hovered
-            pressed: tabButton.down
-            focused: tabButton.visualFocus
+        background: Item {
+            Rectangle {
+                anchors.fill: parent
+                radius: Theme.editorTabRadius
+                visible: !root.active
+                color: tabButton.down ? Theme.overlayColor(Theme.colors.state.pressed)
+                    : root.hovered ? Theme.overlayColor(Theme.colors.state.hover) : "transparent"
+            }
+
+            Rectangle {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                width: root.outlineWidth
+                height: Theme.uiFontSize + 3
+                visible: root.showSeparator && !root.active && !root.hovered
+                color: Theme.separatorColor
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: Theme.controlBorderWidth * 2
+                radius: Theme.smallControlRadius
+                visible: tabButton.visualFocus
+                color: "transparent"
+                border.width: Theme.controlBorderWidth
+                border.color: Theme.colors.accent.focus
+            }
         }
     }
 

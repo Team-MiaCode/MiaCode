@@ -364,7 +364,7 @@ Popup {
                         Text {
                             width: parent.width
                             visible: root.usingFallback
-                            text: root.usingFallback ? root.selectedSection.hint : ""
+                            text: root.usingFallback ? (root.selectedSection.hint || "") : ""
                             color: Theme.colors.text.secondary
                             font.family: Theme.uiFont
                             font.pixelSize: Theme.secondaryFontSize

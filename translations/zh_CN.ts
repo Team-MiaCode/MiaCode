@@ -3469,9 +3469,9 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Open timeline zoom presets</source>
         <translation>打开时间轴缩放预设</translation>
     </message>
-    <message id="qml.open_waveform_and_beat_line_brightness_settings">
-        <source>Open waveform and beat-line brightness settings</source>
-        <translation>打开波形和小节线亮度设置</translation>
+    <message id="qml.open_timeline_settings">
+        <source>Open timeline settings</source>
+        <translation>打开时间轴设置</translation>
     </message>
     <message id="qml.other_fields">
         <source>Other fields</source>
@@ -3613,9 +3613,9 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>This entry will remain here and become available when the feature is complete.</source>
         <translation>入口会保留，功能完成后将在此处提供。</translation>
     </message>
-    <message id="qml.timeline_brightness">
-        <source>Timeline brightness</source>
-        <translation>时间轴亮度</translation>
+    <message id="qml.timeline_settings">
+        <source>Timeline settings</source>
+        <translation>时间轴设置</translation>
     </message>
     <message id="qml.timeline_frame_rate">
         <source>Timeline frame rate</source>

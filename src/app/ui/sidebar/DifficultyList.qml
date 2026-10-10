@@ -131,7 +131,7 @@ Column {
             visible: root.viewState.difficultySectionExpanded
 
             Item {
-                width: parent.width
+                width: difficultyGroup.width
                 height: root.viewState.difficultySectionExpanded ? 30 : 0
 
                 // The row IS the fold control: clicking a difficulty that is not
@@ -196,7 +196,7 @@ Column {
                 delegate: NavRow {
                     id: bookmarkRow
                     required property var modelData
-                    width: parent.width
+                    width: difficultyGroup.width
                     height: root.viewState.difficultySectionExpanded ? 26 : 0
                     // Past the difficulty label's own 38, so a bookmark reads as
                     // belonging to the row above it rather than sitting level

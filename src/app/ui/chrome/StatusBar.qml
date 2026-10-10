@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Controls
 import QtQuick.Layouts
 import MiaCode.UI
@@ -25,8 +26,8 @@ Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        height: 1
-        color: Theme.colors.border.status
+        height: 1 / Screen.devicePixelRatio
+        color: Theme.separatorColor
     }
 
     RowLayout {

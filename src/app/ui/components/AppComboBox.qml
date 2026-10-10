@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.impl as ControlsImpl
 import QtQuick.Layouts
+import QtQuick.Window
 import MiaCode.UI
 
 // Shared combo — geometry mirrors v1 dialogComboBoxStyleSheet (QML Popup, no Win11 chrome).
@@ -67,12 +68,15 @@ ComboBox {
         anchors.bottomMargin: Theme.chromeInsetY
         implicitHeight: root.implicitHeight
         radius: Theme.controlRadius
-        color: Theme.overlayColor(root.enabled
-               ? Theme.colors.background.control
-               : Theme.colors.background.controlDisabled)
-        border.width: root.enabled && (root.visualFocus || root.hovered || root.down)
-                      ? Theme.controlBorderWidth : 0
-        border.color: Theme.colors.accent.primary
+        color: Theme.overlayColor(!root.enabled ? Theme.colors.background.controlDisabled
+               : root.down ? Theme.colors.buttonState.pressed
+               : root.hovered ? Theme.colors.buttonState.hover
+               : root.popup.visible || root.visualFocus ? Theme.colors.buttonState.selected
+               : Theme.colors.background.elevated)
+        border.width: 1 / root.Screen.devicePixelRatio
+        border.color: root.enabled && (root.visualFocus || root.popup.visible)
+                      ? Theme.colors.accent.primary : Theme.floatingBorderColor
+        border.pixelAligned: false
     }
 
     delegate: ChromeRow {

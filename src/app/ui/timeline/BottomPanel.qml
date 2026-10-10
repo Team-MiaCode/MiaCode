@@ -24,10 +24,6 @@ Item {
     readonly property int contentTopMargin: 0
     readonly property real minimumHeight: tabs.implicitHeight + timelineItem.minimumViewportHeight
     readonly property real minimumWidth: tabs.minimumWidth
-    readonly property int timelineHeaderLeftLimit:
-        zoomButton.x + zoomButton.width + Theme.panelPadding
-    readonly property int timelineHeaderRightLimit:
-        brightnessButton.x - Theme.panelPadding
     readonly property real analysisTextLeftInset:
         Theme.panelPadding - Theme.chromeInsetX + Theme.compactTabContentPadding
     readonly property real analysisListLeftInset:
@@ -83,7 +79,7 @@ Item {
                     color: issueRow.leadingColor
                     wrapMode: Text.Wrap
                     font.family: Theme.codeFont.family
-                    font.pixelSize: Theme.compactFontSize
+                    font.pixelSize: Theme.uiFontSize
                 }
 
                 Label {
@@ -92,7 +88,7 @@ Item {
                     color: Theme.colors.text.primary
                     wrapMode: Text.Wrap
                     font.family: Theme.uiFont
-                    font.pixelSize: Theme.compactFontSize
+                    font.pixelSize: Theme.uiFontSize
                 }
             }
         }
@@ -153,10 +149,6 @@ Item {
         visible: root.timelineSession.currentTabId === "timeline"
         enabled: visible
         stateBridge: root.timelineSession.stateBridge
-        headerLeftLimit: root.timelineHeaderLeftLimit
-        headerRightLimit: root.timelineHeaderRightLimit
-        headerMarkerLeftLimit: root.timelineHeaderLeftLimit
-        headerMarkerRightLimit: root.timelineHeaderRightLimit
         onHeaderNavigateRequested: second => root.timelineSession.headerNavigate(second)
         onTimelineWheelNavigateRequested: second => root.timelineSession.wheelNavigate(second)
         onCenterNavigateRequested: second => root.timelineSession.centerNavigate(second)
@@ -180,63 +172,6 @@ Item {
             const position = timelineItem.mapToItem(null, timelineItem.hoverTooltipPosition)
             return position.y + 16
         }
-    }
-
-    AppDropDownButton {
-        id: zoomButton
-        compact: true
-
-        x: Theme.panelPadding - Theme.chromeInsetX
-        y: timelineItem.y + (timelineItem.timelineTop - height) / 2
-        height: implicitHeight
-        visible: timelineItem.visible
-        text: qsTrId("qml.1").arg(Math.round(root.timelineSession.stateBridge
-            ? root.timelineSession.stateBridge.zoomScale * 100
-            : 50))
-        sizeToLabels: zoomMenu.zoomLabels
-        tooltip: qsTrId("qml.timeline_zoom")
-        expanded: zoomMenu.active
-        Accessible.description: qsTrId("qml.open_timeline_zoom_presets")
-        onClicked: {
-            if (zoomMenu.active) {
-                zoomMenu.close()
-                return
-            }
-            zoomMenu.openAt(zoomButton)
-        }
-    }
-
-    IconButton {
-        id: brightnessButton
-        compact: true
-
-        width: implicitWidth
-        height: implicitHeight
-        x: root.width - Theme.panelPadding - width + horizontalInset
-        y: timelineItem.y + (timelineItem.timelineTop - height) / 2
-        visible: timelineItem.visible
-        iconSource: Qt.resolvedUrl("icons/sliders-horizontal.svg")
-        filledIconSource: Qt.resolvedUrl("icons/sliders-horizontal-fill.svg")
-        tooltip: qsTrId("qml.timeline_brightness")
-        active: brightnessMenu.active
-        Accessible.description: qsTrId("qml.open_waveform_and_beat_line_brightness_settings")
-        onClicked: {
-            if (brightnessMenu.active) {
-                brightnessMenu.close()
-                return
-            }
-            brightnessMenu.openAt(brightnessButton)
-        }
-    }
-
-    TimelineZoomMenu {
-        id: zoomMenu
-        stateBridge: root.timelineSession.stateBridge
-    }
-
-    TimelineBrightnessMenu {
-        id: brightnessMenu
-        stateBridge: root.timelineSession.stateBridge
     }
 
     Item {
@@ -265,7 +200,7 @@ Item {
                         .arg(root.documentSession.syntaxWarningCount)
                 color: Theme.colors.text.secondary
                 font.family: Theme.uiFont
-                font.pixelSize: Theme.compactFontSize
+                font.pixelSize: Theme.uiFontSize
             }
         }
 
@@ -301,7 +236,7 @@ Item {
                 : qsTrId("validation.no_syntax_errors_detected")
             color: Theme.colors.text.secondary
             font.family: Theme.uiFont
-            font.pixelSize: Theme.compactFontSize
+            font.pixelSize: Theme.uiFontSize
         }
     }
 
@@ -331,7 +266,7 @@ Item {
                         .arg(root.muriWarningCount)
                 color: Theme.colors.text.secondary
                 font.family: Theme.uiFont
-                font.pixelSize: Theme.compactFontSize
+                font.pixelSize: Theme.uiFontSize
             }
         }
 
@@ -366,7 +301,7 @@ Item {
                 : qsTrId("validation.no_muri_issues_detected")
             color: Theme.colors.text.secondary
             font.family: Theme.uiFont
-            font.pixelSize: Theme.compactFontSize
+            font.pixelSize: Theme.uiFontSize
         }
     }
 

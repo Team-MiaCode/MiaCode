@@ -30,7 +30,7 @@ RowLayout {
     // A page that used to set this on a bare AppSlider (e.g. to make a combo's
     // neighboring slider keyboard-reachable in the same tab order) still needs
     // the knob after switching to this wrapper.
-    property alias focusPolicy: slider.focusPolicy
+    property alias sliderFocusPolicy: slider.focusPolicy
 
     Layout.fillWidth: true
 

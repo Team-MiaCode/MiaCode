@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Controls
 import MiaCode.UI
 
@@ -11,7 +12,7 @@ MenuSeparator {
     rightPadding: 6
 
     contentItem: Rectangle {
-        implicitHeight: 1
-        color: Theme.colors.border.normal
+        implicitHeight: 1 / Screen.devicePixelRatio
+        color: Theme.separatorColor
     }
 }

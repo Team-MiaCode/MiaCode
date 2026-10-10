@@ -3469,9 +3469,9 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Open timeline zoom presets</source>
         <translation>Open timeline zoom presets</translation>
     </message>
-    <message id="qml.open_waveform_and_beat_line_brightness_settings">
-        <source>Open waveform and beat-line brightness settings</source>
-        <translation>Open waveform and beat-line brightness settings</translation>
+    <message id="qml.open_timeline_settings">
+        <source>Open timeline settings</source>
+        <translation>Open timeline settings</translation>
     </message>
     <message id="qml.other_fields">
         <source>Other fields</source>
@@ -3613,9 +3613,9 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>This entry will remain here and become available when the feature is complete.</source>
         <translation>This entry will remain here and become available when the feature is complete.</translation>
     </message>
-    <message id="qml.timeline_brightness">
-        <source>Timeline brightness</source>
-        <translation>Timeline brightness</translation>
+    <message id="qml.timeline_settings">
+        <source>Timeline settings</source>
+        <translation>Timeline settings</translation>
     </message>
     <message id="qml.timeline_frame_rate">
         <source>Timeline frame rate</source>

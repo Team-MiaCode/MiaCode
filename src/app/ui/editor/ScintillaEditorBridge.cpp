@@ -191,17 +191,24 @@ void ScintillaEditorBridge::publishLayout()
     layoutSize_ = size;
 
     const QRectF cursor = positionToRectangle(cursorPosition());
+    const int currentLine = send(SCI_LINEFROMPOSITION, send(SCI_GETCURRENTPOS));
+    QRectF currentLineRect = positionToRectangle(
+        document_.utf16Position(send(SCI_POSITIONFROMLINE, currentLine)));
+    currentLineRect.setHeight(qMax(1, int(send(SCI_WRAPCOUNT, currentLine))) * height);
     const QRectF anchor = positionToRectangle(document_.utf16Position(send(SCI_GETANCHOR)));
     const QRectF follow = styler_.following() ? positionToRectangle(followCaretPosition_) : QRectF{};
     const bool cursorChanged = cursorRectangle_ != cursor;
+    const bool currentLineChanged = currentLineRectangle_ != currentLineRect;
     const bool anchorChanged = anchorRectangle_ != anchor;
     const bool followChanged = followCursorRectangle_ != follow;
     cursorRectangle_ = cursor;
+    currentLineRectangle_ = currentLineRect;
     anchorRectangle_ = anchor;
     followCursorRectangle_ = follow;
     if (metricsChanged) emit layoutChanged();
     if (metricsChanged) scheduleOverviewProjectionRefresh(OverviewAllDirty);
     if (cursorChanged) emit cursorRectangleChanged();
+    if (currentLineChanged) emit currentLineRectangleChanged();
     if (followChanged) emit followVisualChanged();
     if (hasActiveFocus() && (metricsChanged || cursorChanged || anchorChanged))
         QGuiApplication::inputMethod()->update(Qt::ImCursorRectangle | Qt::ImAnchorRectangle);

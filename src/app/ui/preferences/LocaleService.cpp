@@ -36,6 +36,11 @@ LocaleService::LocaleService(QObject* parent)
 
 LocaleService::~LocaleService()
 {
+    clearTranslator();
+}
+
+void LocaleService::clearTranslator()
+{
     if (translator_ != nullptr) {
         QCoreApplication::removeTranslator(translator_);
         delete translator_;
@@ -77,11 +82,7 @@ bool LocaleService::loadTranslatorForToken(const QString& token)
         return false;
     }
 
-    if (translator_ != nullptr) {
-        QCoreApplication::removeTranslator(translator_);
-        delete translator_;
-        translator_ = nullptr;
-    }
+    clearTranslator();
 
     if (!QCoreApplication::installTranslator(next)) {
         delete next;

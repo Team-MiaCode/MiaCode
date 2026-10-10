@@ -598,8 +598,8 @@ QtObject {
     readonly property real nativeMaterialTintOpacity: Qt.platform.os === "windows"
         ? (darkTheme ? 0.83 : 0.72)
         : (darkTheme ? 0.65 : 0.50)
-    readonly property color chromeSeparatorColor: darkTheme
-        ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.16)
+    readonly property color separatorColor: Qt.tint(colors.background.panel, darkTheme
+        ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.16))
     readonly property color chromeHighlightBaseColor: {
         const c = Qt.color(colors.background.activityBar)
         return darkTheme
@@ -688,11 +688,12 @@ QtObject {
     }
 
     // Shared UI geometry.
-    readonly property int controlRadius: 8
-    readonly property int compactControlRadius: 6
-    readonly property int smallControlRadius: 5
-    readonly property int popupRadius: 16
-    readonly property int workspaceRadius: 14
+    readonly property int controlRadius: 6
+    readonly property int compactControlRadius: 5
+    readonly property int smallControlRadius: 3
+    readonly property int popupRadius: 10
+    readonly property int editorTabRadius: 8
+    readonly property int workspaceRadius: 10
     readonly property int itemRadius: controlRadius
     readonly property int controlMinHeight: 30
     readonly property int compactControlHeight: 24
@@ -707,6 +708,8 @@ QtObject {
     readonly property int dialogCompactHeight: 280
     readonly property int controlBorderWidth: 1
     readonly property int menuPadding: 7
+    readonly property int menuRowHeight: 28
+    readonly property int menuParameterRowHeight: 64
     // Default inset so adjacent HoverChrome pills do not touch.
     readonly property int chromeInsetX: 3
     readonly property int chromeInsetY: 2

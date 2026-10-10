@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Controls
 import QtQuick.Layouts
 import MiaCode.UI
@@ -31,8 +32,8 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        height: 1
-        color: Theme.colors.border.normal
+        height: 1 / Screen.devicePixelRatio
+        color: Theme.separatorColor
     }
 
     function formatTime(totalSeconds) {

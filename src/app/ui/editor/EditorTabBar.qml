@@ -2,9 +2,11 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Window
+import QtQuick.Shapes
 import MiaCode.UI
 
-Rectangle {
+Item {
     id: root
 
     required property var viewState
@@ -12,16 +14,38 @@ Rectangle {
     required property var commands
     required property var pages
 
-    readonly property int minimumTabWidth: 100
-    readonly property int preferredTabWidth: 160
-    readonly property int tabSpacing: 8
+    readonly property int minimumTabWidth: 80
     readonly property int tabCount: viewState.openEditorTabs.length
-    readonly property real availableTabWidth: width - 2 * (Theme.panelPadding - Theme.chromeInsetX)
-        - Math.max(0, tabCount - 1) * (tabSpacing - 2 * Theme.chromeInsetX)
-    readonly property bool tabsOverflow: tabCount * minimumTabWidth > availableTabWidth
-    readonly property real tabWidth: tabCount === 0 ? preferredTabWidth
-        : tabsOverflow ? minimumTabWidth
-        : Math.min(preferredTabWidth, availableTabWidth / tabCount)
+    readonly property real availableTabWidth: Math.max(0, width - (tabsOverflow ? overflowButton.width : 0))
+    readonly property bool tabsOverflow: tabCount * minimumTabWidth > width
+    readonly property var preferredTabWidths: viewState.openEditorTabs.map(key => {
+        const title = (documentSession.dirtyEditorKeys.indexOf(key) >= 0 ? "*" : "") + titleForKey(key)
+        const iconWidth = difficultyIdForKey(key) > 0 ? Theme.difficultySwatchSize
+            : key === viewState.metadataEditorKey || key === viewState.latencyEditorKey ? 15 : 0
+        // Match AppTab's content margins, close-button slot and visible row gaps.
+        return Math.max(minimumTabWidth,
+            Math.ceil(tabFontMetrics.advanceWidth(title) + 14 + 9 + 24 + 6 + (iconWidth > 0 ? iconWidth + 6 : 0)))
+    })
+    readonly property real preferredTabsWidth: preferredTabWidths.reduce((sum, value) => sum + value, 0)
+    readonly property real compressionScale: preferredTabsWidth > tabCount * minimumTabWidth
+        ? Math.max(0, Math.min(1, (availableTabWidth - tabCount * minimumTabWidth)
+            / (preferredTabsWidth - tabCount * minimumTabWidth))) : 1
+    readonly property var tabWidths: preferredTabWidths.map(value =>
+        minimumTabWidth + (value - minimumTabWidth) * compressionScale)
+
+    FontMetrics {
+        id: tabFontMetrics
+        font.family: Theme.uiFont
+        font.pixelSize: Theme.secondaryFontSize
+    }
+
+    onTabWidthsChanged: revealTimer.restart()
+
+    Timer {
+        id: revealTimer
+        interval: 0
+        onTriggered: root.revealActiveTab()
+    }
 
     function difficultyData(id) {
         const difficulties = root.documentSession.difficulties
@@ -115,16 +139,74 @@ Rectangle {
             tabViewport.contentX = item.x + item.width - tabViewport.width
     }
 
+    readonly property real outlineWidth: 1 / Screen.devicePixelRatio
+    readonly property int activeTabIndex: viewState.openEditorTabs.indexOf(viewState.activeEditorKey)
+    readonly property real activeTabLeft: tabWidths.slice(0, Math.max(0, activeTabIndex))
+        .reduce((sum, value) => sum + value, 0) - tabViewport.contentX
+    readonly property real activeTabRight: activeTabLeft + (tabWidths[activeTabIndex] || 0)
+    readonly property real separatorY: height - outlineWidth / 2
+    readonly property real curve: Theme.editorTabRadius
+    readonly property real leftCurve: activeTabIndex === 0 ? 0 : curve
+    readonly property real leftEdge: activeTabIndex === 0
+        ? activeTabLeft - outlineWidth : activeTabLeft
+
+    // One contour supplies both fills and the continuous separator stroke.
+    readonly property string tabContour: {
+        const k = 0.55228475
+        const l = leftEdge, r = activeTabRight, c = curve, a = leftCurve
+        // The workspace draws the shared top edge; keep this stroke above its clip.
+        const t = -outlineWidth / 2, b = separatorY
+        return "M " + (l - a) + " " + b
+            + " C " + (l - a * (1 - k)) + " " + b + " " + l + " " + (b - a * (1 - k)) + " " + l + " " + (b - a)
+            + " V " + (t + a)
+            + " C " + l + " " + (t + a * (1 - k)) + " " + (l + a * (1 - k)) + " " + t + " " + (l + a) + " " + t
+            + " H " + (r - c)
+            + " C " + (r - c * (1 - k)) + " " + t + " " + r + " " + (t + c * (1 - k)) + " " + r + " " + (t + c)
+            + " V " + (b - c)
+            + " C " + r + " " + (b - c * (1 - k)) + " " + (r + c * (1 - k)) + " " + b + " " + (r + c) + " " + b
+    }
+    readonly property string activeFillPath: activeTabIndex >= 0
+        ? tabContour + " V " + height + " H " + (leftEdge - leftCurve) + " Z" : ""
+
     implicitHeight: Theme.workspaceHeaderHeight
-    color: Theme.surfaceColor(Theme.colors.background.panel)
+
+    Shape {
+        anchors.fill: parent
+        clip: true
+        preferredRendererType: Shape.CurveRenderer
+
+        ShapePath {
+            strokeWidth: -1
+            fillColor: Theme.surfaceColor(Theme.colors.background.panel)
+            fillRule: ShapePath.OddEvenFill
+            PathSvg {
+                path: "M 0 0 H " + root.width + " V " + root.height + " H 0 Z " + root.activeFillPath
+            }
+        }
+        ShapePath {
+            strokeWidth: -1
+            fillColor: Theme.surfaceColor(Theme.colors.background.surface)
+            PathSvg { path: root.activeFillPath }
+        }
+        ShapePath {
+            strokeWidth: root.outlineWidth
+            strokeColor: Theme.separatorColor
+            fillColor: "transparent"
+            capStyle: ShapePath.FlatCap
+            PathSvg {
+                path: root.activeTabIndex >= 0
+                    ? "M 0 " + root.separatorY + " H " + (root.leftEdge - root.leftCurve)
+                        + " " + root.tabContour.replace("M", "L") + " H " + root.width
+                    : "M 0 " + root.separatorY + " H " + root.width
+            }
+        }
+    }
 
     Flickable {
         id: tabViewport
 
         anchors.left: parent.left
         anchors.right: root.tabsOverflow ? overflowButton.left : parent.right
-        anchors.leftMargin: Theme.panelPadding - Theme.chromeInsetX
-        anchors.rightMargin: Theme.panelPadding - Theme.chromeInsetX
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         contentWidth: tabRow.width
@@ -143,7 +225,7 @@ Rectangle {
 
             width: childrenRect.width
             height: parent.height
-            spacing: root.tabSpacing - 2 * Theme.chromeInsetX
+            spacing: 0
 
             Repeater {
                 id: tabRepeater
@@ -151,13 +233,15 @@ Rectangle {
 
                 delegate: AppTab {
                     required property string modelData
+                    required property int index
 
                     property bool suppressClickAfterDrag: false
 
-                    transform: Translate { y: Theme.workspaceHeaderContentOffsetY }
-                    width: root.tabWidth
+                    width: root.tabWidths[index]
                     height: parent.height
-                    preferredTabWidth: root.tabWidth
+                    preferredTabWidth: root.preferredTabWidths[index]
+                    showSeparator: index < root.tabCount - 1
+                        && root.viewState.openEditorTabs[index + 1] !== root.viewState.activeEditorKey
                     text: (root.documentSession.dirtyEditorKeys.indexOf(modelData) >= 0 ? "*" : "")
                           + root.titleForKey(modelData)
                     secondaryText: ""
@@ -220,7 +304,6 @@ Rectangle {
         id: overflowButton
 
         anchors.right: parent.right
-        anchors.rightMargin: Theme.panelPadding - horizontalInset
         anchors.top: parent.top
         width: 30
         height: parent.height
@@ -228,6 +311,14 @@ Rectangle {
         iconSource: Qt.resolvedUrl("icons/more.svg")
         tooltip: qsTrId("qml.show_all_open_editors")
         onClicked: overflowMenu.open()
+
+        background: Rectangle {
+            radius: Theme.smallControlRadius
+            color: overflowButton.down ? Theme.colors.buttonState.pressed
+                : overflowButton.hovered ? Theme.colors.buttonState.hover : "transparent"
+            border.width: overflowButton.visualFocus ? Theme.controlBorderWidth : 0
+            border.color: Theme.colors.accent.focus
+        }
 
         AppMenu {
             id: overflowMenu
@@ -255,11 +346,11 @@ Rectangle {
         target: root.viewState
 
         function onActiveEditorKeyChanged() {
-            Qt.callLater(root.revealActiveTab)
+            revealTimer.restart()
         }
 
         function onOpenEditorTabsChanged() {
-            Qt.callLater(root.revealActiveTab)
+            revealTimer.restart()
         }
     }
 }

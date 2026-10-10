@@ -111,7 +111,7 @@ QSGNode* TimelineQuickHeaderLayer::updateNode(
         state.timelineTop,
         qMax(0, state.viewportSize.width() - state.timelineLeft),
         state.timelineHeight);
-    const qreal headerLeft = qMax(state.timelineLeft, state.headerLeftLimit);
+    const qreal headerLeft = qMax(0, state.headerLeftLimit);
     const qreal headerRight = qBound<qreal>(headerLeft, state.headerRightLimit, state.viewportSize.width());
     const QRectF headerClipRect(headerLeft, 0.0, qMax<qreal>(0.0, headerRight - headerLeft), state.timelineTop);
     if (gridClipRoot != nullptr) {

@@ -18,12 +18,13 @@ ShaderEffect {
     readonly property color surfaceColor: Theme.surfaceColor(baseColor)
     readonly property real nativeMaterial: Theme.nativeMaterialActive ? 1.0 : 0.0
     readonly property color nativeTintColor: Theme.chromeSurfaceColor(baseColor)
-    property color panelBaseColor: Theme.colors.background.surface
-    readonly property color separatorColor: Theme.chromeSeparatorColor
+    readonly property color wallpaperBaseColor: Theme.colors.background.surface
+    property color panelBackingColor: Theme.surfaceColor(Theme.colors.background.panel)
+    property color separatorColor: Theme.separatorColor
     readonly property real separatorWidth: 1 / (Screen.devicePixelRatio * radius)
     // Replace only this corner-sized patch in the Quick surface. Its outside
     // pixels retain alpha so the system material remains visible underneath.
-    blending: !Theme.nativeMaterialActive
+    blending: false
     readonly property var source: ShaderEffectSource {
         sourceItem: root.visible && !Theme.nativeMaterialActive ? root.backgroundSource : null
         sourceRect: Qt.rect(root.backgroundOffset.x, root.backgroundOffset.y,
@@ -33,7 +34,7 @@ ShaderEffect {
         visible: false
     }
     readonly property var panelSource: ShaderEffectSource {
-        sourceItem: root.visible && Theme.nativeMaterialActive ? root.panelItem : null
+        sourceItem: root.visible ? root.panelItem : null
         sourceRect: Qt.rect(root.panelOffset.x, root.panelOffset.y,
                             root.width, root.height)
         textureSize: Qt.size(Math.ceil(root.width * root.Screen.devicePixelRatio),

@@ -473,6 +473,22 @@ Rectangle {
             })
         }
     }
+    Item {
+        anchors.left: sourceArea.right
+        anchors.right: parent.right
+        anchors.top: sourceArea.top
+        anchors.bottom: sourceArea.bottom
+        clip: true
+
+        Rectangle {
+            width: parent.width
+            y: sourceArea.currentLineRectangle.y
+            height: sourceArea.currentLineRectangle.height
+            color: Theme.overlayColor(Theme.colors.state.focusLine)
+            visible: sourceArea.selectionStart === sourceArea.selectionEnd
+        }
+    }
+
     AppScrollBar {
         id: verticalBar
         anchors.top: sourceArea.top

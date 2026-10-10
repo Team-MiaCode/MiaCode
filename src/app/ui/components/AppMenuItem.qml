@@ -10,10 +10,10 @@ MenuItem {
 
     property bool compact: false
 
-    implicitHeight: compact ? Theme.compactControlHeight : 28
-    // Reserve 14 px between the submenu label and its 8 px arrow.
-    leftPadding: subMenu && mirrored ? 34 : 12
-    rightPadding: subMenu && !mirrored ? 34 : 16
+    implicitHeight: compact ? Theme.compactControlHeight : Theme.menuRowHeight
+    // Reserve the same 14 px icon slot for submenu arrows and checkmarks.
+    leftPadding: subMenu && mirrored ? 40 : 12
+    rightPadding: subMenu && !mirrored ? 40 : 16
     topPadding: 3
     bottomPadding: 3
     font.family: Theme.uiFont
@@ -56,11 +56,6 @@ MenuItem {
         id: row
         spacing: 10
 
-        Item {
-            Layout.preferredWidth: root.checkable ? 14 : 0
-            visible: root.checkable
-        }
-
         DifficultySwatch {
             Layout.preferredWidth: implicitWidth
             Layout.preferredHeight: implicitHeight
@@ -95,6 +90,11 @@ MenuItem {
             color: Theme.colors.text.disabled
             opacity: root.enabled ? 1 : 0.55
         }
+
+        Item {
+            Layout.preferredWidth: 14
+            visible: root.checkable
+        }
     }
 
     background: HoverChrome {
@@ -107,27 +107,26 @@ MenuItem {
     }
 
     indicator: ControlsImpl.IconImage {
-        x: root.mirrored ? root.width - width - root.rightPadding : root.leftPadding
+        x: root.width - width - root.rightPadding
         y: root.topPadding + (root.availableHeight - height) / 2
         width: 14
         height: 14
         visible: root.checkable && root.checked
         source: Qt.resolvedUrl("icons/check.svg")
         sourceSize: Qt.size(14, 14)
-        color: Theme.colors.text.active
+        color: root.enabled ? Theme.colors.text.active : Theme.colors.text.disabled
     }
 
-    // Keep the arrow 12 px from the edge, outside the label's padded area.
+    // Match the checkmark's size and distance from the menu edge.
     arrow: ControlsImpl.IconImage {
-        x: root.mirrored ? 12 : root.width - width - 12
+        x: root.mirrored ? 16 : root.width - width - 16
         y: root.topPadding + (root.availableHeight - height) / 2
-        width: 8
-        height: 12
+        width: 14
+        height: 14
         visible: root.subMenu
         mirror: root.mirrored
         source: Qt.resolvedUrl("icons/chevron-right.svg")
-        sourceSize: Qt.size(8, 12)
-        color: root.labelColor
-        opacity: 0.85
+        sourceSize: Qt.size(14, 14)
+        color: root.enabled ? Theme.colors.text.active : Theme.colors.text.disabled
     }
 }

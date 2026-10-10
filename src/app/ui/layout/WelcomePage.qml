@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Window
 import QtQuick.Layouts
 import MiaCode.UI
 
@@ -72,8 +73,8 @@ Rectangle {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.topMargin: 10
-                height: 1
-                color: Theme.colors.border.normal
+                height: 1 / Screen.devicePixelRatio
+                color: Theme.separatorColor
             }
 
             Text {

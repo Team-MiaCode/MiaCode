@@ -1620,8 +1620,10 @@ void DocumentModel::selectDifficulty(int id)
 bool DocumentModel::addDifficulty(int id)
 {
     if (workspace_ == nullptr) return false;
+    emit editingFinishedRequested();
     if (!runWorkspaceMutation([&] { return workspace_->addDifficulty(id); })) return false;
     publishWorkspaceCommit(WorkspaceCommitKind::Structure);
+    saveSectionOrAskForPath(id, {});
     return true;
 }
 bool DocumentModel::removeDifficulty(int id)

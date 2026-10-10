@@ -116,7 +116,7 @@ ApplicationWindow {
     }
 
     Shortcut {
-        sequence: StandardKey.Close
+        sequences: [StandardKey.Close]
         onActivated: window.close()
     }
 }

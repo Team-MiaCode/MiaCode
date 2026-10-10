@@ -21,6 +21,8 @@ public:
     // Install the catalog matching PreferenceDocument::resolvedLanguageToken(). Safe to
     // call before any QML engine exists.
     void applyResolvedLanguage();
+    // Release the installed catalog while the application still exists.
+    void clearTranslator();
 
     // Persist token via PreferenceDocument, reload translators, then retranslate.
     void setLanguageToken(const QString& token);

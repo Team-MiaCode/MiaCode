@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Window
 import QtQuick.Controls
 import QtQuick.Layouts
 import MiaCode.UI
@@ -127,8 +128,8 @@ Rectangle {
                 Layout.leftMargin: root.tabInset
                 Layout.rightMargin: root.tabInset
                 Layout.topMargin: Theme.panelPadding
-                Layout.preferredHeight: 1
-                color: Theme.colors.border.normal
+                Layout.preferredHeight: 1 / Screen.devicePixelRatio
+                color: Theme.separatorColor
             }
 
             Flickable {
@@ -301,8 +302,8 @@ Rectangle {
                                                 Layout.fillWidth: true
                                                 Layout.leftMargin: Theme.rowPaddingX
                                                 Layout.rightMargin: Theme.rowPaddingX
-                                                height: 1
-                                                color: Theme.colors.border.normal
+                                                height: 1 / Screen.devicePixelRatio
+                                                color: Theme.separatorColor
                                             }
 
                                             ChromeRow {

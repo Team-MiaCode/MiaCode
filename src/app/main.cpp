@@ -22,7 +22,7 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFont>
-#include <QFontInfo>
+#include <QFontDatabase>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QJsonDocument>
@@ -546,11 +546,12 @@ int main(int argc, char* argv[])
             cjkUiFamilies = QStringList{"Yu Gothic UI", "Meiryo UI", "Meiryo", "Noto Sans CJK JP"};
         }
         if (!cjkUiFamilies.isEmpty()) {
+            const QStringList availableUiFamilies = QFontDatabase::families();
             QFont cjkUiFont;
             bool matched = false;
             for (const QString& family : cjkUiFamilies) {
-                cjkUiFont.setFamily(family);
-                if (QFontInfo(cjkUiFont).family().compare(family, Qt::CaseInsensitive) == 0) {
+                if (availableUiFamilies.contains(family, Qt::CaseInsensitive)) {
+                    cjkUiFont.setFamily(family);
                     matched = true;
                     break;
                 }
@@ -565,6 +566,9 @@ int main(int argc, char* argv[])
     logStartupStage("ui_font_ready");
 
     miacode::LocaleService::instance().applyResolvedLanguage();
+    const auto clearUiTranslator = qScopeGuard([]() {
+        miacode::LocaleService::instance().clearTranslator();
+    });
     logStartupStage("ui_locale_ready");
 
     if (cliVideoExportWorkerRequested) {

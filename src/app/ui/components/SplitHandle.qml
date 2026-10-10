@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Controls as Controls
 import MiaCode.UI
 
@@ -19,7 +20,7 @@ Item {
                                             && parent.orientation === Qt.Horizontal
     readonly property real lineThickness: handleActive
                                           ? Theme.splitHandleActiveThickness
-                                          : Theme.splitDividerThickness
+                                          : 1 / root.Screen.devicePixelRatio
 
     containmentMask: Item {
         x: root.verticalDivider ? (root.width - width) / 2 : 0
@@ -34,13 +35,21 @@ Item {
     }
 
     Rectangle {
-        anchors.centerIn: parent
+        anchors.fill: parent
+        color: Theme.surfaceColor(Theme.colors.background.panel)
+    }
+
+    Rectangle {
+        x: root.verticalDivider
+            ? Math.floor((parent.width - width) * root.Screen.devicePixelRatio / 2) / root.Screen.devicePixelRatio : 0
+        y: root.verticalDivider ? 0
+            : Math.floor((parent.height - height) * root.Screen.devicePixelRatio / 2) / root.Screen.devicePixelRatio
         visible: root.showDivider || root.handleActive
         width: root.verticalDivider ? root.lineThickness : parent.width
         height: root.verticalDivider ? parent.height : root.lineThickness
         color: root.handleActive
                ? Theme.colors.accent.focus
-               : Theme.colors.border.normal
+               : Theme.separatorColor
     }
 
     property bool wasPressed: false

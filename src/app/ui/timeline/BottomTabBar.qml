@@ -10,7 +10,12 @@ Item {
     required property var analysisSession
     required property var timelineSession
 
-    implicitHeight: Theme.compactControlHeight + 2
+    readonly property int edgePadding: 5
+    readonly property int rowVerticalMargin:
+        edgePadding - Theme.chromeInsetY + Theme.chromeHighlightOutset
+    readonly property int rowHorizontalMargin:
+        edgePadding - Theme.chromeInsetX + Theme.chromeHighlightOutset
+    implicitHeight: Theme.compactControlHeight + 2 * rowVerticalMargin
     readonly property real minimumWidth: tabLayout.implicitWidth
         + tabLayout.anchors.leftMargin + tabLayout.anchors.rightMargin
 
@@ -26,36 +31,74 @@ Item {
         return { errors: errors, warnings: warnings }
     }
 
-    component BottomTab: AppTabButton {
+    component BottomTab: AbstractButton {
         id: tab
 
         property int count: -1
         property color countColor: Theme.colors.accent.badge
+        readonly property int badgeFontSize: Theme.uiFontSize - 2
+        readonly property int badgeHeight: badgeFontSize + 5
 
-        compact: true
+        implicitWidth: contentRow.implicitWidth + leftPadding + rightPadding
+        implicitHeight: Math.max(24, title.implicitHeight + 6, badgeHeight + 6)
+        leftPadding: Theme.compactTabContentPadding
+        rightPadding: leftPadding
+        topPadding: 0
+        bottomPadding: 0
+        hoverEnabled: true
+        focusPolicy: Qt.TabFocus
+        checkable: true
         Layout.alignment: Qt.AlignVCenter
-        accessory: count > 0 ? badge : null
+        Accessible.name: text
         Accessible.description: count > 0 ? String(count) : ""
 
-        Component {
-            id: badge
+        contentItem: Row {
+            id: contentRow
+            spacing: 6
+
+            Text {
+                id: title
+                width: implicitWidth
+                height: contentRow.height
+                text: tab.text
+                font.family: Theme.uiFont
+                font.pixelSize: Theme.uiFontSize
+                font.preferTypoLineMetrics: true
+                color: tab.checked || tab.hovered || tab.visualFocus
+                    ? Theme.colors.text.active : Theme.colors.text.secondary
+                verticalAlignment: Text.AlignVCenter
+            }
+
             Rectangle {
-                implicitWidth: Math.max(implicitHeight, countLabel.implicitWidth + 8)
-                implicitHeight: 16
+                width: Math.max(height, Math.ceil(countLabel.implicitWidth) + 8)
+                height: tab.badgeHeight
+                anchors.verticalCenter: parent.verticalCenter
+                visible: tab.count > 0
                 radius: height / 2
                 color: tab.countColor
 
                 Text {
                     id: countLabel
                     anchors.fill: parent
-                    text: tab.count
-                    color: Theme.colors.text.onAccent
+                    text: String(tab.count)
                     font.family: Theme.uiFont
-                    font.pixelSize: 10
+                    font.pixelSize: tab.badgeFontSize
+                    font.preferTypoLineMetrics: true
+                    color: Theme.colors.text.onAccent
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
             }
+        }
+
+        background: HoverChrome {
+            cornerRadius: Theme.compactControlRadius
+            stateColors: Theme.colors.popupState
+            contentHeight: Math.max(title.implicitHeight, tab.badgeHeight)
+            selected: tab.checked
+            hovered: tab.hovered
+            pressed: tab.down
+            focused: tab.visualFocus
         }
     }
 
@@ -70,8 +113,10 @@ Item {
     RowLayout {
         id: tabLayout
         anchors.fill: parent
-        anchors.leftMargin: Theme.panelPadding - Theme.chromeInsetX
-        anchors.rightMargin: Theme.panelPadding
+        anchors.topMargin: root.rowVerticalMargin
+        anchors.bottomMargin: root.rowVerticalMargin
+        anchors.leftMargin: root.rowHorizontalMargin
+        anchors.rightMargin: root.rowHorizontalMargin
         spacing: 4
 
         BottomTab {
@@ -97,17 +142,38 @@ Item {
 
         Item { Layout.fillWidth: true }
 
-        AppCheckBox {
+        IconButton {
+            id: settingsButton
+            implicitWidth: 24
+            implicitHeight: 24
+            iconWidth: 16
+            iconHeight: 16
+            cornerRadius: Theme.compactControlRadius
+            highlightOutset: Theme.chromeHighlightOutset
+            stateColors: Theme.colors.popupState
+
             Layout.alignment: Qt.AlignVCenter
-            compact: true
-            font.pixelSize: Theme.compactFontSize
             visible: root.timelineSession.currentTabId === "timeline"
-            text: root.timelineSession.followCodeLabel
-            checked: root.timelineSession.stateBridge
-                ? root.timelineSession.stateBridge.followPreviewEnabled
-                : false
-            Accessible.description: qsTrId("qml.follow_current_chart_source_position")
-            onClicked: root.timelineSession.followPreviewToggled(checked)
+            iconSource: Qt.resolvedUrl("icons/sliders-horizontal.svg")
+            filledIconSource: Qt.resolvedUrl("icons/sliders-horizontal-fill.svg")
+            tooltip: qsTrId("qml.timeline_settings")
+            active: settingsMenu.active
+            Accessible.description: qsTrId("qml.open_timeline_settings")
+            onClicked: {
+                if (settingsMenu.active) {
+                    settingsMenu.close()
+                    return
+                }
+                settingsMenu.openAt(settingsButton)
+            }
         }
+
     }
+
+    TimelineSettingsMenu {
+        id: settingsMenu
+        stateBridge: root.timelineSession.stateBridge
+        timelineSession: root.timelineSession
+    }
+
 }
