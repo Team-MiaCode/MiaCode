@@ -716,6 +716,46 @@ bool verifyMineSkinCanFallBackToNormalArt(QTextStream& err)
                err);
 }
 
+bool verifySlideMineComponentsSelectIndependentArt(QTextStream& err)
+{
+    using namespace miacode::preview::scene;
+    const QVector<QString> tokens = {
+        QStringLiteral("8m-4[4:1]"),
+        QStringLiteral("8-4m[4:1]"),
+        QStringLiteral("8m-4m[4:1]"),
+    };
+    for (int index = 0; index < tokens.size(); ++index) {
+        const SimaiParseResult parsed = SimaiParser::parseForTimeline(tokens.at(index) + QStringLiteral(",\nE"));
+        if (!require(parsed.ok && parsed.noteMarkers.size() == 1,
+                     QStringLiteral("mine art chart parses: %1").arg(tokens.at(index)), err)) {
+            return false;
+        }
+        PreviewFrameState state;
+        state.noteMarkers = parsed.noteMarkers;
+        state.playheadSeconds = -0.1;
+        state.render.useMineSkin = true;
+        state.skin.starImage = solidImage(70, 70);
+        state.skin.starMineImage = solidImage(71, 71);
+        state.skin.slideTrackImage = solidImage(32, 32);
+        state.skin.slideTrackMineImage = solidImage(33, 33);
+
+        const TimelineNoteMarker& marker = state.noteMarkers.constFirst();
+        const QImage* headImage = index == 1 ? &state.skin.starImage : &state.skin.starMineImage;
+        const QImage* trackImage = index == 0 ? &state.skin.slideTrackImage : &state.skin.slideTrackMineImage;
+        const QImage* movingStarImage = index == 0 ? &state.skin.starImage : &state.skin.starMineImage;
+        const PreviewHeadLayerState heads = buildFallbackHeadLayerState(state);
+        if (!require(heads.sprites.size() == 1 && heads.sprites.constFirst().image == headImage,
+                     QStringLiteral("rendered star uses its own mine modifier: %1").arg(tokens.at(index)), err)
+            || !require(selectSlideTrackImage(state.skin, marker, true) == trackImage,
+                        QStringLiteral("track art uses its own mine modifier: %1").arg(tokens.at(index)), err)
+            || !require(selectSlideMovingStarImage(state.skin, marker, true) == movingStarImage,
+                        QStringLiteral("moving star follows track mine state: %1").arg(tokens.at(index)), err)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool verifyNormalMineModeRestoresExOverlay(QTextStream& err)
 {
     const auto verifyMaterial = [&](bool starMaterial, QTextStream& stream) {
@@ -887,6 +927,9 @@ int main(int argc, char* argv[])
         return 1;
     }
     if (!verifyMineSkinCanFallBackToNormalArt(err)) {
+        return 1;
+    }
+    if (!verifySlideMineComponentsSelectIndependentArt(err)) {
         return 1;
     }
     if (!verifyNormalMineModeRestoresExOverlay(err)) {

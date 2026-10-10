@@ -819,10 +819,10 @@ bool verifyMineNotesEmitTypeSfx(QTextStream& err)
         }
     }
     if (!require(answerCount == 5, QStringLiteral("[mine] all mine heads/tails emit answer timing"), err)
-        && require(breakCount == 1, QStringLiteral("[mine] break mine emits break SFX"), err)
-        && require(touchCount == 1, QStringLiteral("[mine] touch-hold mine emits touch SFX"), err)
-        && require(slideCount == 1, QStringLiteral("[mine] slide mine emits slide SFX"), err)
-        && require(touchholdStartCount == 1 && touchholdStopCount == 1,
+        || !require(breakCount == 1, QStringLiteral("[mine] break mine emits break SFX"), err)
+        || !require(touchCount == 1, QStringLiteral("[mine] touch-hold mine emits touch SFX"), err)
+        || !require(slideCount == 1, QStringLiteral("[mine] slide mine emits slide SFX"), err)
+        || !require(touchholdStartCount == 1 && touchholdStopCount == 1,
                    QStringLiteral("[mine] touch-hold mine starts and stops sustain SFX"), err)) {
         return false;
     }
@@ -838,9 +838,47 @@ bool verifyMineNotesEmitTypeSfx(QTextStream& err)
         normalAnswerCount += event.kind == QLatin1String("answer") ? 1 : 0;
         normalJudgeCount += event.kind == QLatin1String("judge") ? 1 : 0;
     }
-    return require(events.size() == 2, QStringLiteral("[mine switch] only the normal tap remains audible"), err)
-        && require(normalAnswerCount == 1 && normalJudgeCount == 1,
+    return require(events.size() == 4, QStringLiteral("[mine switch] normal tap and non-mine slide head remain audible"), err)
+        && require(normalAnswerCount == 2 && normalJudgeCount == 2,
                    QStringLiteral("[mine switch] ordinary note SFX remain unchanged"), err);
+}
+
+bool verifySlideMineComponentsControlSfxIndependently(QTextStream& err)
+{
+    for (const QString& type : {QStringLiteral("slide"), QStringLiteral("wifi")}) {
+        for (int components = 0; components < 4; ++components) {
+            TimelineNoteMarker marker;
+            marker.type = type;
+            marker.second = 1.0;
+            marker.slideTraceSecond = 1.5;
+            marker.endSecond = 2.0;
+            marker.headMine = (components & 1) != 0;
+            marker.trackMine = (components & 2) != 0;
+            for (bool enabled : {false, true}) {
+                QVector<Event> events;
+                QVector<TouchholdSpan> spans;
+                miacode::preview_sfx_timeline::buildTimeline(
+                    {marker}, 1.0, PreviewTimingSettings(), &events, &spans, enabled);
+                int answerCount = 0;
+                int judgeCount = 0;
+                int slideCount = 0;
+                for (const Event& event : events) {
+                    answerCount += event.kind == QLatin1String("answer") ? 1 : 0;
+                    judgeCount += event.kind == QLatin1String("judge") ? 1 : 0;
+                    slideCount += event.kind == QLatin1String("slide") ? 1 : 0;
+                }
+                const int expectedHeadCount = enabled || !marker.headMine ? 1 : 0;
+                const int expectedTrackCount = enabled || !marker.trackMine ? 1 : 0;
+                if (!require(answerCount == expectedHeadCount && judgeCount == expectedHeadCount
+                                 && slideCount == expectedTrackCount,
+                             QStringLiteral("[%1] mine SFX switch keeps head and track independent (%2, enabled=%3)")
+                                 .arg(type).arg(components).arg(enabled), err)) {
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
 }
 
 }  // namespace
@@ -888,6 +926,9 @@ int main(int argc, char* argv[])
         return 1;
     }
     if (!verifyMineNotesEmitTypeSfx(err)) {
+        return 1;
+    }
+    if (!verifySlideMineComponentsControlSfxIndependently(err)) {
         return 1;
     }
 

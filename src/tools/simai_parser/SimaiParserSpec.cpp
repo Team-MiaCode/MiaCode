@@ -1104,7 +1104,7 @@ int main(int argc, char** argv)
 
     {
         // Mine notes (simai `m`). The `m` is accepted on tap / hold / touch /
-        // touch-hold / slide; slides set trackMine while keeping the head star normal. Mines must NOT
+        // touch-hold / slide; slide heads and tracks have independent mine flags. Mines must NOT
         // turn the chart unparseable (the historical motivation for this work).
         const SimaiParseResult tap = SimaiParser::parseForTimeline(QStringLiteral("1m,2bm,3xm,\nE"));
         expect(tap.ok, QStringLiteral("mine taps `1m` / `2bm` / `3xm` parse ok"));
@@ -1141,6 +1141,57 @@ int main(int argc, char** argv)
             expect(!slideMarker->slideDisplayKey.contains(QLatin1Char('m')),
                    QStringLiteral("mine `m` is stripped from the slide shape lookup key"));
         }
+
+        struct SlideMineCase {
+            QString token;
+            bool headMine;
+            bool trackMine;
+        };
+        const QVector<SlideMineCase> slideMineCases = {
+            {QStringLiteral("8-4[4:1]"), false, false},
+            {QStringLiteral("8m-4[4:1]"), true, false},
+            {QStringLiteral("8-4m[4:1]"), false, true},
+            {QStringLiteral("8m-4m[4:1]"), true, true},
+            {QStringLiteral("8m-4[4:1]m"), true, true},
+            {QStringLiteral("8mx-4[4:1]"), true, false},
+            {QStringLiteral("8bm-4[4:1]"), true, false},
+            {QStringLiteral("8m@-4[4:1]"), true, false},
+            {QStringLiteral("8m?-4[4:1]"), true, false},
+            {QStringLiteral("8mw4[4:1]"), true, false},
+            {QStringLiteral("8w4m[4:1]"), false, true},
+            {QStringLiteral("8m-4-8m[4:1]"), true, true},
+        };
+        for (const SlideMineCase& mineCase : slideMineCases) {
+            const QString chart = mineCase.token + QStringLiteral(",\nE");
+            const QVector<SimaiParseResult> results = {
+                SimaiParser::parseForTimeline(chart),
+                SimaiParser::validateSyntax(chart),
+            };
+            for (const SimaiParseResult& parsed : results) {
+                expect(parsed.ok && parsed.noteMarkers.size() == 1,
+                       QStringLiteral("mine component chart parses: %1").arg(mineCase.token));
+                if (parsed.noteMarkers.size() == 1) {
+                    const TimelineNoteMarker& marker = parsed.noteMarkers.constFirst();
+                    expect(marker.headMine == mineCase.headMine && marker.trackMine == mineCase.trackMine,
+                           QStringLiteral("mine modifiers belong to their slide components: %1").arg(mineCase.token));
+                    expect(!marker.slideDisplayKey.contains(QLatin1Char('m')),
+                           QStringLiteral("mine modifiers preserve slide lookup: %1").arg(mineCase.token));
+                }
+            }
+        }
+
+        const SimaiParseResult branches = SimaiParser::parseForTimeline(
+            QStringLiteral("8m-4[4:1]*-3m[4:1],\nE"));
+        expect(branches.ok && branches.noteMarkers.size() == 2,
+               QStringLiteral("mine star with independent branch modifiers parses"));
+        if (branches.noteMarkers.size() == 2) {
+            expect(branches.noteMarkers.at(0).headMine && !branches.noteMarkers.at(0).trackMine
+                       && branches.noteMarkers.at(1).headMine && branches.noteMarkers.at(1).trackMine,
+                   QStringLiteral("branches share the mine head and keep their own track flags"));
+        }
+        expect(!SimaiParser::parseForTimeline(QStringLiteral("8mm-4[4:1],\nE")).ok
+                   && !SimaiParser::validateSyntax(QStringLiteral("8mm-4[4:1],\nE")).ok,
+               QStringLiteral("duplicate mine head modifiers are rejected"));
 
         const QVector<QString> uppercaseMineCharts = {
             QStringLiteral("1M,\nE"),

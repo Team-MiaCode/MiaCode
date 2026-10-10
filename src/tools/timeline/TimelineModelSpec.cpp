@@ -235,7 +235,7 @@ quint32 flagsForMarker(const TimelineNoteMarker& marker)
     if (marker.headlessImmediate) {
         flags |= TimelineRenderFlagHeadlessImmediate;
     }
-    if (marker.isMine) {
+    if (marker.isMine || marker.headMine) {
         flags |= TimelineRenderFlagIsMine;
     }
     if (marker.trackMine) {
@@ -1894,23 +1894,45 @@ int main(int argc, char** argv)
 
     {
         TimelineQuickModel model;
-        model.rebuildFromText(QStringLiteral("1m/A1m/1-3[2:1]m,\n1M/A1M/1-3[2:1]M,\nE"), 0.0);
+        model.rebuildFromText(
+            QStringLiteral("1m/A1m/8m-4[4:1]/8-4m[4:1]/8m-4m[4:1],\n1M/A1M/1-3[2:1]M,\nE"),
+            0.0);
         const TimelineRenderSnapshot snapshot = model.snapshot();
         expect(snapshot.lines.size() >= 2, QStringLiteral("quick model builds snapshot for mine case-sensitivity repro"));
         if (snapshot.lines.size() >= 2) {
             const QVector<TimelineRenderNote>& lowerNotes = snapshot.lines.at(0).notes;
-            expect(lowerNotes.size() == 3, QStringLiteral("quick model keeps lowercase mine tap, touch, and slide"));
-            if (lowerNotes.size() == 3) {
+            expect(lowerNotes.size() == 5, QStringLiteral("quick model keeps lowercase mine notes and slide variants"));
+            if (lowerNotes.size() == 5) {
                 expect(timelineRenderFlagSet(lowerNotes.at(0), TimelineRenderFlagIsMine),
                        QStringLiteral("quick model marks lowercase tap mine"));
                 expect(timelineRenderFlagSet(lowerNotes.at(1), TimelineRenderFlagIsMine),
                        QStringLiteral("quick model marks lowercase touch mine"));
-                expect(timelineRenderFlagSet(lowerNotes.at(2), TimelineRenderFlagTrackMine),
-                       QStringLiteral("quick model marks lowercase slide track mine"));
+                expect(timelineRenderFlagSet(lowerNotes.at(2), TimelineRenderFlagIsMine)
+                           && !timelineRenderFlagSet(lowerNotes.at(2), TimelineRenderFlagTrackMine),
+                       QStringLiteral("quick model marks only the slide head mine"));
+                expect(!timelineRenderFlagSet(lowerNotes.at(3), TimelineRenderFlagIsMine)
+                           && timelineRenderFlagSet(lowerNotes.at(3), TimelineRenderFlagTrackMine),
+                       QStringLiteral("quick model marks only the slide track mine"));
+                expect(timelineRenderFlagSet(lowerNotes.at(4), TimelineRenderFlagIsMine)
+                           && timelineRenderFlagSet(lowerNotes.at(4), TimelineRenderFlagTrackMine),
+                       QStringLiteral("quick model marks both slide mine components"));
             }
             expect(snapshot.lines.at(1).notes.isEmpty(),
                    QStringLiteral("quick model rejects uppercase M mine variants"));
         }
+
+        const QString chart = QStringLiteral(
+            "8m-4[4:1],8-4m[4:1],8m-4m[4:1],8mw4[4:1],8w4m[4:1],\n"
+            "8m-4[4:1]*-3m[4:1],8m@-4[4:1],8m?-4[4:1],\nE");
+        QString diff;
+        expect(snapshotMatchesParser(chart, &diff),
+               QStringLiteral("native and timeline parsers agree on slide mine components: %1").arg(diff));
+
+        const QString original = QStringLiteral("8-4[4:1],\nE");
+        expect(incrementalMatchesRebuild(original, 1, 0, QStringLiteral("m"), 0.0),
+               QStringLiteral("typing a mine modifier after the start lane matches a full rebuild"));
+        expect(incrementalMatchesRebuild(original, 3, 0, QStringLiteral("m"), 0.0),
+               QStringLiteral("typing a mine modifier after the end lane matches a full rebuild"));
     }
 
     {

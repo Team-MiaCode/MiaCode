@@ -112,11 +112,8 @@ void parseSlideToken(ParseState* state, const QString& token, int lineNumber, in
         }
     }
 
-    // Mine slide (`m` suffix, = MajdataPlay IsMineSlide). Canonically the
-    // `m` sits at the very end (`1-3[2:1]m`), but we scan the whole core
-    // like the `b` loop above so any placement is tolerated. The `m`
-    // characters are stripped from sanitizedCore below so slide-shape
-    // resolution is unaffected; only the track renders as a mine.
+    // The head prefix consumed its own `m`; remaining `m` modifiers belong
+    // to the track and are stripped before slide-shape lookup.
     bool trackMine = false;
     for (int i = 1; i < noteCore.size(); ++i) {
         const QChar ch = noteCore.at(i);
@@ -190,7 +187,7 @@ void parseSlideToken(ParseState* state, const QString& token, int lineNumber, in
     marker.trackBreak = trackBreak;
     marker.isBreak = marker.headBreak || marker.trackBreak;
     marker.trackMine = trackMine;
-    marker.headMine = false;
+    marker.headMine = modifierState.headMine;
     marker.headEx = modifierState.headEx;
     marker.slideHeadUsesTapMaterial = modifierState.slideHeadUsesTapMaterial;
     marker.isEx = false;

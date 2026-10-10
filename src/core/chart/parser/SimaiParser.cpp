@@ -100,6 +100,7 @@ struct SlideHeadModifierState {
     QString rawModifiers;
     bool headBreak = false;
     bool headEx = false;
+    bool headMine = false;
     bool slideHeadUsesTapMaterial = false;
     SlideHeadlessMode headlessMode = SlideHeadlessMode::None;
 };
@@ -228,7 +229,7 @@ bool parseSlideHeadModifierPrefix(const QString& token, int* modifierCount, Slid
     while ((1 + *modifierCount) < token.size()) {
         miacode::task::CancellationScope::checkpoint();
         const QChar ch = token.at(1 + *modifierCount);
-        if (ch == QChar('B') || ch == QChar('X')) {
+        if (ch == QChar('B') || ch == QChar('X') || ch == QChar('M')) {
             return false;
         }
         const QChar lower = ch.toLower();
@@ -242,6 +243,11 @@ bool parseSlideHeadModifierPrefix(const QString& token, int* modifierCount, Slid
                 return false;
             }
             state->headEx = true;
+        } else if (ch == QChar('m')) {
+            if (state->headMine) {
+                return false;
+            }
+            state->headMine = true;
         } else if (ch == QChar('@')) {
             if (state->slideHeadUsesTapMaterial) {
                 return false;
