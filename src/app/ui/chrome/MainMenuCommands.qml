@@ -14,6 +14,7 @@ QtObject {
     property bool canPaste: false
     property bool canTransform: false
     property bool canNormalize: false
+    property bool netEnabled: false
     property bool commandsEnabled: true
 
     signal openRequested()

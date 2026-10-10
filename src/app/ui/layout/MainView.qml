@@ -51,7 +51,10 @@ Item {
     readonly property bool compact: width < splitView.minimumWorkspaceWidth
         + splitView.expandedSidebarWidth
 
-    ViewState { id: state }
+    ViewState {
+        id: state
+        netEnabled: root.pages.netEnabled
+    }
 
     Binding {
         target: root.applicationContext.windowChrome
@@ -99,6 +102,7 @@ Item {
 
     MainMenuCommands {
         id: menuCommands
+        netEnabled: root.pages.netEnabled
         canUndo: root.editorCommandsAvailable && splitView.canUndo
         canRedo: root.editorCommandsAvailable && splitView.canRedo
         canCut: root.editorCommandsAvailable && splitView.canCut

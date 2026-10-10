@@ -3,10 +3,9 @@
 #include <QDateTime>
 #include <QCoreApplication>
 #include <QDir>
-#include <QStandardPaths>
 #include <QUuid>
 #include "app/ui/document/DocumentModel.h"
-#include "app/services/PreferenceDocument.h"
+#include "app/services/net/NetConfiguration.h"
 #include "media_tools/net/NetQueryRules.h"
 #include <algorithm>
 
@@ -14,10 +13,7 @@ namespace miacode::ui {
 
 NetModel::NetModel(NetService* service, QObject* parent) : QAbstractListModel(parent), service_(service)
 {
-    const auto prefs = PreferenceDocument::loadPreferencesObject().value("app").toObject();
-    outputDirectory_ = prefs.value("last_net_batch_output_dir").toString();
-    if (outputDirectory_.isEmpty()) outputDirectory_ = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
-    if (outputDirectory_.isEmpty()) outputDirectory_ = QDir::homePath();
+    outputDirectory_ = net_configuration::value("last_net_batch_output_dir").toString();
     if (service_) {
         auto version = QCoreApplication::applicationVersion();
         if (version.isEmpty()) version = QStringLiteral("unknown");
@@ -254,14 +250,11 @@ void NetModel::setHost(DocumentModel* document, UiRequestService* requests) {
 }
 
 void NetModel::setOutputDirectory(const QString& path) {
-    const QString normalized = QDir::cleanPath(QDir::fromNativeSeparators(path.trimmed()));
-    if (normalized == outputDirectory_ || normalized.isEmpty()) return;
+    const QString normalized = path.trimmed().isEmpty() ? QString{}
+        : QDir::cleanPath(QDir::fromNativeSeparators(path.trimmed()));
+    if (normalized == outputDirectory_) return;
     outputDirectory_ = normalized;
-    auto prefs = PreferenceDocument::loadPreferencesObject();
-    auto app = prefs.value("app").toObject();
-    app.insert("last_net_batch_output_dir", normalized);
-    prefs.insert("app", app);
-    PreferenceDocument::savePreferencesObject(prefs);
+    net_configuration::update({{"last_net_batch_output_dir", normalized}});
     emit changed();
 }
 

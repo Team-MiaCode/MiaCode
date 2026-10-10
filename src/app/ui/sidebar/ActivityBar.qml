@@ -1,4 +1,5 @@
 import QtQuick
+import QtQml.Models
 import QtQuick.Controls
 import QtQuick.Controls.impl as ControlsImpl
 import MiaCode.UI
@@ -8,6 +9,7 @@ Rectangle {
 
     property string activeView: "chart"
     property bool documentAvailable: true
+    property bool netEnabled: false
     property bool toolsAvailable: true
     property bool chartEditorAvailable: true
     property bool normalizationEnabled: true
@@ -64,13 +66,16 @@ Rectangle {
         id: toolsPopup
         hugContent: true
 
-        AppMenuAction {
-            text: qsTrId("net.ui.download_page")
-            onTriggered: root.toolRequested("net-download")
-        }
-        AppMenuAction {
-            text: qsTrId("net.ui.upload_page")
-            onTriggered: root.toolRequested("net-upload")
+        Instantiator {
+            model: root.netEnabled ? ["net-download", "net-upload"] : []
+            delegate: AppMenuAction {
+                required property string modelData
+                text: qsTrId(modelData === "net-download" ? "net.ui.download_page" : "net.ui.upload_page")
+                enabled: root.toolsAvailable
+                onTriggered: root.toolRequested(modelData)
+            }
+            onObjectAdded: (index, object) => toolsPopup.insertAction(index, object)
+            onObjectRemoved: (index, object) => toolsPopup.removeAction(object)
         }
         AudioProcessingMenu {
             enabled: root.toolsAvailable

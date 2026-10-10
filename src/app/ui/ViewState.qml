@@ -13,6 +13,7 @@ QtObject {
     readonly property string netDownloadEditorKey: "net-download"
     readonly property string netUploadEditorKey: "net-upload"
     readonly property bool netEditorActive: isNetEditor(activeEditorKey)
+    property bool netEnabled: false
     property var openEditorTabs: []
     property var editorHistory: []
     property string activeEditorKey: ""
@@ -73,6 +74,8 @@ QtObject {
     // 难度标签激活必须先请求文档 owner 切换正文数据源，再发布活动标签。
     // 这样标题、字段、源码和解析结果在同一轮状态变化中读取同一个难度。
     function setActiveEditor(key, requestDifficultyActivation) {
+        if (isNetEditor(key) && !netEnabled)
+            return
         const difficultyId = key.startsWith("difficulty:")
             ? Number(key.substring("difficulty:".length))
             : 0
@@ -91,6 +94,8 @@ QtObject {
     }
 
     function openEditor(key) {
+        if (isNetEditor(key) && !netEnabled)
+            return
         editorPresentationClearedByUser = false
         if (!containsEditor(key)) {
             const tabs = openEditorTabs.slice()

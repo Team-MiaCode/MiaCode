@@ -221,7 +221,7 @@ Item {
         anchors.right: parent.right
         anchors.top: tabs.bottom
         anchors.bottom: parent.bottom
-        visible: root.viewState.activeEditorKey === root.viewState.netDownloadEditorKey
+        visible: root.pages.netEnabled && root.viewState.activeEditorKey === root.viewState.netDownloadEditorKey
         net: root.net
         onCloseRequested: tabs.requestCloseTab(root.viewState.netDownloadEditorKey)
     }
@@ -231,7 +231,7 @@ Item {
         anchors.right: parent.right
         anchors.top: tabs.bottom
         anchors.bottom: parent.bottom
-        visible: root.viewState.activeEditorKey === root.viewState.netUploadEditorKey
+        visible: root.pages.netEnabled && root.viewState.activeEditorKey === root.viewState.netUploadEditorKey
         uploadModel: root.netUpload
         onCloseRequested: tabs.requestCloseTab(root.viewState.netUploadEditorKey)
     }

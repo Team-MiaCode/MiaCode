@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQml.Models
 import QtQuick.Controls
 import QtQuick.Controls.impl as ControlsImpl
 import MiaCode.UI
@@ -468,15 +469,16 @@ Item {
         AppMenu {
             id: toolsMenu
             title: root.menuTitle(qsTrId("menu.tools"))
-            AppMenuAction {
-                text: qsTrId("net.ui.download_page")
-                enabled: root.commandsEnabled
-                onTriggered: root.commands.netRequested()
-            }
-            AppMenuAction {
-                text: qsTrId("net.ui.upload_page")
-                enabled: root.commandsEnabled
-                onTriggered: root.commands.netUploadRequested()
+            Instantiator {
+                model: root.commands.netEnabled ? ["net-download", "net-upload"] : []
+                delegate: AppMenuAction {
+                    required property string modelData
+                    text: qsTrId(modelData === "net-download" ? "net.ui.download_page" : "net.ui.upload_page")
+                    enabled: root.commandsEnabled
+                    onTriggered: modelData === "net-download" ? root.commands.netRequested() : root.commands.netUploadRequested()
+                }
+                onObjectAdded: (index, object) => toolsMenu.insertAction(index, object)
+                onObjectRemoved: (index, object) => toolsMenu.removeAction(object)
             }
             AppMenuAction {
                 text: qsTrId("dialog.unsaved_field_changes.field.metadata")

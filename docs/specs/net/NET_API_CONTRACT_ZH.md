@@ -6,7 +6,7 @@ last_verified: 2026-10-10
 
 # Net 与通用网络 API 规范（1.0 实施契约）
 
-本文规定桌面 v2 的 Net 应用接口。登记 34 个操作并生成 Schema、OpenAPI 和 SDK 类型；账户、上传、下载、预览、查询、文档快照及任务基础共 20 个操作接入桌面宿主内部，QML 页面通过公共分发器调用。HTTP 与 CLI 适配器按照目录中的 capability 状态管理。 当前实现状态与新增能力规则见 [规范化计划](NET_API_STANDARDIZATION_PLAN_ZH.md)，完整接口见 [生成操作目录](generated/NET_OPERATION_CATALOG_ZH.md) 和 [OpenAPI](generated/net-openapi.json)。调查事实与来源提交见 [迁移评估](NET_MIGRATION_ASSESSMENT_ZH.md)，完成标准见 [验收清单](../../tests/NET_MIGRATION_TEST_CHECKLIST_ZH.md)。
+本文规定桌面 v2 的 Net 应用接口。机器契约登记 34 个操作并生成 Schema、OpenAPI 和 SDK 类型；本文操作目录列出 29 项，其中下载、预览、查询、文档快照及任务基础共 15 个操作接入桌面宿主内部，QML 页面通过公共分发器调用。HTTP 与 CLI 适配器按照目录中的 capability 状态管理。当前实现状态与新增能力规则见 [规范化计划](NET_API_STANDARDIZATION_PLAN_ZH.md)，操作说明见 [生成操作目录](generated/NET_OPERATION_CATALOG_ZH.md) 和 [OpenAPI](generated/net-openapi.json)。调查事实与来源提交见 [迁移评估](NET_MIGRATION_ASSESSMENT_ZH.md)，完成标准见 [验收清单](../../tests/NET_MIGRATION_TEST_CHECKLIST_ZH.md)。
 
 文中的“必须”是新接口实施和验收的要求。“建议”是可在实现前调整的默认策略；调整后应同时更新 schema、示例与验收。本文不改变 Majdata 服务端协议。
 
@@ -19,19 +19,19 @@ flowchart TB
   QML["QML NetModel"] --> API["应用能力分发与权限校验"]
   WEB["网页 / HTTP 适配器"] --> API
   CLI["CLI / SDK 适配器"] --> API
-  API --> NET["NetService / AccountSession"]
+  API --> NET["NetService"]
   API --> HTTP["通用 HttpService / ProxyProfile"]
   API --> JOBS["公共 JobRegistry / TaskScheduler"]
   NET --> JOBS
   HTTP --> JOBS
-  NET --> PROVIDER["MajdataProvider：查询、资源、登录、上传"]
-  PROVIDER --> PORT["异步 Transport / Storage / Credential 端口"]
+  NET --> PROVIDER["MajdataProvider：查询、资源"]
+  PROVIDER --> PORT["异步 Transport / Storage 端口"]
   HTTP --> PORT
   NET --> DOC["DocumentBridge / ChartWorkspace / DocumentSessionHost"]
   JOBS --> PROGRESS["现有 JobProgressService：选中任务投影"]
 ```
 
-引擎和 provider 位于 `media_tools/net`，装配和领域用例位于 `app/services`/`app/runtime`，QML 投影位于 `app/ui/net`。JobRegistry、NetService、ApiCatalog/ApiDispatcher 与查询 provider 已接入；账号、文件、通用网络与公共适配器继续按计划实现。UI、HTTP、CLI 可以有不同展示，但过滤、取消、重试、文件规则和结果码必须一致。新增页面使用现有标签页。
+引擎和 provider 位于 `media_tools/net`，装配和领域用例位于 `app/services`/`app/runtime`，QML 投影位于 `app/ui/net`。JobRegistry、NetService、ApiCatalog/ApiDispatcher 与查询 provider 已接入；文件、通用网络与公共适配器继续按计划实现。UI、HTTP、CLI 可以有不同展示，但过滤、取消、重试、文件规则和结果码必须一致。新增页面使用现有标签页。
 
 JobRegistry/调度放在拟定的 app/services/jobs，供 Net 与通用网络共享；能力分发放在 app/services/api。服务只依赖不含触网对象的 typed port/DTO，ApplicationServices 保持 Core/Gui 装配闭包。Bootstrap/runtime 构造生产网络、凭据和 HTTP adapter 并安装/撤销槽位；文档操作通过 services/DocumentBridge 和运行时宿主，服务不包含 UI。
 
@@ -44,19 +44,19 @@ JobRegistry/调度放在拟定的 app/services/jobs，供 Net 与通用网络共
 - 成功 envelope 固定为 `{apiVersion, requestId, ok:true, result, meta?}`；失败为 `{apiVersion, requestId, ok:false, error}`。
 - 请求头 `X-Request-Id` 可由客户端给出（1–128 个 ASCII 字符，模式 `[A-Za-z0-9_.:-]+`），缺省由宿主生成；用于追踪，不承担去重。Idempotency-Key 使用相同字符规则。不得含凭据。
 - 所有 64 位整数（包括 revision、generation、任务 version、sequence、累计字节）使用十进制字符串；避免 JavaScript 数字精度损失。有限的批次项数、HTTP 状态和毫秒参数用 schema 限制范围的 JSON 整数。日期使用 ISO 8601，时刻统一 UTC 的 `Z` 格式。
-- ID 是不透明引用，禁止从 jobId/accountRef/artifactRef 推导本机路径或访问另一客户端的资源。
+- ID 是不透明引用，禁止从 jobId/artifactRef 推导本机路径或访问另一客户端的资源。
 - 未声明请求字段与非法 enum 返回 `request.invalid`；可选字段缺省应用 schema 默认值；null 只有 schema 明确允许时可用。响应可新增可选字段，客户端应忽略未知字段。
 - 增加可选字段/操作提升 minor；删除或改变字段、权限、默认语义、状态含义使用新 major。建议弃用窗口至少两个 minor 且 90 天，并在 capability 中给出 replacement 和 sunset。
-- 旧式 v1 扩展同步结果 `{ok,value,error}` 如需兼容，只在独立兼容适配器转换；异步操作必须返回任务引用。不能把窗口已经打开转换成上传已经成功。
+- 旧式 v1 扩展同步结果 `{ok,value,error}` 如需兼容，只在独立兼容适配器转换；异步操作必须返回任务引用。任务完成状态通过 JobSnapshot 查询。
 
 成功接收示例：
 
 ```json
 {
   "apiVersion": "1.0",
-  "requestId": "upload-001",
+  "requestId": "download-001",
   "ok": true,
-  "result": {"jobId": "job_abc", "kind": "net.upload", "state": "queued"}
+  "result": {"jobId": "job_abc", "kind": "net.download", "state": "queued"}
 }
 ```
 
@@ -82,7 +82,7 @@ JobRegistry/调度放在拟定的 app/services/jobs，供 Net 与通用网络共
 
 ## 3. 第一版操作目录
 
-除两个配对引导操作外，HTTP 均要求应用 bearer、主体所有权和列出的权限。QML/CLI 经宿主身份和授权策略调用同一分发器。结果中的账号、文件、任务引用仍需授权校验。
+除两个配对引导操作外，HTTP 均要求应用 bearer、主体所有权和列出的权限。QML/CLI 经宿主身份和授权策略调用同一分发器。结果中的文件、任务引用仍需授权校验。
 
 | Operation ID | HTTP（相对 /api/v1） | 权限 | 请求 → 结果 |
 | --- | --- | --- | --- |
@@ -92,11 +92,6 @@ JobRegistry/调度放在拟定的 app/services/jobs，供 Net 与通用网络共
 | `net.queries.create` | POST `/net/queries` | net.read | ChartQueryRequest → JobHandle（202 异步） |
 | `net.queries.results` | GET `/net/queries/{queryRef}` | net.read | QueryPageRequest → ChartPage |
 | `net.downloads.create` | POST `/net/downloads` | net.download + files.write | DownloadRequest → JobHandle（202 异步） |
-| `net.uploads.scan` | POST `/net/upload-plans` | net.upload + files.read | ScanRequest → JobHandle（202 异步） |
-| `net.uploads.create` | POST `/net/uploads` | net.upload + net.accounts.use + files.read | UploadRequest → JobHandle（202 异步） |
-| `net.accounts.login` | POST `/net/accounts` | net.accounts.manage | AccountLoginRequest → JobHandle（202 异步） |
-| `net.accounts.list` | GET `/net/accounts` | net.accounts.use | — → AccountDescriptor[] |
-| `net.accounts.logout` | DELETE `/net/accounts/{accountRef}` | net.accounts.manage | — → ReleaseResult |
 | `net.previews.prepare` | POST `/net/previews` | net.preview | PreviewPrepareRequest → JobHandle（202 异步） |
 | `net.previews.open` | POST `/net/previews/{previewRef}/open` | net.preview + document.replace | PreviewOpenRequest → JobHandle（202 异步） |
 | `net.previews.release` | DELETE `/net/previews/{previewRef}` | net.preview | — → ReleaseResult |
@@ -121,7 +116,7 @@ JobRegistry/调度放在拟定的 app/services/jobs，供 Net 与通用网络共
 | `gateway.pairings.create` | POST `/pairings` | 临时配对窗口 | PairingRequest → PairingChallenge |
 | `gateway.pairings.exchange` | POST `/pairings/{pairingRef}/exchange` | 配对 secret + Origin | PairingExchangeRequest → PairingResult |
 
-`jobs.retry` 继承原上传/下载/预览及文件/账号权限。取消与查询仅作用于授权任务，诊断需额外权限。二进制下载成功返回文件内容和 Content-Type/Content-Length/Content-Disposition；失败仍返回 JSON envelope，不将 HTML 错误页当成文件。
+`jobs.retry` 继承原下载、预览及文件权限。取消与查询仅作用于授权任务，诊断需额外权限。二进制下载成功返回文件内容和 Content-Type/Content-Length/Content-Disposition；失败仍返回 JSON envelope，不将 HTML 错误页当成文件。
 
 权威操作目录为 `tools/net-api/operations.json`，Schema 为 `tools/net-api/schemas.json`。C++ 内嵌目录、OpenAPI、SDK 类型及操作说明由 `scripts/api/generate_net_api.py` 生成并核对。[机读清单](net-migration-inventory.json) 保留历史调查与功能/验收映射（inventory_only），不用于报告当前处理器可用性。
 
@@ -133,12 +128,11 @@ JobRegistry/调度放在拟定的 app/services/jobs，供 Net 与通用网络共
 
 | 类型 | 必需字段与规则 |
 | --- | --- |
-| ProviderDescriptor | providerId、协议适配版本、supportedOperations、资源类型、账户需求、limits；当前未支持明确 available=false 和 reason |
+| ProviderDescriptor | providerId、协议适配版本、supportedOperations、资源类型、limits；当前未支持明确 available=false 和 reason |
 | CapabilitySet | apiVersion、hostInstanceId、applicationVersion、platform、timeZone、operations（id/available/scopes/schemaVersions/reason）、limits；只列当前主体可见信息 |
 | ChartSummary | providerId、chartId、title、artist、designer、uploader、levels[]、tags[]、uploadedAtUtc、remoteVersion（可空）；remoteVersion 是版本提示 |
 | JobHandle | jobId、kind、state；可选 parentJobId；已接收的具体任务 |
 | DocumentIdentity | workspaceId、documentOpenGeneration、revision、dirty、hasDocument、origin；不暴露完整路径或源码 |
-| AccountDescriptor | accountRef、providerId、displayName、authenticated、expiresAt（可空）、remembered；没有密码、Cookie 或密码 MD5 |
 | ResourceManifest | providerId、chartId、remoteVersion、resources[]；每项 kind、state、artifactRef/relativeName、bytes、contentType、校验信息 |
 | ArtifactManifest | artifact（ArtifactDescriptor）、落盘内容的 integrity（可空）、脱敏来源的 status/contentType/receivedAt；通用文件下载使用，不要求 chartId |
 | FileGrant | grantRef、主体、用途 read/write、授权根、过期、是否允许覆盖；公共响应只返回引用和显示名 |
@@ -175,27 +169,9 @@ manifest 的 bytes 和文件校验针对实际落盘内容；transport 在可观
 
 ZIP downloaded_resources 包含三个必需资源和成功存在的 PV；video=absent 时不含视频。兼容选项 legacy_triplet 仅含三文件并在 capability 声明。目录保留、ZIP 重名追加序号继续支持。ZIP 用临时输出完成后发布，失败清理本任务 staging，不删除原有用户文件。
 
-`FileGrantRequest` 含 purpose（upload_read/download_write/export_read）、selectFolder；由本机用户选择并产生授权引用。`files.artifacts.content` 只导出授权 artifact。CLI 可将用户明确传入的本地路径转换为内部授权引用；浏览器上传原始文件将来需独立 multipart/import 契约，不能伪装成本机路径。
+`FileGrantRequest` 含 purpose（download_write/export_read）、selectFolder；由本机用户选择并产生授权引用。`files.artifacts.content` 只导出授权 artifact。CLI 可将用户明确传入的本地路径转换为内部授权引用。
 
-### 4.4 上传、账号与重试
-
-`ScanRequest` 含 rootGrantRef，depth 固定 1。扫描根目录及立即子目录；自然排序；按 v1 顺序选择背景和 PV；缺资源、不可读文件等返回 rejectedEntries 及理由。成功为 `{uploadPlanRef, items, rejectedEntries, expiresAt}`，计划内每项都有稳定 itemId、素材描述与文件戳。
-
-`UploadRequest` 含 uploadPlanRef、orderedItemIds、accountRef 及重试时可选的 parentJobId。列表必须来自该计划、互不重复并保持调用者顺序；开始时冻结素材快照，后续变动拒绝或使用已冻结副本。默认上传磁盘素材，不能偷偷用未保存的编辑器文本替换 maidata；工作区快照上传需另立显式用例。
-
-`AccountLoginRequest` 含 providerId、username、password、remember（默认 false）；仅 POST/受授权内部入口接收，账号结果通过任务返回 accountRef。请求 schema 标注 password 为 writeOnly/secret，任务登记与日志从一开始就不保存它。与已批准账号共享时仍需 accountRef 授权，不能遍历另一客户端的账号。
-
-上游兼容 MD5 只在 MajdataProvider 的登录编码处使用；应用 bearer、凭据存储与 API 签名不使用它。每个账号的 Cookie 与 manager 隔离，登录成功后上传可复用该账号会话，logout 清理 Cookie/会话。当前上游没有经核对的 logout API，不能假称删除 accountRef 已使远端全部会话失效。
-
-logout 立即撤销该主体对 accountRef 的后续使用，并向关联活动上传请求取消；已发出的上传仍按 outcome_unknown 规则处理。正在取消的任务保留其原会话资源到 reply 结束，再清理 Cookie，避免在其他线程销毁使用中的 manager。
-
-remember 使用系统凭据端口；Windows/macOS/Linux 分别配置系统凭据库适配器。不可用时明确 credential_store.unavailable，不降级写明文。旧 app.net_upload_* 迁移先安全保存并核验成功，再原子删除旧密码键；失败保留原数据以便人工处理，但不向公共接口返回它。偏好只保存用户名显示、remember 开关和 credentialRef，UI 退出/取消清理临时输入。
-
-`RetryRequest` 含 itemIds、reason；只接受父任务已失败/未尝试且可安全重试的明确项目。返回新 jobId、parentJobId 和关联 itemId，不覆盖旧结果。已有成功项不重发。outcome_unknown 必须先人工核对或由 provider 得到确实结果；幂等 API 接收不能代替上游上传去重。
-
-上传诊断继续提供逐行详情和独立持久日志，但公共接口只返回 DiagnosticSummary/授权 artifact，物理日志路径留在本机 UI。日志写入使用结构化脱敏字段、追加与轮转；默认保留旧版“日志无法打开则停止发送”的策略，创建任务时以 diagnostic.unavailable 明确失败，不能先上传再报告日志初始化失败。运行中写入失败先阻断后续行，已提交项目保留真实结果。
-
-### 4.5 在线预览与文档来源
+### 4.4 在线预览与文档来源
 
 `PreviewPrepareRequest` 含 providerId、chartId、includeVideo（默认 true）。成功结果为 `{previewRef, manifest, expiresAt}`；只下载/缓存，不更换当前文档或开始播放。
 
@@ -205,7 +181,7 @@ remember 使用系统凭据端口；Windows/macOS/Linux 分别配置系统凭据
 
 新增会话元数据 `origin=local|net_preview` 与持久化策略，覆盖普通打开和工作区同步两条路径，以及最近文件、上次会话、自动保存、崩溃恢复、备份、关闭。net_preview 默认不进入历史/恢复，也不把临时缓存当成长期工程。v1 此标记并非编辑只读保证；允许用户编辑并通过 Save As 转为 local 工程。建议普通 Save 引导 Save As，避免把缓存误作长期工程，此项属于明确的行为调整。
 
-### 4.6 通用网络、目标授权与代理
+### 4.5 通用网络、目标授权与代理
 
 `TargetGrantRequest` 含 scheme、host、port、addressClass（public/loopback/private）、methods（第一版仅 GET）和用途；本机用户批准后创建 targetGrantRef，原权限名 network.fetch/network.unsafe 只作为兼容映射。普通公网授权不能通向 loopback、私网、链路本地、云元数据地址；授权判断必须覆盖 DNS 实际解析、连接目标和每次重定向，限制协议与端口，避免 DNS rebinding。
 
@@ -217,13 +193,13 @@ remember 使用系统凭据端口；Windows/macOS/Linux 分别配置系统凭据
 
 profile 作用于请求域 manager，至少隔离 net、generic-http 和 update；更新域初版只读。set 不调用全局 setApplicationProxy/setUseSystemConfiguration 去改变其他领域。对旧全局代理处理器属于明确的替代语义；如产品未来要提供全局代理，必须另有管理级契约和受影响服务清单。
 
-### 4.7 设置及查询分页补充
+### 4.6 设置及查询分页补充
 
 `NetSettings`/`NetSettingsPatch` 仅包括 includeVideo、createZip、zipMode、caseSensitive、默认排序、日期时区和目录显示/授权引用；不包括凭据与任意 app 偏好。Patch 只更新列出字段，保留其他域配置。
 
 `JobListRequest`/`ItemPageRequest`：limit（1–200，缺省 100）、cursor；JobListRequest 可按 kind/state 筛选，任务项目按 input_order 返回。响应为 items[]、nextCursor，ItemPage 还含 jobId/snapshotVersion；游标与主体、筛选和不可变快照绑定。UI 可对当前项目投影排序，不能因此让 worker 更新错误行。增加公共项目排序需同步扩展 Schema 与游标语义。
 
-### 4.8 异步任务的结果类型
+### 4.7 异步任务的结果类型
 
 JobHandle 只报告接收；以下是 JobSnapshot.result 的完成结果。请求/结果 schema 在 P0 生成时必须包括这些类型。失败或取消仍保留已发布输出的 result 和逐项状态，客户端不能只根据 result 是否存在判断成功。
 
@@ -231,10 +207,7 @@ JobHandle 只报告接收；以下是 JobSnapshot.result 的完成结果。请�
 | --- | --- |
 | net.probes.create | ProbeResult：classification=normal/slow，elapsedMs、upstreamStatus；超过或等于 1000 ms 为 slow，超时/阻断/取消按任务错误和状态报告 |
 | net.queries.create | QueryHandle：queryRef、matchedCount、skippedRows、completeness、expiresAt |
-| net.uploads.scan | UploadPlan：uploadPlanRef、items、rejectedEntries、expiresAt |
 | net.downloads.create | DownloadBatchResult：有序 itemIds、已发布 manifests、ZIP/目录 artifact 引用与计数；失败详情在 jobs.items |
-| net.uploads.create | UploadBatchResult：有序 itemIds、计数、provider 可证实的远端回执（如有）；未知结果明确列出，不伪造 chartId |
-| net.accounts.login | AccountDescriptor：可供后续上传使用的 accountRef 及脱敏账号状态 |
 | net.previews.prepare | PreviewHandle：previewRef、manifest、expiresAt |
 | net.previews.open | PreviewOpenResult：previewRef、提交后的 DocumentIdentity |
 | files.grants.request | FileGrant：grantRef、用途、显示名、expiresAt；不返回物理授权根 |
@@ -261,13 +234,13 @@ queued/running/retry_wait/awaiting_user/blocked -> cancelling -> cancelled
 running -> succeeded | partial | failed
 ```
 
-succeeded/partial/failed/cancelled 为终态，不直接重启；retry 创建子任务。partial 表示成功与失败或未知结果并存；全无成功而失败/未知则 failed。用户取消归 cancelled，仍保留之前的成功输出与未知计数。阻断时保留 pending，恢复不能重传已成功上传；取消阻断任务也释放资源。
+succeeded/partial/failed/cancelled 为终态，不直接重启；retry 创建子任务。partial 表示成功与失败或未知结果并存；全无成功而失败/未知则 failed。用户取消归 cancelled，仍保留之前的成功输出与未知计数。阻断时保留 pending，恢复复用已成功项目的结果；取消阻断任务也释放资源。
 
 ResumeRequest 含 expectedJobVersion、reason；仅允许恢复 blocked，需满足 provider 的解除条件和 Retry-After 时间，并重新核验权限与资源。恢复时继续未完成且可安全执行的项目，不把 outcome_unknown 自动放回队列。同一幂等键的重复恢复返回当前快照；新请求的过期版本或条件不满足为 job.invalid_state。retry_wait 的计时恢复归调度器，不接受 caller 提前跳过限流。
 
 jobs.cancel 为幂等命令；任务已在 cancelling 或终态时返回当前快照，不改写此前结果。cancel 的同步响应只表示取消请求已登记，客户端继续查询直至终态。
 
-ItemSnapshot 含 itemId、inputOrder、chartRef 或授权素材引用、state、phase、attempt、bytesReceived/bytesTotal、artifacts、error，可选 retryAt 为 UTC 等待截止时间。item state 允许 pending/running/retry_wait/blocked/succeeded/failed/cancelled/skipped/outcome_unknown。上传取消发生在可能提交之后时，该 item 为 outcome_unknown，而非已证明撤销。
+ItemSnapshot 含 itemId、inputOrder、chartRef 或授权素材引用、state、phase、attempt、bytesReceived/bytesTotal、artifacts、error，可选 retryAt 为 UTC 等待截止时间。item state 允许 pending/running/retry_wait/blocked/succeeded/failed/cancelled/skipped/outcome_unknown。
 
 事件格式为 `{jobId,itemId?,sequence,type,payload,at}`，type 为 job.updated/item.updated/job.completed；sequence 为宿主在任务 owner 统一分配的递增字符串。主线程只接受当前 job/item 身份、generation 和更高 sequence 的事件；文档命令额外检查 revision/openGeneration。独立目录下载不应因编辑器 revision 改变而被误取消。
 
@@ -275,9 +248,9 @@ ItemSnapshot 含 itemId、inputOrder、chartRef 或授权素材引用、state、
 
 manager/reply 必须在所属线程创建和访问，取消通过该线程 abort，不从 HTTP/UI 线程直接碰 reply。Qt 的网络 API 本来是异步的，manager 有线程归属要求；新公共业务不能通过 UI 的 QEventLoop::exec/processEvents 装成同步调用。[Qt QNetworkAccessManager](https://doc.qt.io/qt-6/qnetworkaccessmanager.html)
 
-建议已完成任务和幂等账本保留 24 小时，输出按文件授权/缓存 TTL 管理。账号会话与 bearer 不随进程重启自动恢复。崩溃时已发送上传但无法确定结果，恢复记录 outcome_unknown；不能仅靠重新创建 worker 自动重传。JobProgressService 只显示选中任务并核验其 token；任务服务拥有真实队列和取消句柄。
+建议已完成任务和幂等账本保留 24 小时，输出按文件授权/缓存 TTL 管理。bearer 不随进程重启自动恢复。JobProgressService 只显示选中任务并核验其 token；任务服务拥有真实队列和取消句柄。
 
-任务主体使用稳定 principalId，与短期 token/hostInstance 分开登记。重新配对若要访问先前任务，必须由本机用户明确关联原客户端记录，不能仅凭相同 Origin/clientName 自动取得所有权；本机用户可通过 UI 核对恢复记录。token 自然过期不自动取消已获授权的任务；主动撤销客户端或文件/目标/账号授权时停止新项目并请求取消受影响传输，仍保留已成功输出和未知结果。
+任务主体使用稳定 principalId，与短期 token/hostInstance 分开登记。重新配对若要访问先前任务，必须由本机用户明确关联原客户端记录，不能仅凭相同 Origin/clientName 自动取得所有权；本机用户可通过 UI 核对恢复记录。token 自然过期不自动取消已获授权的任务；主动撤销客户端或文件/目标授权时停止新项目并请求取消受影响传输，仍保留已成功输出和未知结果。
 
 ## 6. 错误、超时、限流与幂等
 
@@ -287,7 +260,6 @@ manager/reply 必须在所属线程创建和访问，取消通过该线程 abort
 | request.too_large | 控制请求超过 1 MiB；HTTP 413 |
 | internal.contract_violation | 处理器输出违反已登记 Schema；HTTP 500；不将错误数据作为成功结果公开 |
 | auth.invalid_token / permission.denied | 应用鉴权/授权；HTTP 401/403；与远端账号错误区分 |
-| upstream.auth_required | provider 账号失效；停止相关上传批次，重新登录 |
 | upstream.blocked / upstream.rate_limited | 挑战/限流；阻断或 retry_wait，不循环刷新挑战页 |
 | upstream.payload_too_large / upstream.validation | 413/422 等单项失败；不要重复发送相同无效输入 |
 | upstream.timeout / upstream.network / upstream.http_error | 网络失败；只对可证明安全的操作重试 |
@@ -296,17 +268,16 @@ manager/reply 必须在所属线程创建和访问，取消通过该线程 abort
 | document.stale / job.invalid_state / idempotency.conflict | 身份、状态或重复键冲突；HTTP 409 |
 | query.expired / job.cursor_expired | 快照/游标过期；HTTP 410 |
 | interaction.required / credential_store.unavailable / resource.in_use | 缺交互、凭据端口或资源被占用；稳定拒绝原因 |
-| diagnostic.unavailable | 必需的上传日志无法初始化或持续写入；停止后续发送并报告原因 |
 
 已接收任务的上游失败记录在 JobSnapshot/ItemSnapshot；GET job 本身 HTTP 200 且 envelope ok=true，不把远端 HTTP 401 当成本机 bearer 失效。
 
-保留兼容策略：列表普通 GET 断连最多再试一次（延迟 1000 ms）；下载单资源最多 3 次（间隔 800 ms）；探测 deadline 8000 ms，资源请求 60000 ms，登录/上传 90000 ms。所有预算归统一策略，不能多层重试相乘。同一 provider 的上传默认单并发、行间 5 秒跨任务共享节流；登录与上传共享 provider 级限流冷却，账号 Cookie 仍隔离。GET 下载默认单并发。请求 deadline 与可选 idle timeout 分开，计时使用单调时钟。
+列表普通 GET 断连最多重试一次，间隔 1000 ms；下载单资源最多 3 次，间隔 800 ms；探测 deadline 为 8000 ms，资源请求为 60000 ms。预算由统一策略管理。GET 下载默认单并发，请求 deadline 与可选 idle timeout 分开，计时使用单调时钟。
 
-Retry-After 支持秒数与 HTTP 日期，规则依据 [RFC 9110 §10.2.3](https://www.rfc-editor.org/rfc/rfc9110.html#section-10.2.3)。上传第一次明确限流才允许等后重试一次，无 header 时保留 60 秒默认；401/403/挑战与第二次限流停批。等待过长转为 blocked 并设置 userAction，不把较大的服务端等待截短后提前发送。必须先判定 413，再判挑战脚本，保留 1015 与应用 success=false/error/status=failed 分类；2xx HTML 和非预期响应不能算成功。
+Retry-After 支持秒数与 HTTP 日期，规则依据 [RFC 9110 §10.2.3](https://www.rfc-editor.org/rfc/rfc9110.html#section-10.2.3)。等待过长转为 blocked 并设置 userAction，按服务端要求等待后恢复。
 
-net.downloads.create、net.uploads.create、net.previews.open、network.http.download、jobs.retry 和 jobs.resume 必须支持并要求 `Idempotency-Key`；其余操作在注册表明确标注 optional/natural/none，不能仅因使用 POST 就推断安全重放。这是本 API 的契约，不表示上游实现同名机制。同一主体/操作/键/规范化参数返回同一 job 或该命令当前快照；同键不同参数为 409。账本持久保存且不含秘密。账号登录/配对不持久保存包含 password/secret 的请求摘要。上传上游没有经核对的幂等键，故本机幂等与 outcome_unknown 策略都必须实现。
+net.downloads.create、net.previews.open、network.http.download、jobs.retry 和 jobs.resume 要求 `Idempotency-Key`。同一主体、操作、键和规范化参数复用任务；同键不同参数返回 409。其余操作的幂等策略由注册表标注。
 
-建议第一版控制 JSON ≤1 MiB、批次 ≤500 项、查询列表响应 ≤16 MiB、通用文本 GET ≤8 MiB；artifact 和媒体逐类设置 streaming 上限，在 capability 报告。媒体/文件上限属于 MiaCode 的资源策略，不能把邻接 PV 压缩的 20 MB 参数标成 Majdata 上传配额。拒绝过大控制请求使用 HTTP 413。
+建议第一版控制 JSON ≤1 MiB、批次 ≤500 项、查询列表响应 ≤16 MiB、通用文本 GET ≤8 MiB；artifact 和媒体逐类设置 streaming 上限，在 capability 报告。媒体和文件上限由 MiaCode 的资源策略管理。拒绝过大控制请求使用 HTTP 413。
 
 ## 7. 网页、本机网关与平台
 
@@ -337,7 +308,7 @@ CORS 为精确允许 Origin，Vary: Origin；预检允许已定义的 GET/POST/P
 | 网页调用已安装桌面 MiaCode | 调用业务与任务 API；原生文件/账号仍由桌面授权；网关不能保证被浏览器政策拦截的页面也可使用 |
 | 原生 Android/iOS | provider 可复用，需 app sandbox 文件授权和系统凭据适配；单独核实 QtNetwork/TLS/后台限制，不能由模块边界 Spec 证明已交付 |
 | 独立浏览器/WASM | 需异步 browser transport、浏览器存储/文件授权与凭据策略；上游 CORS/认证允许或受控服务代理是前提，不能承诺直接复用原生 worker/文件路径 |
-| 无 UI CLI | query/download/upload 等按授权可用；prepare 可用，替换 GUI 当前文档需要连接活动宿主；没有用户交互端口时明确 unavailable |
+| 无 UI CLI | query/download 等按授权可用；prepare 可用，替换 GUI 当前文档需要连接活动宿主；没有用户交互端口时明确 unavailable |
 
 Qt WebAssembly 的网络访问受同源/CORS 限制，默认构建也不支持任意嵌套事件循环；必须更换旧同步等待用法，不能用旧 QtWidgets 交互来完成网页版本。[Qt WebAssembly 文档](https://doc.qt.io/qt-6/wasm.html)
 
@@ -396,17 +367,12 @@ SDK 建议放在新的应用客户端包（例如 packages/miacode-client），�
 
 ## 当前桌面实现（2026-10-10）
 
-- 工具箱和工具菜单使用“谱面下载”“谱面上传”，分别打开 `net-download`、`net-upload` 标签页。共享应用模型保留账户、队列和任务，重复打开复用标签。
+- 工具箱和工具菜单使用“谱面下载”，打开 `net-download` 标签页。共享应用模型保留查询和任务，重复打开复用标签。
 - `net.downloads.create` 使用目录授权或托管目录；资源流写入 QSaveFile，在同一输出根的暂存目录计算 SHA-256、写 manifest 并发布。`zipArtifacts[]` 表示各谱面目录中的 `download.zip`；ZIP 包含所选 PV，`legacy_triplet` 保留三资源模式。冲突默认 fail，可指定 replace。
 - 下载恢复由可信桌面宿主使用版本化任务控制，继承原任务引用，保留成功 manifest 和输出。公开 `jobs.resume/retry` 的后续适配器能力按目录管理。
-- `net.uploads.scan` 扫描根目录及一级子目录，返回一小时有效的计划。追加使用 `uploadPlanRef` 与可选 `retainedItemIds[]`；清单固定 itemId、材料引用、文件类型、大小、修改时间和 SHA-256。实际目录仅由内部宿主端口解析。
-- `net.uploads.create` 根据 orderedItemIds 顺序执行，每项生成校验副本，重试复用副本。提供者串行上传，项目间隔与登录/上传限流时钟共用。413/422 记录项目失败，访问阻断停批，发送后响应丢失记录 outcome_unknown。
-- `net.accounts.login/list/logout` 管理主体和 Cookie 会话；Windows 账户记忆使用 Credential Manager，密码保持在账户调用和安全存储边界。其他平台由 credential capability 报告其存储能力。
 - `net.previews.prepare` 按主体、chartId、remoteVersion 和一小时有效期复用缓存，PV absent 属于完整缓存；prepare 返回句柄，open 独立使用文档身份和离开文档决策。release 撤销句柄，缓存目录由 provider 生命周期持有，已打开媒体保持文件可用。
 - `document.snapshot` 返回 workspaceId、documentOpenGeneration、revision、dirty、hasDocument、origin。net_preview 来源参与文档、运行时、会话和保存处理；保存通过另存为建立 local 文档。
 
-运行时任务和幂等记录归当前进程，capability 报告 process_lifetime。上传相关的验证记录限于源码、结构和编译，账户与上传运行验收由用户执行。下载固定样本通过本地 HTTP 服务，输出随测试目录清理。
-
-上传的 NetUpload 日志通道使用 `net-upload.log`，每次写入返回同步确认并使用共享轮转规则；创建日志及发送前写入失败返回 diagnostic.unavailable，响应后的写入失败保留该项结果并结束批次。人工重试创建父任务关联，继承可安全重试的材料引用。
+运行时任务和幂等记录归当前进程，capability 报告 process_lifetime。下载固定样本通过本地 HTTP 服务，输出随测试目录清理。
 
 翻译消息按 ID 存于空 context，页面分组采用源码目录。编译词条通过 QTranslator 和 qtTrId 核验。Qt 的 ID 翻译机制见 [官方说明](https://doc.qt.io/qt-6.10/linguist-id-based-i18n.html)。

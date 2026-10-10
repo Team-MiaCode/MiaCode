@@ -1,6 +1,6 @@
 #include "app/ui/net/NetUploadModel.h"
 #include "app/services/net/NetAccountStore.h"
-#include "app/services/PreferenceDocument.h"
+#include "app/services/net/NetConfiguration.h"
 #include "common/DebugLog.h"
 #include <QCoreApplication>
 #include <QDateTime>
@@ -11,26 +11,17 @@
 namespace miacode::ui {
 NetUploadModel::NetUploadModel(NetService* service, UiRequestService& requests, QObject* parent)
     : QAbstractListModel(parent), service_(service), requests_(requests) {
-    auto preferences = PreferenceDocument::loadPreferencesObject();
-    auto accountPreferences = preferences.value("app").toObject();
-    QString migrationError;
-    if (accountPreferences.contains("net_upload_password")) {
-        migrationError = NetAccountStore::migrateLegacyCredentials("desktop", accountPreferences);
-        if (migrationError.isEmpty()) {
-            preferences.insert("app", accountPreferences);
-            if (!PreferenceDocument::savePreferencesObject(preferences)) migrationError = "preference.write_failed";
-        }
+    remember_ = net_configuration::value("net_upload_remember_credentials").toBool(false);
+    username_ = net_configuration::value("net_upload_username").toString();
+    rootDirectory_ = net_configuration::value("last_net_batch_upload_dir").toString();
+    if (net_configuration::enabled() && remember_) {
+        const auto stored = NetAccountStore::load("desktop");
+        if (stored.first == username_) password_ = stored.second;
     }
-    const auto stored = NetAccountStore::load("desktop");
-    username_ = stored.first;
-    password_ = stored.second;
-    remember_ = !stored.first.isEmpty();
-    rootDirectory_ = accountPreferences.value("last_net_batch_upload_dir").toString();
     if (service_) {
         api_ = std::make_unique<api::ApiDispatcher>(*service_, QCoreApplication::applicationVersion());
         connect(&service_->jobs(), &JobRegistry::changed, this, &NetUploadModel::updateJob);
     }
-    if (!migrationError.isEmpty()) report(qtTrId("net.ui.error").arg(migrationError));
     retryTimer_.setInterval(1000);
     connect(&retryTimer_, &QTimer::timeout, this, [this] { if (!uploadJob_.isEmpty()) updateJob(uploadJob_); });
 }
@@ -73,15 +64,20 @@ bool NetUploadModel::retryAvailable() const {
 }
 void NetUploadModel::setUsername(const QString& value) { if (busy() || username_ == value) return; if (loggedIn()) logout(); username_ = value; emit changed(); }
 void NetUploadModel::setPassword(const QString& value) { if (busy() || password_ == value) return; if (loggedIn()) logout(); password_ = value; emit changed(); }
-void NetUploadModel::setRemember(bool value) { if (busy() || remember_ == value) return; remember_ = value && secureStorageAvailable(); if (!remember_) NetAccountStore::erase("desktop"); emit changed(); }
+void NetUploadModel::setRemember(bool value) {
+    if (busy() || remember_ == value) return;
+    remember_ = value && secureStorageAvailable();
+    if (!remember_) NetAccountStore::erase("desktop");
+    net_configuration::update({{"net_upload_remember_credentials", remember_},
+        {"net_upload_username", remember_ ? QJsonValue(username_) : QJsonValue(QJsonValue::Null)},
+        {"net_upload_credential_ref", QJsonValue(QJsonValue::Null)}});
+    emit changed();
+}
 void NetUploadModel::setRootDirectory(const QString& value) {
     if (busy()) return;
-    rootDirectory_ = QDir::cleanPath(QDir::fromNativeSeparators(value.trimmed()));
-    auto preferences = PreferenceDocument::loadPreferencesObject();
-    auto app = preferences.value("app").toObject();
-    app.insert("last_net_batch_upload_dir", rootDirectory_);
-    preferences.insert("app", app);
-    PreferenceDocument::savePreferencesObject(preferences);
+    rootDirectory_ = value.trimmed().isEmpty() ? QString{}
+        : QDir::cleanPath(QDir::fromNativeSeparators(value.trimmed()));
+    net_configuration::update({{"last_net_batch_upload_dir", rootDirectory_}});
     emit changed();
 }
 void NetUploadModel::report(const QString& text) {
@@ -257,7 +253,11 @@ void NetUploadModel::updateJob(const QString& jobId) {
         loginJob_.clear();
         if (!remember_) password_.clear();
         if (state == QLatin1String("succeeded")) {
-            accountRef_ = job.value("result").toObject().value("accountRef").toString();
+            const auto result = job.value("result").toObject();
+            accountRef_ = result.value("accountRef").toString();
+            net_configuration::update({{"net_upload_remember_credentials", result.value("remembered").toBool()},
+                {"net_upload_username", result.value("remembered").toBool()
+                    ? QJsonValue(username_) : QJsonValue(QJsonValue::Null)}});
             report(qtTrId("net.ui.logged_in").arg(username_));
             if (job.value("result").toObject().contains("storageError")) report(qtTrId("net.ui.error").arg(job.value("result").toObject().value("storageError").toString()));
             if (uploadAfterLogin_) { uploadAfterLogin_ = false; QTimer::singleShot(0, this, [this] { upload(); }); }

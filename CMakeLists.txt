@@ -327,6 +327,8 @@ add_executable(MiaCode WIN32 MACOSX_BUNDLE
     src/app/services/jobs/JobRegistry.cpp
     src/app/services/jobs/JobRegistry.h
     src/app/services/net/NetService.cpp
+    src/app/services/net/NetConfiguration.cpp
+    src/app/services/net/NetConfiguration.h
     src/app/services/net/NetAccountStore.cpp
     src/app/services/net/NetAccountStore.h
     src/app/services/net/NetService.h

@@ -1,6 +1,7 @@
 #include "app/ui/layout/PageHost.h"
 
 #include "common/DebugLog.h"
+#include "app/services/net/NetConfiguration.h"
 #include "app/ui/document/DocumentModel.h"
 #include "app/ui/export/ExportSession.h"
 
@@ -257,9 +258,14 @@ bool PageHost::openLatencyPage()
     });
 }
 
+bool PageHost::netEnabled() const
+{
+    return net_configuration::enabled();
+}
+
 bool PageHost::openNetPage(const QString& page)
 {
-    if ((page != QLatin1String("net-download") && page != QLatin1String("net-upload")) || router() == nullptr || navigationPending_) return false;
+    if (!netEnabled() || (page != QLatin1String("net-download") && page != QLatin1String("net-upload")) || router() == nullptr || navigationPending_) return false;
     if (activePageId_ == page) {
         emit netPageActivated(page);
         return true;

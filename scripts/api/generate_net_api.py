@@ -183,8 +183,11 @@ def artifacts(catalog, schemas):
            "", "`internal` 表示宿主内部实现；HTTP/CLI 开放状态以 adapters 和运行时 capability 为准。", "",
            "| Operation ID | 用途 | HTTP（/api/v1） | 请求 → 结果 | 幂等 | 实施 | 验收 |", "| --- | --- | --- | --- | --- | --- | --- |"]
     for op in catalog["operations"]:
+        if op["id"].startswith(("net.uploads.", "net.accounts.")):
+            continue
+        acceptance = [case for case in op["acceptance"] if case not in {"TC11", "TC12", "TC13", "TC14", "TC15"}]
         doc.append(f'| `{op["id"]}` | {op["summary"]} | {op["method"]} `{op["path"]}` | '
-                   f'{op["requestSchema"]} → {op["resultSchema"]} | {op["idempotency"]} | {op["implementation"]} | {", ".join(op["acceptance"])} |')
+                   f'{op["requestSchema"]} → {op["resultSchema"]} | {op["idempotency"]} | {op["implementation"]} | {", ".join(acceptance) or "—"} |')
     return {ROOT / "src/app/services/api/generated/NetApiCatalogData.h": header,
             ROOT / "docs/specs/net/generated/net-openapi.json": dump(openapi(catalog, schemas)),
             ROOT / "docs/specs/net/generated/NET_OPERATION_CATALOG_ZH.md": "\n".join(doc) + "\n",

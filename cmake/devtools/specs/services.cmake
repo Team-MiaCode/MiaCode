@@ -518,6 +518,21 @@ miacode_add_spec(project_preference_read_recovery_spec
     INCLUDES src
 )
 
+miacode_add_spec(net_configuration_spec
+    OWNER src/app/services/net
+    CONTRACT net.optional-configuration
+    DOMAIN services KIND behavior RISK high
+    EXECUTION ctest STATUS active PLATFORM all
+    SOURCES
+        src/tools/services/NetConfigurationSpec.cpp
+        src/app/services/net/NetConfiguration.cpp
+        src/app/services/net/NetConfiguration.h
+        src/app/services/net/NetAccountStore.cpp
+        src/app/services/PreferenceDocument.cpp
+    LIBS miacode_base Qt6::Core $<$<PLATFORM_ID:Windows>:Advapi32>
+    INCLUDES src
+)
+
 miacode_add_spec(preference_repository_spec
     OWNER src/app/services
     CONTRACT preferences.runtime-document

@@ -14,6 +14,10 @@ int main(int argc, char** argv)
         QStringLiteral("NetDownloadPage"),
         QStringLiteral("NetUploadPage"),
         QStringLiteral("NetResultTable"),
+        QStringLiteral("MainMenu"),
+        QStringLiteral("NativeMenuBar"),
+        QStringLiteral("ActivityBar"),
+        QStringLiteral("ViewState"),
     };
     bool passed = true;
     for (const QString& page : pages) {

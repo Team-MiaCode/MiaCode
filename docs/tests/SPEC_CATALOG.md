@@ -3,7 +3,7 @@
 Generated from `cmake/devtools/specs/` by `cmake -P cmake/devtools/SpecCatalog.cmake`.
 Check without writing: `cmake -DMIACODE_SPEC_CATALOG_CHECK=ON -P cmake/devtools/SpecCatalog.cmake`.
 
-136 independent specs; source lists and link dependencies are maintained only in CMake.
+137 independent specs; source lists and link dependencies are maintained only in CMake.
 
 `platform:all` means the target is registered on every platform, not that all platforms
 have been tested. Platform-specific source branches and link additions remain in their manifests.
@@ -86,6 +86,7 @@ Owners name production modules; kinds describe the checked boundary, not runtime
 | `src/tools/services/JobProgressServiceSpec.cpp` | `job_progress_service_spec` | `src/app/services` | `v2.job-progress-service` | services | behavior | high | all | ctest | active |
 | `src/tools/services/JobRegistrySpec.cpp` | `job_registry_spec` | `src/app/services/jobs` | `jobs.registry` | services | behavior | high | all | ctest | active |
 | `src/tools/services/NetApiContractSpec.cpp` | `net_api_contract_spec` | `src/app/services/api` | `net.api-contract` | services | behavior | high | all | ctest | active |
+| `src/tools/services/NetConfigurationSpec.cpp` | `net_configuration_spec` | `src/app/services/net` | `net.optional-configuration` | services | behavior | high | all | ctest | active |
 | `src/tools/services/NetServiceSpec.cpp` | `net_service_spec` | `src/app/services/net` | `net.application-service` | services | behavior | high | all | ctest | active |
 | `src/tools/services/PlaybackCoordinatorSpec.cpp` | `playback_coordinator_spec` | `src/app/runtime` | `v2.playback-coordinator` | services | source-contract | high | all | ctest | active |
 | `src/tools/services/PlaybackStateAuthoritySpec.cpp` | `playback_state_authority_spec` | `src/app/services` | `v2.playback-state-authority` | services | behavior | high | all | ctest | active |

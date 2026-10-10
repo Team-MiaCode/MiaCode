@@ -18,6 +18,7 @@ class PageHost final : public QObject
     Q_PROPERTY(QString activePageId READ activePageId NOTIFY activePageIdChanged)
     Q_PROPERTY(bool overlayActive READ overlayActive NOTIFY activePageIdChanged)
     Q_PROPERTY(bool navigationPending READ navigationPending NOTIFY navigationPendingChanged)
+    Q_PROPERTY(bool netEnabled READ netEnabled CONSTANT)
     Q_PROPERTY(QObject* exportSession READ exportSession CONSTANT)
 
 public:
@@ -39,6 +40,7 @@ public:
     Q_INVOKABLE bool openVideoExportPage(const QString& tab = QStringLiteral("export"));
     Q_INVOKABLE bool openExportPage();
     Q_INVOKABLE bool openLatencyPage();
+    bool netEnabled() const;
     Q_INVOKABLE bool openNetPage(const QString& page = QStringLiteral("net-download"));
     Q_INVOKABLE bool leaveOverlayPage();
     Q_INVOKABLE bool ensureDifficultyPageActive(int difficultyId);

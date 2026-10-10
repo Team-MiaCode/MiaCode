@@ -34,10 +34,10 @@
 | [模块分层与解耦方向](specs/architecture/MODULE_LAYERING_ZH.md) | — |
 | [Net 与通用网络 API 规范（1.0 实施契约）](specs/net/NET_API_CONTRACT_ZH.md) | — |
 | [Net 接口规范化计划与当前交付](specs/net/NET_API_STANDARDIZATION_PLAN_ZH.md) | net.api-standardization-plan |
+| [Net 应用配置](specs/net/NET_CONFIGURATION_ZH.md) | net.optional-configuration |
 | [桌面 Net 迁移实现与验证记录](specs/net/NET_DESKTOP_MIGRATION_VERIFICATION_ZH.md) | net.desktop-migration-verification |
 | [Net 下载页面目标与验收条件](specs/net/NET_DOWNLOAD_PAGE_TARGET_ZH.md) | net.download-page-target |
 | [Net 功能迁移评估与交接说明](specs/net/NET_MIGRATION_ASSESSMENT_ZH.md) | — |
-| [Net 账户、上传、下载与在线预览迁移目标](specs/net/NET_MIGRATION_TARGET_ZH.md) | net.migration-target |
-| [Net 上传页面目标与验收条件](specs/net/NET_UPLOAD_PAGE_TARGET_ZH.md) | net.upload-page-target |
+| [Net 下载与在线预览迁移目标](specs/net/NET_MIGRATION_TARGET_ZH.md) | net.migration-target |
 | [Net 操作目录（生成）](specs/net/generated/NET_OPERATION_CATALOG_ZH.md) | — |
 | [Net 迁移任务包与验收清单](tests/NET_MIGRATION_TEST_CHECKLIST_ZH.md) | — |

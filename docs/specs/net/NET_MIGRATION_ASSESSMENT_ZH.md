@@ -8,7 +8,7 @@ last_verified: 2026-10-09
 
 本文面向在 `dev` 上实施迁移的程序员和 agent。它是依据固定提交编写的调查结果与实施计划；新服务、新接口、QML 页面和验收用例均属于待实施内容。公共接口的建议契约见 [Net 与通用网络 API 规范](NET_API_CONTRACT_ZH.md)，验收与任务交付要求见 [迁移验收清单](../../tests/NET_MIGRATION_TEST_CHECKLIST_ZH.md)。可机读清单见 [net-migration-inventory.json](net-migration-inventory.json)。
 
-桌面工作区接入账户、上传、下载、在线预览、接口目录与工具箱标签页。以下固定提交、功能状态和调查说明保留原调查语境；本阶段目标见 [迁移目标](NET_MIGRATION_TARGET_ZH.md)，当前进度以 [接口规范化计划](NET_API_STANDARDIZATION_PLAN_ZH.md) 与实际源码为准。新增功能页面使用现有标签页。
+桌面工作区接入下载、在线预览、接口目录与工具箱标签页。以下固定提交、功能状态和调查说明保留原调查语境；本阶段目标见 [迁移目标](NET_MIGRATION_TARGET_ZH.md)，当前进度以 [接口规范化计划](NET_API_STANDARDIZATION_PLAN_ZH.md) 与实际源码为准。新增功能页面使用现有标签页。
 
 ## 1. 结论与适用范围
 
@@ -20,7 +20,7 @@ last_verified: 2026-10-09
 
 本文将“net 全部功能”分为：
 
-- Majdata Net 查询、批量下载、批量上传、账号、在线预览及关联状态/文件语义。
+- Majdata Net 查询、批量下载、在线预览及关联状态/文件语义。
 - v1 `miacode.net` 的通用网络 facade、宿主处理器和权限契约。
 - `dev` 的更新检查仅用于说明网络依赖与代理影响；它是已存在的独立领域服务。PV 压缩和本地 ZIP 工具是可复用邻接能力，不把它们的产品参数认作 Majdata 服务端限制。
 
@@ -34,11 +34,11 @@ last_verified: 2026-10-09
 
 远端分支已于 2026-10-09 通过 Git fetch 核对。以下结论来自 Git 对象中的代码与构建清单，不由目录名或过期注释推断。
 
-本次仅调查并编写文档，未运行两版软件，未进行真实账号登录或上传，未验证 Majdata 服务当前返回值，也未构建 `dev`。因此“保留”表示源码存在且列入构建，“可迁移”表示架构可承接，均不是功能实测通过。
+本次仅调查并编写文档，未运行两版软件，未验证 Majdata 服务当前返回值，也未构建 `dev`。因此“保留”表示源码存在且列入构建，“可迁移”表示架构可承接，均不是功能实测通过。
 
 注意：`dev` 的 `cmake/devtools/specs/core.cmake` 仍称 Net 只在 Spec 编译、产品没有 QtNetwork。现行 `MiaCodeModules.cmake` 已将 net 列入 `miacode_media_tools`，根 CMake 也链接 QtNetwork，更新服务已使用网络。该注释已过期，迁移时应同步修正文档和依赖 allowlist。[D01](#evidence-d01)、[D16](#evidence-d16)、[D17](#evidence-d17)、[D18](#evidence-d18)
 
-## 3. 50 项功能与接口清单
+## 3. 功能与接口清单
 
 状态说明：“底层保留”仍缺 Net 产品调用入口；“部分保留”存在链路缺口；“仅旧处理器”只证明宿主有处理分支，不代表普通 SDK 对它提供了可调用方法。每项对应的验收 ID 保存在机读清单。
 
@@ -69,24 +69,7 @@ last_verified: 2026-10-09
 | F23 | 完整缓存复用；勾选 PV 后仅补下载缺失资源 | 缺失 | 缓存 manifest 校验；无 PV 避免反复请求（P4） | [V11](#evidence-v11)、[V08](#evidence-v08)、[D04](#evidence-d04) |
 | F24 | 打开前保存/放弃/取消保护；加载到现有文档和预览链 | 缺失 | 沿 DocumentBridge、ChartWorkspace 和 DocumentSessionHost 接入（P4） | [V12](#evidence-v12)、[D09](#evidence-d09)、[D12](#evidence-d12) |
 | F25 | 临时文档跳过自动保存/崩溃恢复/最近文件，保持原最近目录及会话路径 | 缺失 | 新增文档来源/持久化策略；覆盖全部文件路径（P4） | [V12](#evidence-v12)、[V13](#evidence-v13)、[D10](#evidence-d10)、[D11](#evidence-d11) |
-| F26 | net.batchUpload.open 内部命令打开独立上传窗口 | 缺失 | 增加 QML 上传入口及明确业务 API；兼容入口单独登记（P3） | [V20](#evidence-v20)、[V18](#evidence-v18)、[D15](#evidence-d15) |
-| F27 | 扫描根目录及一层子目录，按自然数字顺序排序 | 底层保留 | 复用扫描器；增加授权根和结构化拒绝原因（P3） | [V14](#evidence-v14)、[D06](#evidence-d06) |
-| F28 | 忽略素材文件名大小写；必需 maidata、JPEG/PNG、MP3，可选 pv.mp4/bg.mp4 | 底层保留 | 保持优先顺序；上传前校验实际素材与快照（P3） | [V14](#evidence-v14)、[D06](#evidence-d06) |
-| F29 | 追加扫描结果并按目录去重 | 底层保留 | 去重按平台路径规则及实际目录身份（P3） | [V14](#evidence-v14)、[D06](#evidence-d06) |
-| F30 | 拖动多行排序、删除选中、清空队列，按当前顺序上传全部行 | 缺失 | 队列顺序由稳定 itemId 管理；运行中锁定计划（P3） | [V15](#evidence-v15)、[D20](#evidence-d20) |
-| F31 | 账号/密码输入与必填检查；不记忆时清空密码框，批次后清理会话值 | 缺失 | 独立账号会话服务与凭据句柄（P3） | [V15](#evidence-v15)、[D05](#evidence-d05) |
-| F32 | 可记忆账号/密码；旧版直接写 preferences.json 的 app.net_upload_* | 缺失 | 改用系统凭据存储并迁移清理旧明文（P3） | [V15](#evidence-v15)、[D08](#evidence-d08) |
-| F33 | multipart 登录；UTF-8 密码 MD5 hex、rememberMe=false；同 manager Cookie 用于上传 | 底层保留 | MD5 限于 provider 兼容；隔离账号 Cookie（P3） | [V16](#evidence-v16)、[D05](#evidence-d05) |
-| F34 | 重复 formfiles 字段，规范上传文件名；可选 PV；文件以 QIODevice 发送 | 底层保留 | 复用协议；锁定文件快照和 MIME/大小检查（P3） | [V16](#evidence-v16)、[D05](#evidence-d05) |
-| F35 | 登录/上传 90 秒超时，100 ms 取消轮询 | 底层保留 | 改为可取消异步 transport；统一超时结果（P1） | [V16](#evidence-v16)、[D05](#evidence-d05) |
-| F36 | 登录要求 HTTP 200，上传要求 2xx；拒绝应用失败字段和挑战/限流 | 底层保留 | 保留分类器；增加预期响应格式验证（P3） | [V16](#evidence-v16)、[V17](#evidence-v17)、[D07](#evidence-d07) |
-| F37 | 429/Cloudflare 1015 等待 Retry-After，缺省 60 秒；登录/上传各重试 1 次 | 底层保留 | 保留秒数/HTTP 日期解析；大等待转为用户恢复（P3） | [V16](#evidence-v16)、[V17](#evidence-v17)、[D05](#evidence-d05)、[D07](#evidence-d07) |
-| F38 | 可继续的行完成后距下一行等待 5 秒并显示倒计时 | 底层保留 | provider 调度器共享节流；失败但未停批也保持间隔（P3） | [V16](#evidence-v16)、[D05](#evidence-d05) |
-| F39 | 401/403/挑战/二次限流停批；413/422 通常只使当前行失败 | 底层保留 | 稳定错误代码、停止原因与 pending 项（P3） | [V17](#evidence-v17)、[V16](#evidence-v16)、[D07](#evidence-d07) |
-| F40 | 显示失败详情后重试失败行；停批时包含未尝试行，排除已成功行 | 缺失 | 新 job 引用父 job，禁止自动重复结果不明的上传（P3） | [V15](#evidence-v15)、[D05](#evidence-d05) |
-| F41 | rowStatus/rowOutcome/failureDetail/progress/summary/finished 信号与最终计数 | 部分保留 | 结构化 item 结果和任务终态；API 可查询（P1） | [V16](#evidence-v16)、[D05](#evidence-d05) |
-| F42 | 独立 net-upload.log 追加并 flush；日志打开失败即停批，UI 暴露路径/详情 | 缺失 | 接入 DebugLog，脱敏、轮转及受控诊断读取（P3） | [V16](#evidence-v16)、[D05](#evidence-d05) |
-| F43 | 中/英/日界面、主题与状态文案 | 契约改变 | 使用 dev 的 qsTrId/qtTrId、翻译资源与共享 QML 控件（P2） | [V07](#evidence-v07)、[V15](#evidence-v15)、[D19](#evidence-d19) |
+| F43 | 中/英/日界面、主题与状态文案 | 契约改变 | 使用 dev 的 qsTrId/qtTrId、翻译资源与共享 QML 控件（P2） | [V07](#evidence-v07)、[D19](#evidence-d19) |
 | F44 | miacode.net.fetch(url, options)：http/https GET，返回 status/text；仅 timeoutMs 生效 | 宿主移除 | 新增 network.http.fetch，声明 GET、上限与目标授权（P5） | [V21](#evidence-v21)、[V22](#evidence-v22)、[D15](#evidence-d15) |
 | F45 | miacode.net.download(url, targetPath)：GET 后整包写文件，返回 status/path | 宿主移除 | 新增流式 network.http.download，使用文件授权引用（P5） | [V21](#evidence-v21)、[V22](#evidence-v22)、[D15](#evidence-d15) |
 | F46 | net/fetchLocalhostWithoutPrompt 处理器；没有独立普通 SDK wrapper | 仅旧处理器／宿主移除 | 映射 loopback 目标授权；不以别名代替授权校验（P5） | [V21](#evidence-v21)、[V23](#evidence-v23)、[D15](#evidence-d15) |
@@ -97,7 +80,7 @@ last_verified: 2026-10-09
 
 ## 4. 旧版实际外部协议
 
-Majdata 的基地址在客户端和上传 worker 中分别写死为 `https://majdata.net/api3/api`。下表是客户端当前使用方式，属于兼容适配器的输入证据，不是服务端承诺，也不是 MiaCode 新公共 API 的路径设计。[V01](#evidence-v01)、[V09](#evidence-v09)、[V16](#evidence-v16)
+Majdata 客户端的基地址为 `https://majdata.net/api3/api`。下表是客户端当前使用方式，属于兼容适配器的输入证据，不是服务端承诺，也不是 MiaCode 新公共 API 的路径设计。[V01](#evidence-v01)、[V09](#evidence-v09)
 
 | 操作 | 方法与上游路径 | 当前参数或映射 |
 | --- | --- | --- |
@@ -107,10 +90,8 @@ Majdata 的基地址在客户端和上传 worker 中分别写死为 `https://maj
 | 背景图 | GET `/maichart/{id}/image?fullImage=true` | 写为 `bg.jpg` |
 | 谱面 | GET `/maichart/{id}/chart` | 写为 `maidata.txt` |
 | 视频 | GET `/maichart/{id}/video` | 写为 `pv.mp4`；v1 将 404 视为可选缺失 |
-| 登录 | POST `/account/Login` | multipart：`username`、UTF-8 密码 MD5 的 hex、`rememberMe=false` |
-| 上传 | POST `/maichart/upload` | 重复 `formfiles` 字段；文件名为 maidata、bg 对应扩展名、track.mp3、可选 pv.mp4 |
 
-下载与上传各自设置 User-Agent、Accept 和网页 Referer，登录与上传通过同一个 manager 的 Cookie 状态关联。浏览器前端应调用 MiaCode 的规范接口，provider 负责兼容这些上游细节。
+下载请求设置 User-Agent、Accept 和网页 Referer。浏览器前端应调用 MiaCode 的规范接口，provider 负责兼容这些上游细节。
 
 旧通用网络 GET 与 Majdata 客户端是两套实现。`miacode.net.fetch` 接受 options，但实现只读取 timeoutMs（默认 15 秒，约束 1–60 秒）；它没有实现浏览器 fetch 的 method、headers、body、流或 AbortSignal 语义。`download` 先整包读取再用 QFile 覆盖目标路径。四个 GET 处理分支没有独立目标网段校验，名称中的 Localhost/PrivateNetwork 不形成隔离。代理设置调用 `QNetworkProxy::setApplicationProxy`，会影响其他使用全局代理的网络路径。[V21](#evidence-v21)、[V22](#evidence-v22)、[V23](#evidence-v23)
 
@@ -123,10 +104,10 @@ Majdata 的基地址在客户端和上传 worker 中分别写死为 `https://maj
 | 待实施职责 | 建议位置 | 现有可复用入口与限制 |
 | --- | --- | --- |
 | provider、DTO、查询规则、文件传输与素材打包 | `src/media_tools/net/` | 属于 `miacode_media_tools`；复用现有 scanner、diagnostics、ZIP；返回值类型与事件，避免界面依赖 |
-| NetService、账号会话与 provider 端口 | `src/app/services/net/` | 由 ApplicationServices 的 typed slots/非触网装配承接；生产 adapter 由 Bootstrap/runtime 创建安装；新位置/类名均为方案 |
+| NetService 与 provider 端口 | `src/app/services/net/` | 由 ApplicationServices 的 typed slots/非触网装配承接；生产 adapter 由 Bootstrap/runtime 创建安装；新位置/类名均为方案 |
 | 任务登记、调度与公共能力分发 | `src/app/services/jobs/`、`src/app/services/api/` | 公共 JobRegistry 服务 Net 和通用网络，后续领域按同一任务契约接入；现有 JobProgressService 只负责投影 |
 | 文档来源与临时持久化策略 | `ChartWorkspace` 的会话元数据 + `runtime/document/` | 使用 DocumentBridge 的离开文档 continuation，接到现有单工作区；不要在 HTTP 路由中直接写文档 |
-| 查询、上传队列、任务模型和页面 | `src/app/ui/net/` | 按 ApplicationContext 的领域入口模式；用 QAbstractListModel 与 QML 共享控件 |
+| 查询、任务模型和页面 | `src/app/ui/net/` | 按 ApplicationContext 的领域入口模式；用 QAbstractListModel 与 QML 共享控件 |
 | 网络线程及文件资源生命周期 | transport/任务 owner | manager、reply、QIODevice 在所属线程创建/操作/销毁；旧 worker 只可作为原生平台过渡实现 |
 | 网页 HTTP 与 CLI 适配器 | `src/app/api/`、独立 CLI 入口 | 薄协议转换，调用同一分发器；不复制业务逻辑，不提供任意 QObject/raw 方法执行 |
 
@@ -139,11 +120,9 @@ ApplicationServices 的离线装配规格仅链接 Qt Core/Gui。参照现有 Up
 ## 6. 实施前必须解决的行为差异
 
 1. **查询结果边界**：v1 客户端返回候选，Dialog 再做 AND 过滤；dev 会合并曲名与其他来源的候选。新 API 必须只输出最终筛选结果。旧接口没有分页/总数证明，不能承诺检索到服务端全部匹配；“完整迁移”指功能覆盖。
-2. **密码与调用日志**：v1 把密码存入偏好 JSON，扩展调用诊断还可能记录参数。迁移账号记忆功能时必须改用凭据端口，先完成安全迁移再删除旧键；密码、MD5、Cookie、代理密码和 bearer 不进入请求事件/日志。
 3. **临时预览来源**：dev 普通打开会添加最近记录、准备崩溃恢复，自动保存也没有 onlinePreview 判定。只调用普通 openFileAtPath 会改变旧行为。文档来源策略要同时作用于打开、工作区同步、自动保存、历史、恢复、Save/Save As 和关闭。[D10](#evidence-d10)、[D11](#evidence-d11)
 4. **缓存完整性**：v1 无 PV 时允许下载成功，但 `requireVideo=true` 的缓存检查仍要求 pv.mp4 存在，下一次预览会重复请求。使用资源 manifest 的 present/absent/failed 状态；hash 是上游不透明版本提示，不作为文件完整性的哈希保证。
 5. **ZIP 与零长度**：v1 ZIP 只包含三文件；video 下载成功也不入包。声明为零长度的 maidata 可以在流式下载中成功，但 payload 打包和预览完整性检查又拒绝空文件。新契约统一由 manifest 决定资源有效性，ZIP 包含成功下载的 PV；旧三文件模式只留在明确的兼容选项。
-6. **上传结果不明**：取消/超时不能证明服务端没有接受上传。旧失败行重试规则没有处理这种情况。新 item 需标记 outcome_unknown，通过用户核对或 provider 可证实的远端状态决定再次上传，避免自动重发。
 7. **通用网络与 SDK**：JS facade 暴露 net.fetch/download，但旧 TypeScript 面未声明 net；能力 descriptor 与 handler 的网络覆盖也不一致。无普通 wrapper 的 localhost/内网/代理处理器必须明确登记可用性，不能因处理分支存在就标为稳定公共 API。
 8. **返回值、路径与限流**：旧状态使用翻译文本和行号，单文件原子写不等于整谱面事务，去重一律忽略大小写也不符合所有平台。迁移为稳定 ID/枚举、受授权根约束的规范路径、整任务 manifest 和 provider 级共享节流；拒绝写入错误与越界重定向。
 
@@ -151,13 +130,12 @@ ApplicationServices 的离线装配规格仅链接 Qt Core/Gui。参照现有 Up
 
 | 阶段 | 前置 | 工作与交付 | 完成门槛 |
 | --- | --- | --- | --- |
-| P0 基线与契约 | 本说明 | 核对固定提交、50 项清单；确定 DTO、状态机、权限、能力注册表和上游离线 fixture；生成 OpenAPI/JSON Schema 与 SDK 草案 | 每项有 owner、实施项与验收 ID；新增 API 标为待实施 |
+| P0 基线与契约 | 本说明 | 核对固定提交、本文 33 项清单；确定 DTO、状态机、权限、能力注册表和上游离线 fixture；生成 OpenAPI/JSON Schema 与 SDK 草案 | 每项有 owner、实施项与验收 ID；新增 API 标为待实施 |
 | P1 引擎与服务 | P0 | 统一异步传输、候选/最终过滤、缓存、probe、文件写入、任务 owner 和结构化事件 | 离线网络/取消/重试/文件失败用例通过；服务可无 QML 工作 |
 | P2 查询与下载界面 | P1 | QML 查询表、排序、选择、目录记忆、PV、ZIP 和进度 | 查询到目录/ZIP 全链路可用；主题与翻译齐全 |
-| P3 上传与账号 | P1 | 扫描队列、凭据迁移、Cookie 隔离、上传、限流、诊断、失败/未尝试项重试 | 确认已成功项不重发；敏感信息与未知结果用例通过 |
 | P4 在线预览 | P1、P2 | 缓存 manifest；准备/打开两阶段；文档来源策略与离开保护 | 不污染历史/自动保存；旧异步结果不能打开新会话中的错误谱面 |
 | P5 开放接口 | P0、P1；业务接口需 P2–P4 | 同一能力注册表驱动 HTTP、CLI 与 SDK；配对、目标/文件授权；通用 GET/下载/请求域代理；网页示例 | 真实浏览器可查询、下载、查看任务、取消；越权和 API/SDK 漂移用例通过 |
-| P6 平台与交付 | P2–P5 | Windows/macOS/Linux 打包/TLS/中文路径验收；移动/WASM 按平台 capability 声明支持程度 | 50 项逐项结案；变更语义已记录；已支持平台都有证据 |
+| P6 平台与交付 | P2–P5 | Windows/macOS/Linux 打包/TLS/中文路径验收；移动/WASM 按平台 capability 声明支持程度 | 本文 33 项逐项结案；变更语义已记录；已支持平台都有证据 |
 
 阶段可以按领域拆成下游任务，但共享 DTO、事件、状态机、权限和工作区契约必须先冻结。没有必要在同一个变更中重构全仓库或恢复整个扩展宿主。
 
@@ -182,13 +160,8 @@ ApplicationServices 的离线装配规格仅链接 Qt Core/Gui。参照现有 Up
 | <a id="evidence-v11"></a>V11 | [v1：src/tools/net/NetBatchDownloadDialog.cpp:911](https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetBatchDownloadDialog.cpp#L911)；`void NetBatchDownloadDialog::onlinePreview(` | 临时预览与缓存 |
 | <a id="evidence-v12"></a>V12 | [v1：src/app/mainwindow/sections/document/MainWindow.DocumentFileFlow.cpp:592](https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/app/mainwindow/sections/document/MainWindow.DocumentFileFlow.cpp#L592)；`bool MainWindow::DocumentSection::openOnlinePreviewAtPath(` | 预览文档打开与会话策略 |
 | <a id="evidence-v13"></a>V13 | [v1：src/app/mainwindow/sections/document/MainWindow.DocumentAutosaveFlow.cpp:417](https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/app/mainwindow/sections/document/MainWindow.DocumentAutosaveFlow.cpp#L417)；`state_.onlinePreviewDocument_` | 预览文档自动保存保护 |
-| <a id="evidence-v14"></a>V14 | [v1：src/tools/net/NetBatchUploadScanner.cpp:48](https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetBatchUploadScanner.cpp#L48)；`QList<NetUploadJob> scanNetUploadFolders(` | 上传素材扫描与去重 |
-| <a id="evidence-v15"></a>V15 | [v1：src/tools/net/NetBatchUploadDialog.cpp:150](https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetBatchUploadDialog.cpp#L150)；`StoredCredentials loadStoredCredentials(` | 账号存储、上传队列与失败重试 |
-| <a id="evidence-v16"></a>V16 | [v1：src/tools/net/NetBatchUploadWorker.cpp:239](https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetBatchUploadWorker.cpp#L239)；`UploadAttemptResult login(` | 登录、上传协议、节流与磁盘日志 |
-| <a id="evidence-v17"></a>V17 | [v1：src/tools/net/NetUploadDiagnostics.cpp:84](https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetUploadDiagnostics.cpp#L84)；`NetUploadResponseAssessment assessNetUploadResponse(` | 上传响应分类与 Retry-After |
 | <a id="evidence-v18"></a>V18 | [v1：src/app/mainwindow/sections/export/MainWindow.ExportSection.cpp:60](https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/app/mainwindow/sections/export/MainWindow.ExportSection.cpp#L60)；`void MainWindow::ExportSection::onNetBatchDownload(` | 独立窗口与宿主回调 |
 | <a id="evidence-v19"></a>V19 | [v1：src/app/mainwindow/sections/frame/MainWindow.BootstrapAndMenus.cpp:399](https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/app/mainwindow/sections/frame/MainWindow.BootstrapAndMenus.cpp#L399)；`owner_.netBatchDownloadAction_ = new QAction(` | 下载菜单动作 |
-| <a id="evidence-v20"></a>V20 | [v1：src/app/mainwindow/sections/frame/MainWindow.ExtensionHostRequests.cpp:1380](https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/app/mainwindow/sections/frame/MainWindow.ExtensionHostRequests.cpp#L1380)；`net.batchUpload.open` | 上传内部命令 |
 | <a id="evidence-v21"></a>V21 | [v1：src/extensions/ExtensionManager.cpp:2484](https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/extensions/ExtensionManager.cpp#L2484)；`if (method == QStringLiteral("net/fetch")` | 通用 GET、下载与代理处理器 |
 | <a id="evidence-v22"></a>V22 | [v1：src/extensions/EmbeddedExtensionRuntime.cpp:905](https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/extensions/EmbeddedExtensionRuntime.cpp#L905)；`Q_INVOKABLE QJSValue fetch(` | miacode.net facade |
 | <a id="evidence-v23"></a>V23 | [v1：src/extensions/ExtensionManager.cpp:1430](https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/extensions/ExtensionManager.cpp#L1430)；`if (method.contains(QStringLiteral("WithoutPrompt")) && method.startsWith(QStringLiteral("net/")))` | 网络权限映射 |
@@ -197,9 +170,6 @@ ApplicationServices 的离线装配规格仅链接 Qt Core/Gui。参照现有 Up
 | <a id="evidence-d02"></a>D02 | [dev：src/media_tools/net/NetClient.cpp:451](https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/media_tools/net/NetClient.cpp#L451)；`QList<NetChartSummary> NetClient::queryCharts(` | dev 查询与传输 |
 | <a id="evidence-d03"></a>D03 | [dev：src/media_tools/net/NetClient.h:83](https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/media_tools/net/NetClient.h#L83)；`class NetClient` | dev 客户端公开接口 |
 | <a id="evidence-d04"></a>D04 | [dev：src/media_tools/net/NetBatchDownloadWorker.cpp:58](https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/media_tools/net/NetBatchDownloadWorker.cpp#L58)；`void NetBatchDownloadWorker::run(` | dev 下载 worker |
-| <a id="evidence-d05"></a>D05 | [dev：src/media_tools/net/NetBatchUploadWorker.cpp:311](https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/media_tools/net/NetBatchUploadWorker.cpp#L311)；`void NetBatchUploadWorker::run(` | dev 上传 worker |
-| <a id="evidence-d06"></a>D06 | [dev：src/media_tools/net/NetBatchUploadScanner.cpp:48](https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/media_tools/net/NetBatchUploadScanner.cpp#L48)；`QList<NetUploadJob> scanNetUploadFolders(` | dev 扫描器 |
-| <a id="evidence-d07"></a>D07 | [dev：src/media_tools/net/NetUploadDiagnostics.cpp:84](https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/media_tools/net/NetUploadDiagnostics.cpp#L84)；`NetUploadResponseAssessment assessNetUploadResponse(` | dev 响应分类器 |
 | <a id="evidence-d08"></a>D08 | [dev：src/app/services/ApplicationServices.h:62](https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/app/services/ApplicationServices.h#L62)；`class ApplicationServices` | 服务装配与 typed slots |
 | <a id="evidence-d09"></a>D09 | [dev：src/app/services/ChartWorkspace.h:32](https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/app/services/ChartWorkspace.h#L32)；`struct ChartWorkspaceSnapshot` | 文档权威与打开代次 |
 | <a id="evidence-d10"></a>D10 | [dev：src/app/runtime/document/DocumentFileFlow.cpp:283](https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/app/runtime/document/DocumentFileFlow.cpp#L283)；`void miacode::runtime::DocumentSessionHost::applyOpenedDocumentState(` | dev 文档打开副作用 |

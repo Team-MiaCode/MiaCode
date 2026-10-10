@@ -24,6 +24,10 @@ QtObject {
     function require(condition, message) { if (!condition && !failure) failure = message }
     function run() {
         state.openEditor(state.netDownloadEditorKey)
+        state.openEditor(state.netUploadEditorKey)
+        require(state.openEditorTabs.length === 0 && root.netActivations === 0, "Disabled Net keeps its tabs hidden")
+        state.netEnabled = true
+        state.openEditor(state.netDownloadEditorKey)
         require(state.netEditorActive && state.openEditorTabs.length === 1, "Net opens without a document")
         state.openEditor(state.netDownloadEditorKey)
         require(state.openEditorTabs.length === 1, "Repeated opening reuses its tab")

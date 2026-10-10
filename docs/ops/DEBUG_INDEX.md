@@ -55,7 +55,6 @@ Default filenames:
 - fatal: `miacode_fatal.log`
 - preview profile: `miacode_preview_profile_summary.txt`
 - PV memory: `miacode_pv_memory_debug.log`
-- chart upload: `net-upload.log` (structured events, synchronous write acknowledgement and bounded rotation; shared DebugLog directory policy)
 
 Crash breadcrumb path note:
 

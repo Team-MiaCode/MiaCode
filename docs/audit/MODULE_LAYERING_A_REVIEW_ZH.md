@@ -68,7 +68,6 @@ Qt 私有头和第三方库都在允许的库内，QML 类型只注册一次，q
 
 - 基线中 `src/tools/net/` 只由 `net_client_spec` 编译（`e58f528a:cmake/devtools/specs/core.cmake:399-412`）。
   现在它是 `miacode_media_tools` 的源文件，`src/app` 没有任何引用。
-- `build-msvc/Release/MiaCode.exe` 中能找到 `majdata.net/login` 和 `MiaCode/net-batch-uploader`。
   拉入路径推断为 AUTOMOC 的合并单元：app 使用 `PvBatchCompressionWorker` 时，同一个 moc 目标文件会带入
   `NetBatch*Worker` 和 `NetClient`。没有用链接映射文件确认。
 - 这违反「打包产物不变」。`core.cmake:277-280` 的注释和 `DEPENDENCY_ALLOWLIST.md` 关于网络代码不在产品中的说法也随之失效。

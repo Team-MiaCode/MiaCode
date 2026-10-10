@@ -56,6 +56,7 @@ Item {
     }
 
     ActivityBar {
+        netEnabled: root.pages.netEnabled
         id: activityBar
         color: root.compact ? "transparent" : Theme.chromeSurfaceColor(Theme.colors.background.activityBar)
         anchors.left: parent.left
