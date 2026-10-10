@@ -134,7 +134,7 @@ private:
     static constexpr double kBottomPanelMinimumHeightRatio = 0.15;
     static constexpr double kBottomPanelMaximumHeightRatio = 0.65;
     static constexpr double kPreviewMinimumWidthRatio = 0.3;
-    static constexpr double kPreviewMaximumWidthRatio = 0.5;
+    static constexpr double kPreviewMaximumWidthRatio = 0.7;
 
     bool efficientSidebarEnabled_ = false;
     bool sidebarVisible_ = true;
