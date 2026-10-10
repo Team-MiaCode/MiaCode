@@ -39,7 +39,6 @@ bool verifySessionContract(QTextStream& err)
     for (const QString& property : {
              QStringLiteral("Q_PROPERTY(QVariantList introSoundOptions"),
              QStringLiteral("Q_PROPERTY(QString introSoundFileName"),
-             QStringLiteral("Q_PROPERTY(double introSoundVolume"),
          }) {
         ok &= require(header.contains(property),
                       QStringLiteral("ExportSession exposes %1").arg(property), err);
@@ -61,8 +60,6 @@ bool verifySessionContract(QTextStream& err)
             && implementation.contains(QStringLiteral("setSelectedIntroSoundFileName(normalized)"))
             && implementation.contains(
                 QStringLiteral("appearance_->setIntroSoundFileName(normalized)"))
-            && implementation.contains(QStringLiteral("setSelectedIntroSoundVolume(normalized)"))
-            && implementation.contains(QStringLiteral("preview()->applySfxLevels()"))
             && frameBootstrap.contains(QStringLiteral("PreviewAppearanceState::introSoundChanged"))
             && frameBootstrap.contains(QStringLiteral("applyPreviewSfxLevels(/*reloadAssets=*/true)"))
             && previewSettings.contains(QStringLiteral("previewSfxRuntime_->reloadAssets"))
@@ -70,10 +67,10 @@ bool verifySessionContract(QTextStream& err)
         QStringLiteral("the QML session mirrors Widgets preview_sfx reload and level-update semantics"),
         err);
     ok &= require(
-        settings.count(QStringLiteral("intro_sound_volume")) >= 2
-            && settings.contains(QStringLiteral("target->introSoundFileName = source.introSoundFileName"))
-            && settings.contains(QStringLiteral("target->introSoundVolume = qBound")),
-        QStringLiteral("shared preferences and difficulty reseeding keep intro-sound settings"),
+        settings.contains(QStringLiteral("target->introSoundFileName = source.introSoundFileName"))
+            && !settings.contains(QStringLiteral("introSoundVolume"))
+            && !header.contains(QStringLiteral("introSoundVolume")),
+        QStringLiteral("difficulty reseeding keeps the intro sound file; its volume lives in the audio settings"),
         err);
     return ok;
 }

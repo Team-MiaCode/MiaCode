@@ -101,15 +101,39 @@ void applyComposerInputs(QQuickItem* root,
     root->setProperty("editable", editable);
 }
 
-QString uniqueCoverPath(const QDir& dir, const QString& extension)
+// The requested name decides the format (.png or .jpg/.jpeg). A transparent
+// cover can only be a PNG, and a name with no recognised extension gets the
+// default one, so the file on disk always matches what was encoded into it.
+QString coverFilePathWithExtension(const QString& requestedFile, bool transparent)
 {
-    QString candidate = dir.filePath(QStringLiteral("card.") + extension);
+    const QFileInfo info(requestedFile);
+    const QString suffix = info.suffix().toLower();
+    const bool png = suffix == QStringLiteral("png");
+    const bool jpeg = suffix == QStringLiteral("jpg") || suffix == QStringLiteral("jpeg");
+    if (png || (jpeg && !transparent)) {
+        return info.absoluteFilePath();
+    }
+    const QString extension = transparent ? QStringLiteral("png") : QStringLiteral("jpg");
+    // A recognised-but-wrong extension is replaced; anything else ("v1.2") is
+    // part of the name and keeps its dots.
+    const QString stem = jpeg ? info.completeBaseName() : info.fileName();
+    return QDir(info.absolutePath()).filePath(stem + QLatin1Char('.') + extension);
+}
+
+QString uniqueCoverPath(const QString& requestedPath)
+{
+    const QFileInfo requested(requestedPath);
+    const QDir dir = requested.absoluteDir();
+    QString candidate = requested.absoluteFilePath();
     int copyIndex = 1;
     while (QFileInfo::exists(candidate)) {
-        candidate = dir.filePath(QStringLiteral("card(%1).%2").arg(copyIndex).arg(extension));
+        candidate = dir.filePath(QStringLiteral("%1(%2).%3")
+                                     .arg(requested.completeBaseName())
+                                     .arg(copyIndex)
+                                     .arg(requested.suffix()));
         ++copyIndex;
     }
-    return QFileInfo(candidate).absoluteFilePath();
+    return candidate;
 }
 
 }  // namespace
@@ -196,13 +220,14 @@ QImage renderCoverComposite(CoverLayoutModel* model,
 CoverExportResult exportCoverComposite(CoverLayoutModel* model,
                                        const CoverComposerInputs& inputs,
                                        const QSize& fullSize,
-                                       const QString& outputDirectory)
+                                       const QString& outputFile)
 {
     CoverExportResult result;
-    QDir outputDir(outputDirectory);
-    if (outputDirectory.trimmed().isEmpty()
+    const QString trimmedFile = outputFile.trimmed();
+    const QDir outputDir = QFileInfo(trimmedFile).absoluteDir();
+    if (trimmedFile.isEmpty() || QFileInfo(trimmedFile).fileName().isEmpty()
         || (!outputDir.exists() && !outputDir.mkpath(QStringLiteral(".")))) {
-        result.errorMessage = QStringLiteral("invalid output directory: %1").arg(outputDirectory);
+        result.errorMessage = QStringLiteral("invalid output file: %1").arg(outputFile);
         return result;
     }
     QImage image = renderCoverComposite(model, inputs, fullSize, &result.errorMessage);
@@ -213,9 +238,9 @@ CoverExportResult exportCoverComposite(CoverLayoutModel* model,
         return result;
     }
     const bool transparent = inputs.backgroundMode == CoverBackgroundMode::Transparent;
-    const QString outputPath = uniqueCoverPath(outputDir, transparent ? QStringLiteral("png")
-                                                                    : QStringLiteral("jpg"));
-    if (!image.save(outputPath, transparent ? "PNG" : "JPG", transparent ? -1 : 95)) {
+    const QString outputPath = uniqueCoverPath(coverFilePathWithExtension(trimmedFile, transparent));
+    const bool png = QFileInfo(outputPath).suffix().compare(QStringLiteral("png"), Qt::CaseInsensitive) == 0;
+    if (!image.save(outputPath, png ? "PNG" : "JPG", png ? -1 : 95)) {
         result.errorMessage = QStringLiteral("failed to write image: %1").arg(outputPath);
         return result;
     }

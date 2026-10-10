@@ -40,9 +40,9 @@ struct ChannelSpec {
     const char* audition;
 };
 
-const std::array<ChannelSpec, 10>& channelSpecs()
+const std::array<ChannelSpec, 11>& channelSpecs()
 {
-    static const std::array<ChannelSpec, 10> specs{{
+    static const std::array<ChannelSpec, 11> specs{{
         {"global", "dialog.render_settings.audio.global",
          &PreviewAudioSettings::globalPercent, &PreviewAudioSettings::setGlobalPercent,
          &PreviewAudioSettings::globalMuted, &PreviewAudioSettings::toggleGlobalMuted, "answer"},
@@ -75,6 +75,10 @@ const std::array<ChannelSpec, 10>& channelSpecs()
          &PreviewAudioSettings::fireworkPercent, &PreviewAudioSettings::setFireworkPercent,
          &PreviewAudioSettings::fireworkMuted, &PreviewAudioSettings::toggleFireworkMuted,
          "firework"},
+        {"intro", "dialog.render_settings.audio.intro",
+         &PreviewAudioSettings::introPercent, &PreviewAudioSettings::setIntroPercent,
+         &PreviewAudioSettings::introMuted, &PreviewAudioSettings::toggleIntroMuted,
+         "track_start"},
     }};
     return specs;
 }

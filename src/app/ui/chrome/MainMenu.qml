@@ -479,10 +479,15 @@ Item {
                 onTriggered: root.commands.latencyCalibrationRequested()
             }
             AppMenuSeparator {}
-            AppMenuAction {
-                text: qsTrId("media_tools.audio_video_processing")
+            AudioProcessingMenu {
                 enabled: root.commandsEnabled && root.documentAvailable
-                onTriggered: root.commands.mediaToolsRequested()
+                documentAvailable: root.documentAvailable
+                onToolRequested: toolId => root.commands.mediaToolRequested(toolId)
+            }
+            VideoProcessingMenu {
+                enabled: root.commandsEnabled && root.documentAvailable
+                documentAvailable: root.documentAvailable
+                onToolRequested: toolId => root.commands.mediaToolRequested(toolId)
             }
             AppMenuAction {
                 text: qsTrId("qml.normalize_whole_chart")

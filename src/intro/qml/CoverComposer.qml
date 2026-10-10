@@ -50,6 +50,16 @@ Item {
     // canvas tap / drag pushes it back via selectionBinder.selectLayerKey. The
     // editor's selectedIndex is DERIVED from this (key-based → reorder/add/remove safe).
     property string selectedKey: ""
+    property int layerPreviewRevision: 0
+
+    function layerPreviewItem(key, revision) {
+        for (let i = 0; i < layerRepeater.count; ++i) {
+            const item = layerRepeater.itemAt(i)
+            if (item && item.ld && item.ld.key === key)
+                return item.previewItem
+        }
+        return null
+    }
     property bool editable: true            // false in the export render (no chrome/handlers)
     // The v2 page provides the QML-facing cover session as the binder facade for
     // the one active live chart scene; export rendering leaves it null and uses
@@ -418,9 +428,12 @@ Item {
     // ===================== Draggable layers =====================
     Repeater {
         id: layerRepeater
+        onItemAdded: canvas.layerPreviewRevision++
+        onItemRemoved: canvas.layerPreviewRevision++
         model: canvas.coverLayout ? canvas.coverLayout.layers : 0
         delegate: Item {
             id: layerItem
+            readonly property alias previewItem: content
             required property var modelData
             required property int index
             readonly property var ld: modelData       // CoverLayer

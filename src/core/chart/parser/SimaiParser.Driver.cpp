@@ -18,6 +18,12 @@ const QString& kInvalidBpmValue()
     return value;
 }
 
+const QString& kBpmMissingExplicitSubdivision()
+{
+    static const QString value = QStringLiteral("Note subdivision is unspecified");
+    return value;
+}
+
 const QString& kUnterminatedBeatBlock()
 {
     static const QString value = QStringLiteral("Unterminated beat block");
@@ -283,6 +289,7 @@ const QHash<QString, QString>& zhExactMap()
 {
     static const QHash<QString, QString> map{
         {kInvalidBpmValue(), QStringLiteral("BPM 数值无效")},
+        {kBpmMissingExplicitSubdivision(), QStringLiteral("note未指定分音")},
         {kInvalidBeatValue(), QStringLiteral("分拍数值无效")},
         {kUnterminatedBpmBlock(), QStringLiteral("BPM 块未闭合")},
         {kUnterminatedBeatBlock(), QStringLiteral("分拍块未闭合")},
@@ -338,6 +345,7 @@ const QHash<QString, QString>& jaExactMap()
 {
     static const QHash<QString, QString> map{
         {kInvalidBpmValue(), QStringLiteral("BPM の値が無効です")},
+        {kBpmMissingExplicitSubdivision(), QStringLiteral("ノートに分音が指定されていません")},
         {kInvalidBeatValue(), QStringLiteral("分音数の値が無効です")},
         {kUnterminatedBpmBlock(), QStringLiteral("BPM 括弧が閉じられていません")},
         {kUnterminatedBeatBlock(), QStringLiteral("分音括弧が閉じられていません")},
@@ -447,6 +455,40 @@ QString detectShortHoldCompatibilityWarning(const QString& token)
 }
 
 }  // namespace ValidationMessage
+
+void clearPendingExplicitSubdivision(ParseState* state)
+{
+    if (state == nullptr) {
+        return;
+    }
+    state->awaitingExplicitSubdivision = false;
+}
+
+void warnMissingExplicitSubdivision(ParseState* state)
+{
+    if (state == nullptr || !state->strictMode || !state->awaitingExplicitSubdivision) {
+        return;
+    }
+    appendTokenWarning(
+        state,
+        state->awaitingSubdivisionLine,
+        state->awaitingSubdivisionStartCol,
+        ValidationMessage::kBpmMissingExplicitSubdivision(),
+        state->awaitingSubdivisionEndCol
+    );
+    clearPendingExplicitSubdivision(state);
+}
+
+void recordPendingExplicitSubdivision(ParseState* state, int line, int startCol, int endCol)
+{
+    if (state == nullptr || !state->strictMode) {
+        return;
+    }
+    state->awaitingExplicitSubdivision = true;
+    state->awaitingSubdivisionLine = qMax(1, line);
+    state->awaitingSubdivisionStartCol = qMax(1, startCol);
+    state->awaitingSubdivisionEndCol = qMax(state->awaitingSubdivisionStartCol, endCol);
+}
 
 // Strict-only check. Returns the validation message to emit, or empty
 // string if the token has no `?`, `!`, `@` (or all of them are validly
@@ -731,6 +773,7 @@ SimaiParseResult parseInternal(
         const int noteCountBefore = state.result.noteMarkers.size();
         parseToken(&state, token, lineNumber, tokenColumn, &currentGroup);
         if (state.result.noteMarkers.size() > noteCountBefore) {
+            warnMissingExplicitSubdivision(&state);
             pendingLineEndNoteCol = parsedTokenColumn;
             pendingLineEndNoteEndCol = parsedTokenEndCol;
         }
@@ -829,6 +872,7 @@ SimaiParseResult parseInternal(
         clearPendingLineEndNote();
         lineSawComma = false;
         if (isTerminalMarkerText(line)) {
+            warnMissingExplicitSubdivision(&state);
             continue;
         }
         if (!initializedMeasureLines) {
@@ -875,12 +919,14 @@ SimaiParseResult parseInternal(
                 if (!bpmOk || bpm <= 0.0) {
                     appendTokenError(&state, lineNumber, i + 1, ValidationMessage::kInvalidBpmValue());
                 } else {
+                    warnMissingExplicitSubdivision(&state);
                     // Any (bpm) directive restarts the measure phase, even when the
                     // value is unchanged (变BPM 一律重启小节相位). Kept in lockstep
                     // with TimelineQuickModel + ChartNormalization.
                     state.currentMeasureStartSecond = state.second;
                     appendDistinctSecond(&state.result.measureLineSeconds, state.currentMeasureStartSecond);
                     state.bpm = bpm;
+                    recordPendingExplicitSubdivision(&state, lineNumber, i + 1, close + 1);
                 }
                 i = close;
                 continue;
@@ -891,6 +937,7 @@ SimaiParseResult parseInternal(
                 int close = line.indexOf('}', i + 1);
                 if (close < 0) {
                     appendTokenError(&state, lineNumber, i + 1, ValidationMessage::kUnterminatedBeatBlock());
+                    clearPendingExplicitSubdivision(&state);
                     break;
                 }
                 warnDirectiveAfterNote(lineNumber, line, i, close);
@@ -898,8 +945,10 @@ SimaiParseResult parseInternal(
                 const int beats = line.mid(i + 1, close - i - 1).trimmed().toInt(&beatsOk);
                 if (!beatsOk || beats <= 0) {
                     appendTokenError(&state, lineNumber, i + 1, ValidationMessage::kInvalidBeatValue());
+                    clearPendingExplicitSubdivision(&state);
                 } else if (beats > 384) {
                     state.beats = beats;
+                    clearPendingExplicitSubdivision(&state);
                     if (strictMode) {
                         int warningEndCol = close + 1;
                         while (warningEndCol < line.size() && line.at(warningEndCol) == QChar(',')) {
@@ -916,6 +965,7 @@ SimaiParseResult parseInternal(
                     }
                 } else if (strictMode && (384 % beats) != 0) {
                     state.beats = beats;
+                    clearPendingExplicitSubdivision(&state);
                     appendTokenWarning(
                         &state,
                         lineNumber,
@@ -924,6 +974,7 @@ SimaiParseResult parseInternal(
                     );
                 } else {
                     state.beats = beats;
+                    clearPendingExplicitSubdivision(&state);
                 }
                 i = close;
                 continue;
@@ -1022,6 +1073,7 @@ SimaiParseResult parseInternal(
                 eachOperandPending = false;
                 pendingSeparatorCol = -1;
                 noteSinceComma = false;
+                warnMissingExplicitSubdivision(&state);
                 flushToken(lineNumber);
                 clearPendingLineEndNote();
                 lineSawComma = true;
@@ -1043,6 +1095,7 @@ SimaiParseResult parseInternal(
                 && (ch == QChar('E') || ch == QChar('e'))
                 && lineTailIsTerminalMarker(line, i)) {
                 flushToken(lineNumber);
+                warnMissingExplicitSubdivision(&state);
                 // Q2 — reset HS at chart-end so any post-terminal logic
                 // (or future re-emission) starts from a known baseline.
                 state.hs = 1.0;
@@ -1072,6 +1125,8 @@ SimaiParseResult parseInternal(
         finalizeEachGroup(&state, currentGroup);
         currentGroup.clear();
     }
+
+    warnMissingExplicitSubdivision(&state);
 
     if (strictMode) {
         runStrictFormatChecks(&state, lines);

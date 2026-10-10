@@ -8,14 +8,11 @@
 #include <QVector>
 
 // Slide-runtime reference-data layer for the Muri analyzer (2026-05-29 god-file
-// decomposition). Encapsulates the read-only `:/data/slide_data.json` resource
-// and the typed accessors the slide/wifi judge simulation needs (per-area pad
-// sequences and recorded real-path samples). Internal to the Muri analyzer —
-// namespace miacode::muri::detail.
+// decomposition). Typed accessors over the shared `:/data/slide_data.json` root
+// (core/chart/SlideReferenceData.h) that the slide/wifi judge simulation needs
+// (per-area pad sequences and recorded real-path samples). Internal to the Muri
+// analyzer — namespace miacode::muri::detail.
 namespace miacode::muri::detail {
-
-// Lazily-loaded, cached root object of `:/data/slide_data.json`.
-const QJsonObject& slideRuntimeRoot();
 
 // Decode one area array ([[pad,...], ...]) into a per-area pad-name sequence.
 QVector<QStringList> loadPadAreaSequence(const QJsonArray& areaArray);

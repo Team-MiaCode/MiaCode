@@ -25,6 +25,7 @@ constexpr auto kSidebarWidth = "sidebar_width";
 constexpr auto kBottomPanelVisible = "bottom_panel_visible";
 constexpr auto kBottomPanelHeightRatio = "bottom_panel_height_ratio";
 constexpr auto kPreviewWidthRatio = "preview_width_ratio";
+constexpr auto kPreviewDetached = "preview_detached";
 constexpr auto kPreviewCanvasFreeAspect = "preview_canvas_free_aspect";
 constexpr auto kPreviewHidePv = "preview_hide_pv";
 constexpr auto kFontSize = "ui_font_size";
@@ -86,6 +87,7 @@ WorkbenchSettings::WorkbenchSettings(QObject* parent)
 
     // 启动时读取并约束到界面可接受范围。无 json 键时回退到旧 QSettings，供 macOS 上已有记录迁入。
     const QJsonObject ui = loadUiObject();
+    previewDetached_ = ui.value(QLatin1String(kPreviewDetached)).toBool(false);
     blurMaterialsEnabled_ = ui.value(QLatin1String(kBlurMaterialsEnabled)).toBool(true);
     QSettings legacySettings;
     sidebarVisible_ = jsonBool(ui, kSidebarVisible, legacySettings, kLegacySidebarVisible, true);
@@ -192,6 +194,7 @@ double WorkbenchSettings::bottomPanelHeightRatio() const { return bottomPanelHei
 double WorkbenchSettings::bottomPanelMinimumHeightRatio() const { return kBottomPanelMinimumHeightRatio; }
 double WorkbenchSettings::bottomPanelMaximumHeightRatio() const { return kBottomPanelMaximumHeightRatio; }
 double WorkbenchSettings::previewWidthRatio() const { return previewWidthRatio_; }
+bool WorkbenchSettings::previewDetached() const { return previewDetached_; }
 double WorkbenchSettings::previewMinimumWidthRatio() const { return kPreviewMinimumWidthRatio; }
 double WorkbenchSettings::previewMaximumWidthRatio() const { return kPreviewMaximumWidthRatio; }
 bool WorkbenchSettings::previewCanvasFreeAspect() const { return previewCanvasFreeAspect_; }
@@ -378,6 +381,14 @@ void WorkbenchSettings::setPreviewWidthRatio(double value)
     previewWidthRatio_ = value;
     storeUiValue(kPreviewWidthRatio, value);
     emit previewWidthRatioChanged();
+}
+
+void WorkbenchSettings::setPreviewDetached(bool value)
+{
+    if (previewDetached_ == value) return;
+    previewDetached_ = value;
+    storeUiValue(kPreviewDetached, value);
+    emit previewDetachedChanged();
 }
 
 void WorkbenchSettings::setPreviewCanvasFreeAspect(bool value)

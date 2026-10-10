@@ -232,7 +232,7 @@ AppDialog {
     }
 
     body: ColumnLayout {
-        spacing: 10
+        spacing: Theme.settingsRowSpacing
 
         AppTabBar {
             id: preferencesTabs
@@ -257,7 +257,7 @@ AppDialog {
                 Layout.fillWidth: true
                 Layout.fillHeight: false
                 Layout.alignment: Qt.AlignTop
-                spacing: 10
+                spacing: Theme.settingsRowSpacing
 
                 LabeledCombo {
                     objectName: "preferencesLanguageCombo"
@@ -342,7 +342,7 @@ AppDialog {
                 Layout.fillWidth: true
                 Layout.fillHeight: false
                 Layout.alignment: Qt.AlignTop
-                spacing: 10
+                spacing: Theme.settingsRowSpacing
 
                 AppSwitch {
                     text: qsTrId("qml.enable_application_background")
@@ -352,6 +352,7 @@ AppDialog {
                 RowLayout {
                     Layout.fillWidth: true
                     Text {
+                        font.pixelSize: Theme.uiFontSize
                         Layout.fillWidth: true
                         text: root.appBackground.imagePath.length > 0
                               ? root.appBackground.imagePath
@@ -372,6 +373,7 @@ AppDialog {
                     }
                 }
                 Text {
+                    font.pixelSize: Theme.uiFontSize
                     Layout.fillWidth: true
                     visible: root.appBackground.errorMessage.length > 0
                     text: root.appBackground.errorMessage
@@ -436,7 +438,7 @@ AppDialog {
                 Layout.fillWidth: true
                 Layout.fillHeight: false
                 Layout.alignment: Qt.AlignTop
-                spacing: 10
+                spacing: Theme.settingsRowSpacing
 
                 LabeledSlider {
                     objectName: "preferencesFontSizeSlider"
@@ -496,7 +498,7 @@ AppDialog {
                 Layout.fillWidth: true
                 Layout.fillHeight: false
                 Layout.alignment: Qt.AlignTop
-                spacing: 10
+                spacing: Theme.settingsRowSpacing
 
                 LabeledCombo {
                     objectName: "preferencesVideoDecodeCombo"
@@ -536,9 +538,10 @@ AppDialog {
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: 8
+                spacing: Theme.settingsRowSpacing
 
                 Text {
+                    font.pixelSize: Theme.uiFontSize
                     Layout.fillWidth: true
                     text: root.capturingId.length > 0
                           ? qsTrId("qml.press_a_new_shortcut_esc_cancels")
@@ -598,6 +601,7 @@ AppDialog {
                             contentItem: RowLayout {
                                 spacing: 8
                                 Text {
+                                    font.pixelSize: Theme.uiFontSize
                                     Layout.fillWidth: true
                                     text: qsTrId(shortcutRow.modelData.labelKey)
                                           || shortcutRow.modelData.labelFallback
@@ -607,6 +611,7 @@ AppDialog {
                                     verticalAlignment: Text.AlignVCenter
                                 }
                                 Text {
+                                    font.pixelSize: Theme.uiFontSize
                                     Layout.preferredWidth: 170
                                     text: root.capturingId === shortcutRow.modelData.id
                                           ? qsTrId("qml.recording")
@@ -651,7 +656,7 @@ AppDialog {
                 Layout.fillWidth: true
                 Layout.fillHeight: false
                 Layout.alignment: Qt.AlignTop
-                spacing: 10
+                spacing: Theme.settingsRowSpacing
 
                 AppSwitch {
                     objectName: "preferencesUpdateCheckSwitch"

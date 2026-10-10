@@ -22,7 +22,7 @@ AppDialog {
     }
 
     body: ColumnLayout {
-        spacing: 10
+        spacing: Theme.settingsRowSpacing
 
         AppTabBar {
             id: settingsTabs

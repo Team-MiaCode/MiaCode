@@ -580,6 +580,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/components/AppTabBar.qml
     src/app/ui/components/AppTabPages.qml
     src/app/ui/components/AppChoiceButton.qml
+    src/app/ui/components/DifficultySelector.qml
     src/app/ui/components/DifficultySwatch.qml
     src/app/ui/components/PanelHeader.qml
     src/app/ui/components/SplitHandle.qml
@@ -638,6 +639,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/export/ExportRangeSelector.qml
     src/app/ui/export/ExportVideoPage.qml
     src/app/ui/export/CoverExportPage.qml
+    src/app/ui/export/CoverLayerList.qml
     src/app/ui/export/CoverExportWindow.qml
     src/app/ui/editor/EditorPane.qml
     src/app/ui/editor/EditorTabBar.qml
@@ -645,7 +647,8 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/editor/CompletionPopup.qml
     src/app/ui/editor/NormalizeOptionsDialog.qml
     src/app/ui/editor/DesignerSlotsDialog.qml
-    src/app/ui/media/MediaToolsDialog.qml
+    src/app/ui/media/AudioProcessingMenu.qml
+    src/app/ui/media/VideoProcessingMenu.qml
     src/app/ui/media/PvBatchCompressionDialog.qml
     src/app/ui/media/PrependBlankDialog.qml
     src/app/ui/preferences/PreferencesDialog.qml
@@ -712,7 +715,8 @@ set(MIACODE_UI_ICON_FILES
     src/app/ui/resources/icons/circle-play.svg
     src/app/ui/resources/icons/pause.svg
     src/app/ui/resources/icons/stop.svg
-    src/app/ui/resources/icons/fullscreen.svg
+    src/app/ui/resources/icons/preview-detach.svg
+    src/app/ui/resources/icons/preview-dock.svg
     src/app/ui/resources/icons/panel-left.svg
     src/app/ui/resources/icons/panel-bottom.svg
     src/app/ui/resources/icons/panel-right.svg

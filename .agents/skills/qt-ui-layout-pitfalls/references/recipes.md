@@ -16,6 +16,13 @@
 - 关闭动画期间的 active/closing 状态由共享基类管理；核对模态、Esc、外部点击和焦点恢复。
 - 关闭确认通过后处理子弹层与资源释放，取消确认时保持编辑状态。
 
+## 窗口与材质
+
+- 分离预览的父项切换由 MainSplitView 管理；预览移动期间通过 `surfaceActive` 暂停场景订阅。
+- 设置弹层归属由 MainSplitView 的 `settingsDialogParent` 选择，窗口 Overlay 与采样源应属于同一窗口。
+- FloatingCard 读取 `Window.window.backdropSource`；BackdropBlur 负责采样坐标和几何变化。排查实色弹层时检查采样源、主题材质开关和弹层可见性。
+- WindowChrome 的 `materialRegions` 表达原生材质区域，WindowTitleBar 和 CornerMask 使用对应的 Theme 材质颜色。窗口尺寸、全屏与侧栏状态变化时核对区域和裁切边界。
+
 ## 像素与素材
 
 - 接缝两侧使用同一坐标和设备像素比；描边与裁剪从同一矩形派生。
@@ -25,7 +32,9 @@
 
 ## 文本
 
-- TextEdit 与行号 Canvas 使用同一字体和行高；Canvas 基线采用 alphabetic，并依据 FontMetrics.ascent 定位。
+- 谱面编辑器入口为 SourceEditor.qml，文本与行号由 ScintillaEditor 管理；字体和几何从编辑器接口取得，补全行的 `labelFont` 使用 `editor.effectiveFont`。
+- 普通界面文本使用 Theme.uiFont；谱面正文使用 Theme.codeFont。预览与导出 HUD 的各类字体由独立偏好控制，定位时区分 HUD 与 QML 播放进度、NoteStatistics。
+- 自绘 Canvas 文本依据同一字体的 FontMetrics 定位基线；文本测量与绘制采用一致的字体、缩放和设备像素条件。
 - 固定宽度槽位按内容选择换行、缩放或省略；保留完整信息的可访问入口。
 - 导出可见滚动文字由帧时间驱动，静态输出使用适用的溢出策略。
 

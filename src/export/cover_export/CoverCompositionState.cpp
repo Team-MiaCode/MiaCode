@@ -1,6 +1,7 @@
 #include "export/cover_export/CoverCompositionState.h"
 
 
+#include <QDir>
 #include <QJsonArray>
 
 namespace miacode::cover_export {
@@ -91,8 +92,8 @@ QJsonObject CoverCompositionState::toJson() const
     root.insert(QStringLiteral("background"), background);
     root.insert(QStringLiteral("card"), card);
     root.insert(QStringLiteral("layout"), layout);
-    if (!outputDirectory.isEmpty()) {
-        root.insert(QStringLiteral("output"), outputDirectory);
+    if (!outputFile.isEmpty()) {
+        root.insert(QStringLiteral("outputFile"), outputFile);
     }
     return root;
 }
@@ -126,7 +127,15 @@ bool CoverCompositionState::fromJson(const QJsonObject& root, CoverCompositionSt
         out->background = migrated.value(QStringLiteral("background")).toObject();
         out->card = migrated.value(QStringLiteral("card")).toObject();
         out->layout = migrated.value(QStringLiteral("layout")).toObject();
-        out->outputDirectory = migrated.value(QStringLiteral("output")).toString();
+        out->outputFile = migrated.value(QStringLiteral("outputFile")).toString();
+        if (out->outputFile.isEmpty()) {
+            // Saved before the field named a file: "output" was the folder, and
+            // the cover was always written into it as card.jpg.
+            const QString legacyFolder = migrated.value(QStringLiteral("output")).toString();
+            if (!legacyFolder.isEmpty()) {
+                out->outputFile = QDir(legacyFolder).filePath(QString::fromLatin1(kDefaultOutputFile));
+            }
+        }
     }
     return true;
 }

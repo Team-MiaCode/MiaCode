@@ -27,6 +27,8 @@ RowLayout {
     Layout.fillWidth: true
 
     Text {
+        font.family: Theme.uiFont
+        font.pixelSize: Theme.uiFontSize
         Layout.preferredWidth: root.labelWidth
         text: root.label
         color: Theme.colors.text.secondary

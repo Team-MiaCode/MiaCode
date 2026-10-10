@@ -4,6 +4,8 @@
 #include "audio/PreviewAudioWorkerFactory.h"
 #include "audio/PreviewAudioWorkerProtocol.h"
 
+#include <QThread>
+
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -177,7 +179,12 @@ private:
     std::atomic<quint64> nextCommandSequence_{1};
     std::atomic<quint64> workerThreadId_{0};
     const std::thread::id facadeOwningThreadId_;
-    std::thread thread_;
+    // A QThread rather than std::thread: run() constructs the QObject backend
+    // here. Qt adopts a std::thread that does so, and with MinGW its adopted-
+    // thread cleanup faults once winpthreads has torn down the thread's TLS
+    // (see openAppendFile in common/DebugLog.cpp); a QThread is set up and torn
+    // down by Qt itself.
+    std::unique_ptr<QThread> thread_;
 };
 
 }  // namespace miacode::preview_audio

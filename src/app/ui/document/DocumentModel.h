@@ -41,7 +41,10 @@ class DocumentModel final : public QObject
     Q_PROPERTY(QString metadataFirst READ metadataFirst WRITE setMetadataFirst NOTIFY metadataChanged)
     Q_PROPERTY(QString metadataDesigner READ metadataDesigner WRITE setMetadataDesigner NOTIFY metadataChanged)
     Q_PROPERTY(QString metadataVideoPath READ metadataVideoPath WRITE setMetadataVideoPath NOTIFY metadataChanged)
-    Q_PROPERTY(bool metadataHasVideo READ metadataHasVideo NOTIFY metadataChanged)
+    Q_PROPERTY(QString metadataCoverPath READ metadataCoverPath NOTIFY metadataMediaChanged)
+    Q_PROPERTY(QUrl metadataCoverSource READ metadataCoverSource NOTIFY metadataMediaChanged)
+    Q_PROPERTY(QString metadataResolvedVideoPath READ metadataResolvedVideoPath NOTIFY metadataMediaChanged)
+    Q_PROPERTY(bool metadataHasVideo READ metadataHasVideo NOTIFY metadataMediaChanged)
     Q_PROPERTY(QString metadataClockCount READ metadataClockCount WRITE setMetadataClockCount NOTIFY metadataChanged)
     Q_PROPERTY(QString metadataExtraText READ metadataExtraText WRITE setMetadataExtraText NOTIFY metadataChanged)
     Q_PROPERTY(bool unifiedDesignerEnabled READ unifiedDesignerEnabled NOTIFY unifiedDesignerEnabledChanged)
@@ -97,6 +100,9 @@ public:
     QString metadataFirst() const;
     QString metadataDesigner() const;
     QString metadataVideoPath() const;
+    QString metadataCoverPath() const;
+    QUrl metadataCoverSource() const;
+    QString metadataResolvedVideoPath() const;
     bool metadataHasVideo() const;
     QString metadataClockCount() const;
     QString metadataExtraText() const;
@@ -110,9 +116,7 @@ public:
     void setMetadataVideoPath(const QString& value);
     void setMetadataClockCount(const QString& value);
     void setMetadataExtraText(const QString& value);
-    Q_INVOKABLE void readTitleFromAudioFile();
-    Q_INVOKABLE void readArtistFromAudioFile();
-    Q_INVOKABLE void extractCoverFromAudioFile();
+    Q_INVOKABLE void loadAudioInfoFromFile();
     Q_INVOKABLE void importChartBackgroundImage();
     Q_INVOKABLE void importChartBackgroundVideo();
     Q_INVOKABLE void removeChartPv();
@@ -233,6 +237,7 @@ signals:
     void editingFinishedRequested();
     void chartTextChanged();
     void metadataChanged();
+    void metadataMediaChanged();
     void unifiedDesignerEnabledChanged();
     void documentTitleChanged();
     void currentFilePathChanged();
@@ -270,6 +275,7 @@ private:
         int difficultyId, miacode::ChartWorkspaceDifficultyField field) const;
     void emitDocumentStateChanged(WorkspaceCommitKind kind);
     void refreshDocumentState();
+    void refreshMetadataMedia(bool force = false);
     bool runWorkspaceMutation(const std::function<bool()>& mutate);
     bool applyDesignerSlotsWithoutBridge(const QVector<QPair<int, QString>>& slotValues,
                                         bool unified, const QString& canonicalName);
@@ -296,6 +302,11 @@ private:
     // not the owner of this boundary and must not be asked for it.
     miacode::UiRequestService* uiRequests_ = nullptr;
     miacode::ChartMediaService mediaService_;
+    QString metadataMediaChartPath_;
+    QString metadataMediaVideoField_;
+    QString metadataCoverPath_;
+    QUrl metadataCoverSource_;
+    QString metadataResolvedVideoPath_;
     miacode::PreviewSurface** previewSlot_ = nullptr;
     miacode::PreviewSurface* preview() const
     {

@@ -26,6 +26,7 @@ class WorkbenchSettings final : public QObject
     Q_PROPERTY(double bottomPanelMinimumHeightRatio READ bottomPanelMinimumHeightRatio CONSTANT)
     Q_PROPERTY(double bottomPanelMaximumHeightRatio READ bottomPanelMaximumHeightRatio CONSTANT)
     Q_PROPERTY(double previewWidthRatio READ previewWidthRatio WRITE setPreviewWidthRatio NOTIFY previewWidthRatioChanged)
+    Q_PROPERTY(bool previewDetached READ previewDetached WRITE setPreviewDetached NOTIFY previewDetachedChanged)
     Q_PROPERTY(double previewMinimumWidthRatio READ previewMinimumWidthRatio CONSTANT)
     Q_PROPERTY(double previewMaximumWidthRatio READ previewMaximumWidthRatio CONSTANT)
     Q_PROPERTY(bool previewCanvasFreeAspect READ previewCanvasFreeAspect WRITE setPreviewCanvasFreeAspect NOTIFY previewCanvasFreeAspectChanged)
@@ -63,6 +64,7 @@ public:
     double bottomPanelMinimumHeightRatio() const;
     double bottomPanelMaximumHeightRatio() const;
     double previewWidthRatio() const;
+    bool previewDetached() const;
     double previewMinimumWidthRatio() const;
     double previewMaximumWidthRatio() const;
     bool previewCanvasFreeAspect() const;
@@ -92,6 +94,7 @@ public:
     void setBottomPanelVisible(bool value);
     void setBottomPanelHeightRatio(double value);
     void setPreviewWidthRatio(double value);
+    void setPreviewDetached(bool value);
     void setPreviewCanvasFreeAspect(bool value);
     void setPreviewHidePv(bool value);
     void setFontSize(int value);
@@ -110,6 +113,7 @@ signals:
     void bottomPanelVisibleChanged();
     void bottomPanelHeightRatioChanged();
     void previewWidthRatioChanged();
+    void previewDetachedChanged();
     void previewCanvasFreeAspectChanged();
     void previewHidePvChanged();
     void fontSizeChanged();
@@ -131,6 +135,7 @@ private:
     bool bottomPanelVisible_ = true;
     double bottomPanelHeightRatio_ = 0.35;
     double previewWidthRatio_ = 0.5;
+    bool previewDetached_ = false;
     bool previewCanvasFreeAspect_ = false;
     bool previewHidePv_ = false;
     QString uiFontFamily_;

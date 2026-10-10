@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Dialogs
 import MiaCode.UI
 
@@ -81,6 +82,8 @@ Item {
     FileDialog {
         id: fileDialog
         objectName: "uiRequestFileDialog"
+        parentWindow: root.Window.window
+        modality: Qt.WindowModal
         title: root.fileRequest.title || ""
         nameFilters: root.fileRequest.nameFilters && root.fileRequest.nameFilters.length > 0
                      ? root.fileRequest.nameFilters : [qsTrId("qml.all_files")]
@@ -99,6 +102,8 @@ Item {
     FolderDialog {
         id: folderDialog
         objectName: "uiRequestFolderDialog"
+        parentWindow: root.Window.window
+        modality: Qt.WindowModal
         title: root.folderRequest.title || ""
         onAccepted: {
             const requestId = root.activeFolderRequestId

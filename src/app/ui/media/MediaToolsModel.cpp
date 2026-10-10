@@ -77,6 +77,13 @@ void MediaToolsModel::compressBackgroundVideo()
     }
 }
 
+void MediaToolsModel::alignBackgroundVideoToTrack()
+{
+    if (engine() != nullptr) {
+        engine()->alignBackgroundVideoToTrack();
+    }
+}
+
 QVariantMap MediaToolsModel::prependContext(bool isTrack)
 {
     return engine() != nullptr ? engine()->mediaBlankContext(isTrack) : QVariantMap();

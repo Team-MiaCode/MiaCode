@@ -32,8 +32,9 @@ QtObject {
         text: {
             // Navigation: selected ≈ 1.0, idle ≈ 0.75 of active.
             active: "#E8E8E8",
-            // Settings-page section captions: halfway between active and secondary.
-            section: "#CBCBCB",
+            // Settings-page section captions: active brightness; weight, not
+            // size, sets them apart from body text.
+            section: "#E8E8E8",
             primary: "#BFBFBF",
             secondary: "#AEAEAE",
             disabled: "#6E6E6E",
@@ -59,6 +60,23 @@ QtObject {
         scroll: {
             handle: "#5E6062",
             handleHover: "#7A7C7E"
+        },
+        // Boolean controls stay neutral while off; the on state carries a
+        // muted accent so a column of options never outweighs the solid
+        // primary action. AppSwitch and AppCheckBox share these.
+        toggle: {
+            track: "#333536",
+            knob: "#808284",
+            border: "#5C5D5E",
+            knobBorder: Qt.rgba(0, 0, 0, 0.35),
+            checkedTrack: "#374B5A",
+            checkedKnob: "#D6DCE2"
+        },
+        // AppSlider: a neutral fill, so the handle is what draws the eye.
+        slider: {
+            rail: "#333536",
+            fill: "#6C6F72",
+            handle: "#ECECEC"
         },
         state: {
             // Base UI state colors; HoverChrome applies the shared overlay alpha.
@@ -161,8 +179,8 @@ QtObject {
         },
         text: {
             active: "#2F3B4A",
-            // Settings-page section captions: halfway between active and secondary.
-            section: "#465363",
+            // Settings-page section captions: active brightness.
+            section: "#2F3B4A",
             primary: "#3D4856",
             secondary: "#5D6B7C",
             disabled: "#9AA6B4",
@@ -187,6 +205,19 @@ QtObject {
         scroll: {
             handle: "#A3AFBD",
             handleHover: "#7E8DA0"
+        },
+        toggle: {
+            track: "#CDD5DF",
+            knob: "#FFFFFF",
+            border: "#A3AFBD",
+            knobBorder: Qt.rgba(31 / 255, 45 / 255, 61 / 255, 0.22),
+            checkedTrack: "#7088AA",
+            checkedKnob: "#FFFFFF"
+        },
+        slider: {
+            rail: "#CDD5DF",
+            fill: "#7E8DA0",
+            handle: "#FFFFFF"
         },
         state: {
             hover: "#E5E9E1",
@@ -283,8 +314,8 @@ QtObject {
         },
         text: {
             active: "#203040",
-            // Settings-page section captions: halfway between active and secondary.
-            section: "#404E5D",
+            // Settings-page section captions: active brightness.
+            section: "#203040",
             primary: "#203040",
             secondary: "#5F6B7A",
             disabled: "#9AA5B4",
@@ -309,6 +340,19 @@ QtObject {
         scroll: {
             handle: "#9CB5CE",
             handleHover: "#81A2C3"
+        },
+        toggle: {
+            track: "#D5E0EC",
+            knob: "#FFFFFF",
+            border: "#A9B6C6",
+            knobBorder: Qt.rgba(32 / 255, 48 / 255, 64 / 255, 0.22),
+            checkedTrack: "#6097DA",
+            checkedKnob: "#FFFFFF"
+        },
+        slider: {
+            rail: "#D5E0EC",
+            fill: "#8A9BB0",
+            handle: "#FFFFFF"
         },
         state: {
             hover: "#EEF5FF",
@@ -403,8 +447,8 @@ QtObject {
         },
         text: {
             active: "#E6EEF8",
-            // Settings-page section captions: halfway between active and secondary.
-            section: "#C8D2DF",
+            // Settings-page section captions: active brightness.
+            section: "#E6EEF8",
             primary: "#E6EEF8",
             secondary: "#A9B6C6",
             disabled: "#7B8798",
@@ -429,6 +473,19 @@ QtObject {
         scroll: {
             handle: "#5A6A7B",
             handleHover: "#70849A"
+        },
+        toggle: {
+            track: "#384656",
+            knob: "#8494A6",
+            border: "#5F6F82",
+            knobBorder: Qt.rgba(0, 0, 0, 0.35),
+            checkedTrack: "#3A4B60",
+            checkedKnob: "#D8E0EA"
+        },
+        slider: {
+            rail: "#384656",
+            fill: "#7A8BA0",
+            handle: "#E6EEF8"
         },
         state: {
             hover: "#2C3846",
@@ -525,9 +582,10 @@ QtObject {
     readonly property int codeBlockSpacing: preferences ? preferences.editorBlockSpacing : 0
     readonly property int uiFontSize: preferences ? preferences.fontSize : 13
     readonly property int headingFontSize: uiFontSize + 2
-    // Section captions inside a settings page: a step below the page heading
-    // and a step above body text, colored with text.section.
-    readonly property int sectionTitleFontSize: uiFontSize + 1
+    // Section captions inside a settings page: body size, set apart from body
+    // text by DemiBold and text.section; the page heading stays two steps up.
+    readonly property int sectionTitleFontSize: uiFontSize
+    readonly property int sectionTitleFontWeight: Font.DemiBold
     readonly property int secondaryFontSize: uiFontSize - 1
     readonly property int captionFontSize: uiFontSize - 3
 
@@ -550,11 +608,15 @@ QtObject {
                       Math.min(1, c.b + 16 / 255), c.a)
             : c
     }
-    readonly property var chromeStateColors: nativeMaterialActive ? ({
-        hover: chromeHighlightColor(0.12),
-        pressed: chromeHighlightColor(0.20),
-        selected: chromeHighlightColor(0.16)
-    }) : colors.activityState
+    readonly property var chromeStateColors: chromeStateColorsFor(nativeMaterialActive)
+
+    function chromeStateColorsFor(materialActive) {
+        return materialActive ? ({
+            hover: chromeHighlightColor(0.12),
+            pressed: chromeHighlightColor(0.20),
+            selected: chromeHighlightColor(0.16)
+        }) : colors.activityState
+    }
     readonly property real popupOpacity: 0.96
     readonly property int popupEnterDuration: 120
     readonly property int popupExitDuration: 90
@@ -614,8 +676,8 @@ QtObject {
         return Qt.rgba(c.r, c.g, c.b, c.a * nativeMaterialTintOpacity)
     }
 
-    function chromeSurfaceColor(baseColor) {
-        if (!nativeMaterialActive)
+    function chromeSurfaceColor(baseColor, materialActive = nativeMaterialActive) {
+        if (!materialActive)
             return surfaceColor(baseColor)
         return nativeMaterialColor(baseColor)
     }
@@ -635,6 +697,8 @@ QtObject {
     readonly property int controlMinHeight: 30
     readonly property int compactControlHeight: 24
     readonly property int compactFontSize: uiFontSize - 2
+    readonly property int settingsRowSpacing: 10
+    readonly property int settingsLabelSpacing: 4
     readonly property int panelPadding: 8
     readonly property int compactTabContentPadding: 8
     readonly property int dialogPadding: 16

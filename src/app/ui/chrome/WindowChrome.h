@@ -12,10 +12,10 @@
 class QWindow;
 class QEvent;
 
-// v2 WindowTitleBar chrome. Attach only from Bootstrap (never v1).
+// Shared WindowTitleBar chrome. Attach from the owning window controller.
 // Windows: native resize frame and system commands; QML owns the caption.
 // macOS: full-size content; native title text hidden; QWindow::title kept.
-// All platforms: root-window state transitions and persisted geometry.
+// A non-empty state key enables geometry persistence for that window.
 // titleBarLeadingInset: clearance past macOS traffic lights (0 elsewhere).
 namespace miacode::ui {
 
@@ -31,15 +31,16 @@ public:
     explicit WindowChrome(QObject* parent = nullptr);
     ~WindowChrome() override;
 
-    void attach(QWindow* window);
+    void attach(QWindow* window, const QString& stateKey = QStringLiteral("main_window"));
+    Q_INVOKABLE void showRestored();
 #ifdef Q_OS_IOS
     void applyIos(QWindow* window);
+    Q_INVOKABLE void refreshTitleBarMetrics();
 #endif
     Q_INVOKABLE void minimize();
     Q_INVOKABLE void toggleMaximized();
-    void saveWindowState();
-    // Remeasure traffic-light clearance after native layout is ready.
-    Q_INVOKABLE void refreshTitleBarMetrics();
+    Q_INVOKABLE void handleTitleBarDoubleClick();
+    Q_INVOKABLE void saveWindowState();
     qreal titleBarLeadingInset() const { return titleBarLeadingInset_; }
     qreal titleBarHeight() const { return titleBarHeight_; }
     bool nativeMaterialAvailable() const { return nativeMaterialAvailable_; }
@@ -60,8 +61,13 @@ signals:
 private:
     bool eventFilter(QObject* watched, QEvent* event) override;
     void refreshNativeMaterial();
+#ifdef Q_OS_MACOS
+    void refreshMaterialAfterPresentation();
+#endif
     bool extendDwmFrame() const;
-    void applyMacOs(QWindow* window);
+    void observeMacOsWindow(QWindow* window);
+    void stopObservingMacOsWindow();
+    void updateMacOsTitleBarMetrics(QWindow* window);
     void refreshMacOsMaterial(QWindow* window);
     void observeMacOsFullScreen(QWindow* window);
     void stopObservingMacOsFullScreen();
@@ -76,8 +82,13 @@ private:
     QRect normalGeometry_;
     QString screenName_;
     bool maximized_ = false;
+    bool restoringWindowState_ = false;
+    QString stateKey_;
     QTimer stateCaptureTimer_;
     QTimer materialUpdateTimer_;
+#ifdef Q_OS_MACOS
+    bool materialPresentationPending_ = false;
+#endif
     quintptr nativeHandle_ = 0;
 #ifdef Q_OS_WIN
     NativeWindowTheme::AppliedState dwmState_;
@@ -89,6 +100,7 @@ private:
     qreal titleBarHeight_ = 0;
     qreal windowedTitleBarLeadingInset_ = 0;
     qreal windowedTitleBarHeight_ = 0;
+    void* macViewWindowObserver_ = nullptr;
     void* macWillEnterFullScreenObserver_ = nullptr;
     void* macMaterialView_ = nullptr;
     void* macDidEnterFullScreenObserver_ = nullptr;

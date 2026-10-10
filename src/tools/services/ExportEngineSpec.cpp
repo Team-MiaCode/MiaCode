@@ -64,6 +64,7 @@ public:
     }
 
     void stopAudition() override { auditioningDifficultyId = 0; }
+    void clearAudition() override { auditioningDifficultyId = 0; }
 
     bool launchVideoExport(const VideoExportTask&, int difficultyId,
                            QString* errorMessage) override

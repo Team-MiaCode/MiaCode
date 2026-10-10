@@ -24,6 +24,7 @@ public:
     VideoExportTask buildSeedTask(int difficultyId) override;
     void applySharedTaskSettings(const VideoExportTask& task) override;
     bool startAudition(int difficultyId, const VideoExportTask& visualTask) override;
+    void clearAudition() override;
     void stopAudition() override;
     bool launchVideoExport(const VideoExportTask& requestedTask, int difficultyId,
                            QString* errorMessage) override;

@@ -661,6 +661,18 @@
         <source>Layer</source>
         <translation>Layer</translation>
     </message>
+    <message id="cover.bring_to_front">
+        <source>Bring to Front</source>
+        <translation>Bring to Front</translation>
+    </message>
+    <message id="cover.send_to_back">
+        <source>Send to Back</source>
+        <translation>Send to Back</translation>
+    </message>
+    <message id="cover.layer_hidden">
+        <source>Hidden</source>
+        <translation>Hidden</translation>
+    </message>
     <message id="cover.layers">
         <source>Layers</source>
         <translation>Layers</translation>
@@ -700,10 +712,6 @@
     <message id="cover.no_difficulty_selected">
         <source>No difficulty is selected, so the cover cannot be exported.</source>
         <translation>No difficulty is selected, so the cover cannot be exported.</translation>
-    </message>
-    <message id="cover.no_output_directory">
-        <source>Choose an output folder before exporting the cover.</source>
-        <translation>Choose an output folder before exporting the cover.</translation>
     </message>
     <message id="cover.no_presets">
         <source>No saved presets</source>
@@ -849,6 +857,10 @@
         <source>Unlock</source>
         <translation>Unlock</translation>
     </message>
+    <message id="cover.window.title">
+        <source>Cover Editor</source>
+        <translation>Cover Editor</translation>
+    </message>
     <message id="cover.window_creation_failed">
         <source>Failed to create the cover export window.</source>
         <translation>Failed to create the cover export window.</translation>
@@ -860,6 +872,10 @@
     <message id="dialog.batch_export.clear">
         <source>Clear</source>
         <translation>Clear</translation>
+    </message>
+    <message id="dialog.batch_export.no_chart_folders">
+        <source>No chart folders added</source>
+        <translation>No chart folders added</translation>
     </message>
     <message id="dialog.batch_export.difficulty">
         <source>Difficulty</source>
@@ -1232,44 +1248,48 @@ Failed: %2</translation>
         <translation>Updates</translation>
     </message>
     <message id="dialog.render_settings.audio.answer">
-        <source>Answer Volume</source>
-        <translation>Answer Volume</translation>
+        <source>Answer Sound</source>
+        <translation>Answer Sound</translation>
     </message>
     <message id="dialog.render_settings.audio.break">
-        <source>Break Volume</source>
-        <translation>Break Volume</translation>
+        <source>Break</source>
+        <translation>Break</translation>
     </message>
     <message id="dialog.render_settings.audio.break_slide">
-        <source>Break Slide Volume</source>
-        <translation>Break Slide Volume</translation>
+        <source>Break Slide</source>
+        <translation>Break Slide</translation>
     </message>
     <message id="dialog.render_settings.audio.ex">
-        <source>EX Volume</source>
-        <translation>EX Volume</translation>
+        <source>EX</source>
+        <translation>EX</translation>
     </message>
     <message id="dialog.render_settings.audio.firework">
-        <source>Firework Volume</source>
-        <translation>Firework Volume</translation>
+        <source>Hanabi</source>
+        <translation>Hanabi</translation>
     </message>
     <message id="dialog.render_settings.audio.global">
         <source>Global Volume</source>
         <translation>Global Volume</translation>
     </message>
+    <message id="dialog.render_settings.audio.intro">
+        <source>Export Intro</source>
+        <translation>Export Intro</translation>
+    </message>
     <message id="dialog.render_settings.audio.slide">
-        <source>Slide Volume</source>
-        <translation>Slide Volume</translation>
+        <source>Slide</source>
+        <translation>Slide</translation>
     </message>
     <message id="dialog.render_settings.audio.tap">
-        <source>Tap Volume</source>
-        <translation>Tap Volume</translation>
+        <source>Tap</source>
+        <translation>Tap</translation>
     </message>
     <message id="dialog.render_settings.audio.touch">
-        <source>Touch Volume</source>
-        <translation>Touch Volume</translation>
+        <source>Touch</source>
+        <translation>Touch</translation>
     </message>
     <message id="dialog.render_settings.audio.track">
-        <source>Track Volume</source>
-        <translation>Track Volume</translation>
+        <source>Track</source>
+        <translation>Track</translation>
     </message>
     <message id="dialog.render_settings.gameplay.center_display">
         <source>Center Display</source>
@@ -1394,10 +1414,6 @@ Failed: %2</translation>
     <message id="dialog.render_settings.music.intro_sound">
         <source>Intro sound</source>
         <translation>Intro sound</translation>
-    </message>
-    <message id="dialog.render_settings.music.intro_sound_volume">
-        <source>Intro sound volume</source>
-        <translation>Intro sound volume</translation>
     </message>
     <message id="dialog.render_settings.preview.canvas_frame_rate">
         <source>Preview Refresh Rate</source>
@@ -1897,6 +1913,10 @@ Restore the backup from %1?</translation>
         <source>&amp;first must be a valid number of seconds.</source>
         <translation>&amp;first must be a valid number of seconds.</translation>
     </message>
+    <message id="document.manage_designer_names">
+        <source>Manage</source>
+        <translation>Manage</translation>
+    </message>
     <message id="document.maidata_txt_already_exists_in">
         <source>maidata.txt already exists in the selected folder. Overwrite it?</source>
         <translation>maidata.txt already exists in the selected folder. Overwrite it?</translation>
@@ -2090,16 +2110,16 @@ Restore the backup from %1?</translation>
         <translation>Export Video</translation>
     </message>
     <message id="export_page.no_difficulty_is_available_to">
-        <source>No difficulty is available to export.</source>
-        <translation>No difficulty is available to export.</translation>
+        <source>No chart to export.</source>
+        <translation>No chart to export.</translation>
     </message>
     <message id="export_page.pack_as_zip">
         <source>Pack as ZIP</source>
         <translation>Pack as ZIP</translation>
     </message>
     <message id="export_page.the_selected_difficulty_has_no">
-        <source>The selected difficulty has no chart content to export.</source>
-        <translation>The selected difficulty has no chart content to export.</translation>
+        <source>This difficulty has no chart.</source>
+        <translation>This difficulty has no chart.</translation>
     </message>
     <message id="file_filter.audio">
         <source>Audio (*.wav *.mp3 *.ogg *.flac)</source>
@@ -2165,9 +2185,17 @@ Restore the backup from %1?</translation>
         <source>%1 was not found next to the current chart.</source>
         <translation>%1 was not found next to the current chart.</translation>
     </message>
+    <message id="media_tools.audio_processing_track">
+        <source>Audio Processing track.mp3</source>
+        <translation>Audio Processing track.mp3</translation>
+    </message>
     <message id="media_tools.audio_video_processing">
         <source>Audio/Video Processing</source>
         <translation>Audio/Video Processing</translation>
+    </message>
+    <message id="media_tools.align_pv_to_audio">
+        <source>Auto-align Video to Track Audio</source>
+        <translation>Auto-align Video to Track Audio</translation>
     </message>
     <message id="media_tools.background_mp4_video">
         <source>background .mp4 video</source>
@@ -2268,6 +2296,10 @@ Restore the backup from %1?</translation>
     <message id="media_tools.batch_pv_replace_failed_1">
         <source>Compressed, but replacement failed; output kept at %1</source>
         <translation>Compressed, but replacement failed; output kept at %1</translation>
+    </message>
+    <message id="media_tools.batch_compress">
+        <source>Batch Compress Videos</source>
+        <translation>Batch Compress Videos</translation>
     </message>
     <message id="media_tools.batch_pv_start">
         <source>Compress Videos</source>
@@ -2425,9 +2457,37 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Could not create the two-pass log directory.</source>
         <translation>Could not create the two-pass log directory.</translation>
     </message>
+    <message id="media_tools.prepend_blank">
+        <source>Prepend Blank</source>
+        <translation>Prepend Blank</translation>
+    </message>
     <message id="media_tools.prepend_pv_black_screen">
-        <source>Prepend PV Black Screen</source>
-        <translation>Prepend PV Black Screen</translation>
+        <source>Add Intro Black Screen</source>
+        <translation>Add Intro Black Screen</translation>
+    </message>
+    <message id="media_tools.analyzing_audio_alignment">
+        <source>Analyzing audio alignment...</source>
+        <translation>Analyzing audio alignment...</translation>
+    </message>
+    <message id="media_tools.video_audio_missing">
+        <source>The background video has no audio stream to align.</source>
+        <translation>The background video has no audio stream to align.</translation>
+    </message>
+    <message id="media_tools.video_alignment_cancelled">
+        <source>Audio alignment canceled.</source>
+        <translation>Audio alignment canceled.</translation>
+    </message>
+    <message id="media_tools.video_alignment_offset_failed">
+        <source>Could not find a reliable offset between track.mp3 and the PV audio.</source>
+        <translation>Could not find a reliable offset between track.mp3 and the PV audio.</translation>
+    </message>
+    <message id="media_tools.video_alignment_already_aligned">
+        <source>The PV audio is already aligned with track.mp3 (offset %1 s); no changes were made.</source>
+        <translation>The PV audio is already aligned with track.mp3 (offset %1 s); no changes were made.</translation>
+    </message>
+    <message id="media_tools.video_aligned_to_track_1_2">
+        <source>Aligned %1 to track.mp3 with offset %2 s (original backed up as %3).</source>
+        <translation>Aligned %1 to track.mp3 with offset %2 s (original backed up as %3).</translation>
     </message>
     <message id="media_tools.prepend_track_silence">
         <source>Prepend Track Silence</source>
@@ -2453,6 +2513,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>progress surface unavailable</source>
         <translation>progress surface unavailable</translation>
     </message>
+    <message id="media_tools.pv_compress">
+        <source>Compress Current Video</source>
+        <translation>Compress Current Video</translation>
+    </message>
     <message id="media_tools.replace_failed">
         <source>Failed to replace file: %1</source>
         <translation>Failed to replace file: %1</translation>
@@ -2460,6 +2524,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="media_tools.sample_rate">
         <source>Sample Rate</source>
         <translation>Sample Rate</translation>
+    </message>
+    <message id="media_tools.sample_rate_conversion">
+        <source>Sample Rate Conversion</source>
+        <translation>Sample Rate Conversion</translation>
     </message>
     <message id="media_tools.sample_rate_conversion_canceled">
         <source>Sample-rate conversion canceled.</source>
@@ -2492,6 +2560,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="media_tools.video_processing_canceled">
         <source>Video processing canceled.</source>
         <translation>Video processing canceled.</translation>
+    </message>
+    <message id="media_tools.video_processing_pv">
+        <source>Video Processing pv.mp4</source>
+        <translation>Video Processing pv.mp4</translation>
     </message>
     <message id="menu.clear_elements">
         <source>Clear Elements</source>
@@ -2537,9 +2609,33 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>PV</source>
         <translation>PV</translation>
     </message>
+    <message id="metadata.import">
+        <source>Import</source>
+        <translation>Import</translation>
+    </message>
+    <message id="metadata.load_audio_info">
+        <source>Load audio info</source>
+        <translation>Load audio info</translation>
+    </message>
+    <message id="metadata.remove">
+        <source>Remove</source>
+        <translation>Remove</translation>
+    </message>
+    <message id="metadata.no_pv">
+        <source>No PV</source>
+        <translation>No PV</translation>
+    </message>
+    <message id="metadata.no_cover">
+        <source>No cover</source>
+        <translation>No cover</translation>
+    </message>
+    <message id="metadata.audio_tags_loaded">
+        <source>Read audio metadata.</source>
+        <translation>Read audio metadata.</translation>
+    </message>
     <message id="metadata.field.cover">
-        <source>cover</source>
-        <translation>cover</translation>
+        <source>Cover</source>
+        <translation>Cover</translation>
     </message>
     <message id="metadata.field.des">
         <source>des</source>
@@ -2933,9 +3029,17 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Picture Options</source>
         <translation>Picture Options</translation>
     </message>
-    <message id="preview.fullscreen.enter_tooltip">
-        <source>Fullscreen</source>
-        <translation>Fullscreen</translation>
+    <message id="preview.window.detach">
+        <source>Detach Preview</source>
+        <translation>Detach Preview</translation>
+    </message>
+    <message id="preview.window.dock">
+        <source>Return to Main Window</source>
+        <translation>Return to Main Window</translation>
+    </message>
+    <message id="preview.window.title">
+        <source>Preview</source>
+        <translation>Preview</translation>
     </message>
     <message id="preview.pause">
         <source>Pause</source>
@@ -3133,10 +3237,6 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Errors</source>
         <translation>Errors</translation>
     </message>
-    <message id="qml.exit_fullscreen_preview">
-        <source>Exit fullscreen</source>
-        <translation>Exit fullscreen</translation>
-    </message>
     <message id="qml.expand_bookmarks">
         <source>Expand bookmarks</source>
         <translation>Expand bookmarks</translation>
@@ -3322,8 +3422,8 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>Offset</translation>
     </message>
     <message id="qml.one_field_equals_value_per_line">
-        <source>One &amp;field=value per line</source>
-        <translation>One &amp;field=value per line</translation>
+        <source>&amp;field=value</source>
+        <translation>&amp;field=value</translation>
     </message>
     <message id="qml.open_chart_info_or_add_a_difficulty">
         <source>Open metadata, or add a difficulty</source>
@@ -3472,10 +3572,6 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="qml.sound_effect_volume">
         <source>Sound-effect volume</source>
         <translation>Sound-effect volume</translation>
-    </message>
-    <message id="qml.sound_effects">
-        <source>Sound effects</source>
-        <translation>Sound effects</translation>
     </message>
     <message id="qml.start_audition">
         <source>Start audition</source>
@@ -3725,10 +3821,6 @@ Error: %1</translation>
         <source>Import file</source>
         <translation>Import file</translation>
     </message>
-    <message id="track_metadata.import_pv">
-        <source>Import PV</source>
-        <translation>Import PV</translation>
-    </message>
     <message id="track_metadata.imported_background_image">
         <source>Cover imported to %1.</source>
         <translation>Cover imported to %1.</translation>
@@ -3762,16 +3854,12 @@ Error: %1</translation>
         <translation>Read Artist from MP3</translation>
     </message>
     <message id="track_metadata.read_from_audio">
-        <source>Read from audio file</source>
-        <translation>Read from audio file</translation>
+        <source>Read audio tags</source>
+        <translation>Read audio tags</translation>
     </message>
     <message id="track_metadata.read_title_from_mp3">
         <source>Read Title from MP3</source>
         <translation>Read Title from MP3</translation>
-    </message>
-    <message id="track_metadata.remove_pv">
-        <source>Remove PV</source>
-        <translation>Remove PV</translation>
     </message>
     <message id="track_metadata.the_selected_mp3_has_no">
         <source>The selected MP3 has no embedded cover artwork.</source>

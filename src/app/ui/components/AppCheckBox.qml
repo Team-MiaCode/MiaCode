@@ -27,11 +27,12 @@ CheckBox {
         Rectangle {
             anchors.fill: parent
             radius: Theme.smallControlRadius
-            color: Theme.overlayColor(root.checked ? Theme.colors.accent.primary : "transparent")
+            // Same on/off colors as AppSwitch.
+            color: Theme.overlayColor(root.checked ? Theme.colors.toggle.checkedTrack : "transparent")
             border.width: 1
-            border.color: root.checked || root.hovered
-                ? Theme.colors.accent.primary
-                : Theme.colors.border.control
+            border.color: root.checked ? Theme.colors.toggle.checkedTrack
+                : root.hovered ? Theme.colors.text.secondary
+                : Theme.colors.toggle.border
         }
 
         ControlsImpl.IconImage {
@@ -41,7 +42,7 @@ CheckBox {
             visible: root.checked
             source: "qrc:/icons/checkmark.svg"
             sourceSize: Qt.size(width, height)
-            color: Theme.colors.text.onAccent
+            color: Theme.colors.toggle.checkedKnob
         }
 
         Rectangle {
@@ -61,7 +62,7 @@ CheckBox {
         leftPadding: root.indicator.width + root.spacing
         text: root.text
         font: root.font
-        color: root.checked ? Theme.colors.text.active : Theme.colors.text.secondary
+        color: root.enabled ? Theme.colors.text.primary : Theme.colors.text.disabled
         verticalAlignment: Text.AlignVCenter
     }
 }

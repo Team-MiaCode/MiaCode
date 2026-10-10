@@ -8,6 +8,7 @@ import MiaCode.UI
 Popup {
     id: root
     popupType: Popup.Item
+    margins: Theme.menuPadding
 
     property bool closing: false
     readonly property bool active: root.visible && !root.closing

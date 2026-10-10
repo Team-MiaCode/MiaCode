@@ -1,6 +1,5 @@
 #pragma once
 
-#include <QtGlobal>
 #include <optional>
 
 class QWindow;
@@ -18,7 +17,6 @@ enum class BackdropMaterial {
 
 // Successful DWM settings, owned by the window's chrome lifecycle.
 struct AppliedState {
-    quintptr nativeHandle = 0;
     std::optional<bool> darkMode;
     std::optional<int> backdropType;
     bool frameExtended = false;

@@ -47,6 +47,7 @@ public:
     // ---- single-file tools ----
     Q_INVOKABLE void convertTrackTo44100Hz();
     Q_INVOKABLE void compressBackgroundVideo();
+    Q_INVOKABLE void alignBackgroundVideoToTrack();
 
     // ---- prepend blank ----
     // Returns { available, title, isTrack, inputName, backupName, hasBackup,

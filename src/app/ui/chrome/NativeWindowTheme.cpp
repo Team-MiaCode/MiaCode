@@ -10,6 +10,7 @@
 
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <dwmapi.h>
 #endif
 
 namespace NativeWindowTheme {
@@ -17,6 +18,8 @@ namespace {
 
 #ifdef Q_OS_WIN
 constexpr DWORD kDwmwaUseImmersiveDarkMode = 20;
+constexpr DWORD kDwmwaBorderColor = 34;
+constexpr COLORREF kDwmColorNone = 0xFFFFFFFE;
 constexpr DWORD kDwmwaSystemBackdropType = 38;
 constexpr int kDwmsbtNone = 1;
 constexpr int kDwmsbtMainWindow = 2;
@@ -24,30 +27,7 @@ constexpr int kDwmsbtTransientWindow = 3;
 
 bool setDwmWindowAttribute(HWND hwnd, DWORD attribute, const void* value, DWORD size)
 {
-    if (hwnd == nullptr || value == nullptr || size == 0) {
-        return false;
-    }
-    static HMODULE dwmapiModule = ::LoadLibraryW(L"dwmapi.dll");
-    if (dwmapiModule == nullptr) {
-        return false;
-    }
-    using DwmSetWindowAttributeFn = HRESULT(WINAPI*)(HWND, DWORD, LPCVOID, DWORD);
-    static auto setWindowAttribute = reinterpret_cast<DwmSetWindowAttributeFn>(
-        ::GetProcAddress(dwmapiModule, "DwmSetWindowAttribute")
-    );
-    if (setWindowAttribute == nullptr) {
-        return false;
-    }
-    return SUCCEEDED(setWindowAttribute(hwnd, attribute, value, size));
-}
-
-void syncAppliedState(HWND hwnd, AppliedState* state)
-{
-    const auto handle = reinterpret_cast<quintptr>(hwnd);
-    if (state != nullptr && state->nativeHandle != handle) {
-        *state = {};
-        state->nativeHandle = handle;
-    }
+    return SUCCEEDED(DwmSetWindowAttribute(hwnd, attribute, value, size));
 }
 
 void applyAppearanceToNativeHandle(HWND hwnd, AppliedState* state)
@@ -57,10 +37,10 @@ void applyAppearanceToNativeHandle(HWND hwnd, AppliedState* state)
     }
 
     const BOOL darkMode = UiTheme::isDarkTheme() ? TRUE : FALSE;
-    syncAppliedState(hwnd, state);
     if (state != nullptr && state->darkMode == (darkMode != FALSE)) {
         return;
     }
+    setDwmWindowAttribute(hwnd, kDwmwaBorderColor, &kDwmColorNone, sizeof(kDwmColorNone));
     if (setDwmWindowAttribute(hwnd, kDwmwaUseImmersiveDarkMode, &darkMode, sizeof(darkMode))
             && state != nullptr) {
         state->darkMode = darkMode != FALSE;
@@ -73,7 +53,6 @@ bool applyBackdropToNativeHandle(HWND hwnd, bool backdropEnabled, BackdropMateri
     const int backdropType = backdropEnabled
         ? (material == BackdropMaterial::Acrylic ? kDwmsbtTransientWindow : kDwmsbtMainWindow)
         : kDwmsbtNone;
-    syncAppliedState(hwnd, state);
     if (state != nullptr && state->backdropType == backdropType) {
         return backdropEnabled;
     }

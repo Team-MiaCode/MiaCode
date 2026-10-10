@@ -15,6 +15,7 @@ public:
 
     void onCompressBackgroundVideo();
     void onConvertTrackTo44100Hz();
+    void onAlignBackgroundVideoToTrack();
 
     enum class MediaBlankTarget {
         Track,
@@ -29,6 +30,7 @@ public:
 
     void convertTrackTo44100Hz() override;
     void compressBackgroundVideo() override;
+    void alignBackgroundVideoToTrack() override;
     QVariantMap mediaBlankContext(bool isTrack) override;
     QVariantMap detectMediaBlankTiming(bool isTrack) override;
     void restoreMediaBlankBackup(bool isTrack) override;

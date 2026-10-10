@@ -290,7 +290,7 @@ bool PageHost::ensureDifficultyPageActive(int difficultyId)
         || pages == nullptr || difficultyId <= 0) {
         return false;
     }
-    if (!pages->hasActiveDifficulty() || pages->activeDifficultyId() != difficultyId) {
+    if (!pages->difficultyPageActive() || pages->activeDifficultyId() != difficultyId) {
         if (!pages->enterDifficultyPage(difficultyId)) {
             return false;
         }
@@ -304,12 +304,14 @@ bool PageHost::ensureDifficultyPageActive(int difficultyId)
 
 bool PageHost::activateMetadataPage()
 {
-    if (activePageId_ != QLatin1String("latency") || router() == nullptr
+    if (router() == nullptr || overlayActive()
         || !router()->enterMetadataPage()) {
         return false;
     }
-    activePageId_.clear();
-    emit activePageIdChanged();
+    if (!activePageId_.isEmpty()) {
+        activePageId_.clear();
+        emit activePageIdChanged();
+    }
     return true;
 }
 

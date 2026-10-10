@@ -518,8 +518,7 @@ void miacode::runtime::VideoExportHost::applyExportPreviewChartInfo(const VideoE
 
 void miacode::runtime::VideoExportHost::endExportPreviewSession()
 {
-    // Stop + tear down the playable preview audition (no-op for the modal path,
-    // which never installs it). Must run before the canvas/aspect restore below.
+    // Release export-owned playback before restoring the editor appearance.
     teardownExportPreviewAuditionScene();
     if (session_.scene_ != nullptr) {
         session_.scene_->setSuppressDebugInfo(false);
@@ -630,7 +629,7 @@ bool miacode::runtime::VideoExportHost::runBatchExport(
     QVector<BatchExportJob> jobs;
     jobs.reserve(chartDirectories.size() * selectedDifficultyIds.size());
     for (const QString& chartDirectory : chartDirectories) {
-        const QFileInfo directoryInfo(chartDirectory);
+        const QFileInfo directoryInfo(QDir::cleanPath(chartDirectory));
         const QString folderName = directoryInfo.fileName();
         const QString trackPath = miacode::chart_assets::resolveTrackPathForDirectory(directoryInfo.absoluteFilePath());
         const QString chartPath = resolveChartPathFromCliInput(directoryInfo.absoluteFilePath());
@@ -656,7 +655,8 @@ bool miacode::runtime::VideoExportHost::runBatchExport(
             ++matchedDifficulties;
             const QString token = SimaiDocument::difficultyShortName(difficultyId);
             jobs.append({chartDirectory, difficultyId, token,
-                         QStringLiteral("%1 [%2]").arg(folderName, token)});
+                         QStringLiteral("%1 [%2]").arg(
+                             document.title.trimmed().isEmpty() ? folderName : document.title.trimmed(), token)});
         }
         if (matchedDifficulties == 0) {
             QStringList requested;
@@ -672,12 +672,6 @@ bool miacode::runtime::VideoExportHost::runBatchExport(
     const int totalJobs = qMax(1, jobs.size());
     for (int index = 0; index < jobs.size(); ++index) {
         const BatchExportJob& job = jobs.at(index);
-        if (callbacks.progressChanged) {
-            callbacks.progressChanged(
-                qRound(static_cast<double>(index) * 100.0 / totalJobs),
-                qtTrId("dialog.batch_export.progress.exporting_named")
-                    .arg(index + 1).arg(jobs.size()).arg(job.displayName));
-        }
         if (callbacks.cancellationRequested && callbacks.cancellationRequested()) {
             result->canceled = true;
             break;
@@ -696,8 +690,16 @@ bool miacode::runtime::VideoExportHost::runBatchExport(
             result->failedCharts.append(job.displayName + QStringLiteral(" - ") + failureText);
             continue;
         }
+        const QString outputFileName = QFileInfo(snapshot.outputPath).fileName();
+        if (callbacks.progressChanged) {
+            callbacks.progressChanged(
+                qRound(static_cast<double>(index) * 100.0 / totalJobs),
+                QStringLiteral("%1\n%2").arg(outputFileName,
+                    qtTrId("dialog.batch_export.progress.exporting_named")
+                        .arg(index + 1).arg(jobs.size()).arg(job.displayName)));
+        }
         bool canceledThisItem = false;
-        const auto updateBatchProgress = [&callbacks, index, totalJobs, &job](
+        const auto updateBatchProgress = [&callbacks, index, totalJobs, &outputFileName](
                                              int percent,
                                              const QString& rawMessage) {
             if (!callbacks.progressChanged) {
@@ -707,8 +709,8 @@ bool miacode::runtime::VideoExportHost::runBatchExport(
                 / static_cast<double>(totalJobs);
             callbacks.progressChanged(
                 qBound(0, qRound(overall * 100.0), 100),
-                qtTrId("dialog.batch_export.progress.current_item")
-                    .arg(job.displayName).arg(localizeExportWorkerMessageForUiLanguage(rawMessage)));
+                QStringLiteral("%1\n%2")
+                    .arg(outputFileName, localizeExportWorkerMessageForUiLanguage(rawMessage)));
         };
         if (!runVideoExportWorkerSync(
                 snapshot,

@@ -134,6 +134,29 @@ function Enter-MsvcEnvironment {
         -DevCmdArguments "-arch=$Architecture -host_arch=$Architecture"
 }
 
+function Resolve-VulkanIncludeDir {
+    $candidates = @()
+    if (![string]::IsNullOrWhiteSpace($env:VULKAN_SDK)) {
+        $candidates += $env:VULKAN_SDK
+    }
+
+    $defaultSdkDir = Join-Path $env:SystemDrive "VulkanSDK"
+    if (Test-Path $defaultSdkDir) {
+        $candidates += Get-ChildItem -Path $defaultSdkDir -Directory |
+            Sort-Object { try { [version]$_.Name } catch { [version]"0.0" } } -Descending |
+            ForEach-Object { $_.FullName }
+    }
+
+    foreach ($candidate in $candidates) {
+        $includeDir = Join-Path $candidate "Include"
+        if (Test-Path (Join-Path $includeDir "vulkan\vulkan.h")) {
+            $script:VulkanSdkRoot = $candidate
+            return $includeDir
+        }
+    }
+    return ""
+}
+
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 if ([string]::IsNullOrWhiteSpace($QtOutputDir)) {
     $QtOutputDir = Join-Path $repoRoot ".qt"
@@ -222,6 +245,11 @@ if ([string]::IsNullOrWhiteSpace($QtRoot)) {
 # 4. Configure + build.
 $env:PATH = "$(Join-Path $QtRoot 'bin');$env:PATH"
 Enter-MsvcEnvironment -Architecture $targetArch
+$vulkanIncludeDir = Resolve-VulkanIncludeDir
+if (![string]::IsNullOrWhiteSpace($vulkanIncludeDir)) {
+    $env:VULKAN_SDK = $VulkanSdkRoot
+    Write-Host "Vulkan SDK: using $VulkanSdkRoot"
+}
 
 $generator = $toolchainSpec.Generator
 Write-Host "Configure: generator '$generator', Qt '$QtRoot', config '$Config'"
@@ -230,6 +258,9 @@ $configureArgs = @("-S", $repoRoot, "-B", $BuildDir, "-G", $generator,
     "-DCMAKE_PREFIX_PATH=$QtRoot",
     "-DCMAKE_TRY_COMPILE_CONFIGURATION=$Config",
     "-DMIACODE_BUILD_DEV_TOOLS=$buildDevTools")
+if (![string]::IsNullOrWhiteSpace($vulkanIncludeDir)) {
+    $configureArgs += "-DVulkan_INCLUDE_DIR=$vulkanIncludeDir"
+}
 & cmake @configureArgs
 if ($LASTEXITCODE -ne 0) {
     throw "CMake configure failed."

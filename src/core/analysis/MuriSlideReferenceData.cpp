@@ -1,26 +1,8 @@
 #include "core/analysis/MuriSlideReferenceData.h"
 
-#include <QFile>
-#include <QJsonDocument>
+#include "core/chart/SlideReferenceData.h"
 
 namespace miacode::muri::detail {
-
-const QJsonObject& slideRuntimeRoot()
-{
-    static const QJsonObject root = []() {
-        QFile file(":/data/slide_data.json");
-        if (!file.open(QIODevice::ReadOnly)) {
-            return QJsonObject();
-        }
-        QJsonParseError error;
-        const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &error);
-        if (error.error != QJsonParseError::NoError || !doc.isObject()) {
-            return QJsonObject();
-        }
-        return doc.object();
-    }();
-    return root;
-}
 
 QVector<QStringList> loadPadAreaSequence(const QJsonArray& areaArray)
 {
@@ -54,7 +36,7 @@ QVector<QVector<QStringList>> loadTriPadAreaSequence(const QJsonArray& laneArray
 QVector<QPointF> loadRuntimeSlideActionPath(const QString& key)
 {
     QVector<QPointF> points;
-    const QJsonObject entry = slideRuntimeRoot().value(QStringLiteral("slides")).toObject().value(key).toObject();
+    const QJsonObject entry = slide_reference::root().value(QStringLiteral("slides")).toObject().value(key).toObject();
     if (entry.isEmpty()) {
         return points;
     }
@@ -73,7 +55,7 @@ QVector<QPointF> loadRuntimeSlideActionPath(const QString& key)
 QVector<QVector<QPointF>> loadRuntimeWifiActionPaths(const QString& key)
 {
     QVector<QVector<QPointF>> paths;
-    const QJsonObject entry = slideRuntimeRoot().value(QStringLiteral("wifi")).toObject().value(key).toObject();
+    const QJsonObject entry = slide_reference::root().value(QStringLiteral("wifi")).toObject().value(key).toObject();
     if (entry.isEmpty()) {
         return paths;
     }

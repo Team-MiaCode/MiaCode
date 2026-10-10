@@ -1,6 +1,7 @@
 #include "common/LocalizedText.h"
 
 #include "app/ui/export/ExportSession.h"
+#include "app/ui/document/DifficultyOptions.h"
 
 #include "core/chart/document/SimaiDocument.h"
 
@@ -259,11 +260,6 @@ QString ExportSession::introSoundLabel() const
     return qtTrId("dialog.render_settings.music.intro_sound");
 }
 
-QString ExportSession::introSoundVolumeLabel() const
-{
-    return qtTrId("dialog.render_settings.music.intro_sound_volume");
-}
-
 QString ExportSession::introSoundImportLabel() const
 {
     return qtTrId("dialog.render_settings.video.skin.import");
@@ -289,10 +285,9 @@ IntroBannerSpec ExportSession::previewIntroSpec() const
 QVariantList ExportSession::batchDifficultyChecks() const
 {
     QVariantList list;
-    for (int id = 1; id <= 7; ++id) {
-        QVariantMap row;
-        row.insert(QStringLiteral("id"), id);
-        row.insert(QStringLiteral("name"), SimaiDocument::difficultyShortName(id));
+    for (const QVariant& option : difficultyOptions({1, 2, 3, 4, 5, 6, 7})) {
+        QVariantMap row = option.toMap();
+        const int id = row.value(QStringLiteral("id")).toInt();
         row.insert(QStringLiteral("checked"), batchSelectedDifficultyIds_.contains(id));
         list.append(row);
     }
@@ -306,6 +301,7 @@ void ExportSession::setUnavailableReason(const QString& reason)
     }
     unavailableReason_ = reason;
     emit unavailableReasonChanged();
+    emit rangePlaybackStateChanged();
 }
 
 bool ExportSession::difficultyExists(int difficultyId) const
@@ -495,15 +491,8 @@ void ExportSession::setSettingsTab(const QString& tabId)
 
 void ExportSession::rebuildDifficultyList()
 {
-    QVariantList next;
-    if (engine() != nullptr) {
-        for (int id : engine()->difficultyIds()) {
-            QVariantMap row;
-            row.insert(QStringLiteral("id"), id);
-            row.insert(QStringLiteral("name"), SimaiDocument::difficultyShortName(id));
-            next.append(row);
-        }
-    }
+    const QVariantList next = engine() != nullptr
+        ? difficultyOptions(engine()->difficultyIds()) : QVariantList();
     if (difficulties_ != next) {
         difficulties_ = next;
         emit difficultiesChanged();
@@ -530,14 +519,9 @@ void ExportSession::applyPreferences()
     const QJsonObject settings = miacode::app_preferences::loadDialogPreferences();
     // Keep the established first-run defaults shared with the Widgets dialog.
     task_.clockCountEnabled = false;
-    task_.fixHudTextLayout = false;
     task_.intro.mode = QStringLiteral("auto");
     task_.intro.lvRenderMode = QStringLiteral("atlas");
     miacode::video_export::applyVideoExportPreferences(settings, &task_);
-    miacode::preview_sfx::setSelectedIntroSoundVolume(task_.introSoundVolume);
-    if (preview() != nullptr) {
-        preview()->applySfxLevels();
-    }
     const int savedWidth = task_.outputWidth;
     const int savedHeight = task_.outputHeight;
     resolutionIndex_ = 3;
@@ -561,10 +545,26 @@ void ExportSession::savePreferences() const
 void ExportSession::seedFromDifficulty(int difficultyId)
 {
     if (engine() == nullptr || !difficultyHasChartBody(difficultyId)) {
+        VideoExportTask emptyTask;
+        if (hasSeededTask_) {
+            miacode::video_export::copyVideoExportUserSettings(task_, &emptyTask);
+        }
+        task_ = std::move(emptyTask);
+        chartDurationSeconds_ = 0.0;
+        if (!hasSeededTask_) {
+            applyPreferences();
+            hasSeededTask_ = true;
+        }
         setUnavailableReason(
             difficultyExists(difficultyId)
                 ? qtTrId("export_page.the_selected_difficulty_has_no")
                 : qtTrId("export_page.no_difficulty_is_available_to"));
+        setRangePlaybackEnabled(false);
+        clearPendingSelectionRangeExport();
+        emit outputChanged();
+        emit videoChanged();
+        emit introChanged();
+        emit rangeChanged();
         return;
     }
     setUnavailableReason(QString());
@@ -602,7 +602,7 @@ void ExportSession::syncAudition()
         return;
     }
     if (!difficultyHasChartBody(selectedDifficultyId_)) {
-        stopAudition();
+        engine()->clearAudition();
         return;
     }
     const bool applySelectionRange = hasPendingSelectionRangeExport_;
@@ -1186,13 +1186,6 @@ void ExportSession::setShowChartInfoHud(bool value)
     applyLivePreviewSettings();
 }
 
-void ExportSession::setFixHudTextLayout(bool value)
-{
-    task_.fixHudTextLayout = value;
-    emit videoChanged();
-    applyLivePreviewSettings();
-    savePreferences();
-}
 
 void ExportSession::setClockCountEnabled(bool value)
 {
@@ -1339,24 +1332,6 @@ void ExportSession::setIntroSoundFileName(const QString& fileName)
     // The window reloads the SFX bank and persists in reaction to this.
     appearance_->setIntroSoundFileName(normalized);
     emit introChanged();
-}
-
-void ExportSession::setIntroSoundVolume(double value)
-{
-    if (!qIsFinite(value)) {
-        return;
-    }
-    const double normalized = qBound(0.0, value, 2.0);
-    if (qFuzzyCompare(task_.introSoundVolume + 1.0, normalized + 1.0)) {
-        return;
-    }
-    task_.introSoundVolume = normalized;
-    miacode::preview_sfx::setSelectedIntroSoundVolume(normalized);
-    if (preview() != nullptr) {
-        preview()->applySfxLevels();
-    }
-    emit introChanged();
-    savePreferences();
 }
 
 void ExportSession::setExportStartSeconds(double value)

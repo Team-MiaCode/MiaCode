@@ -3,11 +3,10 @@
 #include "common/TaskCancellation.h"
 
 #include "common/OperationLog.h"
+#include "core/chart/SlideReferenceData.h"
 
-#include <QFile>
 #include <QHash>
 #include <QJsonArray>
-#include <QJsonDocument>
 #include <QJsonObject>
 #include <QLineF>
 #include <QtMath>
@@ -46,6 +45,13 @@ struct ParseState {
     int meterNumerator = kDefaultMeterNumerator;
     int meterDenominator = kDefaultMeterDenominator;
     double currentMeasureStartSecond = 0.0;
+    // Strict-mode tracking for the explicit subdivision required after each
+    // valid BPM directive. The source range stays attached to the BPM so the
+    // resulting warning points at the directive that opened the state.
+    bool awaitingExplicitSubdivision = false;
+    int awaitingSubdivisionLine = 1;
+    int awaitingSubdivisionStartCol = 1;
+    int awaitingSubdivisionEndCol = 1;
     // Current HS (hi-speed) multiplier set by <HS*N>. Mutated only by that
     // directive; reset to 1.0 at chart-end (E marker) per Q2. Notes emitted
     // while this is N have their hsMultiplier frozen at N.
@@ -931,40 +937,6 @@ QString tokenInsideBrackets(const QString& token)
     return token.mid(open + 1, close - open - 1);
 }
 
-const QJsonObject& slideDataRoot()
-{
-    static const QJsonObject root = []() {
-        QFile file(":/data/slide_data.json");
-        if (!file.open(QIODevice::ReadOnly)) {
-            return QJsonObject();
-        }
-        QJsonParseError error;
-        const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &error);
-        if (error.error != QJsonParseError::NoError || !doc.isObject()) {
-            return QJsonObject();
-        }
-        return doc.object();
-    }();
-    return root;
-}
-
-const QJsonObject& slideRuntimeRoot()
-{
-    static const QJsonObject root = []() {
-        QFile file(":/data/slide_data.json");
-        if (!file.open(QIODevice::ReadOnly)) {
-            return QJsonObject();
-        }
-        QJsonParseError error;
-        const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &error);
-        if (error.error != QJsonParseError::NoError || !doc.isObject()) {
-            return QJsonObject();
-        }
-        return doc.object();
-    }();
-    return root;
-}
-
 double nativeSlideTrackLengthForAreas(const QVector<QVector<QPointF>>& areas)
 {
     double length = 1.0;
@@ -1010,7 +982,7 @@ void populateSlideTrackLengths(TimelineNoteMarker* marker)
         marker->slideNativeTrackLength += nativeSlideTrackLengthForAreas(segmentAreas);
     }
 
-    const QJsonObject slides = slideRuntimeRoot().value("slides").toObject();
+    const QJsonObject slides = miacode::slide_reference::root().value("slides").toObject();
     bool foundRuntimeLength = false;
     for (const QString& key : marker->slideSegmentKeys) {
         miacode::task::CancellationScope::checkpoint();
@@ -1030,7 +1002,7 @@ void populateSlideTrackLengths(TimelineNoteMarker* marker)
 
 QJsonObject slideLookupEntry(const TimelineNoteMarker& marker)
 {
-    const QJsonObject root = slideDataRoot();
+    const QJsonObject root = miacode::slide_reference::root();
     if (root.isEmpty() || marker.slideTrackKey.isEmpty()) {
         return QJsonObject();
     }
@@ -1051,7 +1023,7 @@ QString canonicalSlideKey(const QString& key)
 
     const QString start = key.left(1);
     const QString end = key.right(1);
-    const QJsonObject slides = slideDataRoot().value("slides").toObject();
+    const QJsonObject slides = miacode::slide_reference::root().value("slides").toObject();
     const QJsonObject base = slides.value(key).toObject();
     if (base.isEmpty()) {
         return key;
@@ -1124,7 +1096,7 @@ bool touchHitsSlide(const TimelineNoteMarker& touch, const TimelineNoteMarker& s
         && !slide.slideSegmentKeys.isEmpty()
         && slide.slideSegmentKeys.size() == slide.slideSegmentShootSeconds.size()
         && slide.slideSegmentKeys.size() == slide.slideSegmentDurations.size()) {
-        const QJsonObject slides = slideDataRoot().value("slides").toObject();
+        const QJsonObject slides = miacode::slide_reference::root().value("slides").toObject();
         for (int i = 0; i < slide.slideSegmentKeys.size(); ++i) {
             miacode::task::CancellationScope::checkpoint();
             const QJsonObject entry = slides.value(slide.slideSegmentKeys.at(i)).toObject();
@@ -1284,7 +1256,7 @@ bool parseStandardSlideChain(
         // Approximate chain duration splitting by sampled polyline length.
         for (const QString& key : parsedShapes) {
             miacode::task::CancellationScope::checkpoint();
-            const QJsonObject entry = slideDataRoot().value("slides").toObject().value(key).toObject();
+            const QJsonObject entry = miacode::slide_reference::root().value("slides").toObject().value(key).toObject();
             QVector<QPointF> points;
             QVector<double> angles;
             loadSamplePath(entry.value("samples").toArray(), &points, &angles);
@@ -1600,7 +1572,7 @@ bool populateSlideFromLookup(const QString& key, TimelineNoteMarker* marker)
     if (marker == nullptr || key.isEmpty()) {
         return false;
     }
-    const QJsonObject root = slideDataRoot();
+    const QJsonObject root = miacode::slide_reference::root();
     if (root.isEmpty()) {
         return false;
     }

@@ -2,7 +2,6 @@
 
 #include "app/platform/PlatformDiagnostics.h"
 #include "app/ui/layout/WorkbenchSettings.h"
-#include "app/ui/chrome/NativeWindowTheme.h"
 #include "app/ui/preferences/LocaleService.h"
 #include "common/DebugLog.h"
 #include "export/cover_export/CoverCompositeRenderer.h"
@@ -15,7 +14,6 @@
 
 namespace miacode::ui {
 CoverExportWindow::CoverExportWindow(miacode::ExportEngine& exportEngine,
-                                           miacode::UiRequestService& requests,
                                            miacode::PlaybackControl*& playbackControlSlot,
                                            WorkbenchSettings& preferences,
                                            const QIcon& icon,
@@ -23,24 +21,29 @@ CoverExportWindow::CoverExportWindow(miacode::ExportEngine& exportEngine,
     : QObject(parent)
     , preferences_(preferences)
     , icon_(icon)
-    , session_(exportEngine, requests, playbackControlSlot, this)
+    , platform_(this)
+    , windowChrome_(this)
+    , requests_(this)
+    , session_(exportEngine, requests_, playbackControlSlot, this)
 {
+    connect(&miacode::LocaleService::instance(), &miacode::LocaleService::languageChanged,
+            &requests_, &miacode::UiRequestService::retranslate);
     // Export pumps events while capturing. Finish the active operation before
     // deleting its session, including when the application is closing.
     connect(&session_, &CoverExportSession::busyChanged, this, [this] {
-        if (closePending_ && !session_.busy()) {
+        if (session_.busy()) return;
+        if (closePending_) {
             close();
+        } else if (refreshPending_) {
+            refreshPending_ = false;
+            session_.refreshDocument(pendingDifficultyId_);
         }
     }, Qt::QueuedConnection);
-    connect(&preferences_, &WorkbenchSettings::themeChanged, this, [this] {
-        if (window_) {
-            NativeWindowTheme::applyAppearanceToWindow(window_);
-        }
-    });
+    windowChrome_.setBlurMaterialsEnabled(preferences_.blurMaterialsEnabled());
+    connect(&preferences_, &WorkbenchSettings::themeChanged,
+            &windowChrome_, &WindowChrome::refreshNativeTheme);
     connect(&preferences_, &WorkbenchSettings::blurMaterialsEnabledChanged, this, [this] {
-        if (window_) {
-            NativeWindowTheme::applyToWindow(window_, preferences_.blurMaterialsEnabled());
-        }
+        windowChrome_.setBlurMaterialsEnabled(preferences_.blurMaterialsEnabled());
     });
 }
 
@@ -53,7 +56,7 @@ CoverExportWindow::~CoverExportWindow()
     engine_.reset();
 }
 
-bool CoverExportWindow::show(QQuickWindow* owner, int difficultyId)
+bool CoverExportWindow::show(QQuickWindow* referenceWindow, int difficultyId)
 {
     engine_ = std::make_unique<QQmlApplicationEngine>();
     miacode::LocaleService::instance().setQmlEngine(engine_.get());
@@ -70,6 +73,8 @@ bool CoverExportWindow::show(QQuickWindow* owner, int difficultyId)
         {QStringLiteral("controller"), QVariant::fromValue(static_cast<QObject*>(this))},
         {QStringLiteral("coverSession"), QVariant::fromValue(static_cast<QObject*>(&session_))},
         {QStringLiteral("preferences"), QVariant::fromValue(static_cast<QObject*>(&preferences_))},
+        {QStringLiteral("platform"), QVariant::fromValue(static_cast<QObject*>(&platform_))},
+        {QStringLiteral("windowChrome"), QVariant::fromValue(static_cast<QObject*>(&windowChrome_))},
     });
     engine_->loadFromModule(QStringLiteral("MiaCode.UI"), QStringLiteral("CoverExportWindow"));
     if (engine_->rootObjects().isEmpty()) {
@@ -79,17 +84,16 @@ bool CoverExportWindow::show(QQuickWindow* owner, int difficultyId)
     if (!window_) {
         return false;
     }
-    window_->setTransientParent(owner);
     window_->setIcon(icon_);
-    if (owner != nullptr) {
-        window_->setScreen(owner->screen());
+    if (referenceWindow != nullptr) {
+        window_->setScreen(referenceWindow->screen());
     }
     const QRect available = window_->screen()->availableGeometry();
     window_->resize(window_->size().boundedTo(available.size()));
     window_->setPosition(available.center() - QPoint(window_->width() / 2, window_->height() / 2));
     miacode::app::entry::bindHighPerformanceQuickGraphicsDevice(
         window_, QStringLiteral("cover_window"), /*preferVideoShareDevice=*/false);
-    NativeWindowTheme::applyToWindow(window_, preferences_.blurMaterialsEnabled());
+    windowChrome_.attach(window_, QString());
     session_.enter(difficultyId);
     window_->show();
     window_->requestActivate();
@@ -105,6 +109,14 @@ void CoverExportWindow::raise()
         window_->raise();
         window_->requestActivate();
     }
+}
+
+void CoverExportWindow::refreshDocument(int difficultyId)
+{
+    if (closePending_) return;
+    pendingDifficultyId_ = difficultyId;
+    refreshPending_ = session_.busy();
+    if (!refreshPending_) session_.refreshDocument(difficultyId);
 }
 
 void CoverExportWindow::close()

@@ -661,6 +661,18 @@
         <source>Layer</source>
         <translation>レイヤー</translation>
     </message>
+    <message id="cover.bring_to_front">
+        <source>Bring to Front</source>
+        <translation>最前面へ</translation>
+    </message>
+    <message id="cover.send_to_back">
+        <source>Send to Back</source>
+        <translation>最背面へ</translation>
+    </message>
+    <message id="cover.layer_hidden">
+        <source>Hidden</source>
+        <translation>非表示</translation>
+    </message>
     <message id="cover.layers">
         <source>Layers</source>
         <translation>レイヤー</translation>
@@ -700,10 +712,6 @@
     <message id="cover.no_difficulty_selected">
         <source>No difficulty is selected, so the cover cannot be exported.</source>
         <translation>難易度が選択されていないため、カバーを出力できません。</translation>
-    </message>
-    <message id="cover.no_output_directory">
-        <source>Choose an output folder before exporting the cover.</source>
-        <translation>カバーを出力する前に、出力フォルダーを選んでください。</translation>
     </message>
     <message id="cover.no_presets">
         <source>No saved presets</source>
@@ -849,6 +857,10 @@
         <source>Unlock</source>
         <translation>ロック解除</translation>
     </message>
+    <message id="cover.window.title">
+        <source>Cover Editor</source>
+        <translation>カバーエディター</translation>
+    </message>
     <message id="cover.window_creation_failed">
         <source>Failed to create the cover export window.</source>
         <translation>表紙エクスポートウィンドウを作成できませんでした。</translation>
@@ -860,6 +872,10 @@
     <message id="dialog.batch_export.clear">
         <source>Clear</source>
         <translation>空にする</translation>
+    </message>
+    <message id="dialog.batch_export.no_chart_folders">
+        <source>No chart folders added</source>
+        <translation>譜面フォルダーが追加されていません</translation>
     </message>
     <message id="dialog.batch_export.difficulty">
         <source>Difficulty</source>
@@ -1232,44 +1248,48 @@ Failed: %2</source>
         <translation>アップデート</translation>
     </message>
     <message id="dialog.render_settings.audio.answer">
-        <source>Answer Volume</source>
-        <translation>Answer</translation>
+        <source>Answer Sound</source>
+        <translation>アンサー音</translation>
     </message>
     <message id="dialog.render_settings.audio.break">
-        <source>Break Volume</source>
+        <source>Break</source>
         <translation>Break</translation>
     </message>
     <message id="dialog.render_settings.audio.break_slide">
-        <source>Break Slide Volume</source>
+        <source>Break Slide</source>
         <translation>Break Slide</translation>
     </message>
     <message id="dialog.render_settings.audio.ex">
-        <source>EX Volume</source>
+        <source>EX</source>
         <translation>EX</translation>
     </message>
     <message id="dialog.render_settings.audio.firework">
-        <source>Firework Volume</source>
-        <translation>Firework</translation>
+        <source>Hanabi</source>
+        <translation>花火</translation>
     </message>
     <message id="dialog.render_settings.audio.global">
         <source>Global Volume</source>
-        <translation>Global</translation>
+        <translation>全体音量</translation>
+    </message>
+    <message id="dialog.render_settings.audio.intro">
+        <source>Export Intro</source>
+        <translation>エクスポートのイントロ</translation>
     </message>
     <message id="dialog.render_settings.audio.slide">
-        <source>Slide Volume</source>
+        <source>Slide</source>
         <translation>Slide</translation>
     </message>
     <message id="dialog.render_settings.audio.tap">
-        <source>Tap Volume</source>
+        <source>Tap</source>
         <translation>Tap</translation>
     </message>
     <message id="dialog.render_settings.audio.touch">
-        <source>Touch Volume</source>
+        <source>Touch</source>
         <translation>Touch</translation>
     </message>
     <message id="dialog.render_settings.audio.track">
-        <source>Track Volume</source>
-        <translation>Track</translation>
+        <source>Track</source>
+        <translation>楽曲</translation>
     </message>
     <message id="dialog.render_settings.gameplay.center_display">
         <source>Center Display</source>
@@ -1394,10 +1414,6 @@ Failed: %2</source>
     <message id="dialog.render_settings.music.intro_sound">
         <source>Intro sound</source>
         <translation>開始音</translation>
-    </message>
-    <message id="dialog.render_settings.music.intro_sound_volume">
-        <source>Intro sound volume</source>
-        <translation>開始音の音量</translation>
     </message>
     <message id="dialog.render_settings.preview.canvas_frame_rate">
         <source>Preview Refresh Rate</source>
@@ -1897,6 +1913,10 @@ Restore the backup from %1?</source>
         <source>&amp;first must be a valid number of seconds.</source>
         <translation>&amp;first には有効な秒数を指定してください。</translation>
     </message>
+    <message id="document.manage_designer_names">
+        <source>Manage</source>
+        <translation>管理</translation>
+    </message>
     <message id="document.maidata_txt_already_exists_in">
         <source>maidata.txt already exists in the selected folder. Overwrite it?</source>
         <translation>選択したフォルダーに既に maidata.txt があります。上書きしますか？</translation>
@@ -2090,16 +2110,16 @@ Restore the backup from %1?</source>
         <translation>動画出力</translation>
     </message>
     <message id="export_page.no_difficulty_is_available_to">
-        <source>No difficulty is available to export.</source>
-        <translation>出力できる難易度がありません。</translation>
+        <source>No chart to export.</source>
+        <translation>出力できる譜面がありません。</translation>
     </message>
     <message id="export_page.pack_as_zip">
         <source>Pack as ZIP</source>
         <translation>ZIP パッケージ化</translation>
     </message>
     <message id="export_page.the_selected_difficulty_has_no">
-        <source>The selected difficulty has no chart content to export.</source>
-        <translation>選択中の難易度には出力できる譜面内容がありません。</translation>
+        <source>This difficulty has no chart.</source>
+        <translation>この難易度には譜面がありません。</translation>
     </message>
     <message id="file_filter.audio">
         <source>Audio (*.wav *.mp3 *.ogg *.flac)</source>
@@ -2165,9 +2185,17 @@ Restore the backup from %1?</source>
         <source>%1 was not found next to the current chart.</source>
         <translation>現在の譜面フォルダーに %1 がありません。</translation>
     </message>
+    <message id="media_tools.audio_processing_track">
+        <source>Audio Processing track.mp3</source>
+        <translation>音声処理 track.mp3</translation>
+    </message>
     <message id="media_tools.audio_video_processing">
         <source>Audio/Video Processing</source>
         <translation>オーディオ/動画処理</translation>
+    </message>
+    <message id="media_tools.align_pv_to_audio">
+        <source>Auto-align Video to Track Audio</source>
+        <translation>動画を楽曲音声に自動同期</translation>
     </message>
     <message id="media_tools.background_mp4_video">
         <source>background .mp4 video</source>
@@ -2268,6 +2296,10 @@ Restore the backup from %1?</source>
     <message id="media_tools.batch_pv_replace_failed_1">
         <source>Compressed, but replacement failed; output kept at %1</source>
         <translation>Compressed, but replacement failed; output kept at %1</translation>
+    </message>
+    <message id="media_tools.batch_compress">
+        <source>Batch Compress Videos</source>
+        <translation>動画を一括圧縮</translation>
     </message>
     <message id="media_tools.batch_pv_start">
         <source>Compress Videos</source>
@@ -2425,9 +2457,37 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Could not create the two-pass log directory.</source>
         <translation>2パスエンコード用ログフォルダーを作成できませんでした。</translation>
     </message>
+    <message id="media_tools.prepend_blank">
+        <source>Prepend Blank</source>
+        <translation>先頭に空白を追加</translation>
+    </message>
     <message id="media_tools.prepend_pv_black_screen">
-        <source>Prepend PV Black Screen</source>
-        <translation>動画の先頭に黒画面を追加</translation>
+        <source>Add Intro Black Screen</source>
+        <translation>冒頭に黒画面を追加</translation>
+    </message>
+    <message id="media_tools.analyzing_audio_alignment">
+        <source>Analyzing audio alignment...</source>
+        <translation>音声の同期を分析中...</translation>
+    </message>
+    <message id="media_tools.video_audio_missing">
+        <source>The background video has no audio stream to align.</source>
+        <translation>背景動画に同期可能な音声トラックがありません。</translation>
+    </message>
+    <message id="media_tools.video_alignment_cancelled">
+        <source>Audio alignment canceled.</source>
+        <translation>音声の同期をキャンセルしました。</translation>
+    </message>
+    <message id="media_tools.video_alignment_offset_failed">
+        <source>Could not find a reliable offset between track.mp3 and the PV audio.</source>
+        <translation>track.mp3 と PV 音声の間で信頼できるオフセットを検出できませんでした。</translation>
+    </message>
+    <message id="media_tools.video_alignment_already_aligned">
+        <source>The PV audio is already aligned with track.mp3 (offset %1 s); no changes were made.</source>
+        <translation>PV 音声は track.mp3 と既に同期しています（オフセット %1 秒）。ファイルは変更されていません。</translation>
+    </message>
+    <message id="media_tools.video_aligned_to_track_1_2">
+        <source>Aligned %1 to track.mp3 with offset %2 s (original backed up as %3).</source>
+        <translation>%1 を %2 秒のオフセットで track.mp3 に合わせました（元ファイルは %3 にバックアップ）。</translation>
     </message>
     <message id="media_tools.prepend_track_silence">
         <source>Prepend Track Silence</source>
@@ -2453,12 +2513,20 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>progress surface unavailable</source>
         <translation>進捗画面を利用できません</translation>
     </message>
+    <message id="media_tools.pv_compress">
+        <source>Compress Current Video</source>
+        <translation>現在の動画を圧縮</translation>
+    </message>
     <message id="media_tools.replace_failed">
         <source>Failed to replace file: %1</source>
         <translation>ファイルを置換できませんでした：%1</translation>
     </message>
     <message id="media_tools.sample_rate">
         <source>Sample Rate</source>
+        <translation>サンプルレート変換</translation>
+    </message>
+    <message id="media_tools.sample_rate_conversion">
+        <source>Sample Rate Conversion</source>
         <translation>サンプルレート変換</translation>
     </message>
     <message id="media_tools.sample_rate_conversion_canceled">
@@ -2492,6 +2560,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="media_tools.video_processing_canceled">
         <source>Video processing canceled.</source>
         <translation>動画の処理をキャンセルしました。</translation>
+    </message>
+    <message id="media_tools.video_processing_pv">
+        <source>Video Processing pv.mp4</source>
+        <translation>動画処理 pv.mp4</translation>
     </message>
     <message id="menu.clear_elements">
         <source>Clear Elements</source>
@@ -2537,9 +2609,33 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>PV</source>
         <translation>PV</translation>
     </message>
+    <message id="metadata.import">
+        <source>Import</source>
+        <translation>読み込む</translation>
+    </message>
+    <message id="metadata.load_audio_info">
+        <source>Load audio info</source>
+        <translation>音声情報を読み込む</translation>
+    </message>
+    <message id="metadata.remove">
+        <source>Remove</source>
+        <translation>削除</translation>
+    </message>
+    <message id="metadata.no_pv">
+        <source>No PV</source>
+        <translation>PVなし</translation>
+    </message>
+    <message id="metadata.no_cover">
+        <source>No cover</source>
+        <translation>ジャケットなし</translation>
+    </message>
+    <message id="metadata.audio_tags_loaded">
+        <source>Read audio metadata.</source>
+        <translation>音声情報を読み込みました。</translation>
+    </message>
     <message id="metadata.field.cover">
-        <source>cover</source>
-        <translation>Jacket</translation>
+        <source>Cover</source>
+        <translation>ジャケット</translation>
     </message>
     <message id="metadata.field.des">
         <source>des</source>
@@ -2933,9 +3029,17 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Picture Options</source>
         <translation>画面オプション</translation>
     </message>
-    <message id="preview.fullscreen.enter_tooltip">
-        <source>Fullscreen</source>
-        <translation>全画面</translation>
+    <message id="preview.window.detach">
+        <source>Detach Preview</source>
+        <translation>プレビューを別ウィンドウに表示</translation>
+    </message>
+    <message id="preview.window.dock">
+        <source>Return to Main Window</source>
+        <translation>メインウィンドウに戻す</translation>
+    </message>
+    <message id="preview.window.title">
+        <source>Preview</source>
+        <translation>プレビュー</translation>
     </message>
     <message id="preview.pause">
         <source>Pause</source>
@@ -3133,10 +3237,6 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Errors</source>
         <translation>エラー</translation>
     </message>
-    <message id="qml.exit_fullscreen_preview">
-        <source>Exit fullscreen</source>
-        <translation>全画面を終了</translation>
-    </message>
     <message id="qml.expand_bookmarks">
         <source>Expand bookmarks</source>
         <translation>ブックマークを展開</translation>
@@ -3322,8 +3422,8 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>オフセット</translation>
     </message>
     <message id="qml.one_field_equals_value_per_line">
-        <source>One &amp;field=value per line</source>
-        <translation>1 行に 1 つの &amp;field=value</translation>
+        <source>&amp;field=value</source>
+        <translation>&amp;フィールド=値</translation>
     </message>
     <message id="qml.open_chart_info_or_add_a_difficulty">
         <source>Open metadata, or add a difficulty</source>
@@ -3472,10 +3572,6 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="qml.sound_effect_volume">
         <source>Sound-effect volume</source>
         <translation>効果音の音量</translation>
-    </message>
-    <message id="qml.sound_effects">
-        <source>Sound effects</source>
-        <translation>効果音</translation>
     </message>
     <message id="qml.start_audition">
         <source>Start audition</source>
@@ -3725,10 +3821,6 @@ Error: %1</source>
         <source>Import file</source>
         <translation>ファイルを読み込む</translation>
     </message>
-    <message id="track_metadata.import_pv">
-        <source>Import PV</source>
-        <translation>PV を読み込む</translation>
-    </message>
     <message id="track_metadata.imported_background_image">
         <source>Cover imported to %1.</source>
         <translation>背景画像を %1 に読み込みました。</translation>
@@ -3762,16 +3854,12 @@ Error: %1</source>
         <translation>MP3 からアーティストを読み込む</translation>
     </message>
     <message id="track_metadata.read_from_audio">
-        <source>Read from audio file</source>
-        <translation>音声ファイルから読み込む</translation>
+        <source>Read audio tags</source>
+        <translation>音声タグを読み込む</translation>
     </message>
     <message id="track_metadata.read_title_from_mp3">
         <source>Read Title from MP3</source>
         <translation>MP3 からタイトルを読み込む</translation>
-    </message>
-    <message id="track_metadata.remove_pv">
-        <source>Remove PV</source>
-        <translation>PV を削除</translation>
     </message>
     <message id="track_metadata.the_selected_mp3_has_no">
         <source>The selected MP3 has no embedded cover artwork.</source>

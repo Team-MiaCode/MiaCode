@@ -16,6 +16,11 @@ Item {
         ? exportSidebar.cornerSourceItem : chartSidebar.cornerSourceItem
 
     signal settingsRequested()
+    signal mediaToolRequested(string toolId)
+
+    function showMediaToolsMenu() {
+        activityBar.showMediaToolsMenu()
+    }
 
     clip: true
 
@@ -66,8 +71,8 @@ Item {
         onToolRequested: function(toolId) {
             if (!root.documentSession.hasDocument)
                 return
-            if (toolId === "media")
-                root.pages.openMediaProcessingTools()
+            if (toolId.startsWith("media."))
+                root.mediaToolRequested(toolId.substring(6))
             else if (toolId === "normalize")
                 root.pages.openNormalizeWholeChart()
         }

@@ -145,10 +145,32 @@ bool verifyDirectBucketGain(QTextStream& err)
     if (!requireNear(previewSfxVolumeForKind(settings, QStringLiteral("firework")), 0.50, 1e-9, QStringLiteral("firework should use direct Firework bucket gain"), err)) {
         return false;
     }
-    miacode::preview_sfx::setSelectedIntroSoundVolume(1.75);
-    const double introVolume = previewSfxVolumeForKind(settings, QStringLiteral("track_start"));
-    miacode::preview_sfx::setSelectedIntroSoundVolume(1.0);
-    if (!requireNear(introVolume, 1.75, 1e-9, QStringLiteral("track_start should use its independent volume without global/answer attenuation"), err)) {
+    settings.globalVolume = 0.5;
+    settings.introVolume = 0.6;
+    if (!requireNear(previewSfxVolumeForKind(settings, QStringLiteral("track_start")), 0.30, 1e-9, QStringLiteral("track_start should be the intro bucket under the global volume"), err)) {
+        return false;
+    }
+    settings.globalVolume = 0.0;
+    if (!requireNear(previewSfxVolumeForKind(settings, QStringLiteral("track_start")), 0.0, 1e-9, QStringLiteral("a muted global volume should silence track_start"), err)) {
+        return false;
+    }
+    settings.globalVolume = 0.5;
+    const PreviewAudioSettings reloaded = PreviewAudioSettings::fromJson(settings.toJson());
+    if (!requireNear(reloaded.introVolume, 0.6, 1e-9, QStringLiteral("intro volume should round-trip through JSON"), err)) {
+        return false;
+    }
+    if (!requireNear(PreviewAudioSettings::fromJson(QJsonObject{}).introVolume, 1.0, 1e-9, QStringLiteral("a document without intro_volume should read the default"), err)) {
+        return false;
+    }
+    PreviewAudioSettings toggled;
+    toggled.setIntroPercent(40);
+    toggled.toggleIntroMuted();
+    if (!toggled.introMuted()) {
+        err << "FAIL: toggling the intro channel should mute it" << Qt::endl;
+        return false;
+    }
+    toggled.toggleIntroMuted();
+    if (!requireNear(toggled.introVolume, 0.4, 1e-9, QStringLiteral("unmuting the intro channel should restore its previous level"), err)) {
         return false;
     }
     return true;

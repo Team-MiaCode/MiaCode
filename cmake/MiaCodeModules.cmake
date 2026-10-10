@@ -48,6 +48,8 @@ miacode_add_module(miacode_chart
     SOURCES
         src/core/chart/ChartAssetPaths.h
         src/core/chart/IntroConfig.h
+        src/core/chart/SlideReferenceData.cpp
+        src/core/chart/SlideReferenceData.h
         src/core/chart/document/ChartClockCount.h
         src/core/chart/document/SimaiDocument.cpp
         src/core/chart/document/SimaiDocument.h

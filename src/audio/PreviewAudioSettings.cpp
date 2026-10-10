@@ -14,6 +14,7 @@ constexpr double kDefaultBreakSlideVolume = 0.30;
 constexpr double kDefaultSlideVolume = 0.30;
 constexpr double kDefaultTouchVolume = 0.30;
 constexpr double kDefaultFireworkVolume = 0.30;
+constexpr double kDefaultIntroVolume = 1.0;
 constexpr double kMaxGlobalVolume = 1.0;
 constexpr double kMuteThreshold = 0.0001;
 
@@ -119,6 +120,7 @@ void PreviewAudioSettings::normalize()
     normalizeVolumePair(slideVolume, slideRestoreVolume, kDefaultSlideVolume);
     normalizeVolumePair(touchVolume, touchRestoreVolume, kDefaultTouchVolume);
     normalizeVolumePair(fireworkVolume, fireworkRestoreVolume, kDefaultFireworkVolume);
+    normalizeVolumePair(introVolume, introRestoreVolume, kDefaultIntroVolume);
 }
 
 int PreviewAudioSettings::globalPercent() const
@@ -169,6 +171,11 @@ int PreviewAudioSettings::touchPercent() const
 int PreviewAudioSettings::fireworkPercent() const
 {
     return qRound(clamp(fireworkVolume) * 100.0);
+}
+
+int PreviewAudioSettings::introPercent() const
+{
+    return qRound(clamp(introVolume) * 100.0);
 }
 
 void PreviewAudioSettings::setGlobalPercent(int value)
@@ -253,6 +260,14 @@ void PreviewAudioSettings::setFireworkPercent(int value)
     }
 }
 
+void PreviewAudioSettings::setIntroPercent(int value)
+{
+    setVolumePercent(introVolume, introRestoreVolume, value, kDefaultIntroVolume);
+    if (introVolume > kMuteThreshold) {
+        restoreGlobalIfMuted(*this);
+    }
+}
+
 bool PreviewAudioSettings::globalMuted() const
 {
     return isMutedVolume(globalVolume);
@@ -301,6 +316,11 @@ bool PreviewAudioSettings::touchMuted() const
 bool PreviewAudioSettings::fireworkMuted() const
 {
     return isMutedVolume(fireworkVolume);
+}
+
+bool PreviewAudioSettings::introMuted() const
+{
+    return isMutedVolume(introVolume);
 }
 
 bool PreviewAudioSettings::allNonTrackMuted() const
@@ -402,6 +422,14 @@ void PreviewAudioSettings::toggleFireworkMuted()
     toggleMuted(fireworkVolume, fireworkRestoreVolume, kDefaultFireworkVolume);
 }
 
+void PreviewAudioSettings::toggleIntroMuted()
+{
+    if (introMuted()) {
+        restoreGlobalIfMuted(*this);
+    }
+    toggleMuted(introVolume, introRestoreVolume, kDefaultIntroVolume);
+}
+
 void PreviewAudioSettings::toggleAllNonTrackMuted()
 {
     if (!allNonTrackMuted()) {
@@ -469,6 +497,8 @@ QJsonObject PreviewAudioSettings::toJson() const
     object.insert("touch_restore_volume", normalized.touchRestoreVolume);
     object.insert("firework_volume", normalized.fireworkVolume);
     object.insert("firework_restore_volume", normalized.fireworkRestoreVolume);
+    object.insert("intro_volume", normalized.introVolume);
+    object.insert("intro_restore_volume", normalized.introRestoreVolume);
     return object;
 }
 
@@ -589,6 +619,12 @@ PreviewAudioSettings PreviewAudioSettings::fromJson(const QJsonObject& object)
             object,
             "hanabi_restore_volume",
             settings.fireworkVolume > kMuteThreshold ? settings.fireworkVolume : kDefaultFireworkVolume));
+
+    settings.introVolume = valueOrDefault(object, "intro_volume", kDefaultIntroVolume);
+    settings.introRestoreVolume = valueOrDefault(
+        object,
+        "intro_restore_volume",
+        settings.introVolume > kMuteThreshold ? settings.introVolume : kDefaultIntroVolume);
 
     settings.normalize();
     return settings;

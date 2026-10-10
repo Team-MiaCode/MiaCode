@@ -15,6 +15,11 @@ void miacode::runtime::MediaJobsHost::compressBackgroundVideo()
     onCompressBackgroundVideo();
 }
 
+void miacode::runtime::MediaJobsHost::alignBackgroundVideoToTrack()
+{
+    onAlignBackgroundVideoToTrack();
+}
+
 QVariantMap miacode::runtime::MediaJobsHost::mediaBlankContext(bool isTrack)
 {
     return prependMediaBlankContext(

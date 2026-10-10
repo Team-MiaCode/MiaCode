@@ -2,38 +2,61 @@ import QtQuick
 import QtQuick.Layouts
 import MiaCode.UI
 
-// A settings page is a stack of these: a divider, a bold caption, then the
-// controls underneath. Every page in ExportVideoPage hand-rolled this same
-// three-piece shape, so it moved here once the third copy showed up.
+// Section header: caption and optional badge followed by a divider.
 ColumnLayout {
     id: root
 
     required property string title
-    // The page's own leading divider (if any) already separates the tab bar
-    // from the first section, so the first section skips its own to avoid a
-    // doubled-up line.
     property bool first: false
+    // Optional count shown after the title, e.g. how many items a list holds.
+    property string badge: ""
     default property alias content: contentColumn.data
 
-    Rectangle {
-        visible: !root.first
-        Layout.fillWidth: true
-        Layout.topMargin: 2
-        height: 1
-        color: Theme.colors.border.normal
-    }
+    spacing: 8
 
-    Text {
-        text: root.title
-        color: Theme.colors.text.section
-        font.family: Theme.uiFont
-        font.pixelSize: Theme.sectionTitleFontSize
-        font.bold: true
+    RowLayout {
+        Layout.fillWidth: true
+        Layout.topMargin: root.first ? 0 : 8
+        spacing: Theme.settingsRowSpacing
+
+        Text {
+            // An empty title leaves just the rule, for a group that needs
+            // separating but no caption.
+            visible: root.title.length > 0
+            text: root.title
+            color: Theme.colors.text.section
+            font.family: Theme.uiFont
+            font.pixelSize: Theme.sectionTitleFontSize
+            font.weight: Theme.sectionTitleFontWeight
+        }
+        Rectangle {
+            visible: root.badge.length > 0
+            implicitWidth: Math.max(implicitHeight, badgeText.implicitWidth + 12)
+            implicitHeight: 18
+            radius: height / 2
+            color: Theme.colors.popupState.selected
+
+            Text {
+                id: badgeText
+                anchors.centerIn: parent
+                text: root.badge
+                color: Theme.colors.text.secondary
+                font.family: Theme.uiFont
+                font.pixelSize: Theme.secondaryFontSize
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignVCenter
+            implicitHeight: 1
+            color: Theme.colors.border.normal
+        }
     }
 
     ColumnLayout {
         id: contentColumn
         Layout.fillWidth: true
-        spacing: 10
+        spacing: Theme.settingsRowSpacing
     }
 }

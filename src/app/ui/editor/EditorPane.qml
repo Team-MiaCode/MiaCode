@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Effects
 import QtQuick.Layouts
 import MiaCode.UI
 
@@ -28,9 +29,7 @@ Item {
         sourceVisible ? sourceEditor.selectionBeatStatusText : ""
     readonly property string selectionBeatTooltipText:
         sourceVisible ? sourceEditor.selectionBeatTooltipText : ""
-    // Metadata actions use one shared column width so the button geometry does
-    // not change with translated label length or with the input-field width.
-    readonly property int metadataActionButtonWidth: 168
+    readonly property real minimumWidth: 384
     property double pendingActivationSequence: 0
     property var pendingActivationCompletion: null
     property var pendingActivationCancellation: null
@@ -358,28 +357,32 @@ Item {
         anchors.top: tabs.bottom
         anchors.bottom: parent.bottom
         visible: root.viewState.metadataEditorActive
-        contentHeight: metadataColumn.implicitHeight + 32
+        contentHeight: metadataColumn.y + metadataColumn.implicitHeight + Theme.dialogPadding
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: AppScrollBar {}
 
-        Column {
+        ColumnLayout {
             id: metadataColumn
-            x: 20
-            y: 16
-            width: parent.width - 40
-            spacing: 12
+            x: Theme.dialogPadding
+            y: Theme.dialogPadding
+            width: Math.max(0, parent.width - 2 * Theme.dialogPadding)
+            spacing: Theme.settingsRowSpacing
+            readonly property int actionWidth: Math.ceil(Math.max(
+                actionMetrics.advanceWidth(qsTrId("metadata.import")),
+                actionMetrics.advanceWidth(qsTrId("metadata.load_audio_info")),
+                actionMetrics.advanceWidth(qsTrId("metadata.remove")),
+                actionMetrics.advanceWidth(qsTrId("document.manage_designer_names"))) + 24)
 
-            Label {
-                text: qsTrId("dialog.unsaved_field_changes.field.metadata")
-                color: Theme.colors.text.primary
+            FontMetrics {
+                id: actionMetrics
                 font.family: Theme.uiFont
-                font.pixelSize: Theme.uiFontSize + 2
+                font.pixelSize: Theme.uiFontSize
             }
 
             Label {
                 visible: root.documentSession.metadataNeedsAttention
-                width: metadataColumn.width
+                Layout.fillWidth: true
                 text: root.documentSession.metadataAttentionText
                 color: Theme.colors.syntax.warning
                 font.family: Theme.uiFont
@@ -387,82 +390,241 @@ Item {
                 wrapMode: Text.WordWrap
             }
 
-            MetadataField {
-                width: metadataColumn.width
-                label: qsTrId("net.title")
-                value: root.documentSession.metadataTitle
-                actionText: qsTrId("track_metadata.read_from_audio")
-                onCommitted: value => root.documentSession.metadataTitle = value
-                onActionRequested: root.documentSession.readTitleFromAudioFile()
-            }
-            MetadataField {
-                width: metadataColumn.width
-                label: qsTrId("metadata.field.artist")
-                value: root.documentSession.metadataArtist
-                actionText: qsTrId("track_metadata.read_from_audio")
-                onCommitted: value => root.documentSession.metadataArtist = value
-                onActionRequested: root.documentSession.readArtistFromAudioFile()
-            }
-            MetadataField {
-                width: metadataColumn.width
-                label: qsTrId("net.designer")
-                value: root.documentSession.metadataDesigner
-                actionText: qsTrId("document.designer_management")
-                onCommitted: value => root.documentSession.metadataDesigner = value
-                onActionRequested: designerSlotsDialog.open()
-            }
-            MetadataField {
-                width: metadataColumn.width
-                label: qsTrId("metadata.field.first")
-                value: root.documentSession.metadataFirst
-                onCommitted: value => root.documentSession.metadataFirst = value
-            }
-            MetadataField {
-                width: metadataColumn.width
-                label: qsTrId("media_tools.beats")
-                value: root.documentSession.metadataClockCount
-                onCommitted: value => root.documentSession.metadataClockCount = value
-            }
-            MetadataMediaField {
-                width: metadataColumn.width
-                label: qsTrId("metadata.field.cover")
-                firstActionText: qsTrId("track_metadata.read_from_audio")
-                secondActionText: qsTrId("track_metadata.import_file")
-                onFirstActionRequested: root.documentSession.extractCoverFromAudioFile()
-                onSecondActionRequested: root.documentSession.importChartBackgroundImage()
-            }
-            MetadataMediaField {
-                width: metadataColumn.width
-                label: qsTrId("metadata.field.background_video")
-                firstActionText: qsTrId("track_metadata.import_pv")
-                secondActionText: qsTrId("track_metadata.remove_pv")
-                secondActionEnabled: root.documentSession.metadataHasVideo
-                onFirstActionRequested: root.documentSession.importChartBackgroundVideo()
-                onSecondActionRequested: root.documentSession.removeChartPv()
-            }
+            // The four text rows on the left, the cover with its own actions on
+            // the right. Cell widths come from the page width so content never
+            // pushes a column out; narrow pages stack the two halves.
+            GridLayout {
+                id: metadataHeader
+                readonly property bool twoColumns: metadataColumn.width >= 480
+                readonly property real cellWidth: twoColumns
+                    ? (metadataColumn.width - columnSpacing) / 2 : metadataColumn.width
 
-            Label {
-                text: qsTrId("qml.other_fields")
-                color: Theme.colors.text.secondary
-                font.family: Theme.uiFont
-                font.pixelSize: Theme.secondaryFontSize
-            }
-            AppTextArea {
-                id: extraFieldsEdit
-                property bool userEdited: false
+                Layout.fillWidth: true
+                columns: twoColumns ? 2 : 1
+                columnSpacing: Theme.dialogPadding
+                rowSpacing: Theme.settingsRowSpacing
 
-                width: metadataColumn.width
-                height: 150
-                text: root.documentSession.metadataExtraText
-                placeholderText: qsTrId("qml.one_field_equals_value_per_line")
-                onTextChanged: {
-                    if (activeFocus && text !== root.documentSession.metadataExtraText)
-                        extraFieldsEdit.userEdited = true
+                ColumnLayout {
+                    id: fieldsColumn
+                    Layout.alignment: Qt.AlignTop
+                    Layout.preferredWidth: metadataHeader.cellWidth
+                    Layout.maximumWidth: metadataHeader.cellWidth
+                    spacing: Theme.settingsRowSpacing
+
+                    MetadataField {
+                        label: qsTrId("net.title")
+                        value: root.documentSession.metadataTitle
+                        onCommitted: value => root.documentSession.metadataTitle = value
+                    }
+                    MetadataField {
+                        label: qsTrId("metadata.field.artist")
+                        value: root.documentSession.metadataArtist
+                        onCommitted: value => root.documentSession.metadataArtist = value
+                    }
+                    MetadataField {
+                        label: qsTrId("net.designer")
+                        value: root.documentSession.metadataDesigner
+                        onCommitted: value => root.documentSession.metadataDesigner = value
+                        trailing: AppButton {
+                            Layout.preferredWidth: metadataColumn.actionWidth
+                            text: qsTrId("document.manage_designer_names")
+                            onClicked: designerSlotsDialog.open()
+                        }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.settingsRowSpacing
+
+                        MetadataField {
+                            Layout.preferredWidth: 1
+                            label: qsTrId("metadata.field.first")
+                            value: root.documentSession.metadataFirst
+                            onCommitted: value => root.documentSession.metadataFirst = value
+                        }
+                        MetadataField {
+                            Layout.preferredWidth: 1
+                            label: qsTrId("media_tools.beats")
+                            value: root.documentSession.metadataClockCount
+                            onCommitted: value => root.documentSession.metadataClockCount = value
+                        }
+                    }
                 }
-                onActiveFocusChanged: {
-                    if (!activeFocus && extraFieldsEdit.userEdited) {
-                        root.documentSession.metadataExtraText = text
-                        extraFieldsEdit.userEdited = false
+
+                ColumnLayout {
+                    id: coverColumn
+                    // The two columns keep an even split, so the field column holds
+                    // the left half and the cover block centers inside the right
+                    // one instead of hugging its edge.
+                    Layout.alignment: Qt.AlignTop
+                    Layout.preferredWidth: metadataHeader.cellWidth
+                    Layout.maximumWidth: metadataHeader.cellWidth
+                    // The block ends on the same bottom edge as the field column
+                    // beside it, so the square takes what the heading and the
+                    // action row leave.
+                    readonly property real chromeHeight: coverHeading.implicitHeight
+                        + coverActions.implicitHeight + coverActions.Layout.topMargin
+                        + 2 * coverColumn.spacing
+                    // Square capped by the cell width; stacked layout uses a fixed size.
+                    readonly property real side: Math.max(0, Math.min(metadataHeader.cellWidth,
+                        metadataHeader.twoColumns
+                            ? fieldsColumn.implicitHeight - coverColumn.chromeHeight : 160))
+                    spacing: Theme.settingsLabelSpacing
+
+                    // The heading shares the field labels' left edge; the cover
+                    // centers in the half with its actions on the half's right edge.
+                    Label {
+                        id: coverHeading
+                        text: qsTrId("metadata.field.cover")
+                        color: Theme.colors.text.secondary
+                        font.family: Theme.uiFont
+                        font.pixelSize: Theme.uiFontSize
+                    }
+
+                    Rectangle {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.preferredWidth: coverColumn.side
+                        Layout.preferredHeight: coverColumn.side
+                        radius: Theme.controlRadius
+                        color: metadataCover.status === Image.Ready ? "transparent"
+                            : Theme.overlayColor(Theme.colors.background.control)
+
+                        Image {
+                            id: metadataCover
+                            anchors.fill: parent
+                            source: root.documentSession.metadataCoverSource
+                            sourceSize.width: 320
+                            sourceSize.height: 320
+                            fillMode: Image.PreserveAspectFit
+                            cache: false
+                            layer.enabled: status === Image.Ready
+                            layer.effect: MultiEffect {
+                                autoPaddingEnabled: false
+                                maskEnabled: true
+                                maskSource: coverMask
+                            }
+
+                            Item {
+                                id: coverMask
+                                width: metadataCover.width
+                                height: metadataCover.height
+                                visible: false
+                                layer.enabled: true
+
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: metadataCover.paintedWidth
+                                    height: metadataCover.paintedHeight
+                                    radius: Theme.controlRadius
+                                    color: "white"
+                                }
+                            }
+                        }
+                        Text {
+                            anchors.fill: parent
+                            anchors.margins: Theme.panelPadding
+                            visible: metadataCover.status !== Image.Ready
+                            text: qsTrId("metadata.no_cover")
+                            font.family: Theme.uiFont
+                            font.pixelSize: Theme.secondaryFontSize
+                            color: Theme.colors.text.secondary
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+                    RowLayout {
+                        id: coverActions
+                        // One shared width for both labels, capped so the pair still
+                        // fits the half; the buttons never clip for translated text.
+                        readonly property real buttonWidth: Math.min(metadataColumn.actionWidth,
+                            (metadataHeader.cellWidth - spacing) / 2)
+                        Layout.alignment: Qt.AlignRight
+                        Layout.topMargin: Theme.panelPadding
+                        spacing: Theme.panelPadding
+
+                        AppButton {
+                            Layout.preferredWidth: coverActions.buttonWidth
+                            text: qsTrId("metadata.import")
+                            onClicked: root.documentSession.importChartBackgroundImage()
+                        }
+                        AppButton {
+                            Layout.preferredWidth: coverActions.buttonWidth
+                            text: qsTrId("metadata.load_audio_info")
+                            onClicked: root.documentSession.loadAudioInfoFromFile()
+                        }
+                    }
+                }
+            }
+
+            SettingsSection {
+                Layout.fillWidth: true
+                title: qsTrId("metadata.field.background_video")
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.panelPadding
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.settingsLabelSpacing
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: root.documentSession.metadataHasVideo
+                                ? root.documentSession.metadataResolvedVideoPath.split(/[/\\]/).pop()
+                                : qsTrId("metadata.no_pv")
+                            color: Theme.colors.text.primary
+                            font.family: Theme.uiFont
+                            font.pixelSize: Theme.uiFontSize
+                            elide: Text.ElideMiddle
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            visible: root.documentSession.metadataHasVideo
+                            text: root.documentSession.metadataResolvedVideoPath
+                            color: Theme.colors.text.secondary
+                            font.family: Theme.uiFont
+                            font.pixelSize: Theme.secondaryFontSize
+                            elide: Text.ElideMiddle
+                        }
+                    }
+                    AppButton {
+                        Layout.alignment: Qt.AlignVCenter
+                        Layout.preferredWidth: metadataColumn.actionWidth
+                        text: qsTrId("metadata.import")
+                        onClicked: root.documentSession.importChartBackgroundVideo()
+                    }
+                    AppButton {
+                        Layout.alignment: Qt.AlignVCenter
+                        Layout.preferredWidth: metadataColumn.actionWidth
+                        text: qsTrId("metadata.remove")
+                        enabled: root.documentSession.metadataHasVideo
+                        onClicked: root.documentSession.removeChartPv()
+                    }
+                }
+            }
+
+            SettingsSection {
+                Layout.fillWidth: true
+                title: qsTrId("qml.other_fields")
+
+                AppTextArea {
+                    id: extraFieldsEdit
+                    property bool userEdited: false
+
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 150
+                    text: root.documentSession.metadataExtraText
+                    placeholderText: qsTrId("qml.one_field_equals_value_per_line")
+                    onTextChanged: {
+                        if (activeFocus && text !== root.documentSession.metadataExtraText)
+                            extraFieldsEdit.userEdited = true
+                    }
+                    onActiveFocusChanged: {
+                        if (!activeFocus && extraFieldsEdit.userEdited) {
+                            root.documentSession.metadataExtraText = text
+                            extraFieldsEdit.userEdited = false
+                        }
                     }
                 }
             }
@@ -509,81 +671,36 @@ Item {
         commands: root.commands
     }
 
-    component MetadataField: Column {
+    component MetadataField: ColumnLayout {
         id: field
         required property string label
         required property string value
-        property string actionText: ""
-        readonly property int actionWidth: root.metadataActionButtonWidth
+        // Optional controls placed after the text field on the same row.
+        property alias trailing: trailingSlot.data
         signal committed(string value)
-        signal actionRequested()
-        spacing: 4
+        Layout.fillWidth: true
+        spacing: Theme.settingsLabelSpacing
 
         Label {
             text: field.label
             color: Theme.colors.text.secondary
             font.family: Theme.uiFont
-            font.pixelSize: Theme.secondaryFontSize
+            font.pixelSize: Theme.uiFontSize
         }
-        Item {
-            width: field.width
-            implicitHeight: Math.max(Theme.controlMinHeight, actionButton.implicitHeight)
-            height: implicitHeight
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Theme.panelPadding
 
             AppTextField {
-                id: metadataInput
-                anchors.left: parent.left
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                anchors.right: actionButton.visible ? actionButton.left : parent.right
-                anchors.rightMargin: actionButton.visible ? 8 : 0
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 text: field.value
                 onEditingFinished: field.committed(text)
             }
-            AppButton {
-                id: actionButton
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                width: field.actionWidth
-                visible: field.actionText.length > 0
-                text: field.actionText
-                onClicked: field.actionRequested()
-            }
-        }
-    }
-
-    component MetadataMediaField: Column {
-        id: mediaField
-        required property string label
-        required property string firstActionText
-        required property string secondActionText
-        readonly property int actionWidth: root.metadataActionButtonWidth
-        property bool secondActionEnabled: true
-        signal firstActionRequested()
-        signal secondActionRequested()
-        spacing: 4
-
-        Label {
-            text: mediaField.label
-            color: Theme.colors.text.secondary
-            font.family: Theme.uiFont
-            font.pixelSize: Theme.secondaryFontSize
-        }
-        Row {
-            width: mediaField.width
-            spacing: 8
-
-            AppButton {
-                width: mediaField.actionWidth
-                text: mediaField.firstActionText
-                onClicked: mediaField.firstActionRequested()
-            }
-            AppButton {
-                width: mediaField.actionWidth
-                enabled: mediaField.secondActionEnabled
-                text: mediaField.secondActionText
-                onClicked: mediaField.secondActionRequested()
+            RowLayout {
+                id: trailingSlot
+                visible: children.length > 0
+                spacing: Theme.panelPadding
             }
         }
     }

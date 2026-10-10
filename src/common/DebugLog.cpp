@@ -18,19 +18,25 @@
 
 #include <array>
 #include <atomic>
+#include <cerrno>
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
+#include <cstdlib>
 #include <deque>
 #include <mutex>
+#include <string>
 #include <thread>
 
 #ifdef Q_OS_WIN
+#include <share.h>
 #include <windows.h>
-#elif defined(Q_OS_MAC)
-#include <mach-o/dyld.h>
-#elif defined(Q_OS_UNIX)
+#else
+#include <fcntl.h>
 #include <unistd.h>
+#endif
+#ifdef Q_OS_MAC
+#include <mach-o/dyld.h>
 #endif
 
 namespace miacode::debug_log {
@@ -385,6 +391,96 @@ qint64 startupTrimMaxBytes()
     return 4 * 1024 * 1024;
 }
 
+// Plain C-runtime file primitives for everything the AsyncLogWriter worker
+// touches. The worker is a std::thread; constructing any QObject on it (a QFile,
+// or the temporary behind the static QFile::remove/rename) makes Qt adopt the
+// thread. On MinGW, winpthreads tears down the thread's TLS before Qt's
+// adopted-thread cleanup runs, so that cleanup dereferences a null QThreadData
+// (Qt6Core access violation) and WER snapshots the process on every writer stop,
+// i.e. every project-dir change. Without QObjects Qt registers no cleanup for the
+// worker. Behaviour mirrors the QFile usage this replaces: append, text mode
+// ("\n" -> "\r\n" on Windows), shared read/write, not inherited by children.
+#ifdef Q_OS_WIN
+std::wstring nativeFilePath(const QString& path)
+{
+    QString nativePath =
+        QDir::toNativeSeparators(QDir::cleanPath(QFileInfo(path).absoluteFilePath()));
+    // Past MAX_PATH the CRT needs the extended-length prefix QFile adds itself.
+    if (nativePath.size() >= MAX_PATH && !nativePath.startsWith(QLatin1String("\\\\?\\"))) {
+        nativePath = nativePath.startsWith(QLatin1String("\\\\"))
+            ? QStringLiteral("\\\\?\\UNC\\") + nativePath.mid(2)
+            : QStringLiteral("\\\\?\\") + nativePath;
+    }
+    return nativePath.toStdWString();
+}
+#endif
+
+std::FILE* openAppendFile(const QString& path)
+{
+#ifdef Q_OS_WIN
+    return ::_wfsopen(nativeFilePath(path).c_str(), L"aN", _SH_DENYNO);
+#else
+    const int fd = ::open(QFile::encodeName(path).constData(),
+                          O_WRONLY | O_APPEND | O_CREAT | O_CLOEXEC, 0666);
+    if (fd < 0) {
+        return nullptr;
+    }
+    std::FILE* file = ::fdopen(fd, "a");
+    if (file == nullptr) {
+        ::close(fd);
+    }
+    return file;
+#endif
+}
+
+// OS error of the last failed openAppendFile(), in the form qt_error_string()
+// expects: the Win32 code the CRT keeps in _doserrno on Windows, errno elsewhere.
+int lastOpenError()
+{
+#ifdef Q_OS_WIN
+    return static_cast<int>(_doserrno);
+#else
+    return errno;
+#endif
+}
+
+// One-shot append for the synchronous paths (fatal-grade lines, the durable
+// fallback, post-shutdown stragglers). They run on whichever thread logs —
+// the hang watchdog's std::thread included — so they follow the worker's
+// no-QObject rule. Returns false only when the open fails, like the QFile code
+// it replaces; the bytes reach the OS when the handle closes.
+bool appendBytesNative(const QString& path, const QByteArray& bytes, int* openError = nullptr)
+{
+    std::FILE* file = openAppendFile(path);
+    if (file == nullptr) {
+        if (openError != nullptr) {
+            *openError = lastOpenError();
+        }
+        return false;
+    }
+    std::fwrite(bytes.constData(), 1, static_cast<size_t>(bytes.size()), file);
+    std::fclose(file);
+    return true;
+}
+
+bool removeFileNative(const QString& path)
+{
+#ifdef Q_OS_WIN
+    return ::_wremove(nativeFilePath(path).c_str()) == 0;
+#else
+    return std::remove(QFile::encodeName(path).constData()) == 0;
+#endif
+}
+
+bool renameFileNative(const QString& from, const QString& to)
+{
+#ifdef Q_OS_WIN
+    return ::_wrename(nativeFilePath(from).c_str(), nativeFilePath(to).c_str()) == 0;
+#else
+    return std::rename(QFile::encodeName(from).constData(), QFile::encodeName(to).constData()) == 0;
+#endif
+}
+
 // Number of archived segments kept per channel (miacode_x.1.log .. .N.log).
 // Total on-disk per channel is bounded by (N + 1) × startupTrimMaxBytes().
 constexpr int kMaxLogSegments = 3;
@@ -420,19 +516,20 @@ bool rotateFileLocked(const QString& path, qint64 maxBytes, int maxSegments = kM
     if (!info.exists() || info.size() <= maxBytes) {
         return true;
     }
-    // Drop the oldest archive, then shift the rest up by one.
-    QFile::remove(rotatedSegmentPath(path, maxSegments));
+    // Drop the oldest archive, then shift the rest up by one. Native calls: this
+    // also runs on the AsyncLogWriter worker (see openAppendFile).
+    removeFileNative(rotatedSegmentPath(path, maxSegments));
     for (int i = maxSegments - 1; i >= 1; --i) {
         const QString from = rotatedSegmentPath(path, i);
-        if (QFile::exists(from)) {
+        if (QFileInfo::exists(from)) {
             const QString to = rotatedSegmentPath(path, i + 1);
-            QFile::remove(to);
-            QFile::rename(from, to);
+            removeFileNative(to);
+            renameFileNative(from, to);
         }
     }
     const QString firstArchive = rotatedSegmentPath(path, 1);
-    QFile::remove(firstArchive);
-    return QFile::rename(path, firstArchive);
+    removeFileNative(firstArchive);
+    return renameFileNative(path, firstArchive);
 }
 
 void trimDebugLogsInCurrentDirectoryLocked()
@@ -516,7 +613,8 @@ public:
         return !dropped;
     }
 
-    // Wait until the queue has been fully drained. Returns false on timeout.
+    // Wait until every queued entry has been written and handed to the OS (the
+    // worker flushes its stdio buffers per batch). Returns false on timeout.
     bool flush(int timeoutMs)
     {
         std::unique_lock<std::mutex> lock(mutex_);
@@ -687,6 +785,10 @@ private:
             for (const Entry& entry : batch) {
                 writeEntryWorker(entry);
             }
+            // Hand the batch to the OS before reporting it drained, so a flush()
+            // caller (fatal-grade lines, crash breadcrumbs) finds every earlier line
+            // in the file. One write per open channel per batch, not per line.
+            flushCachedHandles();
             const auto batchEnd = std::chrono::steady_clock::now();
             const quint64 batchNs = static_cast<quint64>(
                 std::chrono::duration_cast<std::chrono::nanoseconds>(batchEnd - batchStart).count());
@@ -715,37 +817,29 @@ private:
             channelPaths_[idx] = logPath(entry.channel);
         }
         const QString& path = channelPaths_[idx];
-        QFile* file = openFiles_[idx];
-        if (file == nullptr || !file->isOpen()) {
+        // Native handle, never QFile: a QObject here would make Qt adopt this
+        // std::thread (see openAppendFile).
+        std::FILE*& file = openFiles_[idx];
+        if (file == nullptr) {
             ensureParentDirectory(path);
-            file = new QFile(path);
-            if (!file->open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
-                delete file;
-                openFiles_[idx] = nullptr;
+            file = openAppendFile(path);
+            if (file == nullptr) {
                 return;
             }
-            openFiles_[idx] = file;
             writeCountSinceTrim_[idx] = 0;
         }
-        file->write(entry.bytes);
-        // No flush here — Qt's QFile writes go through the OS file cache, and we let the
-        // OS flush on its own schedule. Trade-off: a hard crash may lose the last few log
-        // lines, but the alternative (flush per write) re-introduces the I/O stall we're
-        // trying to eliminate.
+        std::fwrite(entry.bytes.constData(), 1, static_cast<size_t>(entry.bytes.size()), file);
+        // No flush per line: workerLoop flushes once per batch, so a burst costs one
+        // write per channel instead of one per line.
         const qint64 newCount = writeCountSinceTrim_[idx] + 1;
         if (newCount >= kTrimEveryWritesPerChannel
             && miacode::debug_options::debugModeEnabled()) {
             // Close the handle, rotate if oversized (rename-based, preserves the
             // session start in an archived segment), then reopen a fresh base for
             // further appends. rotateFileLocked short-circuits when under the cap.
-            file->close();
+            std::fclose(file);
             rotateFileLocked(path, startupTrimMaxBytes());
-            if (!file->open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
-                delete file;
-                openFiles_[idx] = nullptr;
-                writeCountSinceTrim_[idx] = 0;
-                return;
-            }
+            file = openAppendFile(path);
             writeCountSinceTrim_[idx] = 0;
         } else {
             writeCountSinceTrim_[idx] = newCount;
@@ -757,22 +851,23 @@ private:
     {
         const QString path = logPath(channel);
         ensureParentDirectory(path);
-        QFile file(path);
-        if (!file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
-            return;
+        appendBytesNative(path, bytes);
+    }
+
+    void flushCachedHandles()
+    {
+        for (std::FILE* f : openFiles_) {
+            if (f != nullptr) {
+                std::fflush(f);
+            }
         }
-        file.write(bytes);
-        file.close();
     }
 
     void closeAllCachedHandles()
     {
-        for (QFile*& f : openFiles_) {
+        for (std::FILE*& f : openFiles_) {
             if (f != nullptr) {
-                if (f->isOpen()) {
-                    f->close();
-                }
-                delete f;
+                std::fclose(f);
                 f = nullptr;
             }
         }
@@ -808,7 +903,7 @@ private:
     // path needs no QString key derivation. channelPaths_ caches each channel's
     // resolved log path (filled once per worker lifetime; cleared on stop, so a
     // project-dir change re-resolves it).
-    std::array<QFile*, kChannelCount> openFiles_{};
+    std::array<std::FILE*, kChannelCount> openFiles_{};
     std::array<qint64, kChannelCount> writeCountSinceTrim_{};
     std::array<QString, kChannelCount> channelPaths_;
 
@@ -883,7 +978,7 @@ void setSessionProjectLogDirectory(const QString& directoryPath)
 
     // If the project folder actually changed, drain the async log
     // writer and tear down its cached file handles. The writer keeps
-    // one QFile* per channel open for the lifetime of the worker
+    // one file handle per channel open for the lifetime of the worker
     // thread; on Windows those handles take an exclusive write lock
     // that blocks the user from zipping / compressing the old
     // project folder while MiaCode is still running. Stopping the
@@ -950,13 +1045,7 @@ bool writeDurableFallbackLine(const QByteArray& bytes)
                                  .filePath(QStringLiteral("miacode_durable_fallback_%1.log")
                                                .arg(cachedProcessId()));
         ensureParentDirectory(path);
-        QFile file(path);
-        if (file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
-            file.write(bytes);
-            file.flush();
-            file.close();
-            written = true;
-        }
+        written = appendBytesNative(path, bytes);
     }
     fallbackMutex.unlock();
     return written;
@@ -1106,29 +1195,15 @@ bool appendText(Channel channel, const QString& text, bool force, Level level)
         if (!mutex.tryLock(kDurableLockTimeoutMs)) {
             return writeDurableFallbackLine(bytes);
         }
-        bool written = false;
         int openError = 0;
-        QString openErrorText;
-        QString attemptedPath;
-        {
-            const QString path = logPath(channel);
-            attemptedPath = path;
-            ensureParentDirectory(path);
-            QFile file(path);
-            if (file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
-                file.write(bytes);
-                file.flush();
-                file.close();
-                written = true;
-            } else {
-                openError = static_cast<int>(file.error());
-                openErrorText = file.errorString();
-            }
-        }
+        const QString attemptedPath = logPath(channel);
+        ensureParentDirectory(attemptedPath);
+        const bool written = appendBytesNative(attemptedPath, bytes, &openError);
         mutex.unlock();
         if (written) {
             return true;
         }
+        const QString openErrorText = qt_error_string(openError);
         // The durable path used to end here, returning false into a caller that does not
         // check it -- so a fatal-grade line whose open() failed vanished without a trace.
         // That is not theoretical: across five captures the hang watchdog generated its

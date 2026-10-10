@@ -1,6 +1,7 @@
 #include "common/LocalizedText.h"
 
 #include "app/ui/export/CoverExportSession.h"
+#include "app/ui/document/DifficultyOptions.h"
 #include "app/ui/preferences/LocaleService.h"
 
 #include "core/chart/ChartAssetPaths.h"
@@ -8,6 +9,7 @@
 #include "app/services/PlaybackControl.h"
 #include "export/cover_export/CoverCompositionState.h"
 #include "app/services/CoverExportPreferences.h"
+#include "app/services/ProjectPreferences.h"
 #include "export/cover_export/CoverFramePlaybackController.h"
 #include "export/cover_export/CoverFrameExportPlan.h"
 #include "export/cover_export/CoverFrameSceneBinder.h"
@@ -28,6 +30,7 @@
 #include <QUrl>
 
 #include <iterator>
+#include <algorithm>
 
 
 namespace miacode::ui {
@@ -57,7 +60,8 @@ QVariantMap loadBannerTemplate()
     return document.isObject() ? document.object().toVariantMap() : QVariantMap{};
 }
 
-QString normalisedCoverOutputDirectory(const QString& chartPath)
+// Where a relative output file is read against: the chart folder.
+QString coverOutputBaseDirectory(const QString& chartPath)
 {
     const QFileInfo chartInfo(chartPath);
     const QDir directory = chartInfo.absoluteDir();
@@ -231,6 +235,17 @@ void CoverExportSession::enter(int preferredDifficultyId)
     emit fontLibraryChanged();
 }
 
+void CoverExportSession::refreshDocument(int preferredDifficultyId)
+{
+    rebuildDifficultyList();
+    const int next = defaultDifficultyId(preferredDifficultyId);
+    if (selectedDifficultyId_ != next) {
+        selectedDifficultyId_ = next;
+        emit selectedDifficultyIdChanged();
+    }
+    seedFromDifficulty(next);
+}
+
 void CoverExportSession::leave()
 {
     if (!pageSessionActive_) {
@@ -273,13 +288,7 @@ int CoverExportSession::defaultDifficultyId(int preferredDifficultyId) const
 
 void CoverExportSession::rebuildDifficultyList()
 {
-    QVariantList next;
-    for (int id : exportEngine_.difficultyIds()) {
-        next.append(QVariantMap{
-            {QStringLiteral("id"), id},
-            {QStringLiteral("name"), SimaiDocument::difficultyShortName(id)},
-        });
-    }
+    const QVariantList next = difficultyOptions(exportEngine_.difficultyIds());
     if (difficulties_ != next) {
         difficulties_ = next;
         emit difficultiesChanged();
@@ -304,15 +313,19 @@ void CoverExportSession::seedFromDifficulty(int difficultyId)
     commitActiveLayerFrameSeconds();
     stopAndDetachLiveChartScene();
     setBusy(true);
-    task_ = exportEngine_.buildSeedTask(difficultyId);
-    // Output folder and canvas size are seeded from the chart once. Every later
-    // call re-seeds because the user picked a different DIFFICULTY, and the
-    // difficulty says nothing about where the image goes or how big it is —
-    // re-deriving them there silently discarded whatever the user had chosen.
-    // The saved composition, applied just below on the first seed, wins over
-    // both.
-    if (outputDirectory_.isEmpty()) {
-        outputDirectory_ = normalisedCoverOutputDirectory(task_.chartPath);
+    const VideoExportTask nextTask = exportEngine_.buildSeedTask(difficultyId);
+    const bool chartChanged = task_.chartPath != nextTask.chartPath;
+    if (chartChanged) flushComposition();
+    task_ = nextTask;
+    if (chartChanged || outputFile_.isEmpty()) {
+        const QJsonObject project = miacode::project_preferences::load(task_.chartPath);
+        outputFile_ = project.value(QStringLiteral("coverExport")).toObject()
+            .value(QStringLiteral("outputFile")).toString(
+                QString::fromLatin1(miacode::cover_export::CoverCompositionState::kDefaultOutputFile));
+        if (outputFile_.trimmed().isEmpty()) {
+            outputFile_ = QString::fromLatin1(miacode::cover_export::CoverCompositionState::kDefaultOutputFile);
+        }
+        outputDirty_ = false;
     }
     if (!hasLoadedPreferences_) {
         for (int index = 0; index < std::size(kCoverResolutionPresets); ++index) {
@@ -328,7 +341,9 @@ void CoverExportSession::seedFromDifficulty(int difficultyId)
     chartFrameDuration_ = chartFrameAvailable_ ? frameRenderer_->contentDurationSeconds() : 0.0;
 
     if (!hasLoadedPreferences_) {
-        const QJsonObject saved = miacode::app_preferences::coverExportPreferences().loadPreferences();
+        QJsonObject saved = miacode::app_preferences::coverExportPreferences().loadPreferences();
+        saved.remove(QStringLiteral("outputFile"));
+        saved.remove(QStringLiteral("output"));
         if (!saved.isEmpty()) {
             applyCompositionJson(saved, false);
         }
@@ -638,6 +653,22 @@ void CoverExportSession::lowerActiveLayer()
     persistComposition();
 }
 
+void CoverExportSession::moveLayer(const QString& key, int viewRow)
+{
+    if (layout_ == nullptr || busy_) return;
+    auto ordered = layout_->layers();
+    std::sort(ordered.begin(), ordered.end(), [](const auto* a, const auto* b) {
+        return a->z() > b->z();
+    });
+    for (int i = 0; i < ordered.size(); ++i) {
+        if (ordered[i]->key() == key) {
+            layout_->moveByViewRows(i, viewRow);
+            persistComposition();
+            return;
+        }
+    }
+}
+
 void CoverExportSession::browseActiveLayerImage()
 {
     auto* layer = activeCoverLayer();
@@ -688,9 +719,14 @@ void CoverExportSession::importCardBodyFont() { requestFont(false, false); }
 
 void CoverExportSession::setActiveLayerVisible(bool visible)
 {
-    if (auto* layer = activeCoverLayer()) {
+    setLayerVisible(activeLayerKey_, visible);
+}
+
+void CoverExportSession::setLayerVisible(const QString& key, bool visible)
+{
+    if (auto* layer = layout_ != nullptr ? layout_->layer(key) : nullptr) {
         layer->setVisible(visible);
-        if (layer->kind() == QStringLiteral("chartFrame")) {
+        if (isActiveChartFrame(layer)) {
             if (!visible) {
                 playback_->pause();
                 playback_->cancelInput();
@@ -705,7 +741,15 @@ void CoverExportSession::setActiveLayerVisible(bool visible)
 }
 void CoverExportSession::setActiveLayerLocked(bool locked)
 {
-    if (auto* layer = activeCoverLayer()) { layer->setLocked(locked); persistComposition(); }
+    setLayerLocked(activeLayerKey_, locked);
+}
+
+void CoverExportSession::setLayerLocked(const QString& key, bool locked)
+{
+    if (auto* layer = layout_ != nullptr ? layout_->layer(key) : nullptr) {
+        layer->setLocked(locked);
+        persistComposition();
+    }
 }
 void CoverExportSession::setActiveLayerOpacity(double opacity)
 {
@@ -931,44 +975,31 @@ void CoverExportSession::setResolutionIndex(int index)
     if (resolutionIndex_ == next) return;
     resolutionIndex_ = next; emit outputChanged(); persistComposition();
 }
-void CoverExportSession::setOutputDirectory(const QString& path)
+void CoverExportSession::setOutputFile(const QString& path)
 {
     QString input = path.trimmed();
     if (input.isEmpty()) return;
 #ifndef Q_OS_WIN
-    if (input == QStringLiteral("~") || input.startsWith(QStringLiteral("~/"))) {
+    if (input.startsWith(QStringLiteral("~/"))) {
         input = QDir::homePath() + input.mid(1);
     }
 #endif
-    // A relative folder is read against the chart folder — the same base the
-    // field displays it against — never against the process working directory.
-    const QString chartFolder = task_.chartPath.isEmpty() ? QString() : QFileInfo(task_.chartPath).absolutePath();
-    if (QDir::isRelativePath(input) && !chartFolder.isEmpty()) {
-        input = QDir(chartFolder).absoluteFilePath(input);
-    }
+    // A folder has no file name to write to; it is not a usable answer here.
+    if (input.endsWith(QLatin1Char('/')) || input.endsWith(QLatin1Char('\\'))) return;
     const QString next = QDir::cleanPath(input);
-    if (outputDirectory_ == next) return;
-    outputDirectory_ = next; emit outputChanged(); persistComposition();
+    if (outputFile_ == next) return;
+    outputFile_ = next;
+    outputDirty_ = true;
+    emit outputChanged();
+    compositionSaveTimer_.start();
 }
 
-QString CoverExportSession::outputDirectoryDisplay() const
+QString CoverExportSession::outputFilePath() const
 {
-    if (outputDirectory_.isEmpty()) return {};
-    if (!task_.chartPath.isEmpty()) {
-        const QString relative = QDir(QFileInfo(task_.chartPath).absolutePath()).relativeFilePath(outputDirectory_);
-        if (relative == QStringLiteral(".")) return relative;
-        if (QDir::isRelativePath(relative) && !relative.startsWith(QStringLiteral(".."))) {
-            return relative;
-        }
-    }
-#ifndef Q_OS_WIN
-    const QString home = QDir::homePath();
-    if (outputDirectory_ == home) return QStringLiteral("~");
-    if (outputDirectory_.startsWith(home + QLatin1Char('/'))) {
-        return QStringLiteral("~") + outputDirectory_.mid(home.size());
-    }
-#endif
-    return QDir::toNativeSeparators(outputDirectory_);
+    if (outputFile_.isEmpty()) return {};
+    // A relative file is read against the chart folder, never against the
+    // process working directory.
+    return QDir::cleanPath(QDir(coverOutputBaseDirectory(task_.chartPath)).absoluteFilePath(outputFile_));
 }
 
 void CoverExportSession::browseBackgroundImage()
@@ -1028,17 +1059,15 @@ QJsonObject CoverExportSession::compositionJson() const
                   {QStringLiteral("fontDisplay"), cardFontDisplayPath_},
                   {QStringLiteral("fontBody"), cardFontBodyPath_}};
     state.layout = layout_ != nullptr ? layout_->toJson() : QJsonObject{};
-    state.outputDirectory = outputDirectory_;
+    state.outputFile = outputFile_;
     return state.toJson();
 }
 
 QJsonObject CoverExportSession::sharedCompositionJson() const
 {
     QJsonObject root = compositionJson();
-    // A saved .miacover travels to other charts and other machines. The output
-    // folder is a property of this installation, not of the look being shared,
-    // so it stays in the local preferences blob and out of the file.
-    root.remove(QStringLiteral("output"));
+    // Output destinations belong to the chart project; shared layouts keep appearance only.
+    root.remove(QStringLiteral("outputFile"));
     return root;
 }
 
@@ -1143,10 +1172,13 @@ bool CoverExportSession::applyCompositionJsonInternal(const QJsonObject& root,
     longTextMode_ = card.value(QStringLiteral("longText")).toString(QStringLiteral("shrink"));
     cardFontDisplayPath_ = card.value(QStringLiteral("fontDisplay")).toString();
     cardFontBodyPath_ = card.value(QStringLiteral("fontBody")).toString();
-    // Presets and pre-2026-08-31 layouts carry no folder; keep the current one
+    // Presets and older layouts carry no output file; keep the current one
     // rather than blanking the field.
-    if (const QString savedOutput = state.outputDirectory.trimmed(); !savedOutput.isEmpty()) {
-        outputDirectory_ = savedOutput;
+    if (const QString savedOutput = state.outputFile.trimmed(); !savedOutput.isEmpty()) {
+        if (outputFile_ != savedOutput) {
+            outputFile_ = savedOutput;
+            outputDirty_ = true;
+        }
     }
     if (layout_ != nullptr) {
         layout_->fromJson(state.layout);
@@ -1238,11 +1270,16 @@ void CoverExportSession::persistComposition()
 void CoverExportSession::flushComposition()
 {
     compositionSaveTimer_.stop();
-    if (!compositionDirty_) return;
-    // Build from live session state at flush time. The adapter merges into the
-    // latest section so an intervening preset/recent-file edit survives.
-    if (miacode::app_preferences::coverExportPreferences().savePreferences(compositionJson())) {
+    if (compositionDirty_
+        && miacode::app_preferences::coverExportPreferences().savePreferences(sharedCompositionJson())) {
         compositionDirty_ = false;
+    }
+    if (outputDirty_ && !task_.chartPath.isEmpty()) {
+        QJsonObject project = miacode::project_preferences::load(task_.chartPath);
+        QJsonObject cover = project.value(QStringLiteral("coverExport")).toObject();
+        cover.insert(QStringLiteral("outputFile"), outputFile_);
+        project.insert(QStringLiteral("coverExport"), cover);
+        if (miacode::project_preferences::save(task_.chartPath, project)) outputDirty_ = false;
     }
 }
 
@@ -1359,13 +1396,14 @@ void CoverExportSession::removePreset(const QString& name)
     refreshSavedLists();
 }
 
-void CoverExportSession::browseOutputDirectory()
+void CoverExportSession::browseOutputFile()
 {
     miacode::FileRequest request;
-    request.title = miacode::localizedText("net.choose_output_directory");
-    request.startPath = outputDirectory_;
-    request.selectFolder = true;
-    uiRequests_->requestFile(request, [this](const QString& path) { setOutputDirectory(path); });
+    request.title = miacode::localizedText("cover.export_cover");
+    request.startPath = outputFilePath();
+    request.nameFilters = {miacode::localizedText("cover.images_png_jpg_jpeg_bmp")};
+    request.saveMode = true;
+    uiRequests_->requestFile(request, [this](const QString& path) { setOutputFile(path); });
 }
 
 miacode::cover_export::CoverComposerInputs CoverExportSession::buildInputs() const
@@ -1401,12 +1439,6 @@ void CoverExportSession::exportCover()
                     miacode::localizedText("cover.no_difficulty_selected"));
         return;
     }
-    if (outputDirectory_.isEmpty()) {
-        notifyError(miacode::localizedText("cover.export_cover"),
-                    miacode::localizedText("cover.no_output_directory"));
-        return;
-    }
-
     // The coordinator is the single playback authority now; a preview left
     // running under the synchronous render below would keep its audio going
     // under a frozen UI. Only toggle when it is actually playing —
@@ -1438,7 +1470,7 @@ void CoverExportSession::exportCover()
     persistComposition();
     const auto result = framesReady
         ? miacode::cover_export::exportCoverComposite(
-              layout_.get(), buildInputs(), QSize(outputWidth(), outputHeight()), outputDirectory_)
+              layout_.get(), buildInputs(), QSize(outputWidth(), outputHeight()), outputFilePath())
         : miacode::cover_export::CoverExportResult{
               false, QString(), qtTrId("cover.chart_frame_render_failed")};
     if (layout_->layer(savedActiveKey) != nullptr) {

@@ -54,7 +54,6 @@ class ExportSession final : public QObject, public miacode::ExportPagePort
 
     Q_PROPERTY(bool showObjectStatsHud READ showObjectStatsHud WRITE setShowObjectStatsHud NOTIFY videoChanged)
     Q_PROPERTY(bool showChartInfoHud READ showChartInfoHud WRITE setShowChartInfoHud NOTIFY videoChanged)
-    Q_PROPERTY(bool fixHudTextLayout READ fixHudTextLayout WRITE setFixHudTextLayout NOTIFY videoChanged)
     Q_PROPERTY(bool clockCountEnabled READ clockCountEnabled WRITE setClockCountEnabled NOTIFY videoChanged)
 
     // Shared portable font library for the intro difficulty card. File selection
@@ -74,9 +73,7 @@ class ExportSession final : public QObject, public miacode::ExportPagePort
     Q_PROPERTY(QVariantList introSoundOptions READ introSoundOptions NOTIFY introSoundOptionsChanged)
     Q_PROPERTY(int introSoundIndex READ introSoundIndex WRITE setIntroSoundIndex NOTIFY introChanged)
     Q_PROPERTY(QString introSoundFileName READ introSoundFileName WRITE setIntroSoundFileName NOTIFY introChanged)
-    Q_PROPERTY(double introSoundVolume READ introSoundVolume WRITE setIntroSoundVolume NOTIFY introChanged)
     Q_PROPERTY(QString introSoundLabel READ introSoundLabel NOTIFY localeLabelsChanged)
-    Q_PROPERTY(QString introSoundVolumeLabel READ introSoundVolumeLabel NOTIFY localeLabelsChanged)
     Q_PROPERTY(QString introSoundImportLabel READ introSoundImportLabel NOTIFY localeLabelsChanged)
 
     // Range
@@ -104,7 +101,10 @@ public:
 
     QObject* uiRequests() { return uiRequests_; }
     bool pageSessionActive() const override { return pageSessionActive_; }
-    bool rangePreviewAvailable() const { return pageSessionActive_ && activeTab_ == QLatin1String("export"); }
+    bool rangePreviewAvailable() const
+    {
+        return pageSessionActive_ && activeTab_ == QLatin1String("export") && unavailableReason_.isEmpty();
+    }
     bool rangePlaybackEnabled() const { return rangePlaybackEnabled_; }
     void setRangePlaybackEnabled(bool enabled);
     int selectedDifficultyId() const override { return selectedDifficultyId_; }
@@ -130,7 +130,6 @@ public:
 
     bool showObjectStatsHud() const { return task_.showObjectStatsHud; }
     bool showChartInfoHud() const { return task_.showChartInfoHud; }
-    bool fixHudTextLayout() const { return task_.fixHudTextLayout; }
     bool clockCountEnabled() const { return task_.clockCountEnabled; }
 
     QVariantList fontLibraryOptions() const;
@@ -147,9 +146,7 @@ public:
     QVariantList introSoundOptions() const;
     int introSoundIndex() const;
     QString introSoundFileName() const { return task_.introSoundFileName; }
-    double introSoundVolume() const { return task_.introSoundVolume; }
     QString introSoundLabel() const;
-    QString introSoundVolumeLabel() const;
     QString introSoundImportLabel() const;
     IntroBannerSpec previewIntroSpec() const override;
 
@@ -209,7 +206,6 @@ public:
     void setSizePresetIndex(int index);
     void setShowObjectStatsHud(bool value);
     void setShowChartInfoHud(bool value);
-    void setFixHudTextLayout(bool value);
     void setClockCountEnabled(bool value);
     void setIntroEnabled(bool value);
     void setIntroBackgroundModeIndex(int index);
@@ -222,7 +218,6 @@ public:
     void setIntroFontBodyPath(const QString& path);
     void setIntroSoundIndex(int index);
     void setIntroSoundFileName(const QString& fileName);
-    void setIntroSoundVolume(double value);
     void setExportStartSeconds(double value);
     void setExportEndSeconds(double value);
     void setBatchOutputDirectory(const QString& path);

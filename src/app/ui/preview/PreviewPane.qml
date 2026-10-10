@@ -13,14 +13,14 @@ Rectangle {
     property bool latencyActive: false
     // See PreviewTransport: the canvas menu hides on the export page.
     property bool exportPageActive: false
-    // MainSplitView keeps the transport chrome mounted for layout stability, but
-    // exactly one PreviewSurface may subscribe to the runtime at a time. The
-    // compact and fullscreen owners use the same rule.
+    // Suspend the scene subscription while moving the pane between windows.
     property bool surfaceActive: true
+    property bool detached: false
     readonly property real minimumHeight: heading.implicitHeight + transport.implicitHeight
                                           + statistics.implicitHeight + 64
     readonly property real minimumWidth: transport.minimumWidth
-    signal fullscreenRequested()
+    signal detachRequested()
+    signal dockRequested()
     readonly property alias cornerSourceItem: heading
 
     // Export page still uses the backend ratio. Edit mode defaults to 1:1;
@@ -36,6 +36,11 @@ Rectangle {
 
     color: Theme.surfaceColor(Theme.colors.background.panel)
     clip: true
+
+    function closeMenus() {
+        renderModeMenu.close()
+        transport.closeMenus()
+    }
 
     function fittedFrameWidth(hostWidth, hostHeight) {
         const safeWidth = Math.max(1, hostWidth)
@@ -124,7 +129,7 @@ Rectangle {
                 runtime: root.previewSession.runtime
                 mediaHost: root.previewSession.mediaHost
                 logger: root.previewSession
-                surfaceRole: "workspace"
+                surfaceRole: root.detached ? "detached" : "workspace"
                 backgroundColor: "transparent"
                 hudTextColor: Theme.colors.previewHud.text
                 hudShadowColor: Theme.colors.previewHud.shadow
@@ -142,9 +147,11 @@ Rectangle {
         preferences: root.preferences
         exportSession: root.exportSession
         exportPageActive: root.exportPageActive
+        detached: root.detached
         dataAvailable: root.documentAvailable
         enabled: root.documentAvailable
-        onFullscreenRequested: root.fullscreenRequested()
+        onDetachRequested: root.detachRequested()
+        onDockRequested: root.dockRequested()
     }
 
     NoteStatistics {

@@ -99,8 +99,6 @@ void applyVideoExportPreferences(const QJsonObject& settings, VideoExportTask* t
         settings.value(QStringLiteral("size_preset")), task->sizePreset);
     task->clockCountEnabled = settings.value(QStringLiteral("clock_count_enabled"))
                                   .toBool(task->clockCountEnabled);
-    task->fixHudTextLayout = settings.value(QStringLiteral("fix_hud_text_layout"))
-                                 .toBool(task->fixHudTextLayout);
     task->intro.enabled = settings.value(QStringLiteral("add_intro")).toBool(task->intro.enabled);
     task->intro.backgroundMode = settings.value(QStringLiteral("intro_background_mode"))
                                      .toString(task->intro.backgroundMode);
@@ -120,11 +118,6 @@ void applyVideoExportPreferences(const QJsonObject& settings, VideoExportTask* t
                                       .toString(task->intro.fontDisplayPath);
     task->intro.fontBodyPath = settings.value(QStringLiteral("intro_card_font_body"))
                                    .toString(task->intro.fontBodyPath);
-    const double introSoundVolume = settings.value(QStringLiteral("intro_sound_volume"))
-                                        .toDouble(task->introSoundVolume);
-    if (qIsFinite(introSoundVolume)) {
-        task->introSoundVolume = qBound(0.0, introSoundVolume, 2.0);
-    }
 }
 
 void appendVideoExportPreferences(QJsonObject* settings, const VideoExportTask& task)
@@ -139,7 +132,6 @@ void appendVideoExportPreferences(QJsonObject* settings, const VideoExportTask& 
     settings->insert(QStringLiteral("preset"), videoExportPreferencePresetToken(task.preset));
     settings->insert(QStringLiteral("size_preset"), videoExportSizePresetToken(task.sizePreset));
     settings->insert(QStringLiteral("clock_count_enabled"), task.clockCountEnabled);
-    settings->insert(QStringLiteral("fix_hud_text_layout"), task.fixHudTextLayout);
     settings->insert(QStringLiteral("add_intro"), task.intro.enabled);
     settings->insert(QStringLiteral("intro_background_mode"), task.intro.backgroundMode);
     settings->insert(QStringLiteral("intro_background_custom_path"), task.intro.customBackgroundPath.trimmed());
@@ -151,9 +143,6 @@ void appendVideoExportPreferences(QJsonObject* settings, const VideoExportTask& 
         task.intro.lvRenderMode.compare(QStringLiteral("text"), Qt::CaseInsensitive) == 0);
     settings->insert(QStringLiteral("intro_card_font_display"), task.intro.fontDisplayPath);
     settings->insert(QStringLiteral("intro_card_font_body"), task.intro.fontBodyPath);
-    settings->insert(
-        QStringLiteral("intro_sound_volume"),
-        qBound(0.0, qIsFinite(task.introSoundVolume) ? task.introSoundVolume : 1.0, 2.0));
 }
 
 QString sanitizeVideoExportTimestamp(QString text)
@@ -249,10 +238,6 @@ void copyVideoExportUserSettings(const VideoExportTask& source, VideoExportTask*
     target->intro.fontDisplayPath = source.intro.fontDisplayPath;
     target->intro.fontBodyPath = source.intro.fontBodyPath;
     target->introSoundFileName = source.introSoundFileName;
-    target->introSoundVolume = qBound(
-        0.0,
-        qIsFinite(source.introSoundVolume) ? source.introSoundVolume : 1.0,
-        2.0);
 }
 
 }  // namespace miacode::video_export

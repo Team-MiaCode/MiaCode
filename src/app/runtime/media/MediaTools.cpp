@@ -24,6 +24,7 @@
 #include <QUrl>
 #include <QtCore>
 #include <QtGui>
+#include <cstring>
 
 #include "common/DebugLog.h"
 
@@ -361,27 +362,25 @@ bool runFfmpegBlocking(
     QString progressBuffer;
     QString stderrTail;
     const auto pump = [&]() {
-        if (determinate) {
-            const QByteArray out = process.readAllStandardOutput();
-            if (!out.isEmpty()) {
-                progressBuffer += QString::fromLatin1(out);
-                const int lastNewline = progressBuffer.lastIndexOf(QLatin1Char('\n'));
-                if (lastNewline >= 0) {
-                    const QString complete = progressBuffer.left(lastNewline);
-                    progressBuffer = progressBuffer.mid(lastNewline + 1);
-                    static const QRegularExpression outTimePattern(QStringLiteral(R"(out_time_us=(\d+))"));
-                    qint64 lastMicros = -1;
-                    QRegularExpressionMatchIterator it = outTimePattern.globalMatch(complete);
-                    while (it.hasNext()) {
-                        lastMicros = it.next().captured(1).toLongLong();
-                    }
-                    if (lastMicros >= 0) {
-                        const double seconds = static_cast<double>(lastMicros) / 1000000.0;
-                        // Cap at 99% until the process actually exits so the
-                        // bar doesn't read "done" while ffmpeg is still muxing.
-                        jobProgress->report(
-                            qBound(0, qRound(seconds / totalDurationSeconds * 100.0), 99), label);
-                    }
+        const QByteArray out = process.readAllStandardOutput();
+        if (determinate && !out.isEmpty()) {
+            progressBuffer += QString::fromLatin1(out);
+            const int lastNewline = progressBuffer.lastIndexOf(QLatin1Char('\n'));
+            if (lastNewline >= 0) {
+                const QString complete = progressBuffer.left(lastNewline);
+                progressBuffer = progressBuffer.mid(lastNewline + 1);
+                static const QRegularExpression outTimePattern(QStringLiteral(R"(out_time_us=(\d+))"));
+                qint64 lastMicros = -1;
+                QRegularExpressionMatchIterator it = outTimePattern.globalMatch(complete);
+                while (it.hasNext()) {
+                    lastMicros = it.next().captured(1).toLongLong();
+                }
+                if (lastMicros >= 0) {
+                    const double seconds = static_cast<double>(lastMicros) / 1000000.0;
+                    // Cap at 99% until the process actually exits so the
+                    // bar doesn't read "done" while ffmpeg is still muxing.
+                    jobProgress->report(
+                        qBound(0, qRound(seconds / totalDurationSeconds * 100.0), 99), label);
                 }
             }
         }
@@ -775,6 +774,277 @@ bool prependPvBlack(
     return replaceFileWithTemp(tempPath, pvPath, error);
 }
 
+constexpr int kAlignmentAudioSampleRate = 12000;
+constexpr int kAlignmentEnvelopeRate = 50;
+
+bool decodeAudioStreamWithFfmpeg(
+    const QString& ffmpegPath,
+    const QString& mediaPath,
+    miacode::latency_analysis::DecodedAudio* decoded,
+    miacode::JobProgressService* jobProgress,
+    bool* cancelled)
+{
+    if (decoded == nullptr || ffmpegPath.isEmpty() || mediaPath.isEmpty() || jobProgress == nullptr) {
+        return false;
+    }
+    if (cancelled != nullptr) {
+        *cancelled = false;
+    }
+
+    const miacode::LocalizedText title = miacode::localizedText("media_tools.align_pv_to_audio");
+    const miacode::LocalizedText label = miacode::localizedText("media_tools.analyzing_audio_alignment");
+    const quint64 jobToken = jobProgress->begin(title, label, /*cancellable=*/true);
+    jobProgress->reportIndeterminate(label);
+    const auto endJob = [jobProgress, jobToken]() {
+        if (jobProgress->token() == jobToken) {
+            jobProgress->end();
+        }
+    };
+
+    QProcess process;
+    process.setStandardErrorFile(QProcess::nullDevice());
+    process.start(ffmpegPath, {
+        QStringLiteral("-hide_banner"), QStringLiteral("-loglevel"), QStringLiteral("error"),
+        QStringLiteral("-i"), mediaPath,
+        QStringLiteral("-map"), QStringLiteral("0:a:0"),
+        QStringLiteral("-vn"), QStringLiteral("-sn"), QStringLiteral("-dn"),
+        QStringLiteral("-ac"), QStringLiteral("1"),
+        QStringLiteral("-ar"), QString::number(kAlignmentAudioSampleRate),
+        QStringLiteral("-f"), QStringLiteral("f32le"), QStringLiteral("pipe:1")
+    }, QIODevice::ReadOnly);
+    if (!process.waitForStarted(5000)) {
+        endJob();
+        return false;
+    }
+
+    QByteArray pcmBytes;
+    while (process.state() != QProcess::NotRunning) {
+        process.waitForReadyRead(100);
+        pcmBytes.append(process.readAllStandardOutput());
+        QCoreApplication::processEvents(QEventLoop::AllEvents);
+        if (jobProgress->cancelRequested()) {
+            process.kill();
+            process.waitForFinished(2000);
+            endJob();
+            if (cancelled != nullptr) {
+                *cancelled = true;
+            }
+            return false;
+        }
+    }
+    pcmBytes.append(process.readAllStandardOutput());
+    endJob();
+    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+        return false;
+    }
+
+    const qsizetype sampleCount = pcmBytes.size() / static_cast<qsizetype>(sizeof(float));
+    if (sampleCount < kAlignmentAudioSampleRate) {
+        return false;
+    }
+    decoded->samples.resize(sampleCount);
+    std::memcpy(
+        decoded->samples.data(), pcmBytes.constData(),
+        static_cast<size_t>(sampleCount) * sizeof(float));
+    decoded->sampleRate = kAlignmentAudioSampleRate;
+    decoded->durationSeconds = static_cast<double>(sampleCount) / kAlignmentAudioSampleRate;
+    return true;
+}
+
+QVector<double> buildAlignmentEnvelope(const miacode::latency_analysis::DecodedAudio& decoded)
+{
+    QVector<double> envelope;
+    if (decoded.samples.isEmpty() || decoded.sampleRate <= 0) {
+        return envelope;
+    }
+
+    const int windowSamples = qMax(1, decoded.sampleRate / kAlignmentEnvelopeRate);
+    double previousRms = 0.0;
+    for (int start = 0; start < decoded.samples.size(); start += windowSamples) {
+        const int end = qMin(start + windowSamples, decoded.samples.size());
+        double squareSum = 0.0;
+        for (int sampleIndex = start; sampleIndex < end; ++sampleIndex) {
+            const double sample = decoded.samples.at(sampleIndex);
+            squareSum += sample * sample;
+        }
+        const double rms = std::sqrt(squareSum / static_cast<double>(end - start));
+        envelope.append(qMax(0.0, rms - previousRms * 0.85));
+        previousRms = rms;
+    }
+    return envelope;
+}
+
+bool estimateVideoAudioOffset(
+    const miacode::latency_analysis::DecodedAudio& trackAudio,
+    const miacode::latency_analysis::DecodedAudio& videoAudio,
+    double* offsetSeconds)
+{
+    if (offsetSeconds == nullptr) {
+        return false;
+    }
+
+    const QVector<double> trackEnvelope = buildAlignmentEnvelope(trackAudio);
+    const QVector<double> videoEnvelope = buildAlignmentEnvelope(videoAudio);
+    if (trackEnvelope.size() < kAlignmentEnvelopeRate
+        || videoEnvelope.size() < kAlignmentEnvelopeRate) {
+        return false;
+    }
+
+    const int minimumOverlap = qMin(
+        qMin(trackEnvelope.size(), videoEnvelope.size()), 3 * kAlignmentEnvelopeRate);
+    const int maxLag = qMin(
+        15 * kAlignmentEnvelopeRate,
+        qMax(trackEnvelope.size(), videoEnvelope.size()) - minimumOverlap);
+    QVector<double> scores(maxLag * 2 + 1, -1.0);
+    double bestScore = -1.0;
+    int bestLag = 0;
+    for (int lag = -maxLag; lag <= maxLag; ++lag) {
+        const int trackStart = qMax(0, -lag);
+        const int trackEnd = qMin(trackEnvelope.size(), videoEnvelope.size() - lag);
+        const int count = trackEnd - trackStart;
+        if (count < minimumOverlap) {
+            continue;
+        }
+
+        double trackSum = 0.0;
+        double videoSum = 0.0;
+        double trackSquareSum = 0.0;
+        double videoSquareSum = 0.0;
+        double productSum = 0.0;
+        for (int index = trackStart; index < trackEnd; ++index) {
+            const double trackValue = trackEnvelope.at(index);
+            const double videoValue = videoEnvelope.at(index + lag);
+            trackSum += trackValue;
+            videoSum += videoValue;
+            trackSquareSum += trackValue * trackValue;
+            videoSquareSum += videoValue * videoValue;
+            productSum += trackValue * videoValue;
+        }
+
+        const double covariance = productSum - trackSum * videoSum / count;
+        const double trackVariance = trackSquareSum - trackSum * trackSum / count;
+        const double videoVariance = videoSquareSum - videoSum * videoSum / count;
+        if (trackVariance <= 1e-12 || videoVariance <= 1e-12) {
+            continue;
+        }
+        const double score = covariance / std::sqrt(trackVariance * videoVariance);
+        scores[lag + maxLag] = score;
+        if (score > bestScore) {
+            bestScore = score;
+            bestLag = lag;
+        }
+    }
+    if (bestScore < 0.35) {
+        return false;
+    }
+
+    double refinedLag = bestLag;
+    const int scoreIndex = bestLag + maxLag;
+    if (scoreIndex > 0 && scoreIndex + 1 < scores.size()) {
+        const double left = scores.at(scoreIndex - 1);
+        const double center = scores.at(scoreIndex);
+        const double right = scores.at(scoreIndex + 1);
+        const double curvature = left - 2.0 * center + right;
+        if (left >= 0.0 && right >= 0.0 && curvature < -1e-9) {
+            refinedLag += qBound(-0.5, 0.5 * (left - right) / curvature, 0.5);
+        }
+    }
+    *offsetSeconds = refinedLag / kAlignmentEnvelopeRate;
+    return true;
+}
+
+QString resolveChartMp4Path(const QString& chartPath, const QString& videoFieldValue)
+{
+    if (chartPath.isEmpty()) {
+        return QString();
+    }
+    const QString chartDirectory = QFileInfo(chartPath).absolutePath();
+    const QString trimmedField = videoFieldValue.trimmed();
+    if (!trimmedField.isEmpty()) {
+        const QFileInfo fieldInfo(trimmedField);
+        const QString candidate = fieldInfo.isAbsolute()
+            ? QDir::cleanPath(trimmedField)
+            : QDir::cleanPath(QDir(chartDirectory).filePath(trimmedField));
+        if (QFileInfo(candidate).isFile() && miacode::chart_assets::isVideoBackgroundPath(candidate)) {
+            return candidate;
+        }
+    }
+
+    const QDir directory(chartDirectory);
+    for (const QString& name : {QStringLiteral("bg.mp4"), QStringLiteral("pv.mp4")}) {
+        const QString candidate = directory.filePath(name);
+        if (QFileInfo(candidate).isFile()) {
+            return QDir::cleanPath(candidate);
+        }
+    }
+    return QString();
+}
+
+bool alignVideoStreams(
+    const QString& ffmpegPath,
+    const QString& videoPath,
+    double videoAudioOffsetSeconds,
+    miacode::JobProgressService* jobProgress,
+    miacode::LocalizedText* error,
+    bool* cancelled = nullptr)
+{
+    const QFileInfo videoInfo(videoPath);
+    const QString backupPath = videoInfo.dir().filePath(
+        QStringLiteral("%1_bak.%2").arg(videoInfo.completeBaseName(), videoInfo.suffix()));
+    const QString tempPath = videoInfo.dir().filePath(QStringLiteral(".miacode_pv_align_tmp.mp4"));
+    QFile::remove(tempPath);
+    if (!copyFileReplacing(videoPath, backupPath, error)) {
+        return false;
+    }
+
+    double durationSeconds = 0.0;
+    probeMediaDurationSeconds(ffmpegPath, backupPath, &durationSeconds, nullptr);
+    const double adjustmentSeconds = qAbs(videoAudioOffsetSeconds);
+    const QString adjustment = QString::number(adjustmentSeconds, 'f', 6);
+    QString videoFilter;
+    QString audioFilter;
+    if (videoAudioOffsetSeconds > 0.0) {
+        videoFilter = QStringLiteral("trim=start=%1,setpts=PTS-%1/TB,scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p")
+                          .arg(adjustment);
+        audioFilter = QStringLiteral("atrim=start=%1,asetpts=PTS-%1/TB").arg(adjustment);
+    } else {
+        const QString delayMilliseconds = QString::number(qRound64(adjustmentSeconds * 1000.0));
+        videoFilter = QStringLiteral("tpad=start_mode=add:start_duration=%1:color=black,scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p")
+                          .arg(adjustment);
+        audioFilter = QStringLiteral("adelay=%1:all=1").arg(delayMilliseconds);
+    }
+
+    QStringList args;
+    args << QStringLiteral("-hide_banner")
+         << QStringLiteral("-y")
+         << QStringLiteral("-i") << backupPath
+         << QStringLiteral("-filter_complex")
+         << QStringLiteral("[0:v:0]%1[v];[0:a:0]%2[a]").arg(videoFilter, audioFilter)
+         << QStringLiteral("-map") << QStringLiteral("[v]")
+         << QStringLiteral("-map") << QStringLiteral("[a]")
+         << QStringLiteral("-c:v") << QStringLiteral("libx264")
+         << QStringLiteral("-preset") << QStringLiteral("veryfast")
+         << QStringLiteral("-crf") << QStringLiteral("18")
+         << QStringLiteral("-pix_fmt") << QStringLiteral("yuv420p")
+         << QStringLiteral("-c:a") << QStringLiteral("aac")
+         << QStringLiteral("-b:a") << QStringLiteral("192k")
+         << QStringLiteral("-movflags") << QStringLiteral("+faststart")
+         << tempPath;
+    if (!runFfmpegBlocking(
+            ffmpegPath,
+            args,
+            jobProgress,
+            miacode::localizedText("media_tools.processing_pv_mp4"),
+            miacode::localizedText("media_tools.processing_pv_mp4"),
+            durationSeconds + (videoAudioOffsetSeconds < 0.0 ? adjustmentSeconds : 0.0),
+            error,
+            cancelled)) {
+        QFile::remove(tempPath);
+        return false;
+    }
+    return replaceFileWithTemp(tempPath, videoPath, error);
+}
+
 } // namespace
 
 void miacode::runtime::MediaJobsHost::onCompressBackgroundVideo()
@@ -827,6 +1097,113 @@ void miacode::runtime::MediaJobsHost::onCompressBackgroundVideo()
                 runCompressBackgroundVideo(title, videoPath, backupName);
             }
         });
+}
+
+void miacode::runtime::MediaJobsHost::onAlignBackgroundVideoToTrack()
+{
+    MC_OP("miacode::runtime::MediaJobsHost::onAlignBackgroundVideoToTrack");
+    miacode::UiRequestService* const requests = session_.uiRequestService();
+    if (requests == nullptr) {
+        return;
+    }
+    const miacode::LocalizedText title = miacode::localizedText("media_tools.align_pv_to_audio");
+    const QString chartDirPath = resolveCurrentChartDirectory();
+    if (chartDirPath.isEmpty()) {
+        requests->postNotice(
+            miacode::NoticeSeverity::Warning, title,
+            miacode::localizedText("media_tools.open_or_save_a_chart"));
+        return;
+    }
+
+    const QString trackPath = resolveLatencyDetectorTrackPath();
+    if (trackPath.isEmpty() || !QFileInfo::exists(trackPath)) {
+        requests->postNotice(
+            miacode::NoticeSeverity::Warning, title,
+            miacode::localizedText("media_tools.track_mp3_was_not_found"));
+        return;
+    }
+    const QString videoPath = resolveChartMp4Path(
+        session_.currentFilePath_, session_.applicationServices_.workspace().document().videoPath);
+    if (videoPath.isEmpty()) {
+        requests->postNotice(
+            miacode::NoticeSeverity::Warning, title,
+            miacode::localizedText("media_tools.no_background_mp4_video_was"));
+        return;
+    }
+
+    const QString ffmpegPath = resolveMediaToolFfmpegExecutable();
+    if (ffmpegPath.isEmpty()) {
+        requests->postNotice(
+            miacode::NoticeSeverity::Error, title,
+            miacode::localizedText("media_tools.ffmpeg_was_not_found_place"));
+        return;
+    }
+
+    miacode::latency_analysis::DecodedAudio trackAudio;
+    miacode::latency_analysis::DecodedAudio videoAudio;
+    bool decodeCancelled = false;
+    if (!decodeAudioStreamWithFfmpeg(
+            ffmpegPath, videoPath, &videoAudio, session_.jobProgressService(), &decodeCancelled)) {
+        requests->postNotice(
+            decodeCancelled ? miacode::NoticeSeverity::Information
+                            : miacode::NoticeSeverity::Warning,
+            title,
+            decodeCancelled ? miacode::localizedText("media_tools.video_alignment_cancelled")
+                            : miacode::localizedText("media_tools.video_audio_missing"));
+        return;
+    }
+    if (!decodeAudioStreamWithFfmpeg(
+            ffmpegPath, trackPath, &trackAudio, session_.jobProgressService(), &decodeCancelled)) {
+        requests->postNotice(
+            decodeCancelled ? miacode::NoticeSeverity::Information
+                            : miacode::NoticeSeverity::Warning,
+            title,
+            decodeCancelled ? miacode::localizedText("media_tools.video_alignment_cancelled")
+                            : miacode::localizedText("media_tools.video_alignment_offset_failed"));
+        return;
+    }
+
+    double videoAudioOffsetSeconds = 0.0;
+    if (!estimateVideoAudioOffset(trackAudio, videoAudio, &videoAudioOffsetSeconds)) {
+        requests->postNotice(
+            miacode::NoticeSeverity::Warning, title,
+            miacode::localizedText("media_tools.video_alignment_offset_failed"));
+        return;
+    }
+    if (qAbs(videoAudioOffsetSeconds) < 1.0 / kAlignmentEnvelopeRate) {
+        requests->postNotice(
+            miacode::NoticeSeverity::Information, title,
+            miacode::localizedText("media_tools.video_alignment_already_aligned")
+                .arg(videoAudioOffsetSeconds, 0, 'f', 3));
+        return;
+    }
+
+    releasePreviewMediaForFileOperation();
+    miacode::LocalizedText error;
+    bool cancelled = false;
+    if (!alignVideoStreams(
+            ffmpegPath, videoPath, videoAudioOffsetSeconds, session_.jobProgressService(), &error,
+            &cancelled)) {
+        requests->postNotice(
+            cancelled ? miacode::NoticeSeverity::Information
+                      : miacode::NoticeSeverity::Error,
+            title,
+            cancelled ? miacode::localizedText("media_tools.video_processing_canceled") : error);
+        reloadPreviewMediaAfterFileOperation(false);
+        return;
+    }
+
+    const QFileInfo videoInfo(videoPath);
+    const QString backupName = QStringLiteral("%1_bak.%2")
+                                   .arg(videoInfo.completeBaseName(), videoInfo.suffix());
+    reloadPreviewMediaAfterFileOperation(false);
+    showMediaOperationCompleteDialog(
+        title,
+        miacode::localizedText("media_tools.video_aligned_to_track_1_2")
+            .arg(videoInfo.fileName())
+            .arg(videoAudioOffsetSeconds, 0, 'f', 3)
+            .arg(backupName),
+        videoPath);
 }
 
 void miacode::runtime::MediaJobsHost::runCompressBackgroundVideo(

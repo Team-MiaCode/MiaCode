@@ -2,7 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import MiaCode.UI
 
-// Shared slider — geometry mirrors v1 formSliderStyleSheet.
+// Shared slider. A thin neutral rail and fill leave the handle as the brightest
+// part; only the export-range highlight keeps the accent.
 // Control 会把 background 拉到整颗滑条的尺寸，轨道必须画在内层，不能写在
 // background 根上，否则轨道会变成整块色条。
 Slider {
@@ -31,28 +32,28 @@ Slider {
     }
 
     hoverEnabled: true
-    implicitHeight: 24
+    implicitHeight: Theme.controlMinHeight
     padding: 0
 
     background: Item {
         implicitWidth: 200
-        implicitHeight: 24
+        implicitHeight: Theme.controlMinHeight
 
         Rectangle {
             id: track
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            height: 6
-            radius: 3
-            color: Theme.overlayColor(Theme.colors.border.control)
+            height: 4
+            radius: 2
+            color: Theme.overlayColor(Theme.colors.slider.rail)
 
             Rectangle {
                 visible: !root.rangeHighlightVisible
                 width: root.visualPosition * parent.width
                 height: parent.height
-                radius: 3
-                color: Theme.colors.accent.primary
+                radius: parent.radius
+                color: Theme.colors.slider.fill
             }
 
             Rectangle {
@@ -99,15 +100,27 @@ Slider {
     handle: Rectangle {
         x: root.leftPadding + root.visualPosition * (root.availableWidth - width)
         y: root.topPadding + root.availableHeight / 2 - height / 2
-        implicitWidth: 14
-        implicitHeight: 14
-        width: 14
-        height: 14
-        radius: 7
-        color: Theme.overlayColor(Theme.colors.background.elevated)
+        implicitWidth: 12
+        implicitHeight: 12
+        width: 12
+        height: 12
+        radius: 6
+        color: Theme.colors.slider.handle
         border.width: Theme.controlBorderWidth
-        border.color: (root.pressed || root.hovered)
-                      ? Theme.colors.accent.primary
-                      : Theme.colors.border.control
+        border.color: Theme.colors.toggle.knobBorder
+
+        // Hover/drag halo. A negative z keeps it under the handle itself.
+        Rectangle {
+            z: -1
+            anchors.centerIn: parent
+            width: parent.width + 8
+            height: width
+            radius: width / 2
+            visible: root.enabled && (root.hovered || root.pressed)
+            color: {
+                const c = Qt.color(Theme.colors.text.active)
+                return Qt.rgba(c.r, c.g, c.b, root.pressed ? 0.20 : 0.12)
+            }
+        }
     }
 }

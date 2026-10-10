@@ -21,11 +21,11 @@ class EditorPageRouter
 public:
     virtual ~EditorPageRouter() = default;
 
-    // Whether a difficulty is currently being edited. The page host records it
-    // before leaving, so returning from an overlay page lands back on the same
-    // difficulty rather than on the metadata page.
+    // The selected chart may remain the preview source on the metadata page.
+    // Page activation is a separate condition from having that chart loaded.
     virtual bool hasActiveDifficulty() const = 0;
     virtual int activeDifficultyId() const = 0;
+    virtual bool difficultyPageActive() const = 0;
 
     // Each of these returns false when the domain switch cannot be committed.
     // The page host only calls them after its QML leave decision succeeds.

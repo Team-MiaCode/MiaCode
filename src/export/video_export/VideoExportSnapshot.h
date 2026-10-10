@@ -63,7 +63,6 @@ struct VideoExportSnapshot {
     int skinLoadWaitMs = 2000;
     IntroBannerSpec intro;
     QString introSoundFileName;
-    double introSoundVolume = 1.0;
 
     QJsonObject toJson() const;
     static bool fromJson(const QJsonObject& object, VideoExportSnapshot* snapshot, QString* errorMessage = nullptr);

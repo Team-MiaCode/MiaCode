@@ -788,7 +788,9 @@ bool miacode::runtime::VideoExportHost::launchVideoExportWorker(const VideoExpor
         jobProgress != nullptr) {
         session_.videoExportJobToken_ = jobProgress->begin(
             miacode::localizedText("dialog.video_export.title"),
-            miacode::localizedText("dialog.video_export.progress.preparing"),
+            miacode::LocalizedText(QStringLiteral("%1\n%2"))
+                .arg(QFileInfo(snapshot.outputPath).fileName(),
+                     miacode::localizedText("dialog.video_export.progress.preparing")),
             /*cancellable=*/true,
             miacode::JobProgressService::TaskType::ChartExport);
     }
@@ -1242,10 +1244,13 @@ void miacode::runtime::VideoExportHost::reportExportProgress(int percent, const 
     if (jobProgress == nullptr || jobProgress->token() != session_.videoExportJobToken_) {
         return;
     }
+    const miacode::LocalizedText namedLabel =
+        miacode::LocalizedText(QStringLiteral("%1\n%2"))
+            .arg(QFileInfo(session_.videoExportWorkerOutputPath_).fileName(), label);
     if (percent < 0) {
-        jobProgress->reportIndeterminate(label);
+        jobProgress->reportIndeterminate(namedLabel);
     } else {
-        jobProgress->report(percent, label);
+        jobProgress->report(percent, namedLabel);
     }
 }
 

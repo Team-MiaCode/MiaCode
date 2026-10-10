@@ -89,7 +89,8 @@ PreviewAudioWorker::PreviewAudioWorker(
     , snapshotCallback_(std::move(snapshotCallback))
     , facadeOwningThreadId_(facadeOwningThreadId)
 {
-    thread_ = std::thread([this] { run(); });
+    thread_.reset(QThread::create([this] { run(); }));
+    thread_->start();
 }
 
 PreviewAudioWorker::~PreviewAudioWorker()
@@ -240,7 +241,7 @@ void PreviewAudioWorker::shutdownAndJoin()
     }
 
     std::unique_lock shutdownLock(shutdownMutex_);
-    if (!thread_.joinable()) {
+    if (thread_ == nullptr) {
         return;
     }
 
@@ -267,7 +268,8 @@ void PreviewAudioWorker::shutdownAndJoin()
         std::unique_lock callbackLock(callbackMutex_);
         callbackCv_.wait(callbackLock, [this] { return callbacksInFlight_ == 0; });
     }
-    thread_.join();
+    thread_->wait();
+    thread_.reset();
 }
 
 void PreviewAudioWorker::run()

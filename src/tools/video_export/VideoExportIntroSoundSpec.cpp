@@ -23,20 +23,14 @@ bool verifyPreferencesAndDifficultyReseed(QTextStream& err)
 {
     VideoExportTask edited;
     edited.introSoundFileName = QStringLiteral("custom-start.flac");
-    edited.introSoundVolume = 1.75;
 
+    // The intro volume belongs to the audio settings now; the export
+    // preferences no longer carry a copy of it.
     QJsonObject preferences;
     miacode::video_export::appendVideoExportPreferences(&preferences, edited);
     bool ok = require(
-        nearlyEqual(preferences.value(QStringLiteral("intro_sound_volume")).toDouble(), 1.75),
-        QStringLiteral("shared export preferences serialize the independent intro volume"),
-        err);
-
-    VideoExportTask restored;
-    miacode::video_export::applyVideoExportPreferences(preferences, &restored);
-    ok &= require(
-        nearlyEqual(restored.introSoundVolume, 1.75),
-        QStringLiteral("shared export preferences restore the independent intro volume"),
+        !preferences.contains(QStringLiteral("intro_sound_volume")),
+        QStringLiteral("shared export preferences do not serialize an intro volume"),
         err);
 
     VideoExportTask reseeded;
@@ -44,9 +38,8 @@ bool verifyPreferencesAndDifficultyReseed(QTextStream& err)
     reseeded.exportStartSeconds = 3.0;
     miacode::video_export::copyVideoExportUserSettings(edited, &reseeded);
     ok &= require(
-        reseeded.introSoundFileName == QStringLiteral("custom-start.flac")
-            && nearlyEqual(reseeded.introSoundVolume, 1.75),
-        QStringLiteral("difficulty reseeding preserves the selected intro sound and volume"),
+        reseeded.introSoundFileName == QStringLiteral("custom-start.flac"),
+        QStringLiteral("difficulty reseeding preserves the selected intro sound"),
         err);
     ok &= require(
         reseeded.outputPath == QStringLiteral("new-difficulty.mp4")
@@ -71,14 +64,14 @@ bool verifySnapshotAndWorkerRoundTrip(QTextStream& err)
     source.contentDurationSeconds = 1.0;
     source.intro.enabled = true;
     source.introSoundFileName = QStringLiteral("../custom-start.flac");
-    source.introSoundVolume = 1.75;
+    source.audioSettings.introVolume = 0.6;
 
     const QJsonObject json = source.toJson();
     const QJsonObject intro = json.value(QStringLiteral("intro")).toObject();
     bool ok = require(
         intro.value(QStringLiteral("sound_file")).toString() == QStringLiteral("custom-start.flac")
-            && nearlyEqual(intro.value(QStringLiteral("sound_volume")).toDouble(), 1.75),
-        QStringLiteral("snapshot JSON stores a basename and the 0..2 intro multiplier"),
+            && !intro.contains(QStringLiteral("sound_volume")),
+        QStringLiteral("snapshot JSON stores the intro sound basename and no separate volume"),
         err);
 
     VideoExportSnapshot restored;
@@ -90,8 +83,8 @@ bool verifySnapshotAndWorkerRoundTrip(QTextStream& err)
         err);
     ok &= require(
         restored.introSoundFileName == QStringLiteral("custom-start.flac")
-            && nearlyEqual(restored.introSoundVolume, 1.75),
-        QStringLiteral("snapshot parsing restores intro sound settings"),
+            && qAbs(restored.audioSettings.introVolume - 0.6) <= 1e-9,
+        QStringLiteral("snapshot parsing restores the intro sound and the audio-settings intro volume"),
         err);
 
     VideoExportTask workerTask;
@@ -103,22 +96,20 @@ bool verifySnapshotAndWorkerRoundTrip(QTextStream& err)
         err);
     ok &= require(
         workerTask.introSoundFileName == QStringLiteral("custom-start.flac")
-            && nearlyEqual(workerTask.introSoundVolume, 1.75),
-        QStringLiteral("worker task receives the selected intro sound and volume"),
+            && qAbs(workerTask.audioSettings.introVolume - 0.6) <= 1e-9,
+        QStringLiteral("worker task receives the selected intro sound and the intro volume"),
         err);
 
     QJsonObject clampedJson = json;
     QJsonObject clampedIntro = clampedJson.value(QStringLiteral("intro")).toObject();
     clampedIntro.insert(QStringLiteral("sound_file"), QStringLiteral("../../unsafe.ogg"));
-    clampedIntro.insert(QStringLiteral("sound_volume"), 9.0);
     clampedJson.insert(QStringLiteral("intro"), clampedIntro);
     VideoExportSnapshot clamped;
     error.clear();
     ok &= require(
         VideoExportSnapshot::fromJson(clampedJson, &clamped, &error)
-            && clamped.introSoundFileName == QStringLiteral("unsafe.ogg")
-            && nearlyEqual(clamped.introSoundVolume, 2.0),
-        QStringLiteral("snapshot parsing strips directories and clamps oversized intro volume"),
+            && clamped.introSoundFileName == QStringLiteral("unsafe.ogg"),
+        QStringLiteral("snapshot parsing strips directories from the intro sound file"),
         err);
     return ok;
 }

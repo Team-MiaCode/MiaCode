@@ -7,12 +7,15 @@ Rectangle {
 
     required property var hostWindow
     required property var windowChrome
-    required property var menuCommands
-    required property var shortcuts
-    required property var documentSession
+    property var menuCommands: null
+    property var shortcuts: null
+    property var documentSession: null
     required property var platform
-    required property var pet
+    property var pet: null
+    property bool applicationMenusVisible: true
     property string documentTitle: ""
+    property string titleText: (root.documentSession && root.documentSession.dirty ? "* " : "")
+        + (root.documentTitle.length > 0 ? root.documentTitle : Qt.application.name)
     property real leadingInset: 0
     property bool saveEnabled: true
     property bool wholeDocumentSaveEnabled: true
@@ -24,8 +27,9 @@ Rectangle {
     property real nativeHeight: 0
     property real leadingToolAreaWidth: 0
     property real trailingToolAreaWidth: 0
+    readonly property real captionButtonsWidth: captionButtons.width
 
-    readonly property bool useEmbeddedMenu: root.platform.embeddedMenuInTitleBar
+    readonly property bool useEmbeddedMenu: root.applicationMenusVisible && root.platform.embeddedMenuInTitleBar
     readonly property bool useNativeMenu: root.platform.nativeMenuBar
     readonly property bool useCaptionButtons: root.platform.captionButtons
     readonly property real brandContentPadding: Theme.chromePadding
@@ -55,7 +59,7 @@ Rectangle {
         : root.brandLeadingMargin + brandCollapsedWidth + minimumMenuWidth + menuGap
     readonly property real minimumRightMargin: root.useNativeMenu
         ? root.trailingToolAreaWidth + menuGap
-        : captionButtons.width + menuGap
+        : captionButtons.width + root.trailingToolAreaWidth + menuGap
     // 按标题文字宽度预留居中区域，两侧至少预留最小边距保证居中对称。
     readonly property real preferredTitleWidth: Math.min(titleLabel.implicitWidth, Math.max(0,
         width - 2 * Math.max(minimumLeftMargin, minimumRightMargin)))
@@ -68,14 +72,15 @@ Rectangle {
     readonly property real menuAvailableWidth: root.useEmbeddedMenu
         ? Math.max(minimumMenuWidth, (width - preferredTitleWidth) / 2 - menuGap - menuLeft)
         : 0
-    readonly property real titleAreaLeft: root.useNativeMenu
+    readonly property real titleAreaLeft: root.useNativeMenu || !root.applicationMenusVisible
         ? root.leadingToolAreaWidth + menuGap
         : menuHost.x + menuHost.width + menuGap
     readonly property real titleAreaRight: root.useNativeMenu
         ? width - root.trailingToolAreaWidth - menuGap
-        : width - captionButtons.width - menuGap
-    readonly property real titleAvailableWidth: Math.max(0,
-        2 * Math.min(width / 2 - titleAreaLeft, titleAreaRight - width / 2))
+        : width - captionButtons.width - root.trailingToolAreaWidth - menuGap
+    readonly property real titleAvailableWidth: Math.max(0, root.applicationMenusVisible || root.useNativeMenu
+        ? 2 * Math.min(width / 2 - titleAreaLeft, titleAreaRight - width / 2)
+        : titleAreaRight - titleAreaLeft)
 
     WindowGestureArea {
         anchors.fill: parent
@@ -98,7 +103,7 @@ Rectangle {
         selected: brandMenu.active
         Accessible.name: "MiaCode"
         z: 2
-        visible: !root.useNativeMenu
+        visible: root.applicationMenusVisible && !root.useNativeMenu
 
         implicitWidth: visible
             ? (root.brandTextVisible ? root.brandFullWidth : root.brandCollapsedWidth)
@@ -154,20 +159,20 @@ Rectangle {
 
         AppMenuAction {
             text: qsTrId("qml.about_miacode")
-            enabled: root.visible && !root.useNativeMenu
+            enabled: root.applicationMenusVisible && root.visible && !root.useNativeMenu
             onTriggered: root.menuCommands.aboutRequested()
         }
         AppMenuAction {
             text: qsTrId("dialog.preferences.title")
-            enabled: root.visible && !root.useNativeMenu
+            enabled: root.applicationMenusVisible && root.visible && !root.useNativeMenu
             onTriggered: root.menuCommands.preferencesRequested()
         }
         AppMenuSeparator {}
         AppMenuAction {
             text: qsTrId("shortcut.file.quit")
             shortcut: StandardKey.Quit
-            shortcutText: root.shortcuts.standardDisplayText(StandardKey.Quit)
-            enabled: root.visible && !root.useNativeMenu
+            shortcutText: root.shortcuts ? root.shortcuts.standardDisplayText(StandardKey.Quit) : ""
+            enabled: root.applicationMenusVisible && root.visible && !root.useNativeMenu
             onTriggered: root.menuCommands.exitRequested()
         }
     }
@@ -208,10 +213,13 @@ Rectangle {
 
     Text {
         id: titleLabel
-        anchors.centerIn: parent
+        anchors.verticalCenter: parent.verticalCenter
         width: Math.min(implicitWidth, root.titleAvailableWidth)
+        x: Math.max(root.titleAreaLeft,
+            Math.min((root.width - width) / 2, root.titleAreaRight - width))
+        clip: true
         z: 1
-        text: (root.documentSession.dirty ? "* " : "") + root.documentTitle
+        text: root.titleText
         color: Theme.colors.text.chrome
         font.family: Theme.uiFont
         font.pixelSize: Theme.uiFontSize

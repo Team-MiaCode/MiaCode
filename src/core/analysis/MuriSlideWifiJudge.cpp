@@ -10,12 +10,13 @@
 
 #include "core/chart/parser/SimaiParser.h"
 #include "core/chart/model/TimelineData.h"
+#include "core/chart/SlideReferenceData.h"
 #include "core/analysis/MuriConfig.h"
 #include "core/analysis/MuriTypes.h"  // makeMarkerAnalysisKey + Muri* state types
 #include "core/analysis/MuriAnalyzerGeometry.h"     // pointDistance
 #include "core/analysis/MuriAnalyzerInternal.h"     // timing / hand-action helpers
 #include "core/analysis/MuriDiagnosticLabels.h"     // config labels / source anchors
-#include "core/analysis/MuriSlideReferenceData.h"   // slideRuntimeRoot + load*
+#include "core/analysis/MuriSlideReferenceData.h"   // load* accessors
 
 namespace miacode::muri::detail {
 
@@ -152,7 +153,7 @@ bool buildRuntimeSlideJudgeSequence(
         return false;
     }
 
-    const QJsonObject slides = slideRuntimeRoot().value(QStringLiteral("slides")).toObject();
+    const QJsonObject slides = slide_reference::root().value(QStringLiteral("slides")).toObject();
     if (slides.isEmpty()) {
         return false;
     }
@@ -230,7 +231,7 @@ bool buildRuntimeWifiJudgeSequence(
         return false;
     }
 
-    const QJsonObject root = slideRuntimeRoot();
+    const QJsonObject root = slide_reference::root();
     const QJsonObject wifi = root.value(QStringLiteral("wifi")).toObject();
     const QJsonObject entry = wifi.value(marker.slideTrackKey).toObject();
     if (entry.isEmpty()) {

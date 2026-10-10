@@ -91,9 +91,9 @@ ChartMediaService::Result ChartMediaService::removePv(
     QVector<MovedFile> moved;
     for (const QString& path : paths) {
         const QString backup = timestampBackupPath(path);
-        if (!QFile::rename(path, backup)) {
+        if (!miacode::chart_media_import::renameWithRetry(path, backup)) {
             for (auto it = moved.crbegin(); it != moved.crend(); ++it) {
-                QFile::rename(it->backup, it->original);
+                miacode::chart_media_import::renameWithRetry(it->backup, it->original);
             }
             result.errorCode = QStringLiteral("backup_failed");
             result.backupPaths.clear();

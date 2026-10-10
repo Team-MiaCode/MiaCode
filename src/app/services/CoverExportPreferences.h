@@ -53,7 +53,7 @@ inline bool CoverExportPreferences::savePreferences(const QJsonObject& preferenc
         reader_();
     if (!writable(existing) || !writable(preferences)) return false;
     QJsonObject merged = existing;
-    for (const char* ownedKey : {"kind", "version", "size", "background", "card", "layout", "output", "chartFrame"}) {
+    for (const char* ownedKey : {"kind", "version", "size", "background", "card", "layout", "output", "outputFile", "chartFrame"}) {
         merged.remove(QString::fromLatin1(ownedKey));
     }
     for (auto it = preferences.constBegin(); it != preferences.constEnd(); ++it) {

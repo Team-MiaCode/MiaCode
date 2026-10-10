@@ -31,7 +31,7 @@ QtObject {
     signal selectCurrentLineRequested()
     signal metadataRequested()
     signal latencyCalibrationRequested()
-    signal mediaToolsRequested()
+    signal mediaToolRequested(string toolId)
     signal chartTransformRequested(string opId)
     signal normalizeChartRequested()
     signal aboutRequested()

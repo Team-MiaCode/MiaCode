@@ -85,12 +85,10 @@ void miacode::runtime::ValidationHost::applyDeferredAnalysisUiUpdates()
 void miacode::runtime::ValidationHost::refreshValidationPanelForActiveField()
 {
     if (!session_.hasActiveDifficulty()) {
-        session_.setBottomTabsTabVisible(Session::BottomTabsTabId::Validation, false);
         clearValidationDecorations();
         return;
     }
 
-    session_.setBottomTabsTabVisible(Session::BottomTabsTabId::Validation, true);
     const int difficultyId = session_.activeDifficultyId();
     const auto it = state_.validationCacheByDifficulty_.constFind(difficultyId);
     if (it == state_.validationCacheByDifficulty_.constEnd()) {
@@ -266,7 +264,6 @@ bool miacode::runtime::ValidationHost::runValidateSimaiSilently()
         }
     }
 
-    session_.setBottomTabsTabVisible(Session::BottomTabsTabId::Validation, true);
     state_.validationDecorations_.clear();
     for (const Session::ValidationCachedIssue& issue : entry.issues) {
         addValidationDecoration(issue.line, issue.col, issue.displayMessage, issue.endCol);

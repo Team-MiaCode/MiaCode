@@ -60,12 +60,12 @@ class CoverExportSession final : public QObject
     Q_PROPERTY(int resolutionIndex READ resolutionIndex WRITE setResolutionIndex NOTIFY outputChanged)
     Q_PROPERTY(int outputWidth READ outputWidth NOTIFY outputChanged)
     Q_PROPERTY(int outputHeight READ outputHeight NOTIFY outputChanged)
-    Q_PROPERTY(QString outputDirectory READ outputDirectory WRITE setOutputDirectory NOTIFY outputChanged)
-    // The folder as the inspector shows it: relative to the chart folder when it
-    // sits inside it (bare "covers", "." for the chart folder itself), otherwise
-    // home-relative, so the field does not open on the
-    // tail of a long absolute path. setOutputDirectory accepts either spelling.
-    Q_PROPERTY(QString outputDirectoryDisplay READ outputDirectoryDisplay NOTIFY outputChanged)
+    // The file the cover is written to, as the inspector shows it: a bare name
+    // ("card.jpg", the default) lands in the chart folder; a relative path is
+    // read against the chart folder; an absolute path is used as is.
+    Q_PROPERTY(QString outputFile READ outputFile WRITE setOutputFile NOTIFY outputChanged)
+    // The same file as an absolute path, for the field's tooltip.
+    Q_PROPERTY(QString outputFilePath READ outputFilePath NOTIFY outputChanged)
     Q_PROPERTY(bool chartFrameAvailable READ chartFrameAvailable NOTIFY chartFrameAvailabilityChanged)
     Q_PROPERTY(double chartFrameDuration READ chartFrameDuration NOTIFY chartFrameAvailabilityChanged)
     Q_PROPERTY(double chartFrameDiskDiameter READ chartFrameDiskDiameter NOTIFY chartFrameAvailabilityChanged)
@@ -114,8 +114,8 @@ public:
     int resolutionIndex() const { return resolutionIndex_; }
     int outputWidth() const;
     int outputHeight() const;
-    QString outputDirectory() const { return outputDirectory_; }
-    QString outputDirectoryDisplay() const;
+    QString outputFile() const { return outputFile_; }
+    QString outputFilePath() const;
     bool chartFrameAvailable() const { return chartFrameAvailable_; }
     double chartFrameDuration() const { return chartFrameDuration_; }
     double chartFrameDiskDiameter() const;
@@ -129,6 +129,7 @@ public:
     bool busy() const { return busy_; }
 
     void enter(int preferredDifficultyId);
+    void refreshDocument(int preferredDifficultyId);
     void leave();
 
     Q_INVOKABLE void selectDifficulty(int difficultyId);
@@ -142,10 +143,13 @@ public:
     Q_INVOKABLE void sendActiveLayerToBack();
     Q_INVOKABLE void raiseActiveLayer();
     Q_INVOKABLE void lowerActiveLayer();
+    Q_INVOKABLE void moveLayer(const QString& key, int viewRow);
     Q_INVOKABLE void browseActiveLayerImage();
     Q_INVOKABLE void importActiveLayerFont();
     Q_INVOKABLE void setActiveLayerVisible(bool visible);
     Q_INVOKABLE void setActiveLayerLocked(bool locked);
+    Q_INVOKABLE void setLayerVisible(const QString& key, bool visible);
+    Q_INVOKABLE void setLayerLocked(const QString& key, bool locked);
     Q_INVOKABLE void setActiveLayerOpacity(double opacity);
     Q_INVOKABLE void setActiveLayerSizeFraction(double sizeFraction);
     Q_INVOKABLE void setActiveLayerCenter(double nx, double ny);
@@ -179,7 +183,7 @@ public:
     Q_INVOKABLE void applyBuiltinPreset(const QString& id);
     Q_INVOKABLE void renamePreset(const QString& oldName, const QString& newName);
     Q_INVOKABLE void removePreset(const QString& name);
-    Q_INVOKABLE void browseOutputDirectory();
+    Q_INVOKABLE void browseOutputFile();
     Q_INVOKABLE void exportCover();
 
     void setBackgroundMode(int mode);
@@ -192,7 +196,7 @@ public:
     void setCardFontDisplayPath(const QString& path);
     void setCardFontBodyPath(const QString& path);
     void setResolutionIndex(int index);
-    void setOutputDirectory(const QString& path);
+    void setOutputFile(const QString& path);
 
 signals:
     void localeLabelsChanged();
@@ -261,7 +265,7 @@ private:
     QVariantList presets_;
     QStringList recentLayoutFiles_;
     QString activeLayerKey_;
-    QString outputDirectory_;
+    QString outputFile_;
     QString backgroundPath_;
     QString cardMode_ = QStringLiteral("auto");
     QString longTextMode_ = QStringLiteral("shrink");
@@ -273,6 +277,7 @@ private:
     bool hasLoadedPreferences_ = false;
     QTimer compositionSaveTimer_;
     bool compositionDirty_ = false;
+    bool outputDirty_ = false;
     bool blurBackground_ = true;
     bool cardShadow_ = false;
     bool levelTextRender_ = false;

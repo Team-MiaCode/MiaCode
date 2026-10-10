@@ -13,8 +13,9 @@ MenuItem {
     property bool compact: false
 
     implicitHeight: compact ? Theme.compactControlHeight : 28
-    leftPadding: 12
-    rightPadding: subMenu ? 22 : 16
+    // Reserve 14 px between the submenu label and its 8 px arrow.
+    leftPadding: subMenu && mirrored ? 34 : 12
+    rightPadding: subMenu && !mirrored ? 34 : 16
     topPadding: 3
     bottomPadding: 3
     font.family: Theme.uiFont
@@ -118,9 +119,9 @@ MenuItem {
         color: Theme.colors.text.active
     }
 
-    // Same placement contract as Qt Basic MenuItem; sized down slightly.
+    // Keep the arrow 12 px from the edge, outside the label's padded area.
     arrow: ControlsImpl.IconImage {
-        x: root.mirrored ? root.leftPadding : root.width - width - root.rightPadding + 6
+        x: root.mirrored ? 12 : root.width - width - 12
         y: root.topPadding + (root.availableHeight - height) / 2
         width: 8
         height: 12

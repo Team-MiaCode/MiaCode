@@ -219,7 +219,7 @@ void parseSlideToken(ParseState* state, const QString& token, int lineNumber, in
         marker.endLane = lane;
         for (int shapeIndex = 0; shapeIndex < chainShapes.size(); ++shapeIndex) {
             const QString& shapeKey = chainShapes.at(shapeIndex);
-            const QJsonObject entry = slideDataRoot().value("slides").toObject().value(shapeKey).toObject();
+            const QJsonObject entry = miacode::slide_reference::root().value("slides").toObject().value(shapeKey).toObject();
             if (entry.isEmpty()) {
                 appendTokenError(state, lineNumber, column, QString("Invalid note: %1 unknown shape %2").arg(token, shapeKey));
                 return;

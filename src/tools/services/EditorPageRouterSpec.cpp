@@ -52,6 +52,7 @@ class FakeRouter final : public miacode::EditorPageRouter
 public:
     bool hasActiveDifficulty() const override { return activeDifficulty > 0; }
     int activeDifficultyId() const override { return activeDifficulty; }
+    bool difficultyPageActive() const override { return page == QStringLiteral("difficulty"); }
 
     bool enterDifficultyPage(int difficultyId) override
     {

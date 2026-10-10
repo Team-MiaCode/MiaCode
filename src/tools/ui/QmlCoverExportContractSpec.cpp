@@ -219,7 +219,6 @@ int main(int argc, char** argv)
                && labeledSlider.contains(QStringLiteral("onReleased")),
            QStringLiteral("the shared slider exposes a release boundary for hot scrubbing"), out, &failed);
     expect(!mainSplitView.contains(QStringLiteral("CoverExportPage"))
-               && mainSplitView.contains(QStringLiteral("surfaceActive: !fullscreenPreview.visible"))
                && windowQml.contains(QStringLiteral("CoverExportPage"))
                && windowQml.contains(QStringLiteral("UiRequestHost")),
            QStringLiteral("cover content and dialogs belong to the independent window"), out, &failed);

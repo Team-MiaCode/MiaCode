@@ -1,15 +1,21 @@
 #include "app/services/ChartMediaImport.h"
 
+#include <QCoreApplication>
 #include <QDir>
+#include <QEventLoop>
 #include <QFile>
 #include <QFileInfo>
 #include <QImageReader>
 #include <QSaveFile>
+#include <QThread>
 #include <QUuid>
 #include <QVector>
 
 namespace miacode::chart_media_import {
 namespace {
+
+constexpr int kRenameRetryAttempts = 40;
+constexpr unsigned long kRenameRetryDelayMs = 50;
 
 QStringList directoryFileNames(const QString& directoryPath)
 {
@@ -102,7 +108,7 @@ bool restoreMovedFiles(QVector<MovedFile>& moved)
         const QString current = !it->backup.isEmpty() ? it->backup : it->temporary;
         if (current.isEmpty() || !QFileInfo::exists(current)) continue;
         QFile::remove(it->original);
-        restored = QFile::rename(current, it->original) && restored;
+        restored = renameWithRetry(current, it->original) && restored;
     }
     return restored;
 }
@@ -195,6 +201,20 @@ QString nextBackupPath(const QString& originalPath)
     return uniqueBackupPath(originalPath);
 }
 
+bool renameWithRetry(const QString& sourcePath, const QString& targetPath)
+{
+    for (int attempt = 0; attempt < kRenameRetryAttempts; ++attempt) {
+        if (QFile::rename(sourcePath, targetPath)) {
+            return true;
+        }
+        if (QCoreApplication::instance() != nullptr) {
+            QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+        }
+        QThread::msleep(kRenameRetryDelayMs);
+    }
+    return false;
+}
+
 Result importToChartDirectory(const QString& sourcePath,
                               const QString& chartDirectory,
                               Kind kind)
@@ -234,7 +254,7 @@ Result importToChartDirectory(const QString& sourcePath,
         MovedFile entry;
         entry.original = path;
         entry.temporary = temporaryPath(path);
-        if (!QFile::rename(path, entry.temporary)) {
+        if (!renameWithRetry(path, entry.temporary)) {
             rollback();
             result.errorCode = QStringLiteral("move_to_transaction_failed");
             return result;
@@ -259,7 +279,7 @@ Result importToChartDirectory(const QString& sourcePath,
 
     for (MovedFile& entry : moved) {
         entry.backup = uniqueBackupPath(entry.original);
-        if (!QFile::rename(entry.temporary, entry.backup)) {
+        if (!renameWithRetry(entry.temporary, entry.backup)) {
             rollback();
             result.errorCode = QStringLiteral("backup_failed");
             return result;

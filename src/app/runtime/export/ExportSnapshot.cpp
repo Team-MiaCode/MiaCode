@@ -539,9 +539,29 @@ void miacode::runtime::VideoExportHost::installExportPreviewAuditionScene(int di
         [this, difficultyId]() { installExportPreviewAuditionScene(difficultyId); });
 }
 
+void miacode::runtime::VideoExportHost::clearAudition()
+{
+    if (session_.activeOutlineKey_ != QLatin1String("export")) {
+        return;
+    }
+    beginExportPreviewSession(VideoExportTask());
+    teardownExportPreviewAuditionScene();
+    if (session_.previewSfxRuntime_ != nullptr) {
+        session_.previewSfxRuntime_->clearTimeline();
+    }
+    // The export page owns this presentation; document parsing and editor
+    // analysis remain available for the destination editor page.
+    session_.lastPreviewNoteMarkerSignature_.clear();
+    if (session_.scene_ != nullptr) {
+        session_.scene_->setNoteMarkers({});
+        session_.scene_->setMuriAnalysisReport({});
+    }
+    session_.clearPreviewObjectStats();
+}
+
 void miacode::runtime::VideoExportHost::teardownExportPreviewAuditionScene()
 {
-    if (!session_.exportPreviewAuditionActive_) {
+    if (!session_.exportPreviewAuditionActive_ && !session_.exportPreviewActive_) {
         return;
     }
     session_.cancelExportIntroLeadIn();    // stop any in-flight 片头 animation
@@ -662,7 +682,6 @@ bool miacode::runtime::VideoExportHost::buildVideoExportSnapshot(
     // keeps CLI / batch emitting it). The clock_count VALUE is re-derived worker-side.
     built.clockCountEnabled = requestedTask.clockCountEnabled;
     built.introSoundFileName = requestedTask.introSoundFileName;
-    built.introSoundVolume = requestedTask.introSoundVolume;
     built.intro = buildIntroBannerSpec(
         session_.applicationServices_.workspace().document(),
         resolvedDifficultyId,
@@ -702,7 +721,7 @@ bool miacode::runtime::VideoExportHost::buildVideoExportSnapshotForChartDirector
         errorMessage->clear();
     }
 
-    const QFileInfo directoryInfo(chartDirectory);
+    const QFileInfo directoryInfo(QDir::cleanPath(chartDirectory));
     if (!directoryInfo.exists() || !directoryInfo.isDir()) {
         if (errorMessage != nullptr) {
             *errorMessage = qtTrId("dialog.batch_export.error.invalid_folder");
@@ -876,7 +895,6 @@ bool miacode::runtime::VideoExportHost::buildVideoExportSnapshotForChartDirector
     // clock_count value itself is rebuilt from each chart in the worker.
     built.clockCountEnabled = requestedTask.clockCountEnabled;
     built.introSoundFileName = requestedTask.introSoundFileName;
-    built.introSoundVolume = requestedTask.introSoundVolume;
     built.intro = buildIntroBannerSpec(
         document,
         difficultyId,

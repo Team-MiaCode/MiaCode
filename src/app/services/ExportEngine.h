@@ -63,6 +63,8 @@ public:
     // so the normal transport plays it even when it is not the active
     // difficulty. Returns false when it could not be installed.
     virtual bool startAudition(int difficultyId, const VideoExportTask& visualTask) = 0;
+    // Keep the export preview mode while presenting an empty difficulty.
+    virtual void clearAudition() = 0;
     virtual void stopAudition() = 0;
 
     // Start the single-chart export. Returns false and fills `errorMessage`

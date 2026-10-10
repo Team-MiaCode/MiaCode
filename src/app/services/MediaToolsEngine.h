@@ -8,7 +8,7 @@ namespace miacode {
 //
 // Stage 3.5 item 2. MediaToolsModel owns the PV batch queue itself — that is
 // the only part with state worth keeping between openings — and forwards these
-// six to the window, which still holds the ffmpeg plumbing, the track/背景视频
+// seven to the window, which still holds the ffmpeg plumbing, the track/背景视频
 // paths and the backup files.
 //
 // `isTrack` selects which media the operation applies to: true for the audio
@@ -25,6 +25,7 @@ public:
     // The two conversions run as jobs and report through JobProgressService.
     virtual void convertTrackTo44100Hz() = 0;
     virtual void compressBackgroundVideo() = 0;
+    virtual void alignBackgroundVideoToTrack() = 0;
 
     // What the 前置空白 editor needs before it can offer anything: the current
     // media path, whether a backup exists, the detected bpm, and so on. An

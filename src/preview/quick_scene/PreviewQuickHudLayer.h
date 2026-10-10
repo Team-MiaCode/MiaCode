@@ -7,6 +7,7 @@
 #include <QQuickPaintedItem>
 #include <QtQml/qqmlregistration.h>
 #include <QSize>
+#include <memory>
 
 #include "core/scene/PreviewLayerOrder.h"
 #include "preview/quick_scene/PreviewQuickGraphicsInfo.h"
@@ -18,6 +19,8 @@ struct PreviewFrameState;
 }
 
 namespace miacode::preview::hud {
+
+struct HudInformationLayoutCache;
 
 // Phase 4f — standalone HUD painter, used by PreviewQuickHudLayer via
 // QQuickPaintedItem::paint. All inputs are read-only; painter must be
@@ -31,7 +34,8 @@ void paintPreviewHudOverlay(
         = miacode::preview::scene::kPreviewAllRenderLayers,
     const miacode::preview::quick_scene::QuickGraphicsInfo& graphicsInfo = {},
     const QColor& textColor = QColor(Qt::white),
-    const QColor& shadowColor = QColor(0, 0, 0, 190));
+    const QColor& shadowColor = QColor(0, 0, 0, 190),
+    HudInformationLayoutCache* informationLayoutCache = nullptr);
 
 void paintCenterDisplay(
     QPainter& painter,
@@ -50,6 +54,7 @@ class PreviewQuickHudLayer : public QQuickPaintedItem
 
 public:
     explicit PreviewQuickHudLayer(QQuickItem* parent = nullptr);
+    ~PreviewQuickHudLayer() override;
 
     void setRuntime(PreviewRuntime* runtime);
     QObject* runtimeObject() const;
@@ -90,4 +95,5 @@ private:
     QPointer<QQuickWindow> graphicsInfoWindow_;
     miacode::preview::quick_scene::QuickGraphicsInfo graphicsInfo_;
     bool graphicsInfoReady_ = false;
+    std::unique_ptr<miacode::preview::hud::HudInformationLayoutCache> informationLayoutCache_;
 };

@@ -25,6 +25,7 @@ QString targetFileName(const QString& sourcePath, Kind kind);
 bool isSupportedSource(const QString& sourcePath, Kind kind);
 QStringList existingCandidatePaths(const QString& chartDirectory, Kind kind);
 QString nextBackupPath(const QString& originalPath);
+bool renameWithRetry(const QString& sourcePath, const QString& targetPath);
 
 Result importToChartDirectory(const QString& sourcePath,
                               const QString& chartDirectory,

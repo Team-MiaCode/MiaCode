@@ -43,10 +43,13 @@ Item {
     readonly property bool chartEditorActive: documentSession.hasDocument
         && documentSession.currentDifficultyId > 0 && !pages.overlayActive
     readonly property alias mainMenuCommands: menuCommands
-    readonly property real minimumWidth: splitView.minimumWorkspaceWidth
+    readonly property string windowTitle: titleBar.titleText
+    readonly property real minimumWidth: Math.max(splitView.minimumWorkspaceWidth,
+        mainToolBar.minimumWidth, titleBar.minimumLeftMargin + titleBar.minimumRightMargin)
     readonly property real minimumHeight: chromeHost.height + statusBar.height
         + splitView.minimumHeight
-    readonly property bool compact: width < minimumWidth + splitView.expandedSidebarWidth
+    readonly property bool compact: width < splitView.minimumWorkspaceWidth
+        + splitView.expandedSidebarWidth
 
     ViewState { id: state }
 
@@ -120,10 +123,7 @@ Item {
             if (root.documentSession.hasDocument)
                 root.pages.openLatencyPage()
         }
-        onMediaToolsRequested: {
-            if (root.documentSession.hasDocument)
-                root.pages.openMediaProcessingTools()
-        }
+        onMediaToolRequested: toolId => root.runMediaTool(toolId)
         onUnavailableFeatureRequested: featureName => root.showUnavailableFeature(featureName)
         onOpenRequested: root.openChartPicker()
         onSaveRequested: root.saveDocument()
@@ -168,6 +168,41 @@ Item {
         }
         state.sidebarVisible = !state.sidebarVisible
         root.preferences.sidebarVisible = state.sidebarVisible
+    }
+
+    function showMediaToolsMenu() {
+        if (root.compact)
+            compactPanelLayer.showMediaToolsMenu()
+        else
+            splitView.showMediaToolsMenu()
+    }
+
+    function runMediaTool(toolId) {
+        if (!root.documentSession.hasDocument)
+            return
+        switch (toolId) {
+        case "convertTrack":
+            root.mediaTools.convertTrackTo44100Hz()
+            break
+        case "prependTrack":
+        case "prependPv": {
+            const context = root.mediaTools.prependContext(toolId === "prependTrack")
+            if (context.available) {
+                prependBlankDialog.loadContext(context)
+                prependBlankDialog.open()
+            }
+            break
+        }
+        case "compressVideo":
+            root.mediaTools.compressBackgroundVideo()
+            break
+        case "alignPvToAudio":
+            root.mediaTools.alignBackgroundVideoToTrack()
+            break
+        case "batchCompress":
+            batchCompressionDialog.open()
+            break
+        }
     }
 
     // PageHost is the authority for overlay navigation. Keep the activity bar
@@ -309,6 +344,7 @@ Item {
                 windowChrome: root.applicationContext.windowChrome
                 integratedInTitleBar: root.platform.nativeMenuBar
                 titleBarLeadingInset: titleBar.leadingInset
+                previewSettingsVisible: !splitView.previewDetached
                 sidebarActive: root.compact
                                ? state.compactPanel === "sidebar"
                                : state.sidebarVisible
@@ -358,11 +394,16 @@ Item {
                 editorSync: root.editorSync
                 latency: root.latency
                 compact: root.compact
+                documentTitle: root.documentTitle
                 onOpenRequested: root.openChartPicker()
                 onSettingsRequested: preferencesDialog.open()
+                onAudioSettingsRequested: audioSettingsDialog.open()
+                onPreviewSettingsRequested: previewSettingsDialog.open()
+                onMediaToolRequested: toolId => root.runMediaTool(toolId)
             }
 
             CompactPanelLayer {
+                id: compactPanelLayer
                 anchors.fill: parent
                 viewState: state
                 documentSession: root.documentSession
@@ -371,6 +412,7 @@ Item {
                 pages: root.pages
                 compact: root.compact
                 onSettingsRequested: preferencesDialog.open()
+                onMediaToolRequested: toolId => root.runMediaTool(toolId)
             }
         }
 
@@ -505,7 +547,7 @@ Item {
         function onActiveEditorKeyChanged() {
             if (state.latencyEditorActive && root.pages.activePageId !== "latency")
                 root.pages.openLatencyPage()
-            else if (state.metadataEditorActive && root.pages.activePageId === "latency")
+            else if (state.metadataEditorActive && !root.pages.overlayActive)
                 root.pages.activateMetadataPage()
         }
 
@@ -574,20 +616,11 @@ Item {
         imageResources: root.imageResources
     }
 
-    // Window-level tool overlays keep the current center page mounted.
-    MediaToolsDialog {
-        id: mediaToolsDialog
-        objectName: "shellMediaToolsDialog"
+    // Input-heavy media tools keep their own dialogs; the launcher is a submenu.
+    PvBatchCompressionDialog {
+        id: batchCompressionDialog
+        objectName: "pvBatchCompressionDialog"
         mediaTools: root.mediaTools
-        documentAvailable: root.documentSession.hasDocument
-        onPrependRequested: function(isTrack) {
-            const context = root.mediaTools.prependContext(isTrack)
-            // An unavailable target has already explained itself as a notice.
-            if (!context.available)
-                return
-            prependBlankDialog.loadContext(context)
-            prependBlankDialog.open()
-        }
     }
 
     PrependBlankDialog {
@@ -615,12 +648,14 @@ Item {
     AudioSettingsDialog {
         id: audioSettingsDialog
         objectName: "shellAudioSettingsDialog"
+        parent: splitView.settingsDialogParent
         audioSettings: root.applicationContext.audioSettings
     }
 
     PreviewSettingsDialog {
         id: previewSettingsDialog
         objectName: "shellPreviewSettingsDialog"
+        parent: splitView.settingsDialogParent
         previewSettings: root.applicationContext.previewSettings
     }
 
@@ -645,7 +680,7 @@ Item {
 
     Connections {
         target: root.pages
-        function onMediaToolsRequested() { mediaToolsDialog.open() }
+        function onMediaToolsRequested() { root.showMediaToolsMenu() }
         function onNormalizeWholeChartRequested() {
             if (root.pages.activePageId === "export" || !splitView.canNormalizeChart())
                 return

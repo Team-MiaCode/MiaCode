@@ -69,6 +69,7 @@ private:
     std::unique_ptr<QQmlApplicationEngine> engine_;
     // Owns the native-event filter; must outlive the root window.
     std::unique_ptr<WindowChrome> windowChrome_;
+    std::unique_ptr<WindowChrome> detachedPreviewWindowChrome_;
     std::unique_ptr<miacode::ui::ChartDropBridge> chartDropBridge_;
     QPointer<QQuickWindow> rootWindow_;
     QPointer<CoverExportWindow> coverWindow_;

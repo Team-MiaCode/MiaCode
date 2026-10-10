@@ -2,17 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import MiaCode.UI
 
-// The playback-rate HUD v1 drew over the preview: 当前倍速 + the rate as a
-// percentage, held briefly and faded out. It is the only feedback a rate change
-// made from the keyboard has — the transport's rate button is small, can be
-// off-screen in fullscreen, and is not where the user is looking either way.
-//
-// It centres on whatever it is anchored to. In the workspace that is the
-// timeline panel, where the eyes already are while editing and where nothing is
-// obscured; fullscreen preview anchors it to the stage, having no timeline.
-//
-// The notification uses the shared popup surface and lets input reach the
-// timeline or fullscreen stage underneath.
+// Keyboard playback-rate changes appear over the timeline panel.
+// The shared popup surface lets input reach the panel underneath.
 Item {
     id: root
 
@@ -25,7 +16,7 @@ Item {
     property bool showing: false
     // The first evaluation of `rate` is the session's current speed, not a
     // change anyone asked for. Announcing it would flash the HUD every time the
-    // pane is built — on page switches, on entering fullscreen.
+    // pane is built during page switches.
     property bool armed: false
 
     onPreviewSessionChanged: root.armed = false

@@ -661,6 +661,18 @@
         <source>Layer</source>
         <translation>图层</translation>
     </message>
+    <message id="cover.bring_to_front">
+        <source>Bring to Front</source>
+        <translation>置于顶层</translation>
+    </message>
+    <message id="cover.send_to_back">
+        <source>Send to Back</source>
+        <translation>置于底层</translation>
+    </message>
+    <message id="cover.layer_hidden">
+        <source>Hidden</source>
+        <translation>隐藏</translation>
+    </message>
     <message id="cover.layers">
         <source>Layers</source>
         <translation>图层</translation>
@@ -700,10 +712,6 @@
     <message id="cover.no_difficulty_selected">
         <source>No difficulty is selected, so the cover cannot be exported.</source>
         <translation>当前未选中难度，无法导出封面。</translation>
-    </message>
-    <message id="cover.no_output_directory">
-        <source>Choose an output folder before exporting the cover.</source>
-        <translation>请先选择输出文件夹，再导出封面。</translation>
     </message>
     <message id="cover.no_presets">
         <source>No saved presets</source>
@@ -849,6 +857,10 @@
         <source>Unlock</source>
         <translation>解锁</translation>
     </message>
+    <message id="cover.window.title">
+        <source>Cover Editor</source>
+        <translation>封面编辑器</translation>
+    </message>
     <message id="cover.window_creation_failed">
         <source>Failed to create the cover export window.</source>
         <translation>创建封面导出窗口失败。</translation>
@@ -860,6 +872,10 @@
     <message id="dialog.batch_export.clear">
         <source>Clear</source>
         <translation>清空</translation>
+    </message>
+    <message id="dialog.batch_export.no_chart_folders">
+        <source>No chart folders added</source>
+        <translation>尚未添加谱面文件夹</translation>
     </message>
     <message id="dialog.batch_export.difficulty">
         <source>Difficulty</source>
@@ -1232,44 +1248,48 @@ Failed: %2</source>
         <translation>更新</translation>
     </message>
     <message id="dialog.render_settings.audio.answer">
-        <source>Answer Volume</source>
-        <translation>Answer 音量</translation>
+        <source>Answer Sound</source>
+        <translation>正解音</translation>
     </message>
     <message id="dialog.render_settings.audio.break">
-        <source>Break Volume</source>
-        <translation>Break 音量</translation>
+        <source>Break</source>
+        <translation>Break</translation>
     </message>
     <message id="dialog.render_settings.audio.break_slide">
-        <source>Break Slide Volume</source>
-        <translation>Break Slide 音量</translation>
+        <source>Break Slide</source>
+        <translation>Break Slide</translation>
     </message>
     <message id="dialog.render_settings.audio.ex">
-        <source>EX Volume</source>
-        <translation>EX 音量</translation>
+        <source>EX</source>
+        <translation>EX</translation>
     </message>
     <message id="dialog.render_settings.audio.firework">
-        <source>Firework Volume</source>
-        <translation>Firework 音量</translation>
+        <source>Hanabi</source>
+        <translation>Hanabi</translation>
     </message>
     <message id="dialog.render_settings.audio.global">
         <source>Global Volume</source>
-        <translation>Global 音量</translation>
+        <translation>全局音量</translation>
+    </message>
+    <message id="dialog.render_settings.audio.intro">
+        <source>Export Intro</source>
+        <translation>导出片头</translation>
     </message>
     <message id="dialog.render_settings.audio.slide">
-        <source>Slide Volume</source>
-        <translation>Slide 音量</translation>
+        <source>Slide</source>
+        <translation>Slide</translation>
     </message>
     <message id="dialog.render_settings.audio.tap">
-        <source>Tap Volume</source>
-        <translation>Tap 音量</translation>
+        <source>Tap</source>
+        <translation>Tap</translation>
     </message>
     <message id="dialog.render_settings.audio.touch">
-        <source>Touch Volume</source>
-        <translation>Touch 音量</translation>
+        <source>Touch</source>
+        <translation>Touch</translation>
     </message>
     <message id="dialog.render_settings.audio.track">
-        <source>Track Volume</source>
-        <translation>Track 音量</translation>
+        <source>Track</source>
+        <translation>曲目</translation>
     </message>
     <message id="dialog.render_settings.gameplay.center_display">
         <source>Center Display</source>
@@ -1394,10 +1414,6 @@ Failed: %2</source>
     <message id="dialog.render_settings.music.intro_sound">
         <source>Intro sound</source>
         <translation>片头音效</translation>
-    </message>
-    <message id="dialog.render_settings.music.intro_sound_volume">
-        <source>Intro sound volume</source>
-        <translation>片头音量</translation>
     </message>
     <message id="dialog.render_settings.preview.canvas_frame_rate">
         <source>Preview Refresh Rate</source>
@@ -1897,6 +1913,10 @@ Restore the backup from %1?</source>
         <source>&amp;first must be a valid number of seconds.</source>
         <translation>&amp;first 必须是有效的秒数。</translation>
     </message>
+    <message id="document.manage_designer_names">
+        <source>Manage</source>
+        <translation>管理</translation>
+    </message>
     <message id="document.maidata_txt_already_exists_in">
         <source>maidata.txt already exists in the selected folder. Overwrite it?</source>
         <translation>所选文件夹下已存在 maidata.txt，是否覆盖？</translation>
@@ -2090,16 +2110,16 @@ Restore the backup from %1?</source>
         <translation>视频导出</translation>
     </message>
     <message id="export_page.no_difficulty_is_available_to">
-        <source>No difficulty is available to export.</source>
-        <translation>暂无可导出的难度。</translation>
+        <source>No chart to export.</source>
+        <translation>暂无可导出的谱面。</translation>
     </message>
     <message id="export_page.pack_as_zip">
         <source>Pack as ZIP</source>
         <translation>打包 ZIP</translation>
     </message>
     <message id="export_page.the_selected_difficulty_has_no">
-        <source>The selected difficulty has no chart content to export.</source>
-        <translation>当前难度暂无谱面内容，无法导出视频。</translation>
+        <source>This difficulty has no chart.</source>
+        <translation>该难度谱面为空。</translation>
     </message>
     <message id="file_filter.audio">
         <source>Audio (*.wav *.mp3 *.ogg *.flac)</source>
@@ -2165,9 +2185,17 @@ Restore the backup from %1?</source>
         <source>%1 was not found next to the current chart.</source>
         <translation>当前谱面目录缺少 %1。</translation>
     </message>
+    <message id="media_tools.audio_processing_track">
+        <source>Audio Processing track.mp3</source>
+        <translation>音频处理 track.mp3</translation>
+    </message>
     <message id="media_tools.audio_video_processing">
         <source>Audio/Video Processing</source>
         <translation>音频/视频处理</translation>
+    </message>
+    <message id="media_tools.align_pv_to_audio">
+        <source>Auto-align Video to Track Audio</source>
+        <translation>自动对齐曲目音频</translation>
     </message>
     <message id="media_tools.background_mp4_video">
         <source>background .mp4 video</source>
@@ -2268,6 +2296,10 @@ Restore the backup from %1?</source>
     <message id="media_tools.batch_pv_replace_failed_1">
         <source>Compressed, but replacement failed; output kept at %1</source>
         <translation>压缩完成但替换失败，输出保留在 %1</translation>
+    </message>
+    <message id="media_tools.batch_compress">
+        <source>Batch Compress Videos</source>
+        <translation>批量压缩视频</translation>
     </message>
     <message id="media_tools.batch_pv_start">
         <source>Compress Videos</source>
@@ -2425,9 +2457,37 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Could not create the two-pass log directory.</source>
         <translation>创建双遍编码日志目录失败。</translation>
     </message>
+    <message id="media_tools.prepend_blank">
+        <source>Prepend Blank</source>
+        <translation>前置空白</translation>
+    </message>
     <message id="media_tools.prepend_pv_black_screen">
-        <source>Prepend PV Black Screen</source>
-        <translation>视频前置黑幕</translation>
+        <source>Add Intro Black Screen</source>
+        <translation>添加片头黑幕</translation>
+    </message>
+    <message id="media_tools.analyzing_audio_alignment">
+        <source>Analyzing audio alignment...</source>
+        <translation>正在分析音频对齐...</translation>
+    </message>
+    <message id="media_tools.video_audio_missing">
+        <source>The background video has no audio stream to align.</source>
+        <translation>背景视频没有可用于对齐的音轨。</translation>
+    </message>
+    <message id="media_tools.video_alignment_cancelled">
+        <source>Audio alignment canceled.</source>
+        <translation>已取消音视频对齐。</translation>
+    </message>
+    <message id="media_tools.video_alignment_offset_failed">
+        <source>Could not find a reliable offset between track.mp3 and the PV audio.</source>
+        <translation>无法可靠检测 track.mp3 与 PV 音轨之间的偏移。</translation>
+    </message>
+    <message id="media_tools.video_alignment_already_aligned">
+        <source>The PV audio is already aligned with track.mp3 (offset %1 s); no changes were made.</source>
+        <translation>PV 音轨已与 track.mp3 对齐（偏移 %1 秒），未修改文件。</translation>
+    </message>
+    <message id="media_tools.video_aligned_to_track_1_2">
+        <source>Aligned %1 to track.mp3 with offset %2 s (original backed up as %3).</source>
+        <translation>已将 %1 按 %2 秒偏移与 track.mp3 对齐（原文件已备份为 %3）。</translation>
     </message>
     <message id="media_tools.prepend_track_silence">
         <source>Prepend Track Silence</source>
@@ -2453,12 +2513,20 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>progress surface unavailable</source>
         <translation>进度界面不可用</translation>
     </message>
+    <message id="media_tools.pv_compress">
+        <source>Compress Current Video</source>
+        <translation>压缩当前视频</translation>
+    </message>
     <message id="media_tools.replace_failed">
         <source>Failed to replace file: %1</source>
         <translation>替换文件失败：%1</translation>
     </message>
     <message id="media_tools.sample_rate">
         <source>Sample Rate</source>
+        <translation>采样率转换</translation>
+    </message>
+    <message id="media_tools.sample_rate_conversion">
+        <source>Sample Rate Conversion</source>
         <translation>采样率转换</translation>
     </message>
     <message id="media_tools.sample_rate_conversion_canceled">
@@ -2492,6 +2560,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="media_tools.video_processing_canceled">
         <source>Video processing canceled.</source>
         <translation>已取消视频处理。</translation>
+    </message>
+    <message id="media_tools.video_processing_pv">
+        <source>Video Processing pv.mp4</source>
+        <translation>视频处理 pv.mp4</translation>
     </message>
     <message id="menu.clear_elements">
         <source>Clear Elements</source>
@@ -2537,8 +2609,32 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>PV</source>
         <translation>PV</translation>
     </message>
+    <message id="metadata.import">
+        <source>Import</source>
+        <translation>导入</translation>
+    </message>
+    <message id="metadata.load_audio_info">
+        <source>Load audio info</source>
+        <translation>读取音频信息</translation>
+    </message>
+    <message id="metadata.remove">
+        <source>Remove</source>
+        <translation>移除</translation>
+    </message>
+    <message id="metadata.no_pv">
+        <source>No PV</source>
+        <translation>暂无PV</translation>
+    </message>
+    <message id="metadata.no_cover">
+        <source>No cover</source>
+        <translation>暂无曲绘</translation>
+    </message>
+    <message id="metadata.audio_tags_loaded">
+        <source>Read audio metadata.</source>
+        <translation>已读取音频信息。</translation>
+    </message>
     <message id="metadata.field.cover">
-        <source>cover</source>
+        <source>Cover</source>
         <translation>曲绘</translation>
     </message>
     <message id="metadata.field.des">
@@ -2933,9 +3029,17 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Picture Options</source>
         <translation>画面选项</translation>
     </message>
-    <message id="preview.fullscreen.enter_tooltip">
-        <source>Fullscreen</source>
-        <translation>全屏</translation>
+    <message id="preview.window.detach">
+        <source>Detach Preview</source>
+        <translation>分离预览</translation>
+    </message>
+    <message id="preview.window.dock">
+        <source>Return to Main Window</source>
+        <translation>返回主窗口</translation>
+    </message>
+    <message id="preview.window.title">
+        <source>Preview</source>
+        <translation>预览</translation>
     </message>
     <message id="preview.pause">
         <source>Pause</source>
@@ -3133,10 +3237,6 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Errors</source>
         <translation>错误</translation>
     </message>
-    <message id="qml.exit_fullscreen_preview">
-        <source>Exit fullscreen</source>
-        <translation>退出全屏</translation>
-    </message>
     <message id="qml.expand_bookmarks">
         <source>Expand bookmarks</source>
         <translation>展开书签</translation>
@@ -3322,8 +3422,8 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>延迟</translation>
     </message>
     <message id="qml.one_field_equals_value_per_line">
-        <source>One &amp;field=value per line</source>
-        <translation>每行一个 &amp;字段=值</translation>
+        <source>&amp;field=value</source>
+        <translation>&amp;字段=值</translation>
     </message>
     <message id="qml.open_chart_info_or_add_a_difficulty">
         <source>Open metadata, or add a difficulty</source>
@@ -3472,10 +3572,6 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="qml.sound_effect_volume">
         <source>Sound-effect volume</source>
         <translation>音效音量</translation>
-    </message>
-    <message id="qml.sound_effects">
-        <source>Sound effects</source>
-        <translation>音效</translation>
     </message>
     <message id="qml.start_audition">
         <source>Start audition</source>
@@ -3725,10 +3821,6 @@ Error: %1</source>
         <source>Import file</source>
         <translation>导入文件</translation>
     </message>
-    <message id="track_metadata.import_pv">
-        <source>Import PV</source>
-        <translation>导入PV</translation>
-    </message>
     <message id="track_metadata.imported_background_image">
         <source>Cover imported to %1.</source>
         <translation>曲绘已导入到 %1。</translation>
@@ -3762,16 +3854,12 @@ Error: %1</source>
         <translation>从 MP3 读取曲师</translation>
     </message>
     <message id="track_metadata.read_from_audio">
-        <source>Read from audio file</source>
-        <translation>从音频文件读取</translation>
+        <source>Read audio tags</source>
+        <translation>读取音频标签</translation>
     </message>
     <message id="track_metadata.read_title_from_mp3">
         <source>Read Title from MP3</source>
         <translation>从 MP3 读取标题</translation>
-    </message>
-    <message id="track_metadata.remove_pv">
-        <source>Remove PV</source>
-        <translation>移除PV</translation>
     </message>
     <message id="track_metadata.the_selected_mp3_has_no">
         <source>The selected MP3 has no embedded cover artwork.</source>

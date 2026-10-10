@@ -50,9 +50,12 @@ QImage renderCoverComposite(CoverLayoutModel* model,
                             const QSize& fullSize,
                             QString* errorMessage);
 
+// Writes the cover to `outputFile`, an absolute path. The extension picks PNG or
+// JPEG (a transparent background forces PNG); an existing file is never
+// overwritten, the result lands beside it as "name(1).ext" instead.
 CoverExportResult exportCoverComposite(CoverLayoutModel* model,
                                        const CoverComposerInputs& inputs,
                                        const QSize& fullSize,
-                                       const QString& outputDirectory);
+                                       const QString& outputFile);
 
 }  // namespace miacode::cover_export

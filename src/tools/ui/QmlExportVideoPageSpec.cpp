@@ -105,7 +105,6 @@ ApplicationWindow {
         property var sizePresetOptions: ["Standard"]
         property bool showObjectStatsHud: false
         property bool showChartInfoHud: false
-        property bool fixHudTextLayout: false
         property bool clockCountEnabled: false
         property var fontLibraryOptions: [
             { label: "Default font", path: "", family: "" },
@@ -121,16 +120,6 @@ ApplicationWindow {
         property string introFontDisplayPath: ""
         property string introFontBodyPath: ""
         property int introFontImportRequests: 0
-        property var introSoundOptions: [
-            { label: "Default intro sound", fileName: "" },
-            { label: "custom.wav", fileName: "custom.wav" }
-        ]
-        property int introSoundIndex: 1
-        property string introSoundFileName: "custom.wav"
-        property real introSoundVolume: 1.25
-        property string introSoundLabel: "Intro sound"
-        property string introSoundVolumeLabel: "Intro sound volume"
-        property string introSoundImportLabel: "Import"
         property real exportStartSeconds: 60.0
         property real exportEndSeconds: 180.0
         property real retainedExportDurationSeconds: 120.0
@@ -140,7 +129,6 @@ ApplicationWindow {
         property var chartDirectories: []
         property var batchDifficultyChecks: []
         property string batchOutputDirectory: ""
-        property int importRequests: 0
         property int atomicRangeWrites: 0
         property bool applyingAtomicRange: false
 
@@ -168,7 +156,6 @@ ApplicationWindow {
         function setBatchDifficultyChecked(id, checked) {}
         function browseOutputPath() {}
         function browseIntroBackground() {}
-        function importIntroSound() { importRequests += 1 }
         function importIntroFont() { introFontImportRequests += 1 }
         function resetIntroFonts() {
             introFontDisplayPath = ""
@@ -411,61 +398,27 @@ bool verifyRealExportPageControls(QTextStream& err)
 
     QObject* session = root->findChild<QObject*>(QStringLiteral("fakeExportSession"));
     QObject* previewSettings = root->findChild<QObject*>(QStringLiteral("fakePreviewSettings"));
-    QObject* combo = root->findChild<QObject*>(QStringLiteral("introSoundCombo"));
-    QObject* importButton = root->findChild<QObject*>(QStringLiteral("introSoundImportButton"));
-    QObject* volumeSlider = root->findChild<QObject*>(QStringLiteral("introSoundVolumeSlider"));
     QObject* displayFontCombo = root->findChild<QObject*>(QStringLiteral("introDisplayFontCombo"));
     QObject* bodyFontCombo = root->findChild<QObject*>(QStringLiteral("introBodyFontCombo"));
     QObject* introFontImportButton = root->findChild<QObject*>(QStringLiteral("introFontImportButton"));
     QObject* introFontResetButton = root->findChild<QObject*>(QStringLiteral("introFontResetButton"));
     bool ok = require(
-        session != nullptr && previewSettings != nullptr && combo != nullptr && importButton != nullptr
-            && volumeSlider != nullptr && displayFontCombo != nullptr && bodyFontCombo != nullptr
-            && introFontImportButton != nullptr && introFontResetButton != nullptr,
-        QStringLiteral("the real ExportVideoPage creates the intro font and sound controls"),
+        session != nullptr && previewSettings != nullptr && displayFontCombo != nullptr
+            && bodyFontCombo != nullptr && introFontImportButton != nullptr
+            && introFontResetButton != nullptr,
+        QStringLiteral("the real ExportVideoPage creates the intro font controls"),
         err);
     if (!ok) {
         return false;
     }
 
+    // The intro's sound selection is hidden for now and its volume lives in the
+    // audio settings under the global volume, so the page offers neither.
     ok &= require(
-        combo->property("currentIndex").toInt() == 1
-            && qAbs(volumeSlider->property("value").toDouble() - 125.0) <= 1e-9,
-        QStringLiteral("the combo and slider bind to the session filename index and 0..200 percent volume"),
-        err);
-    ok &= require(
-        combo->property("enabled").toBool()
-            && importButton->property("enabled").toBool()
-            && volumeSlider->property("enabled").toBool(),
-        QStringLiteral("intro-sound controls are enabled for an enabled full-range intro"),
-        err);
-    ok &= require(
-        combo->property("focusPolicy").toInt() == Qt::StrongFocus
-            && importButton->property("focusPolicy").toInt() == Qt::StrongFocus
-            && volumeSlider->property("focusPolicy").toInt() == Qt::StrongFocus,
-        QStringLiteral("every intro-sound control is keyboard focusable"),
-        err);
-
-    combo->setProperty("currentIndex", 0);
-    QMetaObject::invokeMethod(combo, "activated", Q_ARG(int, 0));
-    ok &= require(
-        session->property("introSoundIndex").toInt() == 0,
-        QStringLiteral("activating the real combo writes the selected option to the session"),
-        err);
-
-    QMetaObject::invokeMethod(importButton, "clicked");
-    ok &= require(
-        session->property("importRequests").toInt() == 1,
-        QStringLiteral("the real import button invokes the session import action"),
-        err);
-
-    volumeSlider->setProperty("value", 175.0);
-    // LabeledSlider's moved(real) signal carries the dragged value, unlike the
-    // bare AppSlider it replaced, so the harness has to pass it explicitly.
-    QMetaObject::invokeMethod(volumeSlider, "moved", Q_ARG(double, 175.0));
-    ok &= require(
-        qAbs(session->property("introSoundVolume").toDouble() - 1.75) <= 1e-9,
-        QStringLiteral("moving the real slider writes the independent 0..2 volume multiplier"),
+        root->findChild<QObject*>(QStringLiteral("introSoundCombo")) == nullptr
+            && root->findChild<QObject*>(QStringLiteral("introSoundImportButton")) == nullptr
+            && root->findChild<QObject*>(QStringLiteral("introSoundVolumeSlider")) == nullptr,
+        QStringLiteral("the export page offers no intro sound or intro volume controls"),
         err);
 
     displayFontCombo->setProperty("currentIndex", 1);
@@ -524,27 +477,25 @@ bool verifyRealExportPageControls(QTextStream& err)
     session->setProperty("introEnabled", false);
     QCoreApplication::processEvents();
     ok &= require(
-        !combo->property("enabled").toBool()
-            && !importButton->property("enabled").toBool()
-            && !volumeSlider->property("enabled").toBool(),
-        QStringLiteral("turning the intro off disables its sound controls"),
+        !displayFontCombo->property("enabled").toBool()
+            && !introFontImportButton->property("enabled").toBool(),
+        QStringLiteral("turning the intro off disables its font controls"),
         err);
 
     session->setProperty("introEnabled", true);
     session->setProperty("fullRangeExport", false);
     QCoreApplication::processEvents();
     ok &= require(
-        !combo->property("enabled").toBool(),
-        QStringLiteral("a partial single export disables intro sound settings"),
+        !displayFontCombo->property("enabled").toBool(),
+        QStringLiteral("a partial single export disables intro settings"),
         err);
 
     session->setProperty("activeTab", QStringLiteral("batch"));
     QCoreApplication::processEvents();
     ok &= require(
-        combo->property("enabled").toBool()
-            && importButton->property("enabled").toBool()
-            && volumeSlider->property("enabled").toBool(),
-        QStringLiteral("batch export keeps intro sound settings available regardless of the single range"),
+        displayFontCombo->property("enabled").toBool()
+            && introFontImportButton->property("enabled").toBool(),
+        QStringLiteral("batch export keeps intro settings available regardless of the single range"),
         err);
 
     return ok;

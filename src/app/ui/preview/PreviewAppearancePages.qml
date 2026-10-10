@@ -38,7 +38,7 @@ AppTabPages {
         Layout.fillWidth: true
         Layout.fillHeight: false
         Layout.alignment: Qt.AlignTop
-        spacing: 10
+        spacing: Theme.settingsRowSpacing
 
         LabeledSlider {
             objectName: "previewBrightnessOuterSlider"
@@ -109,7 +109,7 @@ AppTabPages {
         Layout.fillWidth: true
         Layout.fillHeight: false
         Layout.alignment: Qt.AlignTop
-        spacing: 10
+        spacing: Theme.settingsRowSpacing
 
         LabeledSlider {
             objectName: "previewTapFlowSpeedSlider"
@@ -161,6 +161,8 @@ AppTabPages {
             Layout.fillWidth: true
             spacing: 8
             Text {
+                font.family: Theme.uiFont
+                font.pixelSize: Theme.uiFontSize
                 Layout.preferredWidth: 120
                 text: root.labels.judgeEffect || ""
                 color: Theme.colors.text.secondary
@@ -183,11 +185,13 @@ AppTabPages {
         Layout.fillWidth: true
         Layout.fillHeight: false
         Layout.alignment: Qt.AlignTop
-        spacing: 10
+        spacing: Theme.settingsRowSpacing
 
         RowLayout {
             Layout.fillWidth: true
             Text {
+                font.family: Theme.uiFont
+                font.pixelSize: Theme.uiFontSize
                 text: qsTrId("dialog.render_settings.video.skin")
                 color: Theme.colors.text.secondary
                 Layout.preferredWidth: 120
@@ -211,6 +215,8 @@ AppTabPages {
         RowLayout {
             Layout.fillWidth: true
             Text {
+                font.family: Theme.uiFont
+                font.pixelSize: Theme.uiFontSize
                 text: qsTrId("dialog.skin_settings.chart_effect")
                 color: Theme.colors.text.secondary
                 Layout.preferredWidth: 120
@@ -229,6 +235,8 @@ AppTabPages {
         RowLayout {
             Layout.fillWidth: true
             Text {
+                font.family: Theme.uiFont
+                font.pixelSize: Theme.uiFontSize
                 text: qsTrId("dialog.render_settings.gameplay.judge_line")
                 color: Theme.colors.text.secondary
                 Layout.preferredWidth: 120
@@ -249,97 +257,91 @@ AppTabPages {
             }
         }
 
-        Rectangle {
+        SettingsSection {
             Layout.fillWidth: true
-            Layout.topMargin: 2
-            height: 1
-            color: Theme.colors.border.normal
-        }
+            title: qsTrId("dialog.video_export.option.hud_font")
 
-        Text {
-            text: qsTrId("dialog.video_export.option.hud_font")
-            color: Theme.colors.text.section
-            font.family: Theme.uiFont
-            font.pixelSize: Theme.sectionTitleFontSize
-            font.bold: true
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            Text {
-                text: qsTrId("dialog.video_export.option.hud_font_area")
-                color: Theme.colors.text.secondary
-                Layout.preferredWidth: 120
-            }
-            AppComboBox {
-                id: previewHudFontAreaCombo
-                objectName: "previewHudFontAreaCombo"
+            RowLayout {
                 Layout.fillWidth: true
-                model: root.previewSettings ? root.previewSettings.hudFontAreaOptions : []
-                textRole: "label"
-                currentIndex: root.previewSettings ? root.previewSettings.hudFontAreaIndex : 0
-                Accessible.name: qsTrId("qml.hud_font_area")
-                onActivated: if (root.previewSettings) root.previewSettings.hudFontAreaIndex = currentIndex
+                Text {
+                    font.family: Theme.uiFont
+                    font.pixelSize: Theme.uiFontSize
+                    text: qsTrId("dialog.video_export.option.hud_font_area")
+                    color: Theme.colors.text.secondary
+                    Layout.preferredWidth: 120
+                }
+                AppComboBox {
+                    id: previewHudFontAreaCombo
+                    objectName: "previewHudFontAreaCombo"
+                    Layout.fillWidth: true
+                    model: root.previewSettings ? root.previewSettings.hudFontAreaOptions : []
+                    textRole: "label"
+                    currentIndex: root.previewSettings ? root.previewSettings.hudFontAreaIndex : 0
+                    Accessible.name: qsTrId("qml.hud_font_area")
+                    onActivated: if (root.previewSettings) root.previewSettings.hudFontAreaIndex = currentIndex
+                }
             }
-        }
 
-        RowLayout {
-            Layout.fillWidth: true
-            Text {
-                text: qsTrId("cover.font")
-                color: Theme.colors.text.secondary
-                Layout.preferredWidth: 120
-            }
-            AppComboBox {
-                id: previewHudFontCombo
-                objectName: "previewHudFontCombo"
+            RowLayout {
                 Layout.fillWidth: true
-                model: root.previewSettings ? root.previewSettings.fontLibraryOptions : []
-                textRole: "label"
-                fontFamilyRole: "family"
-                currentIndex: root.fontIndexForPath(model, root.previewSettings ? root.previewSettings.hudFontPath : "")
-                Accessible.name: qsTrId("dialog.video_export.option.hud_font")
-                onActivated: if (root.previewSettings) root.previewSettings.hudFontPath = model[currentIndex].path
+                Text {
+                    font.family: Theme.uiFont
+                    font.pixelSize: Theme.uiFontSize
+                    text: qsTrId("cover.font")
+                    color: Theme.colors.text.secondary
+                    Layout.preferredWidth: 120
+                }
+                AppComboBox {
+                    id: previewHudFontCombo
+                    objectName: "previewHudFontCombo"
+                    Layout.fillWidth: true
+                    model: root.previewSettings ? root.previewSettings.fontLibraryOptions : []
+                    textRole: "label"
+                    fontFamilyRole: "family"
+                    currentIndex: root.fontIndexForPath(model, root.previewSettings ? root.previewSettings.hudFontPath : "")
+                    Accessible.name: qsTrId("dialog.video_export.option.hud_font")
+                    onActivated: if (root.previewSettings) root.previewSettings.hudFontPath = model[currentIndex].path
+                }
             }
-        }
 
-        Rectangle {
-            Layout.fillWidth: true
-            implicitHeight: previewHudFontSample.implicitHeight + 20
-            radius: Theme.controlRadius
-            color: Theme.overlayColor(Theme.colors.background.surface)
-            Text {
-                id: previewHudFontSample
-                anchors.fill: parent
-                anchors.margins: 10
-                text: root.previewSettings ? root.previewSettings.hudFontSample : ""
-                color: Theme.colors.text.primary
-                font.family: root.previewSettings ? root.previewSettings.hudFont.family : Theme.uiFont
-                font.weight: root.previewSettings ? root.previewSettings.hudFont.weight : Font.Normal
-                font.pixelSize: Theme.uiFontSize
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-                elide: Text.ElideRight
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: previewHudFontSample.implicitHeight + 20
+                radius: Theme.controlRadius
+                color: Theme.overlayColor(Theme.colors.background.surface)
+                Text {
+                    id: previewHudFontSample
+                    anchors.fill: parent
+                    anchors.margins: 10
+                    text: root.previewSettings ? root.previewSettings.hudFontSample : ""
+                    color: Theme.colors.text.primary
+                    font.family: root.previewSettings ? root.previewSettings.hudFont.family : Theme.uiFont
+                    font.weight: root.previewSettings ? root.previewSettings.hudFont.weight : Font.Normal
+                    font.pixelSize: Theme.uiFontSize
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
+                }
             }
-        }
 
-        RowLayout {
-            Layout.fillWidth: true
-            AppButton {
-                id: previewHudFontImportButton
-                objectName: "previewHudFontImportButton"
-                text: qsTrId("card_font.import")
-                Accessible.name: qsTrId("qml.import_hud_font")
-                onClicked: if (root.previewSettings) root.previewSettings.importHudFont()
+            RowLayout {
+                Layout.fillWidth: true
+                AppButton {
+                    id: previewHudFontImportButton
+                    objectName: "previewHudFontImportButton"
+                    text: qsTrId("card_font.import")
+                    Accessible.name: qsTrId("qml.import_hud_font")
+                    onClicked: if (root.previewSettings) root.previewSettings.importHudFont()
+                }
+                AppButton {
+                    id: previewHudFontResetButton
+                    objectName: "previewHudFontResetButton"
+                    text: qsTrId("action.reset")
+                    Accessible.name: qsTrId("qml.reset_hud_font")
+                    onClicked: if (root.previewSettings) root.previewSettings.resetHudFont()
+                }
+                Item { Layout.fillWidth: true }
             }
-            AppButton {
-                id: previewHudFontResetButton
-                objectName: "previewHudFontResetButton"
-                text: qsTrId("action.reset")
-                Accessible.name: qsTrId("qml.reset_hud_font")
-                onClicked: if (root.previewSettings) root.previewSettings.resetHudFont()
-            }
-            Item { Layout.fillWidth: true }
         }
     }
 }

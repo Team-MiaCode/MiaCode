@@ -15,6 +15,11 @@ Rectangle {
     signal toolRequested(string toolId)
     signal settingsRequested()
 
+    function showMediaToolsMenu() {
+        if (root.toolsAvailable)
+            toolsPopup.popup(toolsButton, toolsButton.width, 0)
+    }
+
     implicitWidth: Theme.activityButtonSize
     color: Theme.surfaceColor(Theme.colors.background.activityBar)
 
@@ -59,10 +64,15 @@ Rectangle {
         id: toolsPopup
         hugContent: true
 
-        AppMenuAction {
-            text: qsTrId("media_tools.audio_video_processing")
+        AudioProcessingMenu {
             enabled: root.toolsAvailable
-            onTriggered: root.toolRequested("media")
+            documentAvailable: root.documentAvailable
+            onToolRequested: toolId => root.toolRequested("media." + toolId)
+        }
+        VideoProcessingMenu {
+            enabled: root.toolsAvailable
+            documentAvailable: root.documentAvailable
+            onToolRequested: toolId => root.toolRequested("media." + toolId)
         }
         AppMenuAction {
             text: qsTrId("qml.normalize_whole_chart")

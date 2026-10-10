@@ -19,7 +19,7 @@ code_anchors: ["cmake/MiaCodeModules.cmake", "cmake/MiaCodeModuleHelpers.cmake",
 | CMake 目标 | 源目录 | 主要内容 | 允许依赖 |
 | --- | --- | --- | --- |
 | `miacode_base` | `src/common` | 日志、调试选项、诊断、任务取消、文件戳、本地化文本、崩溃恢复、看门狗、偏好端口 `PreferenceProvider` | Qt |
-| `miacode_chart` | `src/core/chart` | 文档、解析、变换、选择；音符模型 `model/TimelineData.h`（含 `MuriPadTimeEntry`）与 `model/TimelineMarkerOffset.h`；`ChartClockCount`、`ChartAssetPaths`、`IntroConfig`；`slide_data` 资源 | base |
+| `miacode_chart` | `src/core/chart` | 文档、解析、变换、选择；音符模型 `model/TimelineData.h`（含 `MuriPadTimeEntry`）与 `model/TimelineMarkerOffset.h`；`ChartClockCount`、`ChartAssetPaths`、`IntroConfig`；`slide_data` 资源及其共享解析入口 `SlideReferenceData` | base |
 | `miacode_analysis` | `src/core/analysis` | Muri 产品代码与报告类型 `MuriTypes`、`MuriConfig`、`MuriRenderOptions`；分析流水线 `TimelineSlowRefresh` | chart |
 | `miacode_editor_core` | `src/editor` | 文本策略、补全、书签语法 | chart |
 | `miacode_scene` | `src/core/scene`、`src/core/video` | 场景数学、Preview*Config、SFX 时间线语义、`AssetPaths`；字体资源 | analysis |

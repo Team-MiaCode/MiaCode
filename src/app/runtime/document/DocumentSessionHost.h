@@ -154,6 +154,7 @@ public:
     void setLeaveDocumentHandler(
         std::function<void(std::function<void(bool)>)> handler) override;
     bool hasActiveDifficulty() const override;
+    bool difficultyPageActive() const override;
     bool enterDifficultyPage(int difficultyId) override;
     bool enterMetadataPage() override;
     bool enterLatencyPage() override;

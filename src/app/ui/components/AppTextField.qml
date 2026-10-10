@@ -15,7 +15,7 @@ TextField {
 
     font.family: Theme.uiFont
     font.pixelSize: Theme.uiFontSize
-    color: Theme.colors.text.primary
+    color: Theme.colors.text.active
     placeholderTextColor: Theme.colors.text.secondary
     selectedTextColor: Theme.colors.text.primary
     selectionColor: Theme.colors.state.textSelection

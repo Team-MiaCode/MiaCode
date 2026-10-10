@@ -19,10 +19,12 @@
 #include <algorithm>
 #include <functional>
 
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QImage>
+#include <QImageReader>
 #include <QJsonObject>
 #include <QJsonValue>
 #include <QRegularExpression>
@@ -309,11 +311,41 @@ QString DocumentModel::metadataVideoPath() const
 {
     return documentField(miacode::ChartWorkspaceDocumentField::VideoPath);
 }
-bool DocumentModel::metadataHasVideo() const
+QString DocumentModel::metadataCoverPath() const { return metadataCoverPath_; }
+QUrl DocumentModel::metadataCoverSource() const { return metadataCoverSource_; }
+QString DocumentModel::metadataResolvedVideoPath() const { return metadataResolvedVideoPath_; }
+bool DocumentModel::metadataHasVideo() const { return !metadataResolvedVideoPath_.isEmpty(); }
+
+void DocumentModel::refreshMetadataMedia(bool force)
 {
-    return !miacode::chart_assets::resolveChartVideoPath(
-        currentFilePath(), metadataVideoPath()).isEmpty();
+    const QString chartPath = currentFilePath();
+    const QString videoField = metadataVideoPath();
+    if (!force && metadataMediaChartPath_ == chartPath && metadataMediaVideoField_ == videoField) return;
+    metadataMediaChartPath_ = chartPath;
+    metadataMediaVideoField_ = videoField;
+
+    QString coverPath = miacode::chart_assets::resolveBackgroundMediaPath(chartPath, false);
+    QImageReader coverReader(coverPath);
+    if (!coverPath.isEmpty() && !coverReader.canRead()) coverPath.clear();
+    QUrl coverSource;
+    if (!coverPath.isEmpty()) {
+        coverSource = QUrl::fromLocalFile(coverPath);
+        coverSource.setQuery(QString::number(QFileInfo(coverPath).lastModified().toMSecsSinceEpoch()));
+    }
+    QString videoPath = miacode::chart_assets::resolveChartVideoPath(chartPath, videoField);
+    if (!miacode::chart_assets::isVideoBackgroundPath(videoPath)) {
+        const QStringList candidates = mediaService_.existingCandidates(
+            chartPath, miacode::ChartMediaService::Kind::Video);
+        videoPath = candidates.isEmpty() ? QString() : candidates.constFirst();
+    }
+    if (metadataCoverPath_ == coverPath && metadataCoverSource_ == coverSource
+        && metadataResolvedVideoPath_ == videoPath) return;
+    metadataCoverPath_ = coverPath;
+    metadataCoverSource_ = coverSource;
+    metadataResolvedVideoPath_ = videoPath;
+    emit metadataMediaChanged();
 }
+
 QString DocumentModel::metadataClockCount() const
 {
     if (workspace_ == nullptr) return {};
@@ -469,84 +501,23 @@ void DocumentModel::requestMetadataAudio(std::function<void(const QString&)> onS
     });
 }
 
-void DocumentModel::readTitleFromAudioFile()
+void DocumentModel::loadAudioInfoFromFile()
 {
     requestMetadataAudio([this](const QString& audioPath) {
-        const miacode::id3::Tag tag = miacode::id3::readTagFromFile(audioPath);
         if (uiRequests_ == nullptr) return;
+        const miacode::LocalizedText title = miacode::localizedText("track_metadata.read_from_audio");
+        const miacode::id3::Tag tag = miacode::id3::readTagFromFile(audioPath);
         if (!tag.valid) {
-            uiRequests_->postNotice(
-                miacode::NoticeSeverity::Information,
-                miacode::localizedText("track_metadata.read_title_from_mp3"),
+            uiRequests_->postNotice(miacode::NoticeSeverity::Information, title,
                 miacode::localizedText("track_metadata.no_id3v2_tag_was_found"));
             return;
         }
-        const QString value = tag.title.trimmed();
-        if (value.isEmpty()) {
-            uiRequests_->postNotice(
-                miacode::NoticeSeverity::Information,
-                miacode::localizedText("track_metadata.read_title_from_mp3"),
-                miacode::localizedText("track_metadata.the_selected_mp3_s_id3")
-                    .arg(miacode::localizedText("track_metadata.title")));
-            return;
-        }
-        setMetadataTitle(value);
-        uiRequests_->postNotice(
-            miacode::NoticeSeverity::Information,
-            miacode::localizedText("track_metadata.read_title_from_mp3"),
-            miacode::localizedText("track_metadata.loaded_title_from_mp3"));
-    });
-}
-
-void DocumentModel::readArtistFromAudioFile()
-{
-    requestMetadataAudio([this](const QString& audioPath) {
-        const miacode::id3::Tag tag = miacode::id3::readTagFromFile(audioPath);
-        if (uiRequests_ == nullptr) return;
-        if (!tag.valid) {
-            uiRequests_->postNotice(
-                miacode::NoticeSeverity::Information,
-                miacode::localizedText("track_metadata.read_artist_from_mp3"),
-                miacode::localizedText("track_metadata.no_id3v2_tag_was_found"));
-            return;
-        }
-        const QString value = tag.artist.trimmed();
-        if (value.isEmpty()) {
-            uiRequests_->postNotice(
-                miacode::NoticeSeverity::Information,
-                miacode::localizedText("track_metadata.read_artist_from_mp3"),
-                miacode::localizedText("track_metadata.the_selected_mp3_s_id3")
-                    .arg(miacode::localizedText("track_metadata.artist")));
-            return;
-        }
-        setMetadataArtist(value);
-        uiRequests_->postNotice(
-            miacode::NoticeSeverity::Information,
-            miacode::localizedText("track_metadata.read_artist_from_mp3"),
-            miacode::localizedText("track_metadata.loaded_artist_from_mp3"));
-    });
-}
-
-void DocumentModel::extractCoverFromAudioFile()
-{
-    if (uiRequests_ == nullptr || workspace_ == nullptr) return;
-    const QString chartPath = currentFilePath();
-    if (chartPath.isEmpty()) {
-        uiRequests_->postNotice(
-            miacode::NoticeSeverity::Warning,
-            miacode::localizedText("metadata.field.cover"),
-            miacode::localizedText("media_tools.open_or_save_a_chart"));
-        return;
-    }
-    requestMetadataAudio([this, chartPath](const QString& audioPath) {
-        if (uiRequests_ == nullptr) return;
-        const miacode::LocalizedText title = miacode::localizedText("track_metadata.extract_cover_to_bg_jpg");
-        const miacode::id3::Tag tag = miacode::id3::readTagFromFile(audioPath);
-        if (!tag.valid || tag.pictureBytes.isEmpty()) {
-            uiRequests_->postNotice(
-                miacode::NoticeSeverity::Information,
-                title,
-                miacode::localizedText("track_metadata.the_selected_mp3_has_no"));
+        if (!tag.title.trimmed().isEmpty()) setMetadataTitle(tag.title.trimmed());
+        if (!tag.artist.trimmed().isEmpty()) setMetadataArtist(tag.artist.trimmed());
+        const QString chartPath = currentFilePath();
+        if (tag.pictureBytes.isEmpty() || chartPath.isEmpty()) {
+            uiRequests_->postNotice(miacode::NoticeSeverity::Information, title,
+                miacode::localizedText("metadata.audio_tags_loaded"));
             return;
         }
         QImage cover;
@@ -614,6 +585,7 @@ void DocumentModel::writeExtractedCover(
         return;
     }
     if (preview() != nullptr) preview()->refreshMediaAfterFileOperation();
+    refreshMetadataMedia(true);
     uiRequests_->postNotice(
         miacode::NoticeSeverity::Information,
         title,
@@ -658,7 +630,9 @@ void DocumentModel::removeChartPv()
                         .arg(result.errorCode));
                 return;
             }
+            const bool videoFieldChanged = !metadataVideoPath().isEmpty();
             setMetadataVideoPath(QString());
+            if (!videoFieldChanged) refreshMetadataMedia(true);
             if (preview() != nullptr) preview()->refreshMediaAfterFileOperation();
             uiRequests_->postNotice(
                 miacode::NoticeSeverity::Information,
@@ -740,9 +714,12 @@ void DocumentModel::applyChartMediaImport(
                 .arg(result.errorCode));
         return;
     }
+    const bool videoFieldChanged = kind == miacode::ChartMediaService::Kind::Video
+        && metadataVideoPath() != QStringLiteral("pv.mp4");
     if (kind == miacode::ChartMediaService::Kind::Video) {
         setMetadataVideoPath(QStringLiteral("pv.mp4"));
     }
+    if (!videoFieldChanged) refreshMetadataMedia(true);
     if (preview() != nullptr) preview()->refreshMediaAfterFileOperation();
     const bool video = kind == miacode::ChartMediaService::Kind::Video;
     if (!result.warnings.isEmpty()) {
@@ -1773,6 +1750,10 @@ void DocumentModel::emitDocumentStateChanged(WorkspaceCommitKind kind)
 {
     refreshDocumentState();
     if (kind == WorkspaceCommitKind::ChartText) emit chartTextChanged();
+    if (kind != WorkspaceCommitKind::ChartText) {
+        refreshMetadataMedia(kind == WorkspaceCommitKind::Open
+            || kind == WorkspaceCommitKind::SourceReplacement);
+    }
     if (kind != WorkspaceCommitKind::SavePoint && kind != WorkspaceCommitKind::ChartText) {
         bookmarkCache_.clear();
         emit chartTextChanged();

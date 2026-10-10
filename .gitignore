@@ -204,3 +204,6 @@ third_party/ffmpeg/ios/dev/
 third_party/bass/lib/ios/
 !scripts/build/provision-ios-dependencies.sh
 !scripts/build/build-ios-local.sh
+
+# clangd project index cache.
+/.cache/clangd/

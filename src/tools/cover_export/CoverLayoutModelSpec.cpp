@@ -369,35 +369,44 @@ bool testBackgroundBrightnessRoundTrip(QTextStream& err)
     return true;
 }
 
-// The output folder is part of the remembered composition. Without it the page
-// re-derives the folder from the chart on every difficulty switch, silently
-// discarding the one the user picked.
-bool testOutputDirectoryRoundTrip(QTextStream& err)
+// The output file is part of the remembered composition. Without it the page
+// re-derives the name on every difficulty switch, silently discarding the one
+// the user typed.
+bool testOutputFileRoundTrip(QTextStream& err)
 {
     CoverCompositionState state;
     state.size = QSize(1080, 1080);
-    state.outputDirectory = QStringLiteral("/tmp/miacode-cover-output");
+    state.outputFile = QStringLiteral("covers/front.png");
 
     CoverCompositionState restored;
     if (!require(CoverCompositionState::fromJson(state.toJson(), &restored),
-                 QStringLiteral("composition with an output folder parses"), err)) return false;
-    if (!require(restored.outputDirectory == state.outputDirectory,
-                 QStringLiteral("output folder round-trips"), err)) return false;
+                 QStringLiteral("composition with an output file parses"), err)) return false;
+    if (!require(restored.outputFile == state.outputFile,
+                 QStringLiteral("output file round-trips"), err)) return false;
 
     // Layouts written before the field, and presets (which are deliberately
-    // machine-agnostic), simply carry no folder.
-    QJsonObject legacy = state.toJson();
-    legacy.remove(QStringLiteral("output"));
+    // machine-agnostic), simply carry no file.
+    QJsonObject bare = state.toJson();
+    bare.remove(QStringLiteral("outputFile"));
+    CoverCompositionState bareState;
+    if (!require(CoverCompositionState::fromJson(bare, &bareState),
+                 QStringLiteral("composition without an output file parses"), err)) return false;
+    if (!require(bareState.outputFile.isEmpty(),
+                 QStringLiteral("a missing output file restores as empty"), err)) return false;
+
+    // "output" used to be the folder the card.jpg landed in.
+    QJsonObject legacy = bare;
+    legacy.insert(QStringLiteral("output"), QStringLiteral("/tmp/miacode-cover-output"));
     CoverCompositionState legacyState;
     if (!require(CoverCompositionState::fromJson(legacy, &legacyState),
-                 QStringLiteral("legacy composition without an output folder parses"), err)) return false;
-    if (!require(legacyState.outputDirectory.isEmpty(),
-                 QStringLiteral("a missing output folder restores as empty"), err)) return false;
+                 QStringLiteral("composition with a legacy output folder parses"), err)) return false;
+    if (!require(legacyState.outputFile == QStringLiteral("/tmp/miacode-cover-output/card.jpg"),
+                 QStringLiteral("a legacy output folder becomes the card.jpg inside it"), err)) return false;
 
     CoverCompositionState empty;
     empty.size = QSize(1080, 1080);
-    return require(!empty.toJson().contains(QStringLiteral("output")),
-                   QStringLiteral("an unset output folder writes no key"), err);
+    return require(!empty.toJson().contains(QStringLiteral("outputFile")),
+                   QStringLiteral("an unset output file writes no key"), err);
 }
 
 bool testCoverPresetPersistence(QTextStream& err)
@@ -567,6 +576,6 @@ int main(int argc, char** argv)
     if (!testImageAndTextLayers(err)) return 1;
     if (!testExportPlanPreservesFrameTimes(err)) return 1;
     if (!testCoverPresetPersistence(err)) return 1;
-    if (!testOutputDirectoryRoundTrip(err)) return 1;
+    if (!testOutputFileRoundTrip(err)) return 1;
     return 0;
 }

@@ -12,6 +12,7 @@
         # bin\windeployqt.exe to be accepted.
         RootCandidates = @(
             'C:\Qt\{version}\{archdir}',
+            'D:\Qt\{version}\{archdir}',
             '.qt\{version}\{archdir}',
             '$env:QT_ROOT_DIR',
             '$env:Qt6_DIR'

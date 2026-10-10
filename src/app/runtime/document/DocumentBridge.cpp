@@ -219,6 +219,11 @@ bool miacode::runtime::DocumentSessionHost::hasActiveDifficulty() const
             != nullptr;
 }
 
+bool miacode::runtime::DocumentSessionHost::difficultyPageActive() const
+{
+    return state_.activeOutlineKey_ == QLatin1String("chart") && hasActiveDifficulty();
+}
+
 bool miacode::runtime::DocumentSessionHost::applyCommittedDocument(
     const QString& sourceText, const QString& filePath, int activeDifficultyId, bool dirty,
     quint64 revision, CommitKind kind, bool usedSystemEncoding)
