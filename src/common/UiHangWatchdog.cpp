@@ -409,6 +409,10 @@ void watchdogLoop()
 
 void installGuiHeartbeat(QObject* owner)
 {
+#if !QT_CONFIG(thread)
+    Q_UNUSED(owner);
+    return; // A watchdog cannot monitor an event loop from that same thread.
+#endif
     if (!miacode::debug_options::runtimeDebugOutputEnabled()) {
         return;
     }

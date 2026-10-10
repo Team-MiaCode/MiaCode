@@ -463,7 +463,7 @@ QSGNode* PreviewQuickStageBackgroundLayer::updateNode(
             mediaNode->setOwnsTexture(false);
             mediaNode->setTexture(texture);
             mediaNode->setRect(placement.targetRect);
-            mediaNode->setSourceRect(texture->convertToNormalizedSourceRect(placement.sourceRect));
+            mediaNode->setSourceRect(placement.sourceRect);
             mediaNode->setFiltering(QSGTexture::Linear);
             if (innerCircleFitOuterFill) {
                 const QRectF innerCircleRect = miacode::preview_video::centeredLayoutRectForStage(
@@ -482,7 +482,7 @@ QSGNode* PreviewQuickStageBackgroundLayer::updateNode(
                 innerMediaNode->setOwnsTexture(false);
                 innerMediaNode->setTexture(texture);
                 innerMediaNode->setRect(innerPlacement.targetRect);
-                innerMediaNode->setSourceRect(texture->convertToNormalizedSourceRect(innerPlacement.sourceRect));
+                innerMediaNode->setSourceRect(innerPlacement.sourceRect);
                 innerMediaNode->setFiltering(QSGTexture::Linear);
             } else {
                 removeInnerCircleMediaNode(root);

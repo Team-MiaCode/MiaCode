@@ -1,15 +1,13 @@
-// Web library combination: base, chart, analysis, scene, audio and
+// Web library combination: base, chart, analysis, scene and
 // preview_quick link and run without MiaCode, BASS, QtAVPlayer, the stage
 // media host or the export pipeline. The target links only those libraries,
 // so a hidden dependency on anything else fails to link here.
 
-#include "audio/PreviewAudioSettings.h"
-#include "audio/PreviewAudioWorkerFactory.h"
-#include "audio/WaveformCache.h"
 #include "common/PreferenceProvider.h"
 #include "core/analysis/MuriAnalyzer.h"
 #include "core/chart/parser/SimaiParser.h"
 #include "core/scene/PreviewHudState.h"
+#include "core/video/AssetPaths.h"
 #include "preview/runtime/PreviewRuntime.h"
 
 #include <QFile>
@@ -75,14 +73,21 @@ int main(int argc, char** argv)
     expect(QFile::exists(QStringLiteral(":/fonts/maple_mono_cn.ttf")),
            "scene: :/fonts/maple_mono_cn.ttf is registered by the static library", out);
 
-    // audio: no backend or decoder unless the host injects one.
-    expect(!miacode::preview_audio::productionPreviewAudioBackendFactory(),
-           "audio: the preview backend factory is empty until a host installs one", out);
-    const miacode::waveform::WaveformDataPtr waveform =
-        miacode::waveform::buildWaveformDataFromFile(QStringLiteral("missing.mp3"), -1, -1, nullptr);
-    expect(waveform == nullptr || waveform->isEmpty(), "audio: the waveform cache decodes only through an injected decoder", out);
-    const PreviewAudioSettings audition = makePreviewLatencyAuditionLevels(PreviewAudioSettings{}, 50);
-    expect(audition.globalVolume >= 0.0, "audio: preview audio settings are available", out);
+    // The host can change or reset the resource root even after desktop
+    // discovery has been cached. Invalid relative input must leave it intact.
+    const QString discovered = miacode::assets::findAssetRoot();
+    expect(miacode::assets::setAssetRoot(QStringLiteral("/browser/assets"))
+               && miacode::assets::outlineLinePath() == QStringLiteral("/browser/assets/background/outline_line.png"),
+           "assets: a browser host overrides cached desktop discovery", out);
+    expect(!miacode::assets::setAssetRoot(QStringLiteral("relative/assets"))
+               && miacode::assets::findAssetRoot() == QStringLiteral("/browser/assets"),
+           "assets: relative roots are rejected without changing the host root", out);
+    expect(miacode::assets::setAssetRoot(QStringLiteral(":/assets"))
+               && miacode::assets::outlineLinePath() == QStringLiteral(":/assets/background/outline_line.png"),
+           "assets: Qt resource roots preserve their URI", out);
+    expect(miacode::assets::setAssetRoot(QString())
+               && miacode::assets::findAssetRoot() == discovered,
+           "assets: clearing the override restores desktop discovery", out);
 
     // preview_quick: runtime, resources and the MiaCode.Preview QML module.
     {

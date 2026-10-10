@@ -4,7 +4,9 @@
 
 #include <QMetaObject>
 #include <QPointer>
+#if QT_CONFIG(thread)
 #include <QThreadPool>
+#endif
 
 namespace miacode::preview::runtime {
 
@@ -60,6 +62,10 @@ void PreviewSceneAssetRepository::setOutlineSelection(
 
 void PreviewSceneAssetRepository::setSkinDirectory(const QString& skinDirectory)
 {
+#if !QT_CONFIG(thread)
+    loadSkinDirectorySync(skinDirectory);
+    return;
+#else
     MC_OP("PreviewSceneAssetRepository::setSkinDirectory");
     _mc_op_.note(QStringLiteral("skin=%1").arg(skinDirectory));
     skinDirectory_ = skinDirectory;
@@ -93,6 +99,7 @@ void PreviewSceneAssetRepository::setSkinDirectory(const QString& skinDirectory)
             },
             Qt::QueuedConnection);
     });
+#endif
 }
 
 bool PreviewSceneAssetRepository::loadSkinDirectorySync(const QString& skinDirectory)

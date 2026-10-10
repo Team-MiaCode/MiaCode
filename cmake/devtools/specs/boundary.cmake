@@ -11,12 +11,13 @@ miacode_add_spec(web_module_boundary_spec
     SOURCES
         src/tools/boundary/WebModuleBoundarySpec.cpp
     LIBS
-        miacode_base miacode_chart miacode_analysis miacode_scene miacode_audio
+        miacode_base miacode_chart miacode_analysis miacode_scene
         miacode_preview_quick miacode_preview_quickplugin
         Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick
     INCLUDES src
 )
 
+if(MIACODE_BUILD_APP OR CMAKE_SCRIPT_MODE_FILE)
 miacode_add_spec(android_module_boundary_spec
     OWNER src
     CONTRACT architecture.android-module-boundary
@@ -32,3 +33,4 @@ miacode_add_spec(android_module_boundary_spec
         Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick
     INCLUDES src
 )
+endif()

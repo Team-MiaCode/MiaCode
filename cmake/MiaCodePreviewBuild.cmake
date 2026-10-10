@@ -1,0 +1,15 @@
+# Source-consumption entry for browser and other preview hosts.
+set(preview_qt_components Core Gui Quick Qml ShaderTools)
+if(MIACODE_PREVIEW_MULTIMEDIA)
+    list(APPEND preview_qt_components Multimedia)
+endif()
+find_package(Qt6 6.10 REQUIRED COMPONENTS ${preview_qt_components})
+qt_policy(SET QTP0001 NEW)
+include(${CMAKE_CURRENT_LIST_DIR}/MiaCodeModules.cmake)
+
+if(MIACODE_BUILD_DEV_TOOLS)
+    enable_testing()
+    include(${CMAKE_CURRENT_LIST_DIR}/devtools/MiaCodeDevToolHelpers.cmake)
+    include(${CMAKE_CURRENT_LIST_DIR}/devtools/MiaCodeSpecRegistry.cmake)
+    include(${CMAKE_CURRENT_LIST_DIR}/devtools/specs/boundary.cmake)
+endif()

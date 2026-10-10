@@ -86,7 +86,28 @@ GPU 与进程诊断声明在 `app/platform/PlatformDiagnostics.h`。
 
 - `scripts/governance/module_layering.py`：目录归属、include 方向、第三方与 Qt 私有头、`miacode_*` 链接边、
   库源文件清单；`module_layering_test.py` 覆盖其行为。CI 的 `Module layering` 步骤运行两者。
-- `web_module_boundary_spec` 只链接 base、chart、analysis、scene、audio、preview_quick；
+- `web_module_boundary_spec` 只链接 base、chart、analysis、scene、preview_quick；
   `android_module_boundary_spec` 再加 timeline、timeline_quick、audio_bass。两者在不链接 `MiaCode` 的情况下
   运行各库的代表路径，并确认静态库资源和 QML 模块可用。
 - Spec 与命令行诊断链接库，只直接列出 `MiaCode` 的源文件（可执行文件无法被链接）。
+
+## 外部预览宿主的源码消费入口
+
+`MIACODE_BUILD_APP=OFF` 从 `cmake/MiaCodePreviewBuild.cmake` 配置 base、chart、analysis、scene 和
+preview_quick，共用 `MiaCodeModules.cmake` 的源码、链接与资源定义。该配置不查找或构建 Scintilla、
+BASS、FFmpeg、桌面 UI、时间轴、导出或媒体工具。桌面默认配置仍为 `MIACODE_BUILD_APP=ON`。
+
+预览库的 Qt 依赖为 Core、Gui、Quick、Qml、ShaderTools；`MIACODE_PREVIEW_MULTIMEDIA` 默认跟随
+`MIACODE_BUILD_APP`，为 OFF 时关闭 QVideoFrame 入口，宿主使用 RGBA/图像视频帧入口。
+Qt WASM 单线程构建以同步方式加载皮肤、写入诊断日志，不启动线程池或 GUI 看门狗。
+着色器同时保留桌面默认 GLSL 版本并加入 WebGL 2 所需的 300es。
+
+宿主通过 `add_subdirectory(<MiaCode checkout> <binary directory>)` 后链接
+`miacode_preview_quick`，无需复制源码或重列 C++ 文件。静态 QML 使用者还需导入
+`MiaCode.Preview` 插件，具体示例见 Web 宿主。调用 `miacode::assets::setAssetRoot()` 注入绝对
+资源目录（支持 `:/assets` 与浏览器虚拟文件系统的 `/assets`）；空值恢复桌面发现，相对路径被拒绝。
+应在创建预览宿主前注入；更换根目录不会自动刷新已加载的纹理。
+
+独立源码配置 `MIACODE_BUILD_DEV_TOOLS=ON` 可构建和运行 `web_module_boundary_spec`，验证解析、
+分析、HUD、资源与 QML 模块。它验证最小 Web 链接闭包，音频边界由音频及 Android 规格覆盖。
+实际 WASM、WebAudio、HTMLVideo 和浏览器协议由 MiaView_Web 的浏览器检查覆盖。

@@ -126,6 +126,7 @@ miacode_add_module(miacode_analysis
     PUBLIC miacode_chart
 )
 
+if(MIACODE_BUILD_APP)
 # ---- editor_core: text policy, completion, bookmark syntax ---------------
 miacode_add_module(miacode_editor_core
     SOURCES
@@ -139,6 +140,7 @@ miacode_add_module(miacode_editor_core
         src/editor/TouchPadAuthoringEdit.h
     PUBLIC miacode_chart
 )
+endif()
 
 # ---- scene: frame/layer math and preview configuration --------------------
 miacode_add_module(miacode_scene
@@ -218,6 +220,7 @@ miacode_add_module(miacode_scene
     QRC resources/fonts.qrc
 )
 
+if(MIACODE_BUILD_APP)
 # ---- audio: backend interfaces, worker, settings, waveform ----------------
 miacode_add_module(miacode_audio
     SOURCES
@@ -252,7 +255,9 @@ if (WIN32)
         ole32        # PreviewAudioDeviceWatcher: Core Audio endpoint notifications
     )
 endif()
+endif()
 
+if(MIACODE_BUILD_APP)
 # ---- audio_bass: BASS backend and offline decoder -------------------------
 miacode_add_module(miacode_audio_bass
     SOURCES
@@ -302,7 +307,9 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         ${CMAKE_DL_LIBS}   # dlopen of libbass_fx.so (BassPreviewAudioBackend_EngineInit.cpp)
     )
 endif()
+endif()
 
+if(MIACODE_BUILD_APP)
 # ---- timeline: timeline model ---------------------------------------------
 miacode_add_module(miacode_timeline
     SOURCES
@@ -324,7 +331,9 @@ miacode_add_module(miacode_timeline
         src/timeline/TimelineThemeConfig.h
     PUBLIC miacode_analysis miacode_audio
 )
+endif()
 
+if(MIACODE_BUILD_APP)
 # ---- timeline_quick: QSG layers, QML module MiaCode.Timeline --------------
 miacode_add_module(miacode_timeline_quick
     SOURCES
@@ -364,6 +373,7 @@ qt_add_qml_module(miacode_timeline_quick
     VERSION 1.0
     OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/qml_modules/MiaCode/Timeline"
 )
+endif()
 
 # ---- preview_quick: QSG scene, PreviewRuntime, QML module MiaCode.Preview -
 miacode_add_module(miacode_preview_quick
@@ -424,10 +434,13 @@ miacode_add_module(miacode_preview_quick
         src/preview/runtime/PreviewSceneAssetLoader.h
         src/preview/runtime/PreviewSceneAssetRepository.cpp
         src/preview/runtime/PreviewSceneAssetRepository.h
-    PUBLIC miacode_scene Qt6::Quick Qt6::Qml Qt6::Multimedia
+    PUBLIC miacode_scene Qt6::Quick Qt6::Qml
     QRC resources/preview_judge_effects.qrc
 )
-target_compile_definitions(miacode_preview_quick PRIVATE HAVE_QT_MULTIMEDIA=1)
+if(MIACODE_PREVIEW_MULTIMEDIA)
+    target_link_libraries(miacode_preview_quick PUBLIC Qt6::Multimedia)
+    target_compile_definitions(miacode_preview_quick PRIVATE HAVE_QT_MULTIMEDIA=1)
+endif()
 # qmltyperegistrar includes QML_ELEMENT headers by file name only.
 target_include_directories(miacode_preview_quick PRIVATE src/preview/quick_scene)
 if (WIN32)
@@ -437,6 +450,7 @@ if (WIN32)
     )
 endif()
 qt_add_shaders(miacode_preview_quick "preview_sprite_shaders"
+    GLSL "100es,300es,120,150,330"
     PREFIX "/"
     FILES
         src/preview/quick_scene/shaders/PreviewSpriteMaterial.vert
@@ -452,6 +466,7 @@ qt_add_qml_module(miacode_preview_quick
     OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/qml_modules/MiaCode/Preview"
 )
 
+if(MIACODE_BUILD_APP)
 # ---- stage_media: PreviewStageMediaHost over QtAVPlayer -------------------
 miacode_add_module(miacode_stage_media
     SOURCES
@@ -500,7 +515,9 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         PkgConfig::MIACODE_FFMPEG
         PkgConfig::MIACODE_VAAPI)
 endif()
+endif()
 
+if(MIACODE_BUILD_APP)
 # ---- export: video/cover export, QSG/D3D11 export sessions ----------------
 miacode_add_module(miacode_export
     SOURCES
@@ -569,7 +586,9 @@ qt_add_shaders(miacode_export "intro_shaders"
     FILES
         src/intro/shaders/bg_texture.frag
 )
+endif()
 
+if(MIACODE_BUILD_APP)
 # ---- media_tools: PV compression, ZIP packaging, network client ----------
 miacode_add_module(miacode_media_tools
     SOURCES
@@ -605,3 +624,4 @@ miacode_add_module(miacode_media_tools
     PUBLIC miacode_chart
     PRIVATE Qt6::Network Qt6::Concurrent miniz
 )
+endif()

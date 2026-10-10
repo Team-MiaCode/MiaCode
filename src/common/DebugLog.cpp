@@ -573,6 +573,14 @@ public:
     // queue is at capacity and dropped the entry (still increments droppedCount_).
     bool enqueue(Channel channel, QByteArray bytes)
     {
+#if !QT_CONFIG(thread)
+        // Single-threaded hosts keep the same channels and file format without
+        // attempting to start an unavailable worker.
+        writeEntrySync(channel, bytes);
+        enqueuedCount_.fetch_add(1, std::memory_order_relaxed);
+        writtenCount_.fetch_add(1, std::memory_order_relaxed);
+        return true;
+#endif
         ensureWorker();
 
         const auto enqueueStart = std::chrono::steady_clock::now();

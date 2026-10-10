@@ -5,13 +5,45 @@
 #include <QFileInfo>
 #include <QString>
 #include <QStringList>
+#include <mutex>
 
 #include "core/video/PreviewRenderSettings.h"
 
 namespace miacode::assets {
 
+namespace detail {
+struct AssetRootState {
+    std::mutex mutex;
+    QString hostRoot;
+};
+inline AssetRootState& assetRootState()
+{
+    static AssetRootState state;
+    return state;
+}
+} // namespace detail
+
+// Set before creating preview hosts. An empty value restores desktop discovery.
+// Absolute paths include Qt resource roots (:/...) and the browser's virtual FS.
+inline bool setAssetRoot(const QString& root)
+{
+    const QString normalized = root.trimmed();
+    if (!normalized.isEmpty() && !QDir::isAbsolutePath(normalized)) {
+        return false;
+    }
+    auto& state = detail::assetRootState();
+    std::lock_guard<std::mutex> lock(state.mutex);
+    state.hostRoot = normalized.isEmpty() ? QString() : QDir::cleanPath(normalized);
+    return true;
+}
+
 inline QString findAssetRoot()
 {
+    auto& state = detail::assetRootState();
+    std::lock_guard<std::mutex> lock(state.mutex);
+    if (!state.hostRoot.isEmpty()) {
+        return state.hostRoot;
+    }
     static const QString cachedRoot = []() -> QString {
         QStringList candidates;
         QDir cursor(QCoreApplication::applicationDirPath());

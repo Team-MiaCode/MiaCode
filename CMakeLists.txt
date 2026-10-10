@@ -64,6 +64,15 @@ set(CMAKE_AUTORCC ON)
 set(MIACODE_APP_ICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/app.ico" CACHE FILEPATH "Optional application icon (.ico) for Windows builds")
 set(MIACODE_MACOS_APP_ICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/app.icns" CACHE FILEPATH "Optional application icon (.icns) for macOS bundles")
 option(MIACODE_BUILD_DEV_TOOLS "Build developer helper tools" OFF)
+option(MIACODE_BUILD_APP "Build the desktop application and its platform dependencies" ON)
+option(MIACODE_PREVIEW_MULTIMEDIA "Enable QVideoFrame input in the shared preview" ${MIACODE_BUILD_APP})
+
+# External preview hosts configure only the chart/scene/Quick dependency closure.
+# Return before configuring desktop UI, BASS, FFmpeg, or app deployment.
+if(NOT MIACODE_BUILD_APP)
+    include(cmake/MiaCodePreviewBuild.cmake)
+    return()
+endif()
 
 # Dev-tool spec executables register themselves with CTest (see the
 # MIACODE_BUILD_DEV_TOOLS block below). enable_testing() must be called at
