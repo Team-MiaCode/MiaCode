@@ -554,12 +554,13 @@ void miacode::runtime::PlaybackCoordinator::setCurrentFilePath(const QString& pa
         state_.waveformCacheService_->clear();
     }
     state_.currentFilePath_ = normalizedPath;
-    state_.lastSessionFilePath_ = state_.currentFilePath_;
+    const bool netPreview = services_.workspace().isNetPreview();
+    if (!netPreview) state_.lastSessionFilePath_ = state_.currentFilePath_;
     // Abnormal-exit detection: record which chart this GUI session has
     // open (empty path clears the marker). Cleanly removed again in the
     // two close paths; a marker still present at next startup widens the
     // chart-open recovery prompt to the debounced autosave snapshot.
-    miacode::crash_recovery::updateSessionMarker(state_.currentFilePath_);
+    miacode::crash_recovery::updateSessionMarker(netPreview ? QString() : state_.currentFilePath_);
     const QString projectDataDirectoryPath = resolveProjectDataDirectoryPath(state_.currentFilePath_);
     miacode::debug_log::setSessionProjectLogDirectory(
         projectDataDirectoryPath.isEmpty()

@@ -37,6 +37,7 @@ Qt 最低版本锁定：`6.10`
 | 依赖 | 分层 | 平台条件 | 直接使用点 | 加载时机 | 验证方式 |
 | --- | --- | --- | --- | --- | --- |
 | `Qt6::Core` | 宿主 | 全平台 | 全模块 | 进程启动 | 链接期；全量 CTest |
+| `Qt6::Concurrent` | 宿主 | 全平台 | `src/media_tools/net/NetResourceOperation` 与 `NetUploadOperation`：下载发布、素材摘要与上传快照的后台计算 | Net 资源发布或上传素材处理 | 链接期；`net_download_flow_spec`；上传源码与编译核对 |
 | `Qt6::Gui` | 宿主 | 全平台 | `QGuiApplication`、`QImage`/`QPainter`（封面与 HUD 合成）、字体 | 进程启动 | 链接期；`cover_composite_renderer_spec` |
 | `Qt6::Qml` | 宿主 | 全平台 | `QQmlApplicationEngine`（`Bootstrap`）、全部 `Qml*` 模型 | 进程启动 | 链接期；`qml_*_spec` 组 |
 | `Qt6::Quick` | 宿主 | 全平台 | `QQuickWindow`、`src/preview/quick_scene/`（`miacode_preview_quick`）、`src/timeline/quick/`（`miacode_timeline_quick`）、导出会话（`miacode_export`） | 进程启动 | 链接期；`qml_*_spec` 组 |
@@ -46,15 +47,16 @@ Qt 最低版本锁定：`6.10`
 | `Qt6::Quick3DHelpers` | 渲染 | 全平台 | `src/app/ui/pet/model/Fox.qml` 的 `ProceduralMesh`：狐狸的盒式几何体在运行时生成（8 处），不走预烘的 `.mesh` 资源 | 同 `Qt6::Quick3D` | 链接期；桌宠手工回归 |
 | `Qt6::Multimedia` | 媒体 | 全平台 | `PreviewAudioDeviceWatcher` 的设备枚举（`miacode_audio`）、`PreviewRuntime` 把 `QVideoFrame` 包成场景的不透明句柄（`miacode_preview_quick`）、`PreviewStageMediaHost` 的视频播放与 `QVideoFrame` 桥接（`miacode_stage_media`） | 音频设备扫描 / 视频首帧解码 | 链接期；`HAVE_QT_MULTIMEDIA=1`；预览手工回归 |
 | `Qt6::MultimediaQuickPrivate` | 媒体 | `WIN32 OR APPLE OR Linux` | **不由 `src/` 直接使用**；仅供 `third_party/QtAVPlayer` 的 `QT_AVPLAYER_MULTIMEDIA` 桥编译 `QAVVideoFrame -> QVideoFrame` | 背景视频首帧解码 | 链接期；`qtavplayer_platform_spec`；本文「QtAVPlayer 媒体适配层」表 |
-| `Qt6::Network` | 更新检查 | 全平台 | `src/app/services/update/NetworkUpdateFetcher`：一次 HTTPS GET 取 GitHub Releases 上的更新 manifest。产品代码中没有第二处网络使用 | 启动后延迟约 8 秒的自动检查，或用户在偏好设置里手动点「立即检查」 | 链接期；`update_service_spec`（离线，注入假 fetcher）；HTTPS 可用性属打包验收（TLS 后端插件） |
+| `Qt6::Network` | 宿主 | 全平台 | `NetworkUpdateFetcher` 获取更新 manifest；`src/media_tools/net/NetHttpTransport` 承接 Majdata 查询、下载、账户与上传请求 | 更新检查或 Net 任务启动 | 链接期；`update_service_spec`、`net_http_transport_spec`、`net_provider_spec`、`net_download_flow_spec`；TLS 后端插件属打包验收 |
 | `${QtAVPlayer_LIBS}` | 媒体 | `WIN32 OR APPLE`（需 `MIACODE_FFMPEG_DEV_DIR`）；Linux 用主机 pkg-config FFmpeg + libva | `PreviewStageMediaHost*`（PV/BG 解码）、`PreviewSharedD3D11Device`（D3D11VA 共享设备） | 背景视频首帧解码 | `qtavplayer_platform_spec`；macOS 打包契约 |
 | `PkgConfig::MIACODE_FFMPEG` | 媒体 | `Linux`（Win/macOS 改走 `MIACODE_FFMPEG_DEV_DIR` 的项目 SDK，见上一行） | QtAVPlayer 的解码依赖，由主机 pkg-config 提供：`libavfilter`、`libavcodec`、`libavformat`、`libavutil`、`libswresample`、`libswscale` | 背景视频首帧解码 | 链接期（Linux 构建）；`qtavplayer_platform_spec` |
 | `PkgConfig::MIACODE_VAAPI` | 媒体 | `Linux` | QtAVPlayer 在 Linux 的 VAAPI 硬件解码路径：`libva`、`libva-drm`、`libdrm` | 背景视频首帧解码（硬件解码可用时） | 链接期（Linux 构建）；`qtavplayer_platform_spec` |
 | `soundtouch` | 媒体 | 全平台 | 变速播放与音频处理（`src/audio/`、`src/media_tools/media/`） | 首次变速播放 / 音频处理作业 | 链接期；音频手工回归 |
 | `bass` | 媒体 | 全平台（Win: `bass.lib`，macOS: `libbass.dylib`，Linux: `libbass.so`） | `BassPreviewAudioBackend`、`BassExportAudioBackend`、`OfflineAudioDecoder` | 预览、导出和离线解码初始化 | 链接期；macOS 打包契约校验 dylib 已随包 |
 | `bassmix` | 媒体 | 全平台 | `BassPreviewAudioBackend`、`BassExportAudioBackend` 的混音总线 | 预览或导出混音初始化 | 链接期；打包契约校验原生库已随包 |
-| `miniz` | 导出 | 全平台 | `ChartZipPackager`（ZIP 打包导出） | 触发 ZIP 导出 | `chart_zip_packager_spec` |
+| `miniz` | 导出 | 全平台 | `ChartZipPackager` 打包导出；`NetClient::packNetChartFolderZip` 打包下载素材 | ZIP 导出或 Net 下载发布 | `chart_zip_packager_spec`、`net_download_flow_spec` |
 | `-framework AppKit` | 平台 | `APPLE` | `NativeWindowThemeMac.mm`、`WindowChrome.mm`（原生标题栏/外观） | 根窗口创建 | 链接期；macOS 冷启动走查 |
+| `-framework QuartzCore` | 平台 | `APPLE` | `WindowChrome.mm` 的 `CATransaction` 管理原生窗口材质图层更新 | 窗口材质区域更新 | 链接期；`dependency_allowlist_spec` |
 | `d3d11` | 平台 | `WIN32` | 共享预览设备、D3D11 导出会话、stage-media host（`src/preview/runtime/`） | 预览首次创建渲染设备 | 链接期；Windows 冷启动走查 |
 | `dxgi` | 平台 | `WIN32` | `GpuDevicePolicy`、`ProcessDiagnostics`、`TimelineQuickItem`（适配器枚举与显存计量） | 启动诊断 / 预览创建 | 链接期；Windows 冷启动走查 |
 | `d3dcompiler` | 平台 | `WIN32`（MinGW 必需；MSVC 走 `#pragma comment`） | QtAVPlayer 的 `D3DCompile` | 背景视频首帧解码 | 链接期（MinGW 缺失即链接失败） |
@@ -63,6 +65,7 @@ Qt 最低版本锁定：`6.10`
 | `ole32` | 平台 | `WIN32` | Windows Core Audio 端点通知 COM API | 音频设备枚举 | 链接期 |
 | `avrt` | 平台 | `WIN32` | `AvSetMmThreadCharacteristicsW`（多媒体线程优先级） | 音频/渲染线程启动 | 链接期 |
 | `User32` | 平台 | `WIN32` | `RegisterPowerSettingNotification` | 启动诊断注册 | 链接期 |
+| `Advapi32` | 平台 | `WIN32` | `src/app/services/net/NetAccountStore` 使用 Windows Credential Manager 存储账户凭据 | 账户凭据读取、保存和删除 | 链接期；凭据存储源码核对；账户验收由用户执行 |
 | `Wtsapi32` | 平台 | `WIN32` | 会话锁定/解锁通知（卡顿冻结诊断） | 启动诊断注册 | 链接期 |
 | `version` | 平台 | `WIN32`（MinGW） | 启动诊断的文件版本查询 | 启动诊断 | 链接期 |
 | `rstrtmgr` | 平台 | `WIN32`（MinGW） | 媒体工具的 Restart Manager 占用进程查找 | 媒体工具报「文件被占用」时 | 链接期 |
@@ -104,10 +107,8 @@ Qt 最低版本锁定：`6.10`
 上面三张表管的是**直接链接边**。可执行文件实际加载的框架比它多，因为 Qt 模块之间自己有依赖。
 把这一点写清楚，是为了避免「从链接行删掉 X」被误读成「部署包里没有 X 了」：
 
-- **`QtNetwork` 仍会被加载**，它是 `Qt6::Qml` 的传递依赖（`QtQml`、`QtQuick`、`QtQuickControls2`、
-  `QtQmlModels`、`QtQmlMeta`、`QtMultimedia` 全部依赖它）。本次把 `Qt6::Network` 从
-  `MiaCode` 的链接行删除，改变的是**产品是否自己使用网络**，不是部署包里少一个框架。
-  只要 UI 由 Qt Quick 承载，`QtNetwork` 就一定在包里——这不是可以「清掉」的东西。
+- **`QtNetwork` 同时存在直接与传递依赖**：更新检查和 Net 业务通过链接项使用它，
+  Qt QML、Quick 和 Multimedia 也会带入该模块。依赖清单登记产品的直接使用点，部署包由 Qt 的依赖图决定。
 - **`QtOpenGL` 同理**，由 `Qt6::Quick` 带入。
 - 复核方法（macOS）：
 

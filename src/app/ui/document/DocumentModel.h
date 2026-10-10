@@ -22,6 +22,7 @@
 #include "app/services/UiRequestService.h"
 
 #include "app/services/ShellNotifications.h"
+#include "media_tools/net/NetEnginePort.h"
 
 
 // QML-facing owner for the active MiaCode chart document. This class is the
@@ -171,6 +172,9 @@ public:
     qulonglong bookmarkGeneration() const;
 
     Q_INVOKABLE bool openFile(const QUrl& fileUrl);
+    QJsonObject documentIdentity() const;
+    net::NetEnginePort::Cancel openNetPreview(const QString& path, const QJsonObject& expected,
+                                             net::NetEnginePort::Done done);
     Q_INVOKABLE bool save();
     Q_INVOKABLE bool saveWholeDocument();
     Q_INVOKABLE bool saveAs(const QUrl& fileUrl);
@@ -254,6 +258,8 @@ signals:
     void bookmarksChanged();
 
 private:
+    bool openFileWithOrigin(const QUrl& fileUrl, ChartDocumentOrigin origin);
+    mutable QString workspaceId_;
     enum class WorkspaceCommitKind {
         Incremental,
         ChartText,

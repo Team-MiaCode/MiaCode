@@ -380,7 +380,7 @@ bool packNetChartFolderZip(
     const QString& chartDirectoryPath,
     const QString& outputZipPath,
     QStringList* includedEntries,
-    QString* errorMessage)
+    QString* errorMessage, bool includeVideo)
 {
     if (outputZipPath.trimmed().isEmpty()) {
         if (errorMessage != nullptr) {
@@ -434,6 +434,12 @@ bool packNetChartFolderZip(
     }
     entries.append(QStringLiteral("maidata.txt"));
 
+    const QString videoPath = chartDir.filePath(QStringLiteral("pv.mp4"));
+    if (includeVideo && QFileInfo::exists(videoPath)) {
+        if (!addZipFile(&zip, QStringLiteral("pv.mp4"), videoPath, MZ_NO_COMPRESSION))
+            return fail(QStringLiteral("Failed to add pv.mp4."));
+        entries.append(QStringLiteral("pv.mp4"));
+    }
     if (!mz_zip_writer_finalize_archive(&zip)) {
         return fail(QStringLiteral("Failed to finalize the .zip archive."));
     }

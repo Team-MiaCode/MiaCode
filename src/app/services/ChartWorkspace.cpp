@@ -111,7 +111,7 @@ ChartWorkspacePreflightResult ChartWorkspace::preflightSource(
 }
 
 ChartWorkspaceResult ChartWorkspace::openSource(
-    const QString& source, const QString& filePath, int preferredDifficultyId)
+    const QString& source, const QString& filePath, int preferredDifficultyId, ChartDocumentOrigin origin)
 {
     const ChartWorkspacePreflightResult preflight =
         preflightSource(source, SimaiValidationLocale::English);
@@ -124,6 +124,7 @@ ChartWorkspaceResult ChartWorkspace::openSource(
         ? preferredDifficultyId : activeDifficultyId_;
     activeDifficultyId_ = resolveOpenDifficultyId(document_, requestedDifficulty);
     filePath_ = filePath;
+    origin_ = origin;
     hasDocument_ = true;
     ++documentOpenGeneration_;
     // A new document arrives with the mode off. Whether the project's stored
@@ -392,6 +393,7 @@ bool ChartWorkspace::markSaved(const QString& filePath)
     savedSourceText_ = sourceText_;
     savedDocument_ = document_;
     dirty_ = false;
+    if (filePath_ != nextFilePath) origin_ = ChartDocumentOrigin::Local;
     filePath_ = nextFilePath;
     commit();
     return true;
@@ -405,6 +407,7 @@ ChartWorkspaceResult ChartWorkspace::closeDocument()
     sourceText_.clear();
     savedSourceText_.clear();
     filePath_.clear();
+    origin_ = ChartDocumentOrigin::Local;
     activeDifficultyId_ = 0;
     hasDocument_ = false;
     dirty_ = false;
@@ -521,6 +524,7 @@ bool ChartWorkspace::markSectionSaved(int difficultyId, const QString& filePath)
     if (difficultyId != MetadataSection && document_.difficulty(difficultyId) == nullptr) return false;
     savedDocument_ = documentForSectionSave(difficultyId);
     savedSourceText_ = savedDocument_.toText();
+    if (filePath_ != nextFilePath) origin_ = ChartDocumentOrigin::Local;
     filePath_ = nextFilePath;
     // The document as a whole can still differ: other sections keep whatever
     // they had, saved or not.
@@ -551,7 +555,7 @@ bool ChartWorkspace::metadataDirty() const
 ChartWorkspaceSnapshot ChartWorkspace::snapshot() const
 {
     return {sourceText_, filePath_, activeDifficultyId_, revision_, dirty_, hasDocument_,
-            computeDirtyDifficultyIds(), documentOpenGeneration_};
+            computeDirtyDifficultyIds(), documentOpenGeneration_, origin_};
 }
 
 const SimaiDocument& ChartWorkspace::document() const

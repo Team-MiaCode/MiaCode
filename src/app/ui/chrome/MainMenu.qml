@@ -469,6 +469,16 @@ Item {
             id: toolsMenu
             title: root.menuTitle(qsTrId("menu.tools"))
             AppMenuAction {
+                text: qsTrId("net.ui.download_page")
+                enabled: root.commandsEnabled
+                onTriggered: root.commands.netRequested()
+            }
+            AppMenuAction {
+                text: qsTrId("net.ui.upload_page")
+                enabled: root.commandsEnabled
+                onTriggered: root.commands.netUploadRequested()
+            }
+            AppMenuAction {
                 text: qsTrId("dialog.unsaved_field_changes.field.metadata")
                 enabled: root.commandsEnabled && root.toolCommandsEnabled
                 onTriggered: root.commands.metadataRequested()

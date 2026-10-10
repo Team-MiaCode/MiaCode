@@ -4041,5 +4041,421 @@ Error: %1</source>
         <source>Timeline</source>
         <translation>时间轴</translation>
     </message>
+
+    <message id="net.ui.download_page">
+        <source>Majdata Net</source>
+        <translation>谱面下载</translation>
+    </message>
+    <message id="net.ui.uploader">
+        <source>Uploader</source>
+        <translation>上传者</translation>
+    </message>
+    <message id="net.ui.tag">
+        <source>Tag</source>
+        <translation>标签</translation>
+    </message>
+    <message id="net.ui.start_date">
+        <source>Start date (YYYY-MM-DD)</source>
+        <translation>开始日期 (YYYY-MM-DD)</translation>
+    </message>
+    <message id="net.ui.end_date">
+        <source>End date (YYYY-MM-DD)</source>
+        <translation>结束日期 (YYYY-MM-DD)</translation>
+    </message>
+    <message id="net.ui.sort_uploaded_desc">
+        <source>Newest first</source>
+        <translation>上传时间降序</translation>
+    </message>
+    <message id="net.ui.sort_uploaded_asc">
+        <source>Oldest first</source>
+        <translation>上传时间升序</translation>
+    </message>
+    <message id="net.ui.sort_level_desc">
+        <source>Highest level first</source>
+        <translation>等级降序</translation>
+    </message>
+    <message id="net.ui.sort_level_asc">
+        <source>Lowest level first</source>
+        <translation>等级升序</translation>
+    </message>
+    <message id="net.ui.sort_title_asc">
+        <source>Title A to Z</source>
+        <translation>曲名升序</translation>
+    </message>
+    <message id="net.ui.sort_title_desc">
+        <source>Title Z to A</source>
+        <translation>曲名降序</translation>
+    </message>
+    <message id="net.ui.case_sensitive">
+        <source>Case sensitive</source>
+        <translation>区分大小写</translation>
+    </message>
+    <message id="net.ui.force_refresh">
+        <source>Refresh from server</source>
+        <translation>从服务器刷新</translation>
+    </message>
+    <message id="net.ui.query">
+        <source>Search</source>
+        <translation>查询</translation>
+    </message>
+    <message id="net.ui.probe">
+        <source>Check connection</source>
+        <translation>检测连接</translation>
+    </message>
+    <message id="net.ui.clear_selection">
+        <source>Clear selection</source>
+        <translation>取消选择</translation>
+    </message>
+    <message id="net.ui.result_count">
+        <source>%1 results, %2 selected</source>
+        <translation>%1 条结果，已选择 %2 条</translation>
+    </message>
+    <message id="net.ui.connection_normal">
+        <source>Connection normal (%1 ms)</source>
+        <translation>连接正常（%1 ms）</translation>
+    </message>
+    <message id="net.ui.connection_slow">
+        <source>Connection slow (%1 ms)</source>
+        <translation>连接较慢（%1 ms）</translation>
+    </message>
+    <message id="net.ui.error">
+        <source>Net: %1</source>
+        <translation>Net：%1</translation>
+    </message>
+
+    <message id="net.ui.upload_page">
+        <source>Chart upload</source>
+        <translation>谱面上传</translation>
+    </message>
+
+    <message id="net.ui.user_id">
+        <source>User ID</source>
+        <translation>用户 ID</translation>
+    </message>
+
+    <message id="net.ui.song_title">
+        <source>Song title</source>
+        <translation>歌曲名</translation>
+    </message>
+
+    <message id="net.ui.end">
+        <source>End</source>
+        <translation>结束</translation>
+    </message>
+
+    <message id="net.ui.fuzzy">
+        <source>Case-insensitive match</source>
+        <translation>模糊大小写匹配</translation>
+    </message>
+
+    <message id="net.output_directory">
+        <source>Output directory</source>
+        <translation>输出目录</translation>
+    </message>
+
+    <message id="net.ui.browse">
+        <source>Browse…</source>
+        <translation>浏览…</translation>
+    </message>
+
+    <message id="net.ui.create_zip">
+        <source>Also create ZIP</source>
+        <translation>成功后额外生成 ZIP</translation>
+    </message>
+
+    <message id="net.download_pv">
+        <source>Download PV</source>
+        <translation>下载 PV</translation>
+    </message>
+
+    <message id="net.ui.sort">
+        <source>Sort</source>
+        <translation>排序</translation>
+    </message>
+
+    <message id="net.ui.untested">
+        <source>Not checked</source>
+        <translation>未测试</translation>
+    </message>
+
+    <message id="net.ui.artist">
+        <source>Artist</source>
+        <translation>曲师</translation>
+    </message>
+
+    <message id="net.ui.uploaded_at">
+        <source>Uploaded at</source>
+        <translation>上传时间</translation>
+    </message>
+
+    <message id="net.ui.state">
+        <source>Status</source>
+        <translation>状态</translation>
+    </message>
+
+    <message id="net.online_preview">
+        <source>Online preview</source>
+        <translation>在线预览</translation>
+    </message>
+
+    <message id="net.ui.query_hint">
+        <source>Enter a user ID, Tag or song title and select a date range.</source>
+        <translation>输入用户 ID、Tag 或歌曲名，选择日期范围查询。</translation>
+    </message>
+
+    <message id="net.ui.view_log">
+        <source>View log</source>
+        <translation>查看日志</translation>
+    </message>
+
+    <message id="net.download_selected">
+        <source>Download selected</source>
+        <translation>下载选中</translation>
+    </message>
+
+    <message id="net.ui.cancel_task">
+        <source>Cancel task</source>
+        <translation>取消任务</translation>
+    </message>
+
+    <message id="net.ui.resume">
+        <source>Resume download</source>
+        <translation>继续下载</translation>
+    </message>
+
+    <message id="net.ui.choose_date">
+        <source>Choose date</source>
+        <translation>选择日期</translation>
+    </message>
+
+    <message id="net.ui.previous_month">
+        <source>Previous month</source>
+        <translation>上个月</translation>
+    </message>
+
+    <message id="net.ui.next_month">
+        <source>Next month</source>
+        <translation>下个月</translation>
+    </message>
+
+    <message id="net.pending_download">
+        <source>Pending download</source>
+        <translation>待下载</translation>
+    </message>
+
+    <message id="net.online_preview_opened">
+        <source>Preview opened</source>
+        <translation>在线预览已打开</translation>
+    </message>
+
+    <message id="net.online_preview_loading">
+        <source>Preparing preview…</source>
+        <translation>正在准备在线预览…</translation>
+    </message>
+
+    <message id="net.download_canceled">
+        <source>Download canceled</source>
+        <translation>下载已取消</translation>
+    </message>
+
+    <message id="net.start_download_queue_selected_1">
+        <source>Starting download of %1 charts</source>
+        <translation>开始下载 %1 个谱面</translation>
+    </message>
+
+    <message id="net.download_complete_1_succeeded_2">
+        <source>Download complete: %1 succeeded, %2 failed</source>
+        <translation>下载结束：成功 %1，失败 %2</translation>
+    </message>
+
+    <message id="net.ui.username">
+        <source>Username</source>
+        <translation>用户名</translation>
+    </message>
+
+    <message id="net.ui.password">
+        <source>Password</source>
+        <translation>密码</translation>
+    </message>
+
+    <message id="net.ui.remember_account">
+        <source>Remember account and password</source>
+        <translation>记住账号和密码</translation>
+    </message>
+
+    <message id="net.ui.login">
+        <source>Log in</source>
+        <translation>登录</translation>
+    </message>
+
+    <message id="net.ui.logout">
+        <source>Log out</source>
+        <translation>退出登录</translation>
+    </message>
+
+    <message id="net.ui.logged_in">
+        <source>Logged in as %1</source>
+        <translation>登录账户：%1</translation>
+    </message>
+
+    <message id="net.ui.logged_out">
+        <source>Logged out</source>
+        <translation>账户已退出</translation>
+    </message>
+
+    <message id="net.ui.chart_root">
+        <source>Chart root directory</source>
+        <translation>谱面根目录</translation>
+    </message>
+
+    <message id="net.ui.add">
+        <source>Add to queue</source>
+        <translation>添加到队列</translation>
+    </message>
+
+    <message id="net.ui.chart_folder">
+        <source>Chart folder</source>
+        <translation>谱面文件夹</translation>
+    </message>
+
+    <message id="net.ui.files">
+        <source>Files</source>
+        <translation>文件</translation>
+    </message>
+
+    <message id="net.ui.path">
+        <source>Path</source>
+        <translation>路径</translation>
+    </message>
+
+    <message id="net.ui.pending_upload">
+        <source>Pending upload</source>
+        <translation>待上传</translation>
+    </message>
+
+    <message id="net.ui.remove_selected">
+        <source>Remove selected</source>
+        <translation>移除所选</translation>
+    </message>
+
+    <message id="net.ui.clear_queue">
+        <source>Clear queue</source>
+        <translation>清空队列</translation>
+    </message>
+
+    <message id="net.ui.upload_queue">
+        <source>Upload queue</source>
+        <translation>上传队列</translation>
+    </message>
+
+    <message id="net.ui.queue_count">
+        <source>%1 charts in queue</source>
+        <translation>队列共 %1 个谱面</translation>
+    </message>
+
+    <message id="net.ui.scanning">
+        <source>Scanning chart folders…</source>
+        <translation>正在扫描谱面文件夹…</translation>
+    </message>
+
+    <message id="net.ui.move_up">
+        <source>Move up</source>
+        <translation>上移</translation>
+    </message>
+
+    <message id="net.ui.move_down">
+        <source>Move down</source>
+        <translation>下移</translation>
+    </message>
+
+    <message id="net.ui.retry_wait">
+        <source>Waiting to retry</source>
+        <translation>等待重试</translation>
+    </message>
+
+    <message id="net.ui.cancelled">
+        <source>Canceled</source>
+        <translation>已取消</translation>
+    </message>
+
+    <message id="net.ui.outcome_unknown">
+        <source>Server outcome unknown</source>
+        <translation>服务器结果待确认</translation>
+    </message>
+
+    <message id="net.ui.upload_summary">
+        <source>Upload complete: %1 succeeded, %2 failed, %3 awaiting confirmation</source>
+        <translation>上传结束：成功 %1，失败 %2，待确认 %3</translation>
+    </message>
+    <message id="net.upload_log_saved_1">
+        <source>Upload log: %1</source>
+        <translation>上传日志：%1</translation>
+    </message>
+    <message id="net.upload_retry_failed">
+        <source>Retry pending uploads</source>
+        <translation>重试待上传项目</translation>
+    </message>
+    <message id="net.sort_status_ascending">
+        <source>Status: ascending</source>
+        <translation>状态：升序</translation>
+    </message>
+    <message id="net.sort_status_descending">
+        <source>Status: descending</source>
+        <translation>状态：降序</translation>
+    </message>
 </context>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </TS>

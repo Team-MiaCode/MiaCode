@@ -3,7 +3,7 @@
 Generated from `cmake/devtools/specs/` by `cmake -P cmake/devtools/SpecCatalog.cmake`.
 Check without writing: `cmake -DMIACODE_SPEC_CATALOG_CHECK=ON -P cmake/devtools/SpecCatalog.cmake`.
 
-127 independent specs; source lists and link dependencies are maintained only in CMake.
+136 independent specs; source lists and link dependencies are maintained only in CMake.
 
 `platform:all` means the target is registered on every platform, not that all platforms
 have been tested. Platform-specific source branches and link additions remain in their manifests.
@@ -38,6 +38,10 @@ Owners name production modules; kinds describe the checked boundary, not runtime
 | `src/tools/media/PvCompressionPolicySpec.cpp` | `pv_compression_policy_spec` | `src/media_tools/media` | `media.pv-compression-policy` | media | behavior | normal | all | ctest | active |
 | `src/tools/muri/MuriSpec.cpp` | `muri_spec` | `src/core/analysis` | `muri.muri` | muri | behavior | normal | all | ctest | active |
 | `src/tools/net/NetClientSpec.cpp` | `net_client_spec` | `src/media_tools/net` | `net.net-client` | net | behavior | normal | all | ctest | active |
+| `src/tools/net/NetDownloadFlowSpec.cpp` | `net_download_flow_spec` | `src/media_tools/net` | `net.download-preview` | net | integration | high | all | ctest | active |
+| `src/tools/net/NetHttpTransportSpec.cpp` | `net_http_transport_spec` | `src/media_tools/net` | `net.http-transport` | net | integration | high | all | ctest | active |
+| `src/tools/net/NetProviderSpec.cpp` | `net_provider_spec` | `src/media_tools/net` | `net.provider` | net | integration | high | all | ctest | active |
+| `src/tools/net/NetQueryRulesSpec.cpp` | `net_query_rules_spec` | `src/media_tools/net` | `net.query-rules` | net | behavior | high | all | ctest | active |
 | `src/tools/oplog/OperationLogSpec.cpp` | `oplog_self_test` | `src/common` | `oplog.oplog` | oplog | behavior | normal | all | ctest | active |
 | `src/tools/preview/BassPreviewDebugLogRoutingSpec.cpp` | `bass_preview_debug_log_routing_spec` | `src/audio/bass` | `preview.bass-preview-debug-log-routing` | preview | behavior | high | all | ctest | active |
 | `src/tools/preview/BassPreviewRetainedStateSpec.cpp` | `bass_preview_retained_state_spec` | `src/audio/bass` | `preview.bass-preview-retained-state` | preview | behavior | high | all | ctest | active |
@@ -80,6 +84,9 @@ Owners name production modules; kinds describe the checked boundary, not runtime
 | `src/tools/services/ExportPreferencesSpec.cpp` | `export_preferences_spec` | `src/app/services` | `preferences.export-storage-boundary` | services | behavior | normal | all | ctest | active |
 | `src/tools/services/HudFontPreferenceMigrationSpec.cpp` | `hud_font_preference_migration_spec` | `src/app/services` | `preferences.hud-font-legacy-migration` | services | behavior | normal | all | ctest | active |
 | `src/tools/services/JobProgressServiceSpec.cpp` | `job_progress_service_spec` | `src/app/services` | `v2.job-progress-service` | services | behavior | high | all | ctest | active |
+| `src/tools/services/JobRegistrySpec.cpp` | `job_registry_spec` | `src/app/services/jobs` | `jobs.registry` | services | behavior | high | all | ctest | active |
+| `src/tools/services/NetApiContractSpec.cpp` | `net_api_contract_spec` | `src/app/services/api` | `net.api-contract` | services | behavior | high | all | ctest | active |
+| `src/tools/services/NetServiceSpec.cpp` | `net_service_spec` | `src/app/services/net` | `net.application-service` | services | behavior | high | all | ctest | active |
 | `src/tools/services/PlaybackCoordinatorSpec.cpp` | `playback_coordinator_spec` | `src/app/runtime` | `v2.playback-coordinator` | services | source-contract | high | all | ctest | active |
 | `src/tools/services/PlaybackStateAuthoritySpec.cpp` | `playback_state_authority_spec` | `src/app/services` | `v2.playback-state-authority` | services | behavior | high | all | ctest | active |
 | `src/tools/services/PlaybackStorageBoundarySpec.cpp` | `playback_storage_boundary_spec` | `src/app/runtime` | `v2.playback-storage-boundary` | services | boundary | high | all | ctest | active |
@@ -114,6 +121,8 @@ Owners name production modules; kinds describe the checked boundary, not runtime
 | `src/tools/ui/QmlExportIntroSoundContractSpec.cpp` | `qml_export_intro_sound_contract_spec` | `src/app/ui` | `qml-ui.qml-export-intro-sound-contract` | ui | source-contract | normal | all | ctest | active |
 | `src/tools/ui/QmlExportVideoPageSpec.cpp` | `qml_export_video_page_spec` | `src/app/ui` | `qml-ui.qml-export-video-page` | ui | integration | normal | all | ctest | active |
 | `src/tools/ui/QmlMainMenuSpec.cpp` | `qml_main_menu_spec` | `src/app/ui` | `qml-ui.qml-main-menu` | ui | source-contract | normal | all | ctest | active |
+| `src/tools/ui/QmlNetPageCompileSpec.cpp` | `qml_net_page_compile_spec` | `src/app/ui` | `net.page-compilation` | ui | integration | high | all | ctest | active |
+| `src/tools/ui/QmlNetTabsSpec.cpp` | `qml_net_tabs_spec` | `src/app/ui` | `net.tab-lifecycle` | ui | behavior | high | all | ctest | active |
 | `src/tools/ui/QmlPreviewRateFeedbackSpec.cpp` | `qml_preview_rate_feedback_spec` | `src/app/ui` | `qml-ui.qml-preview-rate-feedback` | ui | behavior | high | all | ctest | active |
 | `src/tools/ui/QmlPreviewRateSpec.cpp` | `qml_preview_rate_spec` | `src/app/ui` | `qml-ui.qml-preview-rate` | ui | integration | normal | all | ctest | active |
 | `src/tools/ui/QmlSelectionRangeExportContractSpec.cpp` | `qml_selection_range_export_contract_spec` | `src/app/ui` | `qml-ui.qml-selection-range-export-contract` | ui | source-contract | normal | all | ctest | active |

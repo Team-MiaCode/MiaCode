@@ -382,6 +382,7 @@ void miacode::runtime::DocumentSessionHost::rebuildAutosaveMetadata(const QStrin
 
 void miacode::runtime::DocumentSessionHost::runAutosaveCheck(bool allowHistory)
 {
+    if (session_.applicationServices_.workspace().isNetPreview()) return;
     if (state_.currentFilePath_.isEmpty()) {
         return;
     }

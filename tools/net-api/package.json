@@ -1,0 +1,14 @@
+{
+  "name": "@miacode/net-api-contract",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "validate": "node ../../scripts/api/validate_net_api.mjs"
+  },
+  "devDependencies": {
+    "@apidevtools/swagger-parser": "^12.1.0",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1"
+  }
+}

@@ -18,6 +18,8 @@
 #include "app/ui/preview/PreviewSettingsModel.h"
 #include "app/ui/latency/LatencyModel.h"
 #include "app/ui/pet/PetOverlayController.h"
+#include "app/ui/net/NetModel.h"
+#include "app/ui/net/NetUploadModel.h"
 #include "app/services/ApplicationServices.h"
 #include "app/services/ImageResourceModel.h"
 
@@ -58,6 +60,8 @@ class ApplicationContext final : public QObject
     Q_PROPERTY(QObject* latency READ latency CONSTANT)
     Q_PROPERTY(QObject* pet READ pet CONSTANT)
     Q_PROPERTY(QObject* update READ update CONSTANT)
+    Q_PROPERTY(QObject* net READ net CONSTANT)
+    Q_PROPERTY(QObject* netUpload READ netUpload CONSTANT)
 
 public:
     // Stage 3.5 item 2 is complete here: the context takes the application
@@ -92,6 +96,8 @@ public:
     QObject* latency();
     QObject* pet();
     QObject* update();
+    QObject* net();
+    QObject* netUpload() { return &netUpload_; }
     void setWindowChrome(QObject* chrome);
     void setChartDropBridge(QObject* bridge);
 
@@ -118,6 +124,8 @@ private:
     miacode::ui::PreviewSettingsModel previewSettings_;
     miacode::ui::LatencyModel latency_;
     miacode::ui::PetOverlayController pet_;
+    NetModel net_;
+    NetUploadModel netUpload_;
     miacode::ui::ShellLifecycle lifecycle_;
     QObject* windowChrome_ = nullptr;
     QObject* chartDropBridge_ = nullptr;

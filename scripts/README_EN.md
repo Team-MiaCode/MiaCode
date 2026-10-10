@@ -12,6 +12,13 @@ This directory keeps only public, repeatable build, release, asset, and diagnost
 | `debug/` | Windows/macOS debug and diagnostic launchers |
 | `ffmpeg/` | FFmpeg runtime/dev-SDK provisioning plus the decode-only trim toolchain |
 | `assets/` | Asset generation and font-subsetting helpers |
+| `api/` | Generation and standards validation of the Net operation catalog, schemas, OpenAPI and client types |
+
+## Net API Generation
+
+Run `python scripts/api/generate_net_api.py` to generate the embedded C++ catalog, OpenAPI, TypeScript types and operation reference from `tools/net-api/operations.json` and `schemas.json`. Add `--check` to detect drift. For independent standards validation, run `npm ci --ignore-scripts` and `npm run validate` in `tools/net-api`. Generation uses the Python standard library; validation dependencies are development tools and do not enter the product runtime.
+
+See the [Net API standardization plan](../docs/specs/net/NET_API_STANDARDIZATION_PLAN_ZH.md) for availability and extension rules. Generated HTTP routes do not imply a delivered gateway.
 
 ## Build And Package
 

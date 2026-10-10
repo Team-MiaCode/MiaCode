@@ -16,6 +16,8 @@ Item {
     required property var preferences
     required property var latency
     required property var pages
+    required property var net
+    required property var netUpload
 
     readonly property bool sourceVisible: viewState.difficultyEditorActive
     readonly property bool canUndo: sourceVisible && sourceEditor.canUndo
@@ -189,7 +191,7 @@ Item {
         y: tabs.height
         height: (root.sourceVisible ? sourceEditor.y : root.height) - y
         color: Theme.surfaceColor(Theme.colors.background.panel)
-        visible: root.documentSession.hasDocument
+        visible: root.documentSession.hasDocument || root.viewState.netEditorActive
     }
 
     EditorTabBar {
@@ -197,7 +199,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        visible: root.documentSession.hasDocument
+        visible: root.documentSession.hasDocument || root.viewState.openEditorTabs.length > 0
         viewState: root.viewState
         documentSession: root.documentSession
         commands: root.commands
@@ -212,6 +214,26 @@ Item {
         visible: root.viewState.latencyEditorActive && root.pages.activePageId === "latency"
         latency: root.latency
         pages: root.pages
+    }
+
+    NetDownloadPage {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: tabs.bottom
+        anchors.bottom: parent.bottom
+        visible: root.viewState.activeEditorKey === root.viewState.netDownloadEditorKey
+        net: root.net
+        onCloseRequested: tabs.requestCloseTab(root.viewState.netDownloadEditorKey)
+    }
+
+    NetUploadPage {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: tabs.bottom
+        anchors.bottom: parent.bottom
+        visible: root.viewState.activeEditorKey === root.viewState.netUploadEditorKey
+        uploadModel: root.netUpload
+        onCloseRequested: tabs.requestCloseTab(root.viewState.netUploadEditorKey)
     }
 
     component DifficultyHeaderField: Item {
@@ -657,7 +679,7 @@ Item {
 
     WelcomePage {
         anchors.fill: parent
-        visible: !root.documentSession.hasDocument
+        visible: !root.documentSession.hasDocument && !root.viewState.netEditorActive
         z: 10
         documentSession: root.documentSession
         onNewRequested: root.commands.newDocument()

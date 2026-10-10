@@ -76,6 +76,7 @@ void Session::onOpenCurrentFolder()
 
 void Session::addRecentFilePath(const QString& path)
 {
+    if (applicationServices_.workspace().isNetPreview()) return;
     const QString normalizedPath = path.isEmpty() ? QString() : QDir::cleanPath(path);
     if (normalizedPath.isEmpty()) {
         return;

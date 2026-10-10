@@ -23,6 +23,8 @@ Item {
     required property var editorController
     required property var editorSync
     required property var latency
+    required property var net
+    required property var netUpload
     property bool compact: false
     property string documentTitle: ""
     property real sidebarDragWidth: 0
@@ -209,7 +211,7 @@ Item {
         parent: root.previewDetached ? detachedPreviewContent : previewHost
         anchors.fill: parent
         documentAvailable: root.documentSession.hasDocument
-        surfaceActive: !root.previewSurfaceMoving
+        surfaceActive: !root.previewSurfaceMoving && (root.previewDetached || !root.viewState.netEditorActive)
         detached: root.previewDetached
         previewSession: root.previewSession
         preferences: root.preferences
@@ -454,6 +456,8 @@ Item {
                         commands: root.commands
                         preferences: root.preferences
                         latency: root.latency
+                        net: root.net
+                        netUpload: root.netUpload
                         pages: root.pages
                         onOpenRequested: root.openRequested()
                     }
@@ -496,7 +500,7 @@ Item {
 
             Item {
                 id: previewHost
-                visible: !root.previewDetached
+                visible: !root.previewDetached && !root.viewState.netEditorActive
                 SplitView.minimumWidth: Math.max(preview.minimumWidth,
                     Math.min(root.previewEditorAvailableWidth * root.preferences.previewMinimumWidthRatio,
                              root.previewEditorAvailableWidth - bottomPanel.minimumWidth))

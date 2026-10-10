@@ -1,0 +1,1863 @@
+{
+  "schema_version": 1,
+  "lifecycle": "working",
+  "checked_on": "2026-10-09",
+  "scope": "Majdata Net 业务、v1 扩展通用网络 facade/处理器及其公共调用契约",
+  "baselines": {
+    "v1": {
+      "ref": "origin/MiaCode_v1",
+      "commit": "6573efb611056bccd046dd17bc2f4cceda78bf88"
+    },
+    "dev": {
+      "ref": "origin/dev",
+      "commit": "cb52f6e8103e2773e839b797cdbd2522e780e2c7"
+    }
+  },
+  "local_review": {
+    "ref": "MiaCode_v1",
+    "commit": "db5d120ffe800b0e47093aabb7b435b319896afb",
+    "net_sources_equal_to_v1_baseline": true
+  },
+  "status_semantics": {
+    "retained_backend": "dev 中有底层实现，尚无 Net 产品业务入口；不表示功能可用",
+    "partial": "仅保留部分链路，需补齐服务/调用者",
+    "missing": "dev 缺少该能力或入口",
+    "changed": "架构或契约已改变，须按 dev 方式重建",
+    "removed_host": "旧扩展宿主已从 dev 产品移除",
+    "handler_only_removed": "v1 有处理器但无普通命名 SDK wrapper，dev 移除宿主"
+  },
+  "evidence": [
+    {
+      "id": "V01",
+      "branch": "v1",
+      "path": "src/tools/net/NetClient.cpp",
+      "symbol": "NetClient::queryCharts(",
+      "line": 558,
+      "label": "查询候选、回退与缓存",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetClient.cpp#L558"
+    },
+    {
+      "id": "V02",
+      "branch": "v1",
+      "path": "src/tools/net/NetBatchDownloadDialog.cpp",
+      "symbol": "void NetBatchDownloadDialog::queryCharts(",
+      "line": 738,
+      "label": "查询最终过滤与列表状态",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetBatchDownloadDialog.cpp#L738"
+    },
+    {
+      "id": "V03",
+      "branch": "v1",
+      "path": "src/tools/net/NetClient.cpp",
+      "symbol": "QList<NetChartSummary> parseChartListJson(",
+      "line": 178,
+      "label": "远端列表字段与标签兼容",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetClient.cpp#L178"
+    },
+    {
+      "id": "V04",
+      "branch": "v1",
+      "path": "src/tools/net/NetClient.cpp",
+      "symbol": "QList<NetChartSummary> filterChartsByLocalDateRange(",
+      "line": 222,
+      "label": "本地日期范围",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetClient.cpp#L222"
+    },
+    {
+      "id": "V05",
+      "branch": "v1",
+      "path": "src/tools/net/NetClient.cpp",
+      "symbol": "void sortNetDownloadJobs(",
+      "line": 282,
+      "label": "六种排序",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetClient.cpp#L282"
+    },
+    {
+      "id": "V06",
+      "branch": "v1",
+      "path": "src/tools/net/NetClient.cpp",
+      "symbol": "NetConnectionProbeResult NetClient::probeConnection(",
+      "line": 882,
+      "label": "连接探测",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetClient.cpp#L882"
+    },
+    {
+      "id": "V07",
+      "branch": "v1",
+      "path": "src/tools/net/NetBatchDownloadDialog.cpp",
+      "symbol": "void NetBatchDownloadDialog::buildUi(",
+      "line": 424,
+      "label": "下载界面、默认值与输出目录",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetBatchDownloadDialog.cpp#L424"
+    },
+    {
+      "id": "V08",
+      "branch": "v1",
+      "path": "src/tools/net/NetBatchDownloadWorker.cpp",
+      "symbol": "void NetBatchDownloadWorker::run(",
+      "line": 65,
+      "label": "批量下载、PV、重试与取消",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetBatchDownloadWorker.cpp#L65"
+    },
+    {
+      "id": "V09",
+      "branch": "v1",
+      "path": "src/tools/net/NetClient.cpp",
+      "symbol": "NetDownloadResult NetClient::downloadResourceToFile(",
+      "line": 758,
+      "label": "流式下载与原子文件",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetClient.cpp#L758"
+    },
+    {
+      "id": "V10",
+      "branch": "v1",
+      "path": "src/tools/net/NetClient.cpp",
+      "symbol": "bool packNetChartFolderZip(",
+      "line": 486,
+      "label": "ZIP 内容与路径",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetClient.cpp#L486"
+    },
+    {
+      "id": "V11",
+      "branch": "v1",
+      "path": "src/tools/net/NetBatchDownloadDialog.cpp",
+      "symbol": "void NetBatchDownloadDialog::onlinePreview(",
+      "line": 911,
+      "label": "临时预览与缓存",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetBatchDownloadDialog.cpp#L911"
+    },
+    {
+      "id": "V12",
+      "branch": "v1",
+      "path": "src/app/mainwindow/sections/document/MainWindow.DocumentFileFlow.cpp",
+      "symbol": "bool MainWindow::DocumentSection::openOnlinePreviewAtPath(",
+      "line": 592,
+      "label": "预览文档打开与会话策略",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/app/mainwindow/sections/document/MainWindow.DocumentFileFlow.cpp#L592"
+    },
+    {
+      "id": "V13",
+      "branch": "v1",
+      "path": "src/app/mainwindow/sections/document/MainWindow.DocumentAutosaveFlow.cpp",
+      "symbol": "state_.onlinePreviewDocument_",
+      "line": 417,
+      "label": "预览文档自动保存保护",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/app/mainwindow/sections/document/MainWindow.DocumentAutosaveFlow.cpp#L417"
+    },
+    {
+      "id": "V14",
+      "branch": "v1",
+      "path": "src/tools/net/NetBatchUploadScanner.cpp",
+      "symbol": "QList<NetUploadJob> scanNetUploadFolders(",
+      "line": 48,
+      "label": "上传素材扫描与去重",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetBatchUploadScanner.cpp#L48"
+    },
+    {
+      "id": "V15",
+      "branch": "v1",
+      "path": "src/tools/net/NetBatchUploadDialog.cpp",
+      "symbol": "StoredCredentials loadStoredCredentials(",
+      "line": 150,
+      "label": "账号存储、上传队列与失败重试",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetBatchUploadDialog.cpp#L150"
+    },
+    {
+      "id": "V16",
+      "branch": "v1",
+      "path": "src/tools/net/NetBatchUploadWorker.cpp",
+      "symbol": "UploadAttemptResult login(",
+      "line": 239,
+      "label": "登录、上传协议、节流与磁盘日志",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetBatchUploadWorker.cpp#L239"
+    },
+    {
+      "id": "V17",
+      "branch": "v1",
+      "path": "src/tools/net/NetUploadDiagnostics.cpp",
+      "symbol": "NetUploadResponseAssessment assessNetUploadResponse(",
+      "line": 84,
+      "label": "上传响应分类与 Retry-After",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/tools/net/NetUploadDiagnostics.cpp#L84"
+    },
+    {
+      "id": "V18",
+      "branch": "v1",
+      "path": "src/app/mainwindow/sections/export/MainWindow.ExportSection.cpp",
+      "symbol": "void MainWindow::ExportSection::onNetBatchDownload(",
+      "line": 60,
+      "label": "独立窗口与宿主回调",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/app/mainwindow/sections/export/MainWindow.ExportSection.cpp#L60"
+    },
+    {
+      "id": "V19",
+      "branch": "v1",
+      "path": "src/app/mainwindow/sections/frame/MainWindow.BootstrapAndMenus.cpp",
+      "symbol": "owner_.netBatchDownloadAction_ = new QAction(",
+      "line": 399,
+      "label": "下载菜单动作",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/app/mainwindow/sections/frame/MainWindow.BootstrapAndMenus.cpp#L399"
+    },
+    {
+      "id": "V20",
+      "branch": "v1",
+      "path": "src/app/mainwindow/sections/frame/MainWindow.ExtensionHostRequests.cpp",
+      "symbol": "net.batchUpload.open",
+      "line": 1380,
+      "label": "上传内部命令",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/app/mainwindow/sections/frame/MainWindow.ExtensionHostRequests.cpp#L1380"
+    },
+    {
+      "id": "V21",
+      "branch": "v1",
+      "path": "src/extensions/ExtensionManager.cpp",
+      "symbol": "if (method == QStringLiteral(\"net/fetch\")",
+      "line": 2484,
+      "label": "通用 GET、下载与代理处理器",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/extensions/ExtensionManager.cpp#L2484"
+    },
+    {
+      "id": "V22",
+      "branch": "v1",
+      "path": "src/extensions/EmbeddedExtensionRuntime.cpp",
+      "symbol": "Q_INVOKABLE QJSValue fetch(",
+      "line": 905,
+      "label": "miacode.net facade",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/extensions/EmbeddedExtensionRuntime.cpp#L905"
+    },
+    {
+      "id": "V23",
+      "branch": "v1",
+      "path": "src/extensions/ExtensionManager.cpp",
+      "symbol": "if (method.contains(QStringLiteral(\"WithoutPrompt\")) && method.startsWith(QStringLiteral(\"net/\")))",
+      "line": 1430,
+      "label": "网络权限映射",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/src/extensions/ExtensionManager.cpp#L1430"
+    },
+    {
+      "id": "V24",
+      "branch": "v1",
+      "path": "packages/miacode-extension-api/index.d.ts",
+      "symbol": "export interface MiaCode",
+      "line": 151,
+      "label": "旧 SDK 类型面",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/6573efb611056bccd046dd17bc2f4cceda78bf88/packages/miacode-extension-api/index.d.ts#L151"
+    },
+    {
+      "id": "D01",
+      "branch": "dev",
+      "path": "cmake/MiaCodeModules.cmake",
+      "symbol": "miacode_add_module(miacode_media_tools",
+      "line": 574,
+      "label": "网络引擎所属静态库",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/cmake/MiaCodeModules.cmake#L574"
+    },
+    {
+      "id": "D02",
+      "branch": "dev",
+      "path": "src/media_tools/net/NetClient.cpp",
+      "symbol": "QList<NetChartSummary> NetClient::queryCharts(",
+      "line": 451,
+      "label": "dev 查询与传输",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/media_tools/net/NetClient.cpp#L451"
+    },
+    {
+      "id": "D03",
+      "branch": "dev",
+      "path": "src/media_tools/net/NetClient.h",
+      "symbol": "class NetClient",
+      "line": 83,
+      "label": "dev 客户端公开接口",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/media_tools/net/NetClient.h#L83"
+    },
+    {
+      "id": "D04",
+      "branch": "dev",
+      "path": "src/media_tools/net/NetBatchDownloadWorker.cpp",
+      "symbol": "void NetBatchDownloadWorker::run(",
+      "line": 58,
+      "label": "dev 下载 worker",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/media_tools/net/NetBatchDownloadWorker.cpp#L58"
+    },
+    {
+      "id": "D05",
+      "branch": "dev",
+      "path": "src/media_tools/net/NetBatchUploadWorker.cpp",
+      "symbol": "void NetBatchUploadWorker::run(",
+      "line": 311,
+      "label": "dev 上传 worker",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/media_tools/net/NetBatchUploadWorker.cpp#L311"
+    },
+    {
+      "id": "D06",
+      "branch": "dev",
+      "path": "src/media_tools/net/NetBatchUploadScanner.cpp",
+      "symbol": "QList<NetUploadJob> scanNetUploadFolders(",
+      "line": 48,
+      "label": "dev 扫描器",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/media_tools/net/NetBatchUploadScanner.cpp#L48"
+    },
+    {
+      "id": "D07",
+      "branch": "dev",
+      "path": "src/media_tools/net/NetUploadDiagnostics.cpp",
+      "symbol": "NetUploadResponseAssessment assessNetUploadResponse(",
+      "line": 84,
+      "label": "dev 响应分类器",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/media_tools/net/NetUploadDiagnostics.cpp#L84"
+    },
+    {
+      "id": "D08",
+      "branch": "dev",
+      "path": "src/app/services/ApplicationServices.h",
+      "symbol": "class ApplicationServices",
+      "line": 62,
+      "label": "服务装配与 typed slots",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/app/services/ApplicationServices.h#L62"
+    },
+    {
+      "id": "D09",
+      "branch": "dev",
+      "path": "src/app/services/ChartWorkspace.h",
+      "symbol": "struct ChartWorkspaceSnapshot",
+      "line": 32,
+      "label": "文档权威与打开代次",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/app/services/ChartWorkspace.h#L32"
+    },
+    {
+      "id": "D10",
+      "branch": "dev",
+      "path": "src/app/runtime/document/DocumentFileFlow.cpp",
+      "symbol": "void miacode::runtime::DocumentSessionHost::applyOpenedDocumentState(",
+      "line": 283,
+      "label": "dev 文档打开副作用",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/app/runtime/document/DocumentFileFlow.cpp#L283"
+    },
+    {
+      "id": "D11",
+      "branch": "dev",
+      "path": "src/app/runtime/document/DocumentAutosave.cpp",
+      "symbol": "void miacode::runtime::DocumentSessionHost::runAutosaveCheck(",
+      "line": 383,
+      "label": "dev 自动保存",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/app/runtime/document/DocumentAutosave.cpp#L383"
+    },
+    {
+      "id": "D12",
+      "branch": "dev",
+      "path": "src/app/ui/document/CommandService.cpp",
+      "symbol": "void CommandService::whenDocumentMayBeLeft(",
+      "line": 18,
+      "label": "离开文档保护",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/app/ui/document/CommandService.cpp#L18"
+    },
+    {
+      "id": "D13",
+      "branch": "dev",
+      "path": "src/app/services/JobProgressService.h",
+      "symbol": "class JobProgressService",
+      "line": 18,
+      "label": "单任务进度展示",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/app/services/JobProgressService.h#L18"
+    },
+    {
+      "id": "D14",
+      "branch": "dev",
+      "path": "src/app/services/UiRequestService.h",
+      "symbol": "class UiRequestService",
+      "line": 45,
+      "label": "异步选择与确认端口",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/app/services/UiRequestService.h#L45"
+    },
+    {
+      "id": "D15",
+      "branch": "dev",
+      "path": "src/tools/extensions/ExtensionProductBoundarySpec.cpp",
+      "symbol": "bool testArchiveBoundary(",
+      "line": 28,
+      "label": "扩展宿主归档边界",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/tools/extensions/ExtensionProductBoundarySpec.cpp#L28"
+    },
+    {
+      "id": "D16",
+      "branch": "dev",
+      "path": "docs/ops/DEPENDENCY_ALLOWLIST.md",
+      "symbol": "| `Qt6::Network`",
+      "line": 49,
+      "label": "产品网络依赖现状",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/docs/ops/DEPENDENCY_ALLOWLIST.md#L49"
+    },
+    {
+      "id": "D17",
+      "branch": "dev",
+      "path": "src/app/services/update/NetworkUpdateFetcher.cpp",
+      "symbol": "void NetworkUpdateFetcher::fetch(",
+      "line": 26,
+      "label": "更新检查网络传输",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/app/services/update/NetworkUpdateFetcher.cpp#L26"
+    },
+    {
+      "id": "D18",
+      "branch": "dev",
+      "path": "cmake/devtools/specs/core.cmake",
+      "symbol": "miacode_add_spec(net_client_spec",
+      "line": 306,
+      "label": "net Spec 注册与过期注释",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/cmake/devtools/specs/core.cmake#L306"
+    },
+    {
+      "id": "D19",
+      "branch": "dev",
+      "path": "docs/specs/ui/CURRENT_ARCHITECTURE_ZH.md",
+      "symbol": "# 当前应用架构与所有权",
+      "line": 9,
+      "label": "当前 QML、services、runtime 架构",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/docs/specs/ui/CURRENT_ARCHITECTURE_ZH.md#L9"
+    },
+    {
+      "id": "D20",
+      "branch": "dev",
+      "path": "src/app/ui/ApplicationContext.h",
+      "symbol": "class ApplicationContext",
+      "line": 30,
+      "label": "现有 QML 服务入口",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/app/ui/ApplicationContext.h#L30"
+    },
+    {
+      "id": "D21",
+      "branch": "dev",
+      "path": "src/tools/boundary/WebModuleBoundarySpec.cpp",
+      "symbol": "int main(",
+      "line": 50,
+      "label": "Web 模块边界 Spec",
+      "url": "https://github.com/fanfaredash/MiaCode/blob/cb52f6e8103e2773e839b797cdbd2522e780e2c7/src/tools/boundary/WebModuleBoundarySpec.cpp#L50"
+    }
+  ],
+  "features": [
+    {
+      "id": "F01",
+      "category": "查询与下载",
+      "behavior": "下载工具菜单、独立窗口复用和激活",
+      "dev_status": "missing",
+      "migration": "改为 QML Net 页面与菜单入口",
+      "phase": "P2",
+      "evidence": [
+        "V18",
+        "V19",
+        "D20"
+      ],
+      "test_ids": [
+        "TC20"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F02",
+      "category": "查询与下载",
+      "behavior": "按上传者查询；空结果时尝试大小写形式和普通文本回退",
+      "dev_status": "retained_backend",
+      "migration": "保留查询策略，返回最终筛选结果",
+      "phase": "P1",
+      "evidence": [
+        "V01",
+        "D02"
+      ],
+      "test_ids": [
+        "TC01"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F03",
+      "category": "查询与下载",
+      "behavior": "Tag 查询兼容 tag: 前缀、普通 Tag 文本及大小写回退",
+      "dev_status": "retained_backend",
+      "migration": "把候选查询与本地 Tag 过滤集中到引擎",
+      "phase": "P1",
+      "evidence": [
+        "V01",
+        "V02",
+        "D02"
+      ],
+      "test_ids": [
+        "TC01"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F04",
+      "category": "查询与下载",
+      "behavior": "按曲名搜索及大小写回退",
+      "dev_status": "retained_backend",
+      "migration": "定义曲名 contains 与大小写规则",
+      "phase": "P1",
+      "evidence": [
+        "V01",
+        "V02",
+        "D02"
+      ],
+      "test_ids": [
+        "TC01"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F05",
+      "category": "查询与下载",
+      "behavior": "上传者、Tag、曲名、日期同时填写时执行 AND 过滤",
+      "dev_status": "partial",
+      "migration": "搬出 Dialog 的最终过滤；纠正 dev 候选合并语义",
+      "phase": "P1",
+      "evidence": [
+        "V01",
+        "V02",
+        "D02"
+      ],
+      "test_ids": [
+        "TC01"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F06",
+      "category": "查询与下载",
+      "behavior": "解析 id/title/artist/designer/uploader/hash/levels/UTC 时间及多个 Tag 字段",
+      "dev_status": "retained_backend",
+      "migration": "保持字段兼容；报告跳过行及完整性",
+      "phase": "P1",
+      "evidence": [
+        "V03",
+        "D02"
+      ],
+      "test_ids": [
+        "TC01"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F07",
+      "category": "查询与下载",
+      "behavior": "本地日期首尾日包含、反向日期自动归一化",
+      "dev_status": "partial",
+      "migration": "服务接收明确 timeZone；UI 保留首尾日语义",
+      "phase": "P1",
+      "evidence": [
+        "V04",
+        "V02",
+        "D02"
+      ],
+      "test_ids": [
+        "TC02"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F08",
+      "category": "查询与下载",
+      "behavior": "候选缓存 5 分钟；无缓存时上传者、Tag、曲名按序选取一个来源",
+      "dev_status": "missing",
+      "migration": "迁移缓存与失效；与最终结果分页分开",
+      "phase": "P1",
+      "evidence": [
+        "V01",
+        "D03"
+      ],
+      "test_ids": [
+        "TC03"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F09",
+      "category": "查询与下载",
+      "behavior": "等级、上传时间、显示状态各正反排序；等级取最高值且 + 加 0.5",
+      "dev_status": "missing",
+      "migration": "恢复 UI 排序；公共接口按稳定枚举排序",
+      "phase": "P2",
+      "evidence": [
+        "V05",
+        "D03"
+      ],
+      "test_ids": [
+        "TC04"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F10",
+      "category": "查询与下载",
+      "behavior": "结果表、勾选、全选、取消选择、按 chartId 映射状态",
+      "dev_status": "missing",
+      "migration": "使用列表模型和稳定 itemId，保持用户选择",
+      "phase": "P2",
+      "evidence": [
+        "V07",
+        "V02",
+        "D20"
+      ],
+      "test_ids": [
+        "TC04",
+        "TC20"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F11",
+      "category": "查询与下载",
+      "behavior": "8 秒实际 API 探测；正常/慢/超时/失败/阻断分类及取消",
+      "dev_status": "missing",
+      "migration": "异步探测；慢阈值保留 1000 ms",
+      "phase": "P1",
+      "evidence": [
+        "V06",
+        "V07",
+        "D03"
+      ],
+      "test_ids": [
+        "TC05"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F12",
+      "category": "查询与下载",
+      "behavior": "输出目录记忆；首次回退桌面或用户主目录",
+      "dev_status": "missing",
+      "migration": "迁移非敏感偏好；网页使用授权目录引用",
+      "phase": "P2",
+      "evidence": [
+        "V07",
+        "D20"
+      ],
+      "test_ids": [
+        "TC06"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F13",
+      "category": "查询与下载",
+      "behavior": "下载 track→track.mp3、完整 image→bg.jpg、chart→maidata.txt",
+      "dev_status": "retained_backend",
+      "migration": "用固定资源枚举与 provider 映射",
+      "phase": "P1",
+      "evidence": [
+        "V08",
+        "V09",
+        "D04"
+      ],
+      "test_ids": [
+        "TC06"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F14",
+      "category": "查询与下载",
+      "behavior": "默认下载可选 video→pv.mp4；404 视为无 PV",
+      "dev_status": "missing",
+      "migration": "恢复可选资源；持久记录 absent 状态",
+      "phase": "P2",
+      "evidence": [
+        "V08",
+        "D04"
+      ],
+      "test_ids": [
+        "TC07"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F15",
+      "category": "查询与下载",
+      "behavior": "后台 QThread，逐谱面、逐资源串行执行",
+      "dev_status": "retained_backend",
+      "migration": "服务拥有任务；保留默认单并发策略",
+      "phase": "P1",
+      "evidence": [
+        "V08",
+        "D04"
+      ],
+      "test_ids": [
+        "TC08"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F16",
+      "category": "查询与下载",
+      "behavior": "流式写入 QSaveFile、长度验证；声明长度为零的 maidata 特例",
+      "dev_status": "retained_backend",
+      "migration": "检查每次 write；统一零长度与整目录提交策略",
+      "phase": "P1",
+      "evidence": [
+        "V09",
+        "D02"
+      ],
+      "test_ids": [
+        "TC06"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F17",
+      "category": "查询与下载",
+      "behavior": "资源最多尝试 3 次、间隔 800 ms；列表 GET 断连另有 1 次重试",
+      "dev_status": "retained_backend",
+      "migration": "统一预算，避免重试层相乘",
+      "phase": "P1",
+      "evidence": [
+        "V08",
+        "V09",
+        "D04"
+      ],
+      "test_ids": [
+        "TC08"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F18",
+      "category": "查询与下载",
+      "behavior": "HTTP 403/429 或挑战 HTML 暂停整队列",
+      "dev_status": "retained_backend",
+      "migration": "暴露 blocked 状态及明确恢复条件",
+      "phase": "P1",
+      "evidence": [
+        "V08",
+        "D04"
+      ],
+      "test_ids": [
+        "TC08"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F19",
+      "category": "查询与下载",
+      "behavior": "下载后保留目录并可另建 ZIP；名称净化、重名追加序号",
+      "dev_status": "retained_backend",
+      "migration": "恢复入口；修正 ZIP 仅打包三文件而遗漏 PV",
+      "phase": "P2",
+      "evidence": [
+        "V10",
+        "V08",
+        "D02",
+        "D04"
+      ],
+      "test_ids": [
+        "TC07"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F20",
+      "category": "查询与下载",
+      "behavior": "逐行状态、完成计数、字节数、速度及最慢资源诊断、日志显示",
+      "dev_status": "partial",
+      "migration": "结构化状态和事件；UI 负责显示翻译",
+      "phase": "P2",
+      "evidence": [
+        "V08",
+        "D04"
+      ],
+      "test_ids": [
+        "TC08"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F21",
+      "category": "查询与下载",
+      "behavior": "下载/探测取消；忙时关闭先请求取消并等待完成",
+      "dev_status": "partial",
+      "migration": "取消句柄归任务 owner；关闭不销毁运行中的 worker",
+      "phase": "P1",
+      "evidence": [
+        "V07",
+        "V08",
+        "D04"
+      ],
+      "test_ids": [
+        "TC08"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F22",
+      "category": "在线预览",
+      "behavior": "按行准备临时资源并打开谱面；进程临时目录按 id/hash 区分",
+      "dev_status": "missing",
+      "migration": "准备与打开拆成两个命令；缓存独立于 UI 生命周期",
+      "phase": "P4",
+      "evidence": [
+        "V11",
+        "V12",
+        "D10"
+      ],
+      "test_ids": [
+        "TC09",
+        "TC10"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F23",
+      "category": "在线预览",
+      "behavior": "完整缓存复用；勾选 PV 后仅补下载缺失资源",
+      "dev_status": "missing",
+      "migration": "缓存 manifest 校验；无 PV 避免反复请求",
+      "phase": "P4",
+      "evidence": [
+        "V11",
+        "V08",
+        "D04"
+      ],
+      "test_ids": [
+        "TC09"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F24",
+      "category": "在线预览",
+      "behavior": "打开前保存/放弃/取消保护；加载到现有文档和预览链",
+      "dev_status": "missing",
+      "migration": "沿 DocumentBridge、ChartWorkspace 和 DocumentSessionHost 接入",
+      "phase": "P4",
+      "evidence": [
+        "V12",
+        "D09",
+        "D12"
+      ],
+      "test_ids": [
+        "TC10"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F25",
+      "category": "在线预览",
+      "behavior": "临时文档跳过自动保存/崩溃恢复/最近文件，保持原最近目录及会话路径",
+      "dev_status": "missing",
+      "migration": "新增文档来源/持久化策略；覆盖全部文件路径",
+      "phase": "P4",
+      "evidence": [
+        "V12",
+        "V13",
+        "D10",
+        "D11"
+      ],
+      "test_ids": [
+        "TC10"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F26",
+      "category": "上传与账号",
+      "behavior": "net.batchUpload.open 内部命令打开独立上传窗口",
+      "dev_status": "missing",
+      "migration": "增加 QML 上传入口及明确业务 API；兼容入口单独登记",
+      "phase": "P3",
+      "evidence": [
+        "V20",
+        "V18",
+        "D15"
+      ],
+      "test_ids": [
+        "TC20"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F27",
+      "category": "上传与账号",
+      "behavior": "扫描根目录及一层子目录，按自然数字顺序排序",
+      "dev_status": "retained_backend",
+      "migration": "复用扫描器；增加授权根和结构化拒绝原因",
+      "phase": "P3",
+      "evidence": [
+        "V14",
+        "D06"
+      ],
+      "test_ids": [
+        "TC11"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F28",
+      "category": "上传与账号",
+      "behavior": "忽略素材文件名大小写；必需 maidata、JPEG/PNG、MP3，可选 pv.mp4/bg.mp4",
+      "dev_status": "retained_backend",
+      "migration": "保持优先顺序；上传前校验实际素材与快照",
+      "phase": "P3",
+      "evidence": [
+        "V14",
+        "D06"
+      ],
+      "test_ids": [
+        "TC11"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F29",
+      "category": "上传与账号",
+      "behavior": "追加扫描结果并按目录去重",
+      "dev_status": "retained_backend",
+      "migration": "去重按平台路径规则及实际目录身份",
+      "phase": "P3",
+      "evidence": [
+        "V14",
+        "D06"
+      ],
+      "test_ids": [
+        "TC11"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F30",
+      "category": "上传与账号",
+      "behavior": "拖动多行排序、删除选中、清空队列，按当前顺序上传全部行",
+      "dev_status": "missing",
+      "migration": "队列顺序由稳定 itemId 管理；运行中锁定计划",
+      "phase": "P3",
+      "evidence": [
+        "V15",
+        "D20"
+      ],
+      "test_ids": [
+        "TC11",
+        "TC20"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F31",
+      "category": "上传与账号",
+      "behavior": "账号/密码输入与必填检查；不记忆时清空密码框，批次后清理会话值",
+      "dev_status": "missing",
+      "migration": "独立账号会话服务与凭据句柄",
+      "phase": "P3",
+      "evidence": [
+        "V15",
+        "D05"
+      ],
+      "test_ids": [
+        "TC15"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F32",
+      "category": "上传与账号",
+      "behavior": "可记忆账号/密码；旧版直接写 preferences.json 的 app.net_upload_*",
+      "dev_status": "missing",
+      "migration": "改用系统凭据存储并迁移清理旧明文",
+      "phase": "P3",
+      "evidence": [
+        "V15",
+        "D08"
+      ],
+      "test_ids": [
+        "TC15"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F33",
+      "category": "上传与账号",
+      "behavior": "multipart 登录；UTF-8 密码 MD5 hex、rememberMe=false；同 manager Cookie 用于上传",
+      "dev_status": "retained_backend",
+      "migration": "MD5 限于 provider 兼容；隔离账号 Cookie",
+      "phase": "P3",
+      "evidence": [
+        "V16",
+        "D05"
+      ],
+      "test_ids": [
+        "TC12"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F34",
+      "category": "上传与账号",
+      "behavior": "重复 formfiles 字段，规范上传文件名；可选 PV；文件以 QIODevice 发送",
+      "dev_status": "retained_backend",
+      "migration": "复用协议；锁定文件快照和 MIME/大小检查",
+      "phase": "P3",
+      "evidence": [
+        "V16",
+        "D05"
+      ],
+      "test_ids": [
+        "TC12"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F35",
+      "category": "上传与账号",
+      "behavior": "登录/上传 90 秒超时，100 ms 取消轮询",
+      "dev_status": "retained_backend",
+      "migration": "改为可取消异步 transport；统一超时结果",
+      "phase": "P1",
+      "evidence": [
+        "V16",
+        "D05"
+      ],
+      "test_ids": [
+        "TC08",
+        "TC12"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F36",
+      "category": "上传与账号",
+      "behavior": "登录要求 HTTP 200，上传要求 2xx；拒绝应用失败字段和挑战/限流",
+      "dev_status": "retained_backend",
+      "migration": "保留分类器；增加预期响应格式验证",
+      "phase": "P3",
+      "evidence": [
+        "V16",
+        "V17",
+        "D07"
+      ],
+      "test_ids": [
+        "TC12",
+        "TC13"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F37",
+      "category": "上传与账号",
+      "behavior": "429/Cloudflare 1015 等待 Retry-After，缺省 60 秒；登录/上传各重试 1 次",
+      "dev_status": "retained_backend",
+      "migration": "保留秒数/HTTP 日期解析；大等待转为用户恢复",
+      "phase": "P3",
+      "evidence": [
+        "V16",
+        "V17",
+        "D05",
+        "D07"
+      ],
+      "test_ids": [
+        "TC13"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F38",
+      "category": "上传与账号",
+      "behavior": "可继续的行完成后距下一行等待 5 秒并显示倒计时",
+      "dev_status": "retained_backend",
+      "migration": "provider 调度器共享节流；失败但未停批也保持间隔",
+      "phase": "P3",
+      "evidence": [
+        "V16",
+        "D05"
+      ],
+      "test_ids": [
+        "TC13"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F39",
+      "category": "上传与账号",
+      "behavior": "401/403/挑战/二次限流停批；413/422 通常只使当前行失败",
+      "dev_status": "retained_backend",
+      "migration": "稳定错误代码、停止原因与 pending 项",
+      "phase": "P3",
+      "evidence": [
+        "V17",
+        "V16",
+        "D07"
+      ],
+      "test_ids": [
+        "TC13"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F40",
+      "category": "上传与账号",
+      "behavior": "显示失败详情后重试失败行；停批时包含未尝试行，排除已成功行",
+      "dev_status": "missing",
+      "migration": "新 job 引用父 job，禁止自动重复结果不明的上传",
+      "phase": "P3",
+      "evidence": [
+        "V15",
+        "D05"
+      ],
+      "test_ids": [
+        "TC14"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F41",
+      "category": "上传与账号",
+      "behavior": "rowStatus/rowOutcome/failureDetail/progress/summary/finished 信号与最终计数",
+      "dev_status": "partial",
+      "migration": "结构化 item 结果和任务终态；API 可查询",
+      "phase": "P1",
+      "evidence": [
+        "V16",
+        "D05"
+      ],
+      "test_ids": [
+        "TC14"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F42",
+      "category": "上传与账号",
+      "behavior": "独立 net-upload.log 追加并 flush；日志打开失败即停批，UI 暴露路径/详情",
+      "dev_status": "missing",
+      "migration": "接入 DebugLog，脱敏、轮转及受控诊断读取",
+      "phase": "P3",
+      "evidence": [
+        "V16",
+        "D05"
+      ],
+      "test_ids": [
+        "TC15"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F43",
+      "category": "公共交互",
+      "behavior": "中/英/日界面、主题与状态文案",
+      "dev_status": "changed",
+      "migration": "使用 dev 的 qsTrId/qtTrId、翻译资源与共享 QML 控件",
+      "phase": "P2",
+      "evidence": [
+        "V07",
+        "V15",
+        "D19"
+      ],
+      "test_ids": [
+        "TC20"
+      ],
+      "source_surface": "product_or_contract"
+    },
+    {
+      "id": "F44",
+      "category": "通用网络",
+      "behavior": "miacode.net.fetch(url, options)：http/https GET，返回 status/text；仅 timeoutMs 生效",
+      "dev_status": "removed_host",
+      "migration": "新增 network.http.fetch，声明 GET、上限与目标授权",
+      "phase": "P5",
+      "evidence": [
+        "V21",
+        "V22",
+        "D15"
+      ],
+      "test_ids": [
+        "TC18",
+        "TC17"
+      ],
+      "source_surface": "js_facade"
+    },
+    {
+      "id": "F45",
+      "category": "通用网络",
+      "behavior": "miacode.net.download(url, targetPath)：GET 后整包写文件，返回 status/path",
+      "dev_status": "removed_host",
+      "migration": "新增流式 network.http.download，使用文件授权引用",
+      "phase": "P5",
+      "evidence": [
+        "V21",
+        "V22",
+        "D15"
+      ],
+      "test_ids": [
+        "TC18"
+      ],
+      "source_surface": "js_facade"
+    },
+    {
+      "id": "F46",
+      "category": "通用网络",
+      "behavior": "net/fetchLocalhostWithoutPrompt 处理器；没有独立普通 SDK wrapper",
+      "dev_status": "handler_only_removed",
+      "migration": "映射 loopback 目标授权；不以别名代替授权校验",
+      "phase": "P5",
+      "evidence": [
+        "V21",
+        "V23",
+        "D15"
+      ],
+      "test_ids": [
+        "TC18",
+        "TC16"
+      ],
+      "source_surface": "handler_only"
+    },
+    {
+      "id": "F47",
+      "category": "通用网络",
+      "behavior": "net/fetchPrivateNetworkWithoutPrompt 处理器；与普通 GET 共用实现",
+      "dev_status": "handler_only_removed",
+      "migration": "映射 private-network 目标授权，核验 DNS 与重定向",
+      "phase": "P5",
+      "evidence": [
+        "V21",
+        "V23",
+        "D15"
+      ],
+      "test_ids": [
+        "TC18",
+        "TC16"
+      ],
+      "source_surface": "handler_only"
+    },
+    {
+      "id": "F48",
+      "category": "通用网络",
+      "behavior": "net/getProxySettings 处理器读取应用代理 type/host/port/user",
+      "dev_status": "handler_only_removed",
+      "migration": "network.proxy.get 返回请求域代理配置并脱敏",
+      "phase": "P5",
+      "evidence": [
+        "V21",
+        "D17"
+      ],
+      "test_ids": [
+        "TC18"
+      ],
+      "source_surface": "handler_only"
+    },
+    {
+      "id": "F49",
+      "category": "通用网络",
+      "behavior": "net/setProxySettings 处理器设置含密码的进程全局 QNetworkProxy",
+      "dev_status": "handler_only_removed",
+      "migration": "network.proxy.set 使用请求域 profile 与凭据引用",
+      "phase": "P5",
+      "evidence": [
+        "V21",
+        "D17"
+      ],
+      "test_ids": [
+        "TC18"
+      ],
+      "source_surface": "handler_only"
+    },
+    {
+      "id": "F50",
+      "category": "通用网络",
+      "behavior": "network.fetch/network.unsafe 权限和 JS facade；net 类型/注册清单存在缺口",
+      "dev_status": "removed_host",
+      "migration": "统一能力注册表、权限校验、SDK 和跨平台可用性",
+      "phase": "P0",
+      "evidence": [
+        "V22",
+        "V23",
+        "V24",
+        "D15"
+      ],
+      "test_ids": [
+        "TC17",
+        "TC18"
+      ],
+      "source_surface": "product_or_contract"
+    }
+  ],
+  "proposed_api": {
+    "lifecycle": "working",
+    "version": "1.0",
+    "base_path": "/api/v1",
+    "operations": [
+      {
+        "id": "api.capabilities",
+        "method": "GET",
+        "path": "/capabilities",
+        "scopes": "api.read",
+        "async": false,
+        "request_schema": "—",
+        "result_schema": "CapabilitySet",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "natural"
+      },
+      {
+        "id": "net.providers.list",
+        "method": "GET",
+        "path": "/net/providers",
+        "scopes": "net.read",
+        "async": false,
+        "request_schema": "—",
+        "result_schema": "ProviderDescriptor[]",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "natural"
+      },
+      {
+        "id": "net.probes.create",
+        "method": "POST",
+        "path": "/net/probes",
+        "scopes": "net.read",
+        "async": true,
+        "request_schema": "ProviderRequest",
+        "result_schema": "JobHandle",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "optional",
+        "job_kind": "net.probe",
+        "job_result_schema": "ProbeResult"
+      },
+      {
+        "id": "net.queries.create",
+        "method": "POST",
+        "path": "/net/queries",
+        "scopes": "net.read",
+        "async": true,
+        "request_schema": "ChartQueryRequest",
+        "result_schema": "JobHandle",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "optional",
+        "job_kind": "net.query",
+        "job_result_schema": "QueryHandle"
+      },
+      {
+        "id": "net.queries.results",
+        "method": "GET",
+        "path": "/net/queries/{queryRef}",
+        "scopes": "net.read",
+        "async": false,
+        "request_schema": "QueryPageRequest",
+        "result_schema": "ChartPage",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "natural"
+      },
+      {
+        "id": "net.downloads.create",
+        "method": "POST",
+        "path": "/net/downloads",
+        "scopes": "net.download + files.write",
+        "async": true,
+        "request_schema": "DownloadRequest",
+        "result_schema": "JobHandle",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "required",
+        "job_kind": "net.download",
+        "job_result_schema": "DownloadBatchResult"
+      },
+      {
+        "id": "net.uploads.scan",
+        "method": "POST",
+        "path": "/net/upload-plans",
+        "scopes": "net.upload + files.read",
+        "async": true,
+        "request_schema": "ScanRequest",
+        "result_schema": "JobHandle",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "optional",
+        "job_kind": "net.upload_scan",
+        "job_result_schema": "UploadPlan"
+      },
+      {
+        "id": "net.uploads.create",
+        "method": "POST",
+        "path": "/net/uploads",
+        "scopes": "net.upload + net.accounts.use + files.read",
+        "async": true,
+        "request_schema": "UploadRequest",
+        "result_schema": "JobHandle",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "required",
+        "job_kind": "net.upload",
+        "job_result_schema": "UploadBatchResult"
+      },
+      {
+        "id": "net.accounts.login",
+        "method": "POST",
+        "path": "/net/accounts",
+        "scopes": "net.accounts.manage",
+        "async": true,
+        "request_schema": "AccountLoginRequest",
+        "result_schema": "JobHandle",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "none",
+        "job_kind": "net.login",
+        "job_result_schema": "AccountDescriptor"
+      },
+      {
+        "id": "net.accounts.list",
+        "method": "GET",
+        "path": "/net/accounts",
+        "scopes": "net.accounts.use",
+        "async": false,
+        "request_schema": "—",
+        "result_schema": "AccountDescriptor[]",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "natural"
+      },
+      {
+        "id": "net.accounts.logout",
+        "method": "DELETE",
+        "path": "/net/accounts/{accountRef}",
+        "scopes": "net.accounts.manage",
+        "async": false,
+        "request_schema": "—",
+        "result_schema": "ReleaseResult",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "natural"
+      },
+      {
+        "id": "net.previews.prepare",
+        "method": "POST",
+        "path": "/net/previews",
+        "scopes": "net.preview",
+        "async": true,
+        "request_schema": "PreviewPrepareRequest",
+        "result_schema": "JobHandle",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "optional",
+        "job_kind": "net.preview_prepare",
+        "job_result_schema": "PreviewHandle"
+      },
+      {
+        "id": "net.previews.open",
+        "method": "POST",
+        "path": "/net/previews/{previewRef}/open",
+        "scopes": "net.preview + document.replace",
+        "async": true,
+        "request_schema": "PreviewOpenRequest",
+        "result_schema": "JobHandle",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "required",
+        "job_kind": "net.preview_open",
+        "job_result_schema": "PreviewOpenResult"
+      },
+      {
+        "id": "net.previews.release",
+        "method": "DELETE",
+        "path": "/net/previews/{previewRef}",
+        "scopes": "net.preview",
+        "async": false,
+        "request_schema": "—",
+        "result_schema": "ReleaseResult",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "natural"
+      },
+      {
+        "id": "document.snapshot",
+        "method": "GET",
+        "path": "/document/snapshot",
+        "scopes": "document.read",
+        "async": false,
+        "request_schema": "—",
+        "result_schema": "DocumentIdentity",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "natural"
+      },
+      {
+        "id": "net.settings.get",
+        "method": "GET",
+        "path": "/net/settings",
+        "scopes": "net.settings.read",
+        "async": false,
+        "request_schema": "—",
+        "result_schema": "NetSettings",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "natural"
+      },
+      {
+        "id": "net.settings.update",
+        "method": "PATCH",
+        "path": "/net/settings",
+        "scopes": "net.settings.write",
+        "async": false,
+        "request_schema": "NetSettingsPatch",
+        "result_schema": "NetSettings",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "natural"
+      },
+      {
+        "id": "jobs.list",
+        "method": "GET",
+        "path": "/jobs",
+        "scopes": "jobs.read",
+        "async": false,
+        "request_schema": "JobListRequest",
+        "result_schema": "JobPage",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "natural"
+      },
+      {
+        "id": "jobs.get",
+        "method": "GET",
+        "path": "/jobs/{jobId}",
+        "scopes": "jobs.read",
+        "async": false,
+        "request_schema": "—",
+        "result_schema": "JobSnapshot",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "natural"
+      },
+      {
+        "id": "jobs.items",
+        "method": "GET",
+        "path": "/jobs/{jobId}/items",
+        "scopes": "jobs.read",
+        "async": false,
+        "request_schema": "ItemPageRequest",
+        "result_schema": "ItemPage",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "natural"
+      },
+      {
+        "id": "jobs.events",
+        "method": "GET",
+        "path": "/jobs/{jobId}/events",
+        "scopes": "jobs.read",
+        "async": false,
+        "request_schema": "EventPageRequest",
+        "result_schema": "EventPage",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "natural"
+      },
+      {
+        "id": "jobs.cancel",
+        "method": "POST",
+        "path": "/jobs/{jobId}/cancel",
+        "scopes": "jobs.control",
+        "async": false,
+        "request_schema": "—",
+        "result_schema": "JobSnapshot",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "natural"
+      },
+      {
+        "id": "jobs.resume",
+        "method": "POST",
+        "path": "/jobs/{jobId}/resume",
+        "scopes": "jobs.control + 原业务权限",
+        "async": false,
+        "request_schema": "ResumeRequest",
+        "result_schema": "JobSnapshot",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "required"
+      },
+      {
+        "id": "jobs.retry",
+        "method": "POST",
+        "path": "/jobs/{jobId}/retry",
+        "scopes": "jobs.control + 原业务权限",
+        "async": true,
+        "request_schema": "RetryRequest",
+        "result_schema": "JobHandle",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "required",
+        "job_kind": "inherit_parent_kind",
+        "job_result_schema": "inherit_parent_result"
+      },
+      {
+        "id": "jobs.diagnostics",
+        "method": "GET",
+        "path": "/jobs/{jobId}/diagnostics",
+        "scopes": "jobs.read + diagnostics.read",
+        "async": false,
+        "request_schema": "—",
+        "result_schema": "DiagnosticSummary",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "natural"
+      },
+      {
+        "id": "files.grants.request",
+        "method": "POST",
+        "path": "/files/grants",
+        "scopes": "files.read 或 files.write",
+        "async": true,
+        "request_schema": "FileGrantRequest",
+        "result_schema": "JobHandle",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "optional",
+        "job_kind": "files.grant",
+        "job_result_schema": "FileGrant"
+      },
+      {
+        "id": "files.artifacts.content",
+        "method": "GET",
+        "path": "/files/artifacts/{artifactRef}/content",
+        "scopes": "files.read",
+        "async": false,
+        "request_schema": "—",
+        "result_schema": "BinaryContent",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "natural"
+      },
+      {
+        "id": "network.targets.request",
+        "method": "POST",
+        "path": "/network/target-grants",
+        "scopes": "network.targets.manage",
+        "async": true,
+        "request_schema": "TargetGrantRequest",
+        "result_schema": "JobHandle",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "optional",
+        "job_kind": "network.target_grant",
+        "job_result_schema": "TargetGrant"
+      },
+      {
+        "id": "network.http.fetch",
+        "method": "POST",
+        "path": "/network/fetch",
+        "scopes": "network.http + 目标授权",
+        "async": true,
+        "request_schema": "HttpFetchRequest",
+        "result_schema": "JobHandle",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "optional",
+        "job_kind": "network.fetch",
+        "job_result_schema": "HttpTextResult"
+      },
+      {
+        "id": "network.http.download",
+        "method": "POST",
+        "path": "/network/downloads",
+        "scopes": "network.http + files.write + 目标授权",
+        "async": true,
+        "request_schema": "HttpDownloadRequest",
+        "result_schema": "JobHandle",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "required",
+        "job_kind": "network.download",
+        "job_result_schema": "HttpDownloadResult"
+      },
+      {
+        "id": "network.proxy.get",
+        "method": "GET",
+        "path": "/network/proxy/{profileId}",
+        "scopes": "network.proxy.read",
+        "async": false,
+        "request_schema": "—",
+        "result_schema": "ProxyProfile",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "natural"
+      },
+      {
+        "id": "network.proxy.set",
+        "method": "PUT",
+        "path": "/network/proxy/{profileId}",
+        "scopes": "network.proxy.manage",
+        "async": true,
+        "request_schema": "ProxyProfileRequest",
+        "result_schema": "JobHandle",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "optional",
+        "job_kind": "network.proxy_update",
+        "job_result_schema": "ProxyProfile"
+      },
+      {
+        "id": "gateway.pairings.create",
+        "method": "POST",
+        "path": "/pairings",
+        "scopes": "临时配对窗口",
+        "async": false,
+        "request_schema": "PairingRequest",
+        "result_schema": "PairingChallenge",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "none"
+      },
+      {
+        "id": "gateway.pairings.exchange",
+        "method": "POST",
+        "path": "/pairings/{pairingRef}/exchange",
+        "scopes": "配对 secret + Origin",
+        "async": false,
+        "request_schema": "PairingExchangeRequest",
+        "result_schema": "PairingResult",
+        "status": "proposed",
+        "available": false,
+        "idempotency_policy": "none"
+      }
+    ],
+    "inventory_only": true,
+    "contract_document": "docs/specs/net/NET_API_CONTRACT_ZH.md"
+  },
+  "acceptance_cases": [
+    {
+      "id": "TC01",
+      "title": "查询/解析与 AND",
+      "criteria": "离线 provider fixture：上传者、Tag、曲名分别/组合；大小写、中文、多 Tag 字段、重复 ID、错误时间、空数组、无输入、HTML/畸形 JSON。断言最终列表每行满足所有条件，错误不伪装为空结果，completeness 不虚报。",
+      "phase": "P1",
+      "status": "planned"
+    },
+    {
+      "id": "TC02",
+      "title": "日期与时区",
+      "criteria": "同一 UTC 时间在 Asia/Shanghai 和含 DST 的时区，首日午夜/末日末尾/下一日午夜、反向范围、单边或非法日期；UI 与 HTTP 结果一致。",
+      "phase": "P1",
+      "status": "planned"
+    },
+    {
+      "id": "TC03",
+      "title": "缓存与查询快照",
+      "criteria": "改变非候选条件复用缓存但重新 AND 过滤；5 分钟边界、forceRefresh、provider/大小写隔离、缓存后的失败；结果分页无重复/遗漏、排序稳定、过期 cursor 明确报错。",
+      "phase": "P1",
+      "status": "planned"
+    },
+    {
+      "id": "TC04",
+      "title": "排序与稳定身份",
+      "criteria": "六种旧 UI 排序；13、13+、无效等级和平局；多语言状态显示；排序/刷新/追加后勾选仍绑定正确 ID，进行中的 worker 事件更新正确 item。",
+      "phase": "P2",
+      "status": "planned"
+    },
+    {
+      "id": "TC05",
+      "title": "连接探测",
+      "criteria": "假时钟/假 transport：正常、超过 1000 ms、8 秒 deadline、取消、HTTP 403/429、HTML、JSON 非数组、TLS/网络失败；UI 主线程不出现同步等待，返回分类和耗时。",
+      "phase": "P1",
+      "status": "planned"
+    },
+    {
+      "id": "TC06",
+      "title": "流式文件与授权根",
+      "criteria": "短写、写入错误、已存在目录、长度不足/未知/声明为零的 chart、媒体空响应、分块/压缩响应、取消/磁盘不足；校验字节层与 manifest；失败不替换有效文件、越界/符号链接/保留文件名拒绝。",
+      "phase": "P1",
+      "status": "planned"
+    },
+    {
+      "id": "TC07",
+      "title": "可选视频和 ZIP",
+      "criteria": "includeVideo true/false；404 absent、其他 video 失败、成功 PV 入默认 ZIP、legacy_triplet 三文件模式；重名 ZIP、取消打包、最终 ZIP 可解包且内容与 manifest 一致。",
+      "phase": "P2",
+      "status": "planned"
+    },
+    {
+      "id": "TC08",
+      "title": "任务/重试/取消与生命周期",
+      "criteria": "fake transport + fake clock 覆盖重试预算、800 ms/1000 ms 间隔、资源 60 秒、账号 90 秒、取消在排队/传输/等待中、关闭/销毁 owner、旧事件/generation、resume 条件；Net 与导出进度 token 不互相取消。",
+      "phase": "P1",
+      "status": "planned"
+    },
+    {
+      "id": "TC09",
+      "title": "预览缓存",
+      "criteria": "同 id/hash 命中、完整 hash 冲突、缺少版本的 TTL、修改/丢失/损坏资源、仅补 PV、404 absent 再次预览不请求；播放期间缓存不能回收，释放与新会话引用正确。",
+      "phase": "P4",
+      "status": "planned"
+    },
+    {
+      "id": "TC10",
+      "title": "文档打开与来源策略",
+      "criteria": "本地 dirty 文档保存/放弃/取消；打开前、等待期间、回调后切换文档/修改 revision；合法保存决策可继续，未经批准的新状态拒绝；覆盖普通打开和工作区同步两路径的最近记录、会话、自动保存、崩溃恢复、编辑、Save As、关闭及媒体释放。",
+      "phase": "P4",
+      "status": "planned"
+    },
+    {
+      "id": "TC11",
+      "title": "扫描与上传队列",
+      "criteria": "根目录及一层子目录、深层不扫、自然顺序、MAIDATA.TXT、JPEG/PNG 优先、PV/bg 优先、MP3 限制、缺文件、符号链接、平台路径大小写；多行排序/删除/去重，运行后计划冻结、素材变化不能静默上传。",
+      "phase": "P3",
+      "status": "planned"
+    },
+    {
+      "id": "TC12",
+      "title": "登录/上传实际协议",
+      "criteria": "本地模拟服务器核验 multipart 字段、UTF-8→MD5 hex、rememberMe=false、重复 formfiles 与规范文件名、文件流、Cookie 关联、账号隔离和 logout；HTTP 200 应用错误及 2xx HTML 不算成功。仅用假账号/素材。",
+      "phase": "P3",
+      "status": "planned"
+    },
+    {
+      "id": "TC13",
+      "title": "限流与批次停止",
+      "criteria": "429/1015、Retry-After 秒数/HTTP 日期/无效/过期/超大值、登录和上传各仅一次明确重试、第二次停止、5 秒跨任务共享节流；401/403/挑战停批，413/422 单项失败；倒计时可立即取消，不能提前绕过等待。",
+      "phase": "P3",
+      "status": "planned"
+    },
+    {
+      "id": "TC14",
+      "title": "结果不明、幂等与失败重试",
+      "criteria": "成功/失败/未尝试/未知混合；202 不算完成；已成功项不重发，未知项不自动重试；相同幂等键复用、不同参数 409、父子任务追溯、重启账本恢复；job cancel 不声称撤销上游提交。",
+      "phase": "P3",
+      "status": "planned"
+    },
+    {
+      "id": "TC15",
+      "title": "凭据迁移与诊断",
+      "criteria": "remember 默认关闭、系统凭据成功/不可用、旧明文迁移成功后删除/失败保留、账号列表和偏好脱敏；密码/MD5/Cookie/token/代理密码及登录体不进日志/事件/SDK；日志初始化失败不发送、运行中写入失败阻断、轮转、受控诊断读取。",
+      "phase": "P3",
+      "status": "planned"
+    },
+    {
+      "id": "TC16",
+      "title": "网关、浏览器与越权",
+      "criteria": "绑定地址/Host、临时配对窗口、准确 Origin/预检、批准/拒绝/过期/撤销 token、权限与所有权、跨客户端 job/account/artifact、null Origin、URL token、DNS rebinding、请求/连接/速率上限；同源页面和外部 HTTPS 页面实测 CORS/本地网络权限。",
+      "phase": "P5",
+      "status": "planned"
+    },
+    {
+      "id": "TC17",
+      "title": "注册表与各调用面一致性",
+      "criteria": "集合比较 operation registry、OpenAPI、HTTP、CLI、SDK、说明；秘密字段的 writeOnly/日志策略、DTO 默认值、未知字段、64 位字符串、分页与错误；新增能力未实现时 available=false。同一 fixture 经 QML/HTTP/CLI 得到同样业务结果。",
+      "phase": "P5",
+      "status": "planned"
+    },
+    {
+      "id": "TC18",
+      "title": "通用网络与代理",
+      "criteria": "GET-only 与 timeout/文本上限、二进制流式下载、文件授权；http/https、公网/loopback/private 目标授权、重定向/DNS/连接复核；代理 profile/凭据脱敏与权限；配置 Net 代理不会改变 update 或其他网络域。",
+      "phase": "P5",
+      "status": "planned"
+    },
+    {
+      "id": "TC19",
+      "title": "平台与发布",
+      "criteria": "每个宣称支持的平台：Release 包 TLS 后端、HTTPS、代理、中文/空格路径、凭据库、cache/ZIP/临时资源和网关依赖；WASM 单独验证 CORS/异步/存储，移动端单独验证 sandbox/后台行为，记录明确 capability。",
+      "phase": "P6",
+      "status": "planned"
+    },
+    {
+      "id": "TC20",
+      "title": "产品全链路",
+      "criteria": "QML 菜单与单实例页面、查询/日期/排序/勾选/目录记忆、下载/PV/ZIP、上传扫描/排序/失败重试/账号记忆、预览编辑/Save As/切回工程、取消/关闭、三语言/主题、错误以纯文本显示；逐项核对 50 项，保留验收证据。",
+      "phase": "P6",
+      "status": "planned"
+    }
+  ]
+}

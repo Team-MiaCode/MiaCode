@@ -15,6 +15,7 @@ enum class Channel {
     PreviewProfile,
     Operation,
     PvMemory,
+    NetUpload,
 };
 
 // Orthogonal severity, independent of Channel (which is destination/category).
@@ -66,6 +67,7 @@ QString fatalLogPath();
 QString previewProfileSummaryPath();
 QString operationLogPath();
 QString pvMemoryLogPath();
+bool appendNetUploadEvent(const QString& payload);
 
 QString formatTitleLine(const QString& title);
 

@@ -16,7 +16,12 @@ struct NetUploadJob {
     bool selected = true;
 };
 
-QList<NetUploadJob> scanNetUploadFolders(const QString& rootDirectory);
+struct NetUploadScanRejection {
+    QString displayName;
+    QString reason;
+};
+
+QList<NetUploadJob> scanNetUploadFolders(const QString& rootDirectory, QList<NetUploadScanRejection>* rejected = nullptr);
 int appendUniqueNetUploadJobs(QList<NetUploadJob>* queue, const QList<NetUploadJob>& candidates);
 
 }  // namespace miacode::net

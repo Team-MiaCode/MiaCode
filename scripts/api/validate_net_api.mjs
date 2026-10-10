@@ -1,0 +1,21 @@
+// Optional independent standards validation; dependencies live in tools/net-api.
+import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const require = createRequire(path.join(root, "tools/net-api/package.json"));
+const Ajv = require("ajv/dist/2020.js");
+const addFormats = require("ajv-formats");
+const SwaggerParser = require("@apidevtools/swagger-parser");
+const schemas = JSON.parse(readFileSync(path.join(root, "tools/net-api/schemas.json"), "utf8"));
+const catalog = JSON.parse(readFileSync(path.join(root, "tools/net-api/operations.json"), "utf8"));
+const ajv = new Ajv({ strict: false, allErrors: true });
+addFormats(ajv);
+if (!ajv.validateSchema(schemas)) throw new Error(JSON.stringify(ajv.errors));
+ajv.addSchema(schemas, "miacode-net");
+for (const name of Object.keys(schemas.$defs)) ajv.compile({ $ref: `miacode-net#/$defs/${name}` });
+const openapi = await SwaggerParser.validate(path.join(root, "docs/specs/net/generated/net-openapi.json"));
+const operations = Object.values(openapi.paths).flatMap(route => Object.values(route).filter(item => item?.operationId).map(item => item.operationId));
+if (JSON.stringify(operations.sort()) !== JSON.stringify(catalog.operations.map(item => item.id).sort())) throw new Error("OpenAPI/catalog operation drift");
+console.log(`JSON Schema Draft 2020-12 and OpenAPI 3.1 validation passed: ${operations.length} operations, ${Object.keys(schemas.$defs).length} schemas.`);

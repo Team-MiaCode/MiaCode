@@ -16,6 +16,10 @@
 #include "app/platform/PlatformDiagnostics.h"
 #include "app/runtime/Session.h"
 #include "app/services/ApplicationServices.h"
+#include "app/services/jobs/JobRegistry.h"
+#include "app/services/net/NetService.h"
+#include "media_tools/net/NetHttpTransport.h"
+#include "media_tools/net/NetProvider.h"
 #include "app/ui/preferences/LocaleService.h"
 #include "app/ui/drop/ChartDropBridge.h"
 #include "app/ui/document/DocumentModel.h"
@@ -65,8 +69,16 @@ Bootstrap::~Bootstrap()
     engine_.reset();
     detachedPreviewWindowChrome_.reset();
     windowChrome_.reset();
+    if (jobRegistry_) jobRegistry_->cancelAll();
+    if (netService_) { netService_->setPreviewOpenHandler({}); netService_->setDocumentSnapshotHandler({}); }
     applicationContext_.reset();
     backend_.reset();
+    if (jobRegistry_) jobRegistry_->cancelAll();
+    if (applicationServices_) applicationServices_->setNetService(nullptr);
+    netService_.reset();
+    netProvider_.reset();
+    netTransport_.reset();
+    jobRegistry_.reset();
     // Last: the services outlive everything that borrows them.
     applicationServices_.reset();
 }
@@ -103,6 +115,11 @@ bool Bootstrap::start(const QString& startupOpenTarget)
             updateService_.get(), &miacode::update::UpdateService::setLanguageToken);
     applicationServices_->setUpdateFetcher(updateFetcher_.get());
     applicationServices_->setUpdateService(updateService_.get());
+    jobRegistry_ = std::make_unique<miacode::JobRegistry>();
+    netTransport_ = std::make_unique<miacode::net::NetHttpTransport>();
+    netProvider_ = std::make_unique<miacode::net::NetProvider>(*netTransport_);
+    netService_ = std::make_unique<miacode::NetService>(*jobRegistry_, *netProvider_);
+    applicationServices_->setNetService(netService_.get());
     // The runtime creates its export page through this factory while it
     // assembles, parented to the session; range requests drive its playback.
     applicationServices_->setExportPageFactory(

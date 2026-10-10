@@ -2,6 +2,7 @@ import QtQuick
 
 QtObject {
     signal difficultyEditorActivationRequested(int difficultyId)
+    signal applicationEditorActivationRequested(string key)
     signal editorPresentationCleared()
     // A closed tab is a view that no longer exists; whatever it accumulated —
     // its undo history above all — goes with it.
@@ -9,6 +10,9 @@ QtObject {
 
     readonly property string metadataEditorKey: "metadata"
     readonly property string latencyEditorKey: "latency"
+    readonly property string netDownloadEditorKey: "net-download"
+    readonly property string netUploadEditorKey: "net-upload"
+    readonly property bool netEditorActive: isNetEditor(activeEditorKey)
     property var openEditorTabs: []
     property var editorHistory: []
     property string activeEditorKey: ""
@@ -43,6 +47,10 @@ QtObject {
         return openEditorTabs.indexOf(key) >= 0
     }
 
+    function isNetEditor(key) {
+        return key === netDownloadEditorKey || key === netUploadEditorKey
+    }
+
     function bookmarkGroupExpanded(difficultyId) {
         const stored = bookmarkGroupsExpanded[difficultyId]
         return stored === undefined ? difficultyId === activeDifficultyId : stored
@@ -70,6 +78,8 @@ QtObject {
             : 0
         if (difficultyId > 0 && requestDifficultyActivation !== false)
             difficultyEditorActivationRequested(difficultyId)
+        if (isNetEditor(key) && requestDifficultyActivation !== false)
+            applicationEditorActivationRequested(key)
         activeEditorKey = key
     }
 
@@ -155,14 +165,16 @@ QtObject {
 
     function resetEditorTabs(currentDifficultyId) {
         editorPresentationClearedByUser = false
+        const applicationTabs = openEditorTabs.filter(key => isNetEditor(key))
         const tabs = currentDifficultyId > 0
-            ? [difficultyEditorKey(currentDifficultyId)]
-            : []
+            ? [difficultyEditorKey(currentDifficultyId)].concat(applicationTabs)
+            : applicationTabs
         openEditorTabs = tabs
         editorHistory = tabs.slice()
         setActiveEditor(currentDifficultyId > 0
             ? difficultyEditorKey(currentDifficultyId)
-            : "", false)
+            : applicationTabs.indexOf(activeEditorKey) >= 0 ? activeEditorKey
+                : applicationTabs.length > 0 ? applicationTabs[0] : "", false)
     }
 
     // Filtering alone is not enough: this must also be able to put a tab back.
@@ -188,7 +200,7 @@ QtObject {
             : (difficultyKeys.length > 0 ? difficultyKeys[0] : "")
 
         let tabs = openEditorTabs.filter(key => key === metadataEditorKey
-            || key === latencyEditorKey || validKeys[key])
+            || key === latencyEditorKey || isNetEditor(key) || validKeys[key])
         if (!editorPresentationClearedByUser) {
             if (tabs.length === 0 && preferredKey.length > 0)
                 tabs = [preferredKey]

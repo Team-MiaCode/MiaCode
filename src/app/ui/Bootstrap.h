@@ -15,6 +15,12 @@ class QQuickWindow;
 class Session;
 namespace miacode {
 class ApplicationServices;
+class JobRegistry;
+class NetService;
+}
+namespace miacode::net {
+class NetHttpTransport;
+class NetProvider;
 }
 namespace miacode::update {
 class NetworkUpdateFetcher;
@@ -64,6 +70,10 @@ private:
     std::unique_ptr<miacode::update::UpdateStateStore> updateStateStore_;
     std::unique_ptr<miacode::update::NetworkUpdateFetcher> updateFetcher_;
     std::unique_ptr<miacode::update::UpdateService> updateService_;
+    std::unique_ptr<miacode::JobRegistry> jobRegistry_;
+    std::unique_ptr<miacode::net::NetHttpTransport> netTransport_;
+    std::unique_ptr<miacode::net::NetProvider> netProvider_;
+    std::unique_ptr<miacode::NetService> netService_;
     std::unique_ptr<Session> backend_;
     std::unique_ptr<ApplicationContext> applicationContext_;
     std::unique_ptr<QQmlApplicationEngine> engine_;

@@ -109,7 +109,7 @@ configure_file(
     @ONLY
 )
 
-find_package(Qt6 6.10 REQUIRED COMPONENTS Core Gui LinguistTools Multimedia Quick Quick3D Quick3DHelpers Qml QuickControls2 ShaderTools)
+find_package(Qt6 6.10 REQUIRED COMPONENTS Core Concurrent Gui LinguistTools Multimedia Quick Quick3D Quick3DHelpers Qml QuickControls2 ShaderTools)
 
 qt_policy(SET QTP0001 NEW)
 
@@ -324,6 +324,16 @@ add_executable(MiaCode WIN32 MACOSX_BUNDLE
     src/app/main.cpp
     src/app/services/ApplicationServices.cpp
     src/app/services/ApplicationServices.h
+    src/app/services/jobs/JobRegistry.cpp
+    src/app/services/jobs/JobRegistry.h
+    src/app/services/net/NetService.cpp
+    src/app/services/net/NetAccountStore.cpp
+    src/app/services/net/NetAccountStore.h
+    src/app/services/net/NetService.h
+    src/app/services/api/ApiCatalog.cpp
+    src/app/services/api/ApiCatalog.h
+    src/app/services/api/ApiDispatcher.cpp
+    src/app/services/api/ApiDispatcher.h
     src/app/services/DocumentBridge.h
     src/app/services/EditorPageRouter.h
     src/app/services/ExportEngine.h
@@ -547,6 +557,10 @@ endif()
 # Default UI (v2).
 # QTP0001 NEW embeds this module at :/qt/qml/MiaCode/UI/.
 set(MIACODE_UI_QML_FILES
+    src/app/ui/net/NetDownloadPage.qml
+    src/app/ui/net/NetUploadPage.qml
+    src/app/ui/net/NetResultTable.qml
+    src/app/ui/components/AppDateField.qml
     src/app/ui/Main.qml
     src/app/ui/ViewState.qml
     src/app/ui/theme/Theme.qml
@@ -750,6 +764,10 @@ qt_add_qml_module(MiaCode
     VERSION 1.0
     SOURCES
         src/app/ui/ApplicationContext.cpp
+        src/app/ui/net/NetModel.cpp
+        src/app/ui/net/NetModel.h
+        src/app/ui/net/NetUploadModel.cpp
+        src/app/ui/net/NetUploadModel.h
         src/app/ui/ApplicationContext.h
         src/app/ui/document/CommandService.cpp
         src/app/ui/document/CommandService.h
@@ -863,6 +881,7 @@ target_compile_definitions(MiaCode PRIVATE HAVE_QT_MULTIMEDIA=1)
 
 if (WIN32)
     target_link_libraries(MiaCode PRIVATE
+        Advapi32     # Windows Credential Manager
         winmm        # timeBeginPeriod for preview frame pacing
         d3d11        # Startup D3D11 probe (startup_diagnostics_win32.cpp)
         User32       # RegisterPowerSettingNotification

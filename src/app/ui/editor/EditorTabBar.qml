@@ -35,7 +35,8 @@ Rectangle {
     // Closing a dirty editor asks about that editor's staged content.
     function requestCloseTab(key) {
         const difficultyId = root.difficultyIdForKey(key)
-        if (key === root.viewState.metadataEditorKey || key === root.viewState.latencyEditorKey) {
+        if (key === root.viewState.metadataEditorKey || key === root.viewState.latencyEditorKey
+                || root.viewState.isNetEditor(key)) {
             root.viewState.closeEditor(key)
             return
         }
@@ -49,6 +50,10 @@ Rectangle {
     }
 
     function titleForKey(key) {
+        if (key === viewState.netUploadEditorKey)
+            return qsTrId("net.ui.upload_page")
+        if (key === viewState.netDownloadEditorKey)
+            return qsTrId("net.ui.download_page")
         if (key === viewState.metadataEditorKey)
             return qsTrId("dialog.unsaved_field_changes.field.metadata")
         if (key === viewState.latencyEditorKey)
@@ -73,6 +78,10 @@ Rectangle {
     }
 
     function activateTab(key) {
+        if (root.viewState.isNetEditor(key)) {
+            root.pages.openNetPage(key)
+            return
+        }
         if (key === viewState.latencyEditorKey) {
             root.pages.openLatencyPage()
             return

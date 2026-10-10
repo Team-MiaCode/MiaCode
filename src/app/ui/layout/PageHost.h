@@ -31,13 +31,15 @@ public:
                                QObject* parent = nullptr);
 
     QString activePageId() const { return activePageId_; }
-    bool overlayActive() const { return !activePageId_.isEmpty() && activePageId_ != QLatin1String("latency"); }
+    bool overlayActive() const { return !activePageId_.isEmpty() && activePageId_ != QLatin1String("latency")
+        && !activePageId_.startsWith(QStringLiteral("net-")); }
     bool navigationPending() const { return navigationPending_; }
     QObject* exportSession() const;
 
     Q_INVOKABLE bool openVideoExportPage(const QString& tab = QStringLiteral("export"));
     Q_INVOKABLE bool openExportPage();
     Q_INVOKABLE bool openLatencyPage();
+    Q_INVOKABLE bool openNetPage(const QString& page = QStringLiteral("net-download"));
     Q_INVOKABLE bool leaveOverlayPage();
     Q_INVOKABLE bool ensureDifficultyPageActive(int difficultyId);
     Q_INVOKABLE bool activateMetadataPage();
@@ -55,6 +57,7 @@ signals:
     void normalizeWholeChartRequested();
     void mediaToolsRequested();
     void latencyPageActivated();
+    void netPageActivated(const QString& page);
     void preferencesRequested();
     void activePageIdChanged();
     void navigationPendingChanged();

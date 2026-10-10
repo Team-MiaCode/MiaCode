@@ -12,6 +12,13 @@
 | `debug/` | Windows/macOS 调试/诊断启动入口 |
 | `ffmpeg/` | FFmpeg 运行时、开发 SDK 获取脚本，以及 decode-only 裁剪工具链 |
 | `assets/` | 资产生成和字体裁剪辅助脚本 |
+| `api/` | Net 应用操作目录、Schema、OpenAPI 与客户端类型的生成和独立标准校验 |
+
+## Net API 规范生成
+
+`python scripts/api/generate_net_api.py` 从 `tools/net-api/operations.json` 与 `schemas.json` 生成内嵌 C++ 目录、OpenAPI、TypeScript 类型和接口说明；加 `--check` 检查漂移。独立标准校验在 `tools/net-api` 执行 `npm ci --ignore-scripts` 和 `npm run validate`。生成器仅使用 Python 标准库，校验工具的 Node 依赖不进入产品运行时。
+
+当前可用范围及后续新增能力规则见 [Net 接口规范化计划](../docs/specs/net/NET_API_STANDARDIZATION_PLAN_ZH.md)。生成出的 HTTP 路由不表示网关已经开放。
 
 ## 构建与打包
 

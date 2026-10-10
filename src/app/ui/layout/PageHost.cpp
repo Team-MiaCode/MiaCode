@@ -45,6 +45,11 @@ PageHost::PageHost(miacode::ShellNotifications& notifications,
         openVideoExportPage();
     });
     connect(&document, &DocumentModel::documentReplaced, this, [this]() {
+        if (activePageId_.startsWith(QStringLiteral("net-")) && document_ != nullptr && document_->hasDocument()) {
+            activePageId_.clear();
+            emit activePageIdChanged();
+            return;
+        }
         if (activePageId_ == QLatin1String("export")) {
             resumeDifficultyId_ = document_ != nullptr
                 ? document_->currentDifficultyId() : 0;
@@ -70,7 +75,8 @@ PageHost::PageHost(miacode::ShellNotifications& notifications,
         }
     });
     connect(&document, &DocumentModel::documentStateChanged, this, [this]() {
-        if (document_ == nullptr || document_->hasDocument() || activePageId_.isEmpty()) {
+        if (document_ == nullptr || document_->hasDocument() || activePageId_.isEmpty()
+            || activePageId_.startsWith(QStringLiteral("net-"))) {
             return;
         }
         if (activePageId_ == QLatin1String("export")) {
@@ -103,8 +109,8 @@ void PageHost::rememberResumeDifficulty()
     if (resumeEditorKeyExplicit_) {
         return;
     }
-    if (activePageId_ == QLatin1String("latency")) {
-        rememberEditorReturnTarget(QStringLiteral("latency"));
+    if (activePageId_ == QLatin1String("latency") || activePageId_.startsWith(QStringLiteral("net-"))) {
+        rememberEditorReturnTarget(activePageId_);
         return;
     }
     miacode::EditorPageRouter* const pages = router();
@@ -132,7 +138,9 @@ bool PageHost::resumeChartOrMetadata()
         return false;
     }
     bool restored = false;
-    if (resumeEditorKeyExplicit_ && resumeEditorKey_ == QLatin1String("latency")) {
+    if (resumeEditorKeyExplicit_ && resumeEditorKey_.startsWith(QStringLiteral("net-"))) {
+        restored = pages->clearEditorPresentation();
+    } else if (resumeEditorKeyExplicit_ && resumeEditorKey_ == QLatin1String("latency")) {
         restored = pages->enterLatencyPage();
     } else if (resumeEditorKeyExplicit_ && resumeEditorKey_.isEmpty()) {
         restored = pages->clearEditorPresentation();
@@ -249,6 +257,22 @@ bool PageHost::openLatencyPage()
     });
 }
 
+bool PageHost::openNetPage(const QString& page)
+{
+    if ((page != QLatin1String("net-download") && page != QLatin1String("net-upload")) || router() == nullptr || navigationPending_) return false;
+    if (activePageId_ == page) {
+        emit netPageActivated(page);
+        return true;
+    }
+    return requestPageSwitch([this, page] {
+        if (router() == nullptr || !router()->clearEditorPresentation()) return false;
+        activePageId_ = page;
+        emit activePageIdChanged();
+        emit netPageActivated(page);
+        return true;
+    });
+}
+
 bool PageHost::finishLeaveOverlay()
 {
     if (router() == nullptr) {
@@ -260,14 +284,17 @@ bool PageHost::finishLeaveOverlay()
 
     const bool returnToLatency = resumeEditorKeyExplicit_
         && resumeEditorKey_ == QLatin1String("latency");
+    const QString returnToNet = resumeEditorKeyExplicit_ && resumeEditorKey_.startsWith(QStringLiteral("net-"))
+        ? resumeEditorKey_ : QString();
     if (!resumeChartOrMetadata()) {
         return false;
     }
-    activePageId_ = returnToLatency ? QStringLiteral("latency") : QString();
+    activePageId_ = returnToLatency ? QStringLiteral("latency") : returnToNet;
     emit activePageIdChanged();
     if (returnToLatency) {
         emit latencyPageActivated();
     }
+    if (!returnToNet.isEmpty()) emit netPageActivated(returnToNet);
     emit overlayPageLeft();
     return true;
 }
@@ -295,7 +322,7 @@ bool PageHost::ensureDifficultyPageActive(int difficultyId)
             return false;
         }
     }
-    if (activePageId_ == QLatin1String("latency")) {
+    if (activePageId_ == QLatin1String("latency") || activePageId_.startsWith(QStringLiteral("net-"))) {
         activePageId_.clear();
         emit activePageIdChanged();
     }
@@ -324,7 +351,7 @@ bool PageHost::clearEditorPresentation()
     if (!pages->clearEditorPresentation()) {
         return false;
     }
-    if (activePageId_ == QLatin1String("latency")) {
+    if (activePageId_ == QLatin1String("latency") || activePageId_.startsWith(QStringLiteral("net-"))) {
         activePageId_.clear();
         emit activePageIdChanged();
     }

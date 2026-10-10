@@ -64,6 +64,14 @@ Rectangle {
         id: toolsPopup
         hugContent: true
 
+        AppMenuAction {
+            text: qsTrId("net.ui.download_page")
+            onTriggered: root.toolRequested("net-download")
+        }
+        AppMenuAction {
+            text: qsTrId("net.ui.upload_page")
+            onTriggered: root.toolRequested("net-upload")
+        }
         AudioProcessingMenu {
             enabled: root.toolsAvailable
             documentAvailable: root.documentAvailable

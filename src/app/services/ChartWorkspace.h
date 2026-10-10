@@ -8,6 +8,7 @@
 #include "core/chart/parser/SimaiParser.h"
 
 namespace miacode {
+enum class ChartDocumentOrigin { Local, NetPreview };
 
 enum class ChartWorkspaceIssueSeverity {
     Error,
@@ -40,6 +41,7 @@ struct ChartWorkspaceSnapshot {
     QVector<int> dirtyDifficultyIds;
     // 打开一份工程或关闭当前工程时递增。同一工程内的保存、改路径、换难度保持不变。
     quint64 documentOpenGeneration = 0;
+    ChartDocumentOrigin origin = ChartDocumentOrigin::Local;
 };
 
 struct ChartWorkspaceResult {
@@ -82,7 +84,8 @@ public:
     // can never reset dirty state.
     ChartWorkspaceResult openSource(
         const QString& source, const QString& filePath = QString(),
-        int preferredDifficultyId = 0);
+        int preferredDifficultyId = 0, ChartDocumentOrigin origin = ChartDocumentOrigin::Local);
+    bool isNetPreview() const { return origin_ == ChartDocumentOrigin::NetPreview; }
     ChartWorkspaceResult replaceSource(const QString& source);
     ChartWorkspaceResult replaceActiveDifficultyChart(const QString& chartText);
     bool updateDocumentField(ChartWorkspaceDocumentField field, const QString& value);
@@ -161,6 +164,7 @@ private:
     bool dirty_ = false;
     bool unifiedDesignerEnabled_ = false;
     quint64 documentOpenGeneration_ = 0;
+    ChartDocumentOrigin origin_ = ChartDocumentOrigin::Local;
 };
 
 }  // namespace miacode

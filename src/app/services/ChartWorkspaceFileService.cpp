@@ -13,7 +13,7 @@ ChartWorkspaceFileService::ChartWorkspaceFileService(ChartWorkspace& workspace)
 {
 }
 
-ChartWorkspaceFileResult ChartWorkspaceFileService::open(const QString& path) const
+ChartWorkspaceFileResult ChartWorkspaceFileService::open(const QString& path, ChartDocumentOrigin origin) const
 {
     if (workspace_ == nullptr) return {false, 0, QStringLiteral("workspace_unavailable"), {}};
     QString normalizedPath = path.isEmpty() ? QString() : QDir::cleanPath(path);
@@ -30,7 +30,7 @@ ChartWorkspaceFileResult ChartWorkspaceFileService::open(const QString& path) co
     }
     bool usedSystemEncoding = false;
     const QString text = decodeDocumentText(file.readAll(), &usedSystemEncoding);
-    const ChartWorkspaceResult result = workspace_->openSource(text, normalizedPath);
+    const ChartWorkspaceResult result = workspace_->openSource(text, normalizedPath, 0, origin);
     return {result.accepted, result.revision,
             result.accepted ? QString() : QStringLiteral("open_failed"), result.issues,
             usedSystemEncoding};
@@ -67,6 +67,7 @@ ChartWorkspaceFileResult ChartWorkspaceFileService::createEmptyDocument(
 ChartWorkspaceFileResult ChartWorkspaceFileService::save(int difficultyId) const
 {
     if (workspace_ == nullptr) return {false, 0, QStringLiteral("workspace_unavailable"), {}};
+    if (workspace_->isNetPreview()) return {false, workspace_->snapshot().revision, QStringLiteral("save_as_required"), {}};
     return writeToPath(workspace_->snapshot().filePath, difficultyId);
 }
 
@@ -101,6 +102,12 @@ ChartWorkspaceFileResult ChartWorkspaceFileService::writeToPath(
         && workspace_->document().difficulty(difficultyId) == nullptr)
         return {false, before.revision, QStringLiteral("difficulty_unavailable"), {}};
     if (normalizedPath.isEmpty()) return {false, before.revision, QStringLiteral("path_empty"), {}};
+    if (workspace_->isNetPreview()) {
+        const auto targetIdentity = QFileInfo(normalizedPath).canonicalFilePath();
+        const auto sourceIdentity = QFileInfo(before.filePath).canonicalFilePath();
+        if (normalizedPath == before.filePath || (!targetIdentity.isEmpty() && targetIdentity == sourceIdentity))
+            return {false, before.revision, QStringLiteral("save_as_required"), {}};
+    }
 
     // Not document().toText(): that is everything open, and a section save is
     // the last save point with this one difficulty brought up to date.

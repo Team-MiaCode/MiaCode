@@ -1,5 +1,7 @@
 #pragma once
 
+#include "media_tools/net/NetChart.h"
+
 #include <QByteArray>
 #include <QDate>
 #include <QDateTime>
@@ -11,18 +13,6 @@
 #include <atomic>
 
 namespace miacode::net {
-
-struct NetChartSummary {
-    QString id;
-    QString title;
-    QString artist;
-    QString designer;
-    QString uploader;
-    QString hash;
-    QStringList levels;
-    QStringList publicTags;
-    QDateTime timestampUtc;
-};
 
 struct NetDownloadJob {
     NetChartSummary chart;
@@ -78,7 +68,7 @@ bool packNetChartFolderZip(
     const QString& chartDirectoryPath,
     const QString& outputZipPath,
     QStringList* includedEntries,
-    QString* errorMessage);
+    QString* errorMessage, bool includeVideo = false);
 
 class NetClient {
 public:

@@ -587,10 +587,21 @@ miacode_add_module(miacode_media_tools
         src/media_tools/net/NetBatchUploadWorker.h
         src/media_tools/net/NetClient.cpp
         src/media_tools/net/NetClient.h
+        src/media_tools/net/NetChart.h
+        src/media_tools/net/NetQueryRules.cpp
+        src/media_tools/net/NetQueryRules.h
+        src/media_tools/net/NetTransportPort.h
+        src/media_tools/net/NetHttpTransport.cpp
+        src/media_tools/net/NetHttpTransport.h
+        src/media_tools/net/NetEnginePort.h
+        src/media_tools/net/NetProvider.cpp
+        src/media_tools/net/NetProvider.h
+        src/media_tools/net/NetResourceOperation.cpp
+        src/media_tools/net/NetUploadOperation.cpp
         src/media_tools/net/NetUploadDiagnostics.cpp
         src/media_tools/net/NetUploadDiagnostics.h
         src/media_tools/zip_export/ChartZipPackager.cpp
         src/media_tools/zip_export/ChartZipPackager.h
     PUBLIC miacode_chart
-    PRIVATE Qt6::Network miniz
+    PRIVATE Qt6::Network Qt6::Concurrent miniz
 )

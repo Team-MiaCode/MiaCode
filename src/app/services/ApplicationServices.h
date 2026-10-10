@@ -28,6 +28,7 @@ class PlaybackStateAuthority;
 class PreferencesStore;
 class DocumentBridge;
 class ExportPagePort;
+class NetService;
 
 namespace update {
 class UpdateFetcher;
@@ -187,6 +188,9 @@ public:
     update::UpdateService* updateService() const { return updateService_; }
     void setUpdateService(update::UpdateService* service) { updateService_ = service; }
 
+    NetService* netService() const { return netService_; }
+    void setNetService(NetService* service) { netService_ = service; }
+
 private:
     // Declaration order is initialization order: workspace_ first, then
     // everything that binds to it.
@@ -213,6 +217,7 @@ private:
     ExportPageFactory exportPageFactory_;
     update::UpdateFetcher* updateFetcher_ = nullptr;
     update::UpdateService* updateService_ = nullptr;
+    NetService* netService_ = nullptr;
 };
 
 }  // namespace miacode

@@ -274,6 +274,30 @@ miacode_add_spec(qml_main_menu_spec
 target_compile_definitions(qml_main_menu_spec PRIVATE
     "MIACODE_SOURCE_ROOT=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
 
+miacode_add_spec(qml_net_page_compile_spec
+    OWNER src/app/ui
+    CONTRACT net.page-compilation
+    DOMAIN ui KIND integration RISK high
+    EXECUTION ctest STATUS active PLATFORM all
+    SOURCES src/tools/ui/QmlNetPageCompileSpec.cpp
+    LIBS Qt6::Core Qt6::Qml
+    INCLUDES src
+)
+target_compile_definitions(qml_net_page_compile_spec PRIVATE
+    "MIACODE_QML_SPEC_IMPORT_ROOT=\"${MIACODE_QML_SPEC_IMPORT_ROOT}\"")
+
+miacode_add_spec(qml_net_tabs_spec
+    OWNER src/app/ui
+    CONTRACT net.tab-lifecycle
+    DOMAIN ui KIND behavior RISK high
+    EXECUTION ctest STATUS active PLATFORM all
+    SOURCES src/tools/ui/QmlNetTabsSpec.cpp
+    LIBS Qt6::Core Qt6::Qml
+    INCLUDES src
+)
+target_compile_definitions(qml_net_tabs_spec PRIVATE
+    "MIACODE_SOURCE_ROOT=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
+
 miacode_add_spec(qml_document_replacement_sequence_spec
     OWNER src/app/ui
     CONTRACT qml-ui.qml-document-replacement-sequence

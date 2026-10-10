@@ -123,6 +123,8 @@ Item {
             if (root.documentSession.hasDocument)
                 root.pages.openLatencyPage()
         }
+        onNetRequested: root.pages.openNetPage()
+        onNetUploadRequested: root.pages.openNetPage("net-upload")
         onMediaToolRequested: toolId => root.runMediaTool(toolId)
         onUnavailableFeatureRequested: featureName => root.showUnavailableFeature(featureName)
         onOpenRequested: openFileDialog.open()
@@ -386,6 +388,8 @@ Item {
                 editorController: root.editorController
                 editorSync: root.editorSync
                 latency: root.latency
+                net: root.applicationContext.net
+                netUpload: root.applicationContext.netUpload
                 compact: root.compact
                 documentTitle: root.documentTitle
                 onOpenRequested: openFileDialog.open()
@@ -537,6 +541,11 @@ Item {
     Connections {
         target: state
 
+        function onApplicationEditorActivationRequested(key) {
+            if (root.pages.activePageId !== key)
+                root.pages.openNetPage(key)
+        }
+
         function onActiveEditorKeyChanged() {
             if (state.latencyEditorActive && root.pages.activePageId !== "latency")
                 root.pages.openLatencyPage()
@@ -572,6 +581,10 @@ Item {
         function onLatencyPageActivated() {
             root.latency.refreshFromDocument()
             state.openLatencyEditor()
+        }
+
+        function onNetPageActivated(page) {
+            state.openEditor(page)
         }
 
         function onActivePageIdChanged() {

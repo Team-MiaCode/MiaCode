@@ -30,8 +30,22 @@ ApplicationContext::ApplicationContext(miacode::ApplicationServices& services,
                        services.previewAppearance(), services.previewSurfaceSlot(), this)
     , latency_(services.latencyEngineSlot(), this)
     , pet_(this)
+    , net_(services.netService(), this)
+    , netUpload_(services.netService(), services.uiRequests(), this)
     , lifecycle_(services.editorPageRouterSlot(), this)
 {
+    net_.setHost(&document_, &services.uiRequests());
+    if (auto* netService = services.netService()) {
+        netService->setDocumentSnapshotHandler([this] { return document_.documentIdentity(); });
+        netService->setPreviewOpenHandler([this, netService](net::NetTaskRequest request, net::NetEnginePort::Done done) {
+            const auto path = netService->previewPath(request.principal, request.parameters.value("previewRef").toString());
+            if (path.isEmpty()) {
+                done({{}, jobError(QStringLiteral("query.expired"))});
+                return net::NetEnginePort::Cancel{};
+            }
+            return document_.openNetPreview(path, request.parameters, std::move(done));
+        });
+    }
     // Keep the QML text controller in lockstep with the persisted settings.
     // Settings are the v2 boundary; MainWindow only owns their durable values.
     const auto syncEditorAppearance = [this]() {
@@ -102,6 +116,7 @@ QObject* ApplicationContext::previewSettings() { return &previewSettings_; }
 QObject* ApplicationContext::latency() { return &latency_; }
 QObject* ApplicationContext::pet() { return &pet_; }
 QObject* ApplicationContext::update() { return services_.updateService(); }
+QObject* ApplicationContext::net() { return &net_; }
 
 void ApplicationContext::setWindowChrome(QObject* chrome)
 {

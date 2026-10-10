@@ -100,6 +100,7 @@ void miacode::runtime::DocumentSessionHost::refreshCurrentFieldDirtyState()
 
 void miacode::runtime::DocumentSessionHost::noteDocumentEditedForAutosave()
 {
+    if (session_.applicationServices_.workspace().isNetPreview()) return;
     if (ui_.autosaveIdleTimer_ != nullptr) {
         ui_.autosaveIdleTimer_->start();
     }

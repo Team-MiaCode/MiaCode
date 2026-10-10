@@ -11,7 +11,7 @@ namespace {
 
 QString filePathIgnoringCase(const QDir& directory, const QStringList& preferredNames)
 {
-    const QFileInfoList files = directory.entryInfoList(QDir::Files | QDir::Readable, QDir::Name);
+    const QFileInfoList files = directory.entryInfoList(QDir::Files, QDir::Name);
     for (const QString& preferred : preferredNames) {
         for (const QFileInfo& file : files) {
             if (file.fileName().compare(preferred, Qt::CaseInsensitive) == 0) {
@@ -22,7 +22,8 @@ QString filePathIgnoringCase(const QDir& directory, const QStringList& preferred
     return {};
 }
 
-void appendUploadJob(const QString& directoryPath, QList<NetUploadJob>* jobs)
+void appendUploadJob(const QString& directoryPath, QList<NetUploadJob>* jobs,
+    QList<NetUploadScanRejection>* rejected, bool reportEmpty)
 {
     const QDir directory(directoryPath);
     if (!directory.exists()) {
@@ -38,23 +39,33 @@ void appendUploadJob(const QString& directoryPath, QList<NetUploadJob>* jobs)
         {QStringLiteral("bg.jpg"), QStringLiteral("bg.jpeg"), QStringLiteral("bg.png")});
     job.trackPath = filePathIgnoringCase(directory, {QStringLiteral("track.mp3")});
     job.videoPath = filePathIgnoringCase(directory, {QStringLiteral("pv.mp4"), QStringLiteral("bg.mp4")});
-    if (!job.chartPath.isEmpty() && !job.backgroundPath.isEmpty() && !job.trackPath.isEmpty()) {
-        jobs->append(job);
+    if (job.chartPath.isEmpty() || job.backgroundPath.isEmpty() || job.trackPath.isEmpty()) {
+        if (rejected && (reportEmpty || !job.chartPath.isEmpty() || !job.backgroundPath.isEmpty() || !job.trackPath.isEmpty())) {
+            rejected->append({job.displayName, QStringLiteral("file.missing")});
+        }
+        return;
     }
+    for (const auto& path : {job.chartPath, job.backgroundPath, job.trackPath, job.videoPath}) {
+        if (!path.isEmpty() && !QFileInfo(path).isReadable()) {
+            if (rejected) rejected->append({job.displayName, QStringLiteral("file.unreadable")});
+            return;
+        }
+    }
+    jobs->append(job);
 }
 
 }  // namespace
 
-QList<NetUploadJob> scanNetUploadFolders(const QString& rootDirectory)
+QList<NetUploadJob> scanNetUploadFolders(const QString& rootDirectory, QList<NetUploadScanRejection>* rejected)
 {
     QList<NetUploadJob> jobs;
     const QDir root(rootDirectory);
     if (!root.exists()) {
         return jobs;
     }
-    appendUploadJob(root.absolutePath(), &jobs);
+    appendUploadJob(root.absolutePath(), &jobs, rejected, false);
     const QFileInfoList children = root.entryInfoList(
-        QDir::Dirs | QDir::Readable | QDir::NoDotAndDotDot,
+        QDir::Dirs | QDir::NoDotAndDotDot,
         QDir::NoSort);
     QCollator collator;
     collator.setNumericMode(true);
@@ -64,7 +75,7 @@ QList<NetUploadJob> scanNetUploadFolders(const QString& rootDirectory)
         return collator.compare(lhs.fileName(), rhs.fileName()) < 0;
     });
     for (const QFileInfo& child : sortedChildren) {
-        appendUploadJob(child.absoluteFilePath(), &jobs);
+        appendUploadJob(child.absoluteFilePath(), &jobs, rejected, true);
     }
     return jobs;
 }

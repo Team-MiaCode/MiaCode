@@ -55,6 +55,7 @@ Default filenames:
 - fatal: `miacode_fatal.log`
 - preview profile: `miacode_preview_profile_summary.txt`
 - PV memory: `miacode_pv_memory_debug.log`
+- chart upload: `net-upload.log` (structured events, synchronous write acknowledgement and bounded rotation; shared DebugLog directory policy)
 
 Crash breadcrumb path note:
 
@@ -136,6 +137,7 @@ Other `MIACODE_*` tokens seen by the source-index guard but not runtime flags:
 
 - `MIACODE_GIT_REVISION` / `MIACODE_GIT_DIRTY` — CMake-generated build identity macros embedded in `startup/process_identity`.
 - `MIACODE_EXTENSION_DEV_PATHS` — test-only environment literal used by `ExtensionManifestSpec`; production extension discovery does not read it.
+- `MIACODE_TEST_OUTPUT_ROOT` / `MIACODE_ZH_CN_QM_PATH` — CMake definitions for the bounded download fixture directory and compiled Chinese translation catalog used by `NetDownloadFlowSpec`.
 
 ## Category Gates
 

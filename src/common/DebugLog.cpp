@@ -83,6 +83,8 @@ bool channelEnabled(Channel channel)
         return true;
     case Channel::PvMemory:
         return miacode::debug_options::runtimeDebugOutputEnabled();
+    case Channel::NetUpload:
+        return true;
     }
     return false;
 }
@@ -106,6 +108,8 @@ QString channelLabel(Channel channel)
         return QStringLiteral("op");
     case Channel::PvMemory:
         return QStringLiteral("pv_memory");
+    case Channel::NetUpload:
+        return QStringLiteral("net_upload");
     }
     return QStringLiteral("unknown");
 }
@@ -129,6 +133,8 @@ QString channelFileName(Channel channel)
         return QStringLiteral("miacode_operation.log");
     case Channel::PvMemory:
         return QStringLiteral("miacode_pv_memory_debug.log");
+    case Channel::NetUpload:
+        return QStringLiteral("net-upload.log");
     }
     return QStringLiteral("miacode_debug.log");
 }
@@ -152,6 +158,8 @@ QString channelPathOverride(Channel channel)
         return qEnvironmentVariable("MIACODE_OPERATION_LOG_PATH").trimmed();
     case Channel::PvMemory:
         return qEnvironmentVariable("MIACODE_PV_MEMORY_LOG_PATH").trimmed();
+    case Channel::NetUpload:
+        return {};
     }
     return QString();
 }
@@ -537,7 +545,8 @@ void trimDebugLogsInCurrentDirectoryLocked()
              Channel::StartupTiming,
              Channel::Fatal,
              Channel::Operation,
-             Channel::PvMemory}) {
+             Channel::PvMemory,
+             Channel::NetUpload}) {
         (void)rotateFileLocked(logPath(channel), maxBytes);
     }
 }
@@ -661,11 +670,11 @@ private:
     static constexpr int kMaxQueueSize = 4096;
     static constexpr int kTrimEveryWritesPerChannel = 200;
     // Must match the number of Channel enum values (index = static_cast<size_t>).
-    // Channel::PvMemory is the last value; a channel added after it must bump this
+    // Channel::NetUpload is the last value; a channel added after it must bump this
     // (and the four channel switch statements). The static_assert catches a stale
     // count so the per-channel arrays below can never be indexed out of bounds.
-    static constexpr size_t kChannelCount = 8;
-    static_assert(static_cast<size_t>(Channel::PvMemory) + 1 == kChannelCount,
+    static constexpr size_t kChannelCount = 9;
+    static_assert(static_cast<size_t>(Channel::NetUpload) + 1 == kChannelCount,
                   "kChannelCount out of sync with the Channel enum");
 
     struct Entry {
@@ -1081,6 +1090,17 @@ QString operationLogPath()
 QString pvMemoryLogPath()
 {
     return logPath(Channel::PvMemory);
+}
+bool appendNetUploadEvent(const QString& payload)
+{
+    QMutexLocker locker(&logMutex());
+    const auto path = logPath(Channel::NetUpload);
+    ensureParentDirectory(path);
+    if (!rotateFileLocked(path, startupTrimMaxBytes())) return false;
+    QFile file(path);
+    const auto bytes = prepareLogPayload(QStringLiteral("%1 INFO [net_upload] %2").arg(timestampString(), payload));
+    return file.open(QIODevice::WriteOnly | QIODevice::Append)
+        && file.write(bytes) == bytes.size() && file.flush();
 }
 
 QString formatTitleLine(const QString& title)

@@ -4041,5 +4041,421 @@ Error: %1</translation>
         <source>Timeline</source>
         <translation>Timeline</translation>
     </message>
+
+    <message id="net.ui.download_page">
+        <source>Majdata Net</source>
+        <translation>Chart download</translation>
+    </message>
+    <message id="net.ui.uploader">
+        <source>Uploader</source>
+        <translation>Uploader</translation>
+    </message>
+    <message id="net.ui.tag">
+        <source>Tag</source>
+        <translation>Tag</translation>
+    </message>
+    <message id="net.ui.start_date">
+        <source>Start date (YYYY-MM-DD)</source>
+        <translation>Start date (YYYY-MM-DD)</translation>
+    </message>
+    <message id="net.ui.end_date">
+        <source>End date (YYYY-MM-DD)</source>
+        <translation>End date (YYYY-MM-DD)</translation>
+    </message>
+    <message id="net.ui.sort_uploaded_desc">
+        <source>Newest first</source>
+        <translation>Newest first</translation>
+    </message>
+    <message id="net.ui.sort_uploaded_asc">
+        <source>Oldest first</source>
+        <translation>Oldest first</translation>
+    </message>
+    <message id="net.ui.sort_level_desc">
+        <source>Highest level first</source>
+        <translation>Highest level first</translation>
+    </message>
+    <message id="net.ui.sort_level_asc">
+        <source>Lowest level first</source>
+        <translation>Lowest level first</translation>
+    </message>
+    <message id="net.ui.sort_title_asc">
+        <source>Title A to Z</source>
+        <translation>Title A to Z</translation>
+    </message>
+    <message id="net.ui.sort_title_desc">
+        <source>Title Z to A</source>
+        <translation>Title Z to A</translation>
+    </message>
+    <message id="net.ui.case_sensitive">
+        <source>Case sensitive</source>
+        <translation>Case sensitive</translation>
+    </message>
+    <message id="net.ui.force_refresh">
+        <source>Refresh from server</source>
+        <translation>Refresh from server</translation>
+    </message>
+    <message id="net.ui.query">
+        <source>Search</source>
+        <translation>Search</translation>
+    </message>
+    <message id="net.ui.probe">
+        <source>Check connection</source>
+        <translation>Check connection</translation>
+    </message>
+    <message id="net.ui.clear_selection">
+        <source>Clear selection</source>
+        <translation>Clear selection</translation>
+    </message>
+    <message id="net.ui.result_count">
+        <source>%1 results, %2 selected</source>
+        <translation>%1 results, %2 selected</translation>
+    </message>
+    <message id="net.ui.connection_normal">
+        <source>Connection normal (%1 ms)</source>
+        <translation>Connection normal (%1 ms)</translation>
+    </message>
+    <message id="net.ui.connection_slow">
+        <source>Connection slow (%1 ms)</source>
+        <translation>Connection slow (%1 ms)</translation>
+    </message>
+    <message id="net.ui.error">
+        <source>Net: %1</source>
+        <translation>Net: %1</translation>
+    </message>
+
+    <message id="net.ui.upload_page">
+        <source>Chart upload</source>
+        <translation>Chart upload</translation>
+    </message>
+
+    <message id="net.ui.user_id">
+        <source>User ID</source>
+        <translation>User ID</translation>
+    </message>
+
+    <message id="net.ui.song_title">
+        <source>Song title</source>
+        <translation>Song title</translation>
+    </message>
+
+    <message id="net.ui.end">
+        <source>End</source>
+        <translation>End</translation>
+    </message>
+
+    <message id="net.ui.fuzzy">
+        <source>Case-insensitive match</source>
+        <translation>Case-insensitive match</translation>
+    </message>
+
+    <message id="net.output_directory">
+        <source>Output directory</source>
+        <translation>Output directory</translation>
+    </message>
+
+    <message id="net.ui.browse">
+        <source>Browse…</source>
+        <translation>Browse…</translation>
+    </message>
+
+    <message id="net.ui.create_zip">
+        <source>Also create ZIP</source>
+        <translation>Also create ZIP</translation>
+    </message>
+
+    <message id="net.download_pv">
+        <source>Download PV</source>
+        <translation>Download PV</translation>
+    </message>
+
+    <message id="net.ui.sort">
+        <source>Sort</source>
+        <translation>Sort</translation>
+    </message>
+
+    <message id="net.ui.untested">
+        <source>Not checked</source>
+        <translation>Not checked</translation>
+    </message>
+
+    <message id="net.ui.artist">
+        <source>Artist</source>
+        <translation>Artist</translation>
+    </message>
+
+    <message id="net.ui.uploaded_at">
+        <source>Uploaded at</source>
+        <translation>Uploaded at</translation>
+    </message>
+
+    <message id="net.ui.state">
+        <source>Status</source>
+        <translation>Status</translation>
+    </message>
+
+    <message id="net.online_preview">
+        <source>Online preview</source>
+        <translation>Online preview</translation>
+    </message>
+
+    <message id="net.ui.query_hint">
+        <source>Enter a user ID, Tag or song title and select a date range.</source>
+        <translation>Enter a user ID, Tag or song title and select a date range.</translation>
+    </message>
+
+    <message id="net.ui.view_log">
+        <source>View log</source>
+        <translation>View log</translation>
+    </message>
+
+    <message id="net.download_selected">
+        <source>Download selected</source>
+        <translation>Download selected</translation>
+    </message>
+
+    <message id="net.ui.cancel_task">
+        <source>Cancel task</source>
+        <translation>Cancel task</translation>
+    </message>
+
+    <message id="net.ui.resume">
+        <source>Resume download</source>
+        <translation>Resume download</translation>
+    </message>
+
+    <message id="net.ui.choose_date">
+        <source>Choose date</source>
+        <translation>Choose date</translation>
+    </message>
+
+    <message id="net.ui.previous_month">
+        <source>Previous month</source>
+        <translation>Previous month</translation>
+    </message>
+
+    <message id="net.ui.next_month">
+        <source>Next month</source>
+        <translation>Next month</translation>
+    </message>
+
+    <message id="net.pending_download">
+        <source>Pending download</source>
+        <translation>Pending download</translation>
+    </message>
+
+    <message id="net.online_preview_opened">
+        <source>Preview opened</source>
+        <translation>Preview opened</translation>
+    </message>
+
+    <message id="net.online_preview_loading">
+        <source>Preparing preview…</source>
+        <translation>Preparing preview…</translation>
+    </message>
+
+    <message id="net.download_canceled">
+        <source>Download canceled</source>
+        <translation>Download canceled</translation>
+    </message>
+
+    <message id="net.start_download_queue_selected_1">
+        <source>Starting download of %1 charts</source>
+        <translation>Starting download of %1 charts</translation>
+    </message>
+
+    <message id="net.download_complete_1_succeeded_2">
+        <source>Download complete: %1 succeeded, %2 failed</source>
+        <translation>Download complete: %1 succeeded, %2 failed</translation>
+    </message>
+
+    <message id="net.ui.username">
+        <source>Username</source>
+        <translation>Username</translation>
+    </message>
+
+    <message id="net.ui.password">
+        <source>Password</source>
+        <translation>Password</translation>
+    </message>
+
+    <message id="net.ui.remember_account">
+        <source>Remember account and password</source>
+        <translation>Remember account and password</translation>
+    </message>
+
+    <message id="net.ui.login">
+        <source>Log in</source>
+        <translation>Log in</translation>
+    </message>
+
+    <message id="net.ui.logout">
+        <source>Log out</source>
+        <translation>Log out</translation>
+    </message>
+
+    <message id="net.ui.logged_in">
+        <source>Logged in as %1</source>
+        <translation>Logged in as %1</translation>
+    </message>
+
+    <message id="net.ui.logged_out">
+        <source>Logged out</source>
+        <translation>Logged out</translation>
+    </message>
+
+    <message id="net.ui.chart_root">
+        <source>Chart root directory</source>
+        <translation>Chart root directory</translation>
+    </message>
+
+    <message id="net.ui.add">
+        <source>Add to queue</source>
+        <translation>Add to queue</translation>
+    </message>
+
+    <message id="net.ui.chart_folder">
+        <source>Chart folder</source>
+        <translation>Chart folder</translation>
+    </message>
+
+    <message id="net.ui.files">
+        <source>Files</source>
+        <translation>Files</translation>
+    </message>
+
+    <message id="net.ui.path">
+        <source>Path</source>
+        <translation>Path</translation>
+    </message>
+
+    <message id="net.ui.pending_upload">
+        <source>Pending upload</source>
+        <translation>Pending upload</translation>
+    </message>
+
+    <message id="net.ui.remove_selected">
+        <source>Remove selected</source>
+        <translation>Remove selected</translation>
+    </message>
+
+    <message id="net.ui.clear_queue">
+        <source>Clear queue</source>
+        <translation>Clear queue</translation>
+    </message>
+
+    <message id="net.ui.upload_queue">
+        <source>Upload queue</source>
+        <translation>Upload queue</translation>
+    </message>
+
+    <message id="net.ui.queue_count">
+        <source>%1 charts in queue</source>
+        <translation>%1 charts in queue</translation>
+    </message>
+
+    <message id="net.ui.scanning">
+        <source>Scanning chart folders…</source>
+        <translation>Scanning chart folders…</translation>
+    </message>
+
+    <message id="net.ui.move_up">
+        <source>Move up</source>
+        <translation>Move up</translation>
+    </message>
+
+    <message id="net.ui.move_down">
+        <source>Move down</source>
+        <translation>Move down</translation>
+    </message>
+
+    <message id="net.ui.retry_wait">
+        <source>Waiting to retry</source>
+        <translation>Waiting to retry</translation>
+    </message>
+
+    <message id="net.ui.cancelled">
+        <source>Canceled</source>
+        <translation>Canceled</translation>
+    </message>
+
+    <message id="net.ui.outcome_unknown">
+        <source>Server outcome unknown</source>
+        <translation>Server outcome unknown</translation>
+    </message>
+
+    <message id="net.ui.upload_summary">
+        <source>Upload complete: %1 succeeded, %2 failed, %3 awaiting confirmation</source>
+        <translation>Upload complete: %1 succeeded, %2 failed, %3 awaiting confirmation</translation>
+    </message>
+    <message id="net.upload_log_saved_1">
+        <source>Upload log: %1</source>
+        <translation>Upload log: %1</translation>
+    </message>
+    <message id="net.upload_retry_failed">
+        <source>Retry pending uploads</source>
+        <translation>Retry pending uploads</translation>
+    </message>
+    <message id="net.sort_status_ascending">
+        <source>Status: ascending</source>
+        <translation>Status: ascending</translation>
+    </message>
+    <message id="net.sort_status_descending">
+        <source>Status: descending</source>
+        <translation>Status: descending</translation>
+    </message>
 </context>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </TS>

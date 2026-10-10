@@ -63,12 +63,16 @@ Item {
         anchors.bottom: parent.bottom
         activeView: root.viewState.activeSidebarView
         documentAvailable: root.documentSession.hasDocument
-        toolsAvailable: root.documentSession.hasDocument
+        toolsAvailable: true
         chartEditorAvailable: root.documentSession.hasDocument
             && root.documentSession.currentDifficultyId > 0 && !root.pages.overlayActive
         normalizationEnabled: root.pages.activePageId !== "export"
         onViewRequested: viewId => root.activateView(viewId)
         onToolRequested: function(toolId) {
+            if (toolId === "net-download" || toolId === "net-upload") {
+                root.pages.openNetPage(toolId)
+                return
+            }
             if (!root.documentSession.hasDocument)
                 return
             if (toolId.startsWith("media."))

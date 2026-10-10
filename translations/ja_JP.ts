@@ -4041,5 +4041,421 @@ Error: %1</source>
         <source>Timeline</source>
         <translation>タイムライン</translation>
     </message>
+
+    <message id="net.ui.download_page">
+        <source>Majdata Net</source>
+        <translation>譜面ダウンロード</translation>
+    </message>
+    <message id="net.ui.uploader">
+        <source>Uploader</source>
+        <translation>Uploader</translation>
+    </message>
+    <message id="net.ui.tag">
+        <source>Tag</source>
+        <translation>タグ</translation>
+    </message>
+    <message id="net.ui.start_date">
+        <source>Start date (YYYY-MM-DD)</source>
+        <translation>開始日 (YYYY-MM-DD)</translation>
+    </message>
+    <message id="net.ui.end_date">
+        <source>End date (YYYY-MM-DD)</source>
+        <translation>終了日 (YYYY-MM-DD)</translation>
+    </message>
+    <message id="net.ui.sort_uploaded_desc">
+        <source>Newest first</source>
+        <translation>新しい順</translation>
+    </message>
+    <message id="net.ui.sort_uploaded_asc">
+        <source>Oldest first</source>
+        <translation>古い順</translation>
+    </message>
+    <message id="net.ui.sort_level_desc">
+        <source>Highest level first</source>
+        <translation>レベル降順</translation>
+    </message>
+    <message id="net.ui.sort_level_asc">
+        <source>Lowest level first</source>
+        <translation>レベル昇順</translation>
+    </message>
+    <message id="net.ui.sort_title_asc">
+        <source>Title A to Z</source>
+        <translation>曲名昇順</translation>
+    </message>
+    <message id="net.ui.sort_title_desc">
+        <source>Title Z to A</source>
+        <translation>曲名降順</translation>
+    </message>
+    <message id="net.ui.case_sensitive">
+        <source>Case sensitive</source>
+        <translation>大文字・小文字を区別</translation>
+    </message>
+    <message id="net.ui.force_refresh">
+        <source>Refresh from server</source>
+        <translation>サーバーから更新</translation>
+    </message>
+    <message id="net.ui.query">
+        <source>Search</source>
+        <translation>検索</translation>
+    </message>
+    <message id="net.ui.probe">
+        <source>Check connection</source>
+        <translation>接続を確認</translation>
+    </message>
+    <message id="net.ui.clear_selection">
+        <source>Clear selection</source>
+        <translation>選択を解除</translation>
+    </message>
+    <message id="net.ui.result_count">
+        <source>%1 results, %2 selected</source>
+        <translation>%1 件、%2 件選択中</translation>
+    </message>
+    <message id="net.ui.connection_normal">
+        <source>Connection normal (%1 ms)</source>
+        <translation>接続正常 (%1 ms)</translation>
+    </message>
+    <message id="net.ui.connection_slow">
+        <source>Connection slow (%1 ms)</source>
+        <translation>接続が遅い (%1 ms)</translation>
+    </message>
+    <message id="net.ui.error">
+        <source>Net: %1</source>
+        <translation>Net: %1</translation>
+    </message>
+
+    <message id="net.ui.upload_page">
+        <source>Chart upload</source>
+        <translation>譜面アップロード</translation>
+    </message>
+
+    <message id="net.ui.user_id">
+        <source>User ID</source>
+        <translation>ユーザー ID</translation>
+    </message>
+
+    <message id="net.ui.song_title">
+        <source>Song title</source>
+        <translation>曲名</translation>
+    </message>
+
+    <message id="net.ui.end">
+        <source>End</source>
+        <translation>終了</translation>
+    </message>
+
+    <message id="net.ui.fuzzy">
+        <source>Case-insensitive match</source>
+        <translation>大文字小文字を区別しない</translation>
+    </message>
+
+    <message id="net.output_directory">
+        <source>Output directory</source>
+        <translation>出力先</translation>
+    </message>
+
+    <message id="net.ui.browse">
+        <source>Browse…</source>
+        <translation>参照…</translation>
+    </message>
+
+    <message id="net.ui.create_zip">
+        <source>Also create ZIP</source>
+        <translation>ZIP も作成</translation>
+    </message>
+
+    <message id="net.download_pv">
+        <source>Download PV</source>
+        <translation>PV をダウンロード</translation>
+    </message>
+
+    <message id="net.ui.sort">
+        <source>Sort</source>
+        <translation>並べ替え</translation>
+    </message>
+
+    <message id="net.ui.untested">
+        <source>Not checked</source>
+        <translation>未確認</translation>
+    </message>
+
+    <message id="net.ui.artist">
+        <source>Artist</source>
+        <translation>アーティスト</translation>
+    </message>
+
+    <message id="net.ui.uploaded_at">
+        <source>Uploaded at</source>
+        <translation>アップロード日時</translation>
+    </message>
+
+    <message id="net.ui.state">
+        <source>Status</source>
+        <translation>状態</translation>
+    </message>
+
+    <message id="net.online_preview">
+        <source>Online preview</source>
+        <translation>オンラインプレビュー</translation>
+    </message>
+
+    <message id="net.ui.query_hint">
+        <source>Enter a user ID, Tag or song title and select a date range.</source>
+        <translation>ユーザー ID、Tag または曲名と期間を指定してください。</translation>
+    </message>
+
+    <message id="net.ui.view_log">
+        <source>View log</source>
+        <translation>ログ表示</translation>
+    </message>
+
+    <message id="net.download_selected">
+        <source>Download selected</source>
+        <translation>選択した譜面をダウンロード</translation>
+    </message>
+
+    <message id="net.ui.cancel_task">
+        <source>Cancel task</source>
+        <translation>タスクをキャンセル</translation>
+    </message>
+
+    <message id="net.ui.resume">
+        <source>Resume download</source>
+        <translation>ダウンロードを再開</translation>
+    </message>
+
+    <message id="net.ui.choose_date">
+        <source>Choose date</source>
+        <translation>日付を選択</translation>
+    </message>
+
+    <message id="net.ui.previous_month">
+        <source>Previous month</source>
+        <translation>前月</translation>
+    </message>
+
+    <message id="net.ui.next_month">
+        <source>Next month</source>
+        <translation>翌月</translation>
+    </message>
+
+    <message id="net.pending_download">
+        <source>Pending download</source>
+        <translation>ダウンロード待ち</translation>
+    </message>
+
+    <message id="net.online_preview_opened">
+        <source>Preview opened</source>
+        <translation>プレビューを開きました</translation>
+    </message>
+
+    <message id="net.online_preview_loading">
+        <source>Preparing preview…</source>
+        <translation>プレビューを準備中…</translation>
+    </message>
+
+    <message id="net.download_canceled">
+        <source>Download canceled</source>
+        <translation>ダウンロードをキャンセルしました</translation>
+    </message>
+
+    <message id="net.start_download_queue_selected_1">
+        <source>Starting download of %1 charts</source>
+        <translation>%1 件のダウンロードを開始</translation>
+    </message>
+
+    <message id="net.download_complete_1_succeeded_2">
+        <source>Download complete: %1 succeeded, %2 failed</source>
+        <translation>ダウンロード完了：成功 %1、失敗 %2</translation>
+    </message>
+
+    <message id="net.ui.username">
+        <source>Username</source>
+        <translation>ユーザー名</translation>
+    </message>
+
+    <message id="net.ui.password">
+        <source>Password</source>
+        <translation>パスワード</translation>
+    </message>
+
+    <message id="net.ui.remember_account">
+        <source>Remember account and password</source>
+        <translation>アカウントとパスワードを保存</translation>
+    </message>
+
+    <message id="net.ui.login">
+        <source>Log in</source>
+        <translation>ログイン</translation>
+    </message>
+
+    <message id="net.ui.logout">
+        <source>Log out</source>
+        <translation>ログアウト</translation>
+    </message>
+
+    <message id="net.ui.logged_in">
+        <source>Logged in as %1</source>
+        <translation>ログイン中：%1</translation>
+    </message>
+
+    <message id="net.ui.logged_out">
+        <source>Logged out</source>
+        <translation>ログアウトしました</translation>
+    </message>
+
+    <message id="net.ui.chart_root">
+        <source>Chart root directory</source>
+        <translation>譜面ルートフォルダー</translation>
+    </message>
+
+    <message id="net.ui.add">
+        <source>Add to queue</source>
+        <translation>キューに追加</translation>
+    </message>
+
+    <message id="net.ui.chart_folder">
+        <source>Chart folder</source>
+        <translation>譜面フォルダー</translation>
+    </message>
+
+    <message id="net.ui.files">
+        <source>Files</source>
+        <translation>ファイル</translation>
+    </message>
+
+    <message id="net.ui.path">
+        <source>Path</source>
+        <translation>パス</translation>
+    </message>
+
+    <message id="net.ui.pending_upload">
+        <source>Pending upload</source>
+        <translation>アップロード待ち</translation>
+    </message>
+
+    <message id="net.ui.remove_selected">
+        <source>Remove selected</source>
+        <translation>選択項目を削除</translation>
+    </message>
+
+    <message id="net.ui.clear_queue">
+        <source>Clear queue</source>
+        <translation>キューをクリア</translation>
+    </message>
+
+    <message id="net.ui.upload_queue">
+        <source>Upload queue</source>
+        <translation>キューをアップロード</translation>
+    </message>
+
+    <message id="net.ui.queue_count">
+        <source>%1 charts in queue</source>
+        <translation>キュー：%1 件</translation>
+    </message>
+
+    <message id="net.ui.scanning">
+        <source>Scanning chart folders…</source>
+        <translation>譜面フォルダーをスキャン中…</translation>
+    </message>
+
+    <message id="net.ui.move_up">
+        <source>Move up</source>
+        <translation>上へ</translation>
+    </message>
+
+    <message id="net.ui.move_down">
+        <source>Move down</source>
+        <translation>下へ</translation>
+    </message>
+
+    <message id="net.ui.retry_wait">
+        <source>Waiting to retry</source>
+        <translation>再試行を待機中</translation>
+    </message>
+
+    <message id="net.ui.cancelled">
+        <source>Canceled</source>
+        <translation>キャンセル済み</translation>
+    </message>
+
+    <message id="net.ui.outcome_unknown">
+        <source>Server outcome unknown</source>
+        <translation>サーバー結果の確認待ち</translation>
+    </message>
+
+    <message id="net.ui.upload_summary">
+        <source>Upload complete: %1 succeeded, %2 failed, %3 awaiting confirmation</source>
+        <translation>アップロード完了：成功 %1、失敗 %2、確認待ち %3</translation>
+    </message>
+    <message id="net.upload_log_saved_1">
+        <source>Upload log: %1</source>
+        <translation>アップロードログ：%1</translation>
+    </message>
+    <message id="net.upload_retry_failed">
+        <source>Retry pending uploads</source>
+        <translation>未完了のアップロードを再試行</translation>
+    </message>
+    <message id="net.sort_status_ascending">
+        <source>Status: ascending</source>
+        <translation>状態：昇順</translation>
+    </message>
+    <message id="net.sort_status_descending">
+        <source>Status: descending</source>
+        <translation>状態：降順</translation>
+    </message>
 </context>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </TS>

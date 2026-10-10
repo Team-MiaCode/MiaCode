@@ -295,38 +295,39 @@ void miacode::runtime::DocumentSessionHost::applyOpenedDocumentState(
         miacode::waveform::makeWaveformPlaceholder(
             knownTrackDurationSeconds > 0.0 ? knownTrackDurationSeconds : 0.0));
     session_.setCurrentFilePath(normalizedPath, true);
-    session_.addRecentFilePath(normalizedPath);
+    if (!session_.applicationServices_.workspace().isNetPreview()) {
+        session_.addRecentFilePath(normalizedPath);
 
-    // Eagerly create the crash-recovery directory BEFORE the user can
-    // edit. Without this, a crash in the first ~1 ms after a keystroke
-    // (before the lazy mkpath inside updateSnapshot has run) would find
-    // the parent directory missing and fail CreateFileW. mkpath is
-    // re-entrant and cheap on warm runs (one stat()).
-    miacode::crash_recovery::prepareForChart(normalizedPath);
+        // Eagerly create the crash-recovery directory BEFORE the user can
+        // edit. Without this, a crash in the first ~1 ms after a keystroke
+        // (before the lazy mkpath inside updateSnapshot has run) would find
+        // the parent directory missing and fail CreateFileW. mkpath is
+        // re-entrant and cheap on warm runs (one stat()).
+        miacode::crash_recovery::prepareForChart(normalizedPath);
 
-    // Abnormal-exit recovery intentionally reuses File -> Restore Backup.
-    // Opening the chart must finish first so the restore prompt appears over
-    // the fully loaded window and the old on-disk content remains the restore
-    // baseline, exactly like a manual menu action.
-    const bool previousSessionAbandoned =
-        miacode::crash_recovery::consumeAbandonedSessionChartMatch(normalizedPath);
-    const QString crashRecoveryPath = miacode::crash_recovery::crashRecoveryFilePath(normalizedPath);
-    const bool crashRecoveryFileExists =
-        !crashRecoveryPath.isEmpty() && QFileInfo(crashRecoveryPath).exists();
-    if (previousSessionAbandoned || crashRecoveryFileExists) {
-        state_.pendingAbnormalExitBackupRestorePath_ =
-            latestBackupRestoreFilePathForChart(normalizedPath);
-        state_.pendingAbnormalExitBackupRestoreChartPath_ =
-            state_.pendingAbnormalExitBackupRestorePath_.isEmpty() ? QString() : normalizedPath;
-        if (!state_.pendingAbnormalExitBackupRestorePath_.isEmpty()) {
-            miacode::debug_log::appendLine(
-                miacode::debug_log::Channel::Runtime,
-                QStringLiteral("crash_recovery"),
-                QStringLiteral("action=defer_restore_backup path=%1 chart=%2")
-                    .arg(state_.pendingAbnormalExitBackupRestorePath_, normalizedPath));
+        // Abnormal-exit recovery intentionally reuses File -> Restore Backup.
+        // Opening the chart must finish first so the restore prompt appears over
+        // the fully loaded window and the old on-disk content remains the restore
+        // baseline, exactly like a manual menu action.
+        const bool previousSessionAbandoned =
+            miacode::crash_recovery::consumeAbandonedSessionChartMatch(normalizedPath);
+        const QString crashRecoveryPath = miacode::crash_recovery::crashRecoveryFilePath(normalizedPath);
+        const bool crashRecoveryFileExists =
+            !crashRecoveryPath.isEmpty() && QFileInfo(crashRecoveryPath).exists();
+        if (previousSessionAbandoned || crashRecoveryFileExists) {
+            state_.pendingAbnormalExitBackupRestorePath_ =
+                latestBackupRestoreFilePathForChart(normalizedPath);
+            state_.pendingAbnormalExitBackupRestoreChartPath_ =
+                state_.pendingAbnormalExitBackupRestorePath_.isEmpty() ? QString() : normalizedPath;
+            if (!state_.pendingAbnormalExitBackupRestorePath_.isEmpty()) {
+                miacode::debug_log::appendLine(
+                    miacode::debug_log::Channel::Runtime,
+                    QStringLiteral("crash_recovery"),
+                    QStringLiteral("action=defer_restore_backup path=%1 chart=%2")
+                        .arg(state_.pendingAbnormalExitBackupRestorePath_, normalizedPath));
+            }
         }
     }
-
     miacode::ChartWorkspace& workspace = session_.applicationServices_.workspace();
     const QString source = document.toText();
     const miacode::ChartWorkspaceSnapshot snapshot = workspace.snapshot();
@@ -402,7 +403,7 @@ void miacode::runtime::DocumentSessionHost::syncRuntimeFromWorkspace()
     const bool pathChanged = snapshot.filePath != state_.currentFilePath_;
     if (pathChanged) {
         session_.setCurrentFilePath(snapshot.filePath, true);
-        if (!snapshot.filePath.isEmpty()) {
+        if (!snapshot.filePath.isEmpty() && snapshot.origin == miacode::ChartDocumentOrigin::Local) {
             // An untitled document had nowhere to record a shared-designer
             // choice; the save that just gave it a path also gives it one.
             flushPendingUnifiedDesignerPreference();

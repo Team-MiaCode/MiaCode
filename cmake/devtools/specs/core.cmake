@@ -298,11 +298,8 @@ miacode_add_spec(chart_zip_packager_spec
     INCLUDES src
 )
 
-# The Net engine's only build home. The Net page was removed from the v2
-# product runtime, so src/media_tools/net/ is compiled here and nowhere else —
-# that is what keeps Qt6::Network out of MiaCode (docs/ops/DEPENDENCY_ALLOWLIST.md).
-# The two batch workers carry no assertions yet; they are listed so the
-# engine keeps compiling instead of rotting while it waits for the page.
+# Net behavior specifications consume the same media_tools library as the product.
+# The engine specification also compiles the existing batch workers.
 miacode_add_spec(net_client_spec
     OWNER src/media_tools/net
     CONTRACT net.net-client
@@ -313,6 +310,58 @@ miacode_add_spec(net_client_spec
     LIBS miacode_media_tools Qt6::Core Qt6::Gui Qt6::Network miniz
     INCLUDES src
 )
+
+miacode_add_spec(net_query_rules_spec
+    OWNER src/media_tools/net
+    CONTRACT net.query-rules
+    DOMAIN net KIND behavior RISK high
+    EXECUTION ctest STATUS active PLATFORM all
+    SOURCES src/tools/net/NetQueryRulesSpec.cpp
+    LIBS miacode_media_tools Qt6::Core
+    INCLUDES src
+)
+
+miacode_add_spec(net_http_transport_spec
+    OWNER src/media_tools/net
+    CONTRACT net.http-transport
+    DOMAIN net KIND integration RISK high
+    EXECUTION ctest STATUS active PLATFORM all
+    SOURCES src/tools/net/NetHttpTransportSpec.cpp
+    LIBS miacode_media_tools Qt6::Core Qt6::Network
+    INCLUDES src
+)
+
+miacode_add_spec(net_provider_spec
+    OWNER src/media_tools/net
+    CONTRACT net.provider
+    DOMAIN net KIND integration RISK high
+    EXECUTION ctest STATUS active PLATFORM all
+    SOURCES src/tools/net/NetProviderSpec.cpp
+    LIBS miacode_media_tools Qt6::Core
+    INCLUDES src
+)
+
+miacode_add_spec(net_download_flow_spec
+    OWNER src/media_tools/net
+    CONTRACT net.download-preview
+    DOMAIN net KIND integration RISK high
+    EXECUTION ctest STATUS active PLATFORM all
+    SOURCES
+        src/tools/net/NetDownloadFlowSpec.cpp
+        src/app/services/api/ApiCatalog.cpp
+        src/app/services/api/ApiDispatcher.cpp
+        src/app/services/net/NetService.cpp
+        src/app/services/net/NetService.h
+        src/app/services/net/NetAccountStore.cpp
+        src/app/services/jobs/JobRegistry.cpp
+        src/app/services/jobs/JobRegistry.h
+    LIBS miacode_media_tools Qt6::Core Qt6::Network miniz $<$<PLATFORM_ID:Windows>:Advapi32>
+    INCLUDES src
+)
+target_compile_definitions(net_download_flow_spec PRIVATE
+    "MIACODE_TEST_OUTPUT_ROOT=\"${CMAKE_CURRENT_BINARY_DIR}\""
+    "MIACODE_ZH_CN_QM_PATH=\"${CMAKE_CURRENT_BINARY_DIR}/zh_CN.qm\"")
+add_dependencies(net_download_flow_spec miacode_lrelease)
 
 miacode_add_spec(pv_compression_policy_spec
     OWNER src/media_tools/media

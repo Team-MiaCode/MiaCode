@@ -1,0 +1,21 @@
+{
+  "name": "@miacode/client",
+  "version": "1.0.0-dev.0",
+  "private": true,
+  "type": "module",
+  "description": "Typed operation client for the MiaCode application API contract",
+  "exports": {
+    ".": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test tests/client.test.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

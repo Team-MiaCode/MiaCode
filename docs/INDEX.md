@@ -23,7 +23,7 @@
 | [无理检测测试清单](tests/MURI_DETECTION_TEST_CHECKLIST.md) | verify.muri |
 | [Timeline 坐标与聚焦测试清单](tests/TIMELINE_COORDINATE_FOCUS_TEST_CHECKLIST.md) | verify.timeline-focus |
 
-## working（5）
+## working（14）
 
 | 文档 | Canonical ID |
 | --- | --- |
@@ -32,3 +32,12 @@
 | [Windows 首次播放无响应：BASS DEV_DEFAULT 时序根因与修复](audit/PREVIEW_FIRST_PLAY_DEV_DEFAULT_ROOT_CAUSE_AND_FIX_ZH.md) | — |
 | [Windows 预览 Slide 轨道访问异常调查与修复](audit/PREVIEW_SLIDE_TRACK_ACCESS_VIOLATION_ZH.md) | — |
 | [模块分层与解耦方向](specs/architecture/MODULE_LAYERING_ZH.md) | — |
+| [Net 与通用网络 API 规范（1.0 实施契约）](specs/net/NET_API_CONTRACT_ZH.md) | — |
+| [Net 接口规范化计划与当前交付](specs/net/NET_API_STANDARDIZATION_PLAN_ZH.md) | net.api-standardization-plan |
+| [桌面 Net 迁移实现与验证记录](specs/net/NET_DESKTOP_MIGRATION_VERIFICATION_ZH.md) | net.desktop-migration-verification |
+| [Net 下载页面目标与验收条件](specs/net/NET_DOWNLOAD_PAGE_TARGET_ZH.md) | net.download-page-target |
+| [Net 功能迁移评估与交接说明](specs/net/NET_MIGRATION_ASSESSMENT_ZH.md) | — |
+| [Net 账户、上传、下载与在线预览迁移目标](specs/net/NET_MIGRATION_TARGET_ZH.md) | net.migration-target |
+| [Net 上传页面目标与验收条件](specs/net/NET_UPLOAD_PAGE_TARGET_ZH.md) | net.upload-page-target |
+| [Net 操作目录（生成）](specs/net/generated/NET_OPERATION_CATALOG_ZH.md) | — |
+| [Net 迁移任务包与验收清单](tests/NET_MIGRATION_TEST_CHECKLIST_ZH.md) | — |

@@ -83,6 +83,7 @@ bool verifyOpenSaveAndSaveAs(QTextStream& out)
                      && workspace.snapshot().dirtyDifficultyIds == QVector<int>{6},
                  QStringLiteral("the other difficulty stays unsaved and still says so"), out);
 
+    multiFile.close();
     ok &= expect(files.save(0).accepted && !workspace.snapshot().dirty,
                  QStringLiteral("a whole-document save succeeds"), out);
     multiFile.close();
@@ -129,6 +130,23 @@ bool verifyFailedOpenRetainsWorkspace(QTextStream& out)
                   QStringLiteral("failed open leaves the current workspace untouched"), out);
 }
 
+bool verifyPreviewSaveAs(QTextStream& out)
+{
+    QTemporaryDir directory;
+    const auto original = directory.filePath(QStringLiteral("preview.txt"));
+    const auto saved = directory.filePath(QStringLiteral("local.txt"));
+    if (!writeBytes(original, "&title=Online\n&lv_5=12\n&inote_5=(120){4}1,E\n")) return false;
+    miacode::ChartWorkspace workspace;
+    miacode::ChartWorkspaceFileService files(workspace);
+    const auto opened = files.open(original, miacode::ChartDocumentOrigin::NetPreview);
+    const auto generation = workspace.snapshot().documentOpenGeneration;
+    workspace.replaceActiveDifficultyChart(QStringLiteral("(120){4}2,E"));
+    return expect(opened.accepted && workspace.isNetPreview() && !files.save(0).accepted
+        && !files.saveAs(original, 0).accepted && files.saveAs(saved, 0).accepted
+        && !workspace.isNetPreview() && workspace.snapshot().documentOpenGeneration == generation,
+        QStringLiteral("preview save requires a local copy and preserves document generation"), out);
+}
+
 }  // namespace
 
 int main()
@@ -136,6 +154,7 @@ int main()
     QTextStream out(stderr);
     if (!verifyOpenSaveAndSaveAs(out)
         || !verifyOpenAcceptsEmptyInoteFile(out)
+        || !verifyPreviewSaveAs(out)
         || !verifyFailedOpenRetainsWorkspace(out)) return 1;
     QTextStream result(stdout);
     result << "Chart workspace file-service checks passed." << Qt::endl;

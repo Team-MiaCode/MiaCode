@@ -23,6 +23,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QStandardPaths>
 #include <QImage>
 #include <QImageReader>
 #include <QJsonObject>
@@ -32,6 +33,8 @@
 #include <QSet>
 #include <QVariantMap>
 #include <QCoreApplication>
+#include <QUuid>
+#include <memory>
 
 
 namespace miacode::ui {
@@ -1270,6 +1273,7 @@ void DocumentModel::closeDocument()
 bool DocumentModel::saveDifficultySection(int difficultyId)
 {
     if (!hasDocument() || fileService_ == nullptr) return false;
+    if (workspace_->isNetPreview()) { saveSectionOrAskForPath(0, {}); return true; }
     if (!runWorkspaceMutation([&] { return fileService_->save(difficultyId).accepted; })) {
         uiRequests_->postNotice(miacode::NoticeSeverity::Error,
             miacode::localizedText("document.save_failed"), miacode::localizedText("document.cannot_write_chart"));
@@ -1293,11 +1297,57 @@ bool DocumentModel::revertDifficultyChart(int difficultyId)
 
 bool DocumentModel::openFile(const QUrl& fileUrl)
 {
+    return openFileWithOrigin(fileUrl, ChartDocumentOrigin::Local);
+}
+
+QJsonObject DocumentModel::documentIdentity() const
+{
+    if (workspaceId_.isEmpty()) workspaceId_ = QUuid::createUuid().toString(QUuid::Id128);
+    return {{"workspaceId", workspaceId_}, {"documentOpenGeneration", QString::number(documentOpenGeneration())},
+        {"revision", QString::number(documentRevision())}, {"dirty", dirty()}, {"hasDocument", hasDocument()},
+        {"origin", workspace_->isNetPreview() ? "net_preview" : "local"}};
+}
+
+net::NetEnginePort::Cancel DocumentModel::openNetPreview(const QString& path, const QJsonObject& expected,
+                                                       net::NetEnginePort::Done done)
+{
+    const auto completion = std::make_shared<net::NetEnginePort::Done>(std::move(done));
+    const auto finish = [completion](net::NetTaskResult result) {
+        if (!*completion) return;
+        auto callback = std::move(*completion);
+        callback(std::move(result));
+    };
+    const auto matches = [this, expected] {
+        const auto identity = documentIdentity();
+        return identity.value("workspaceId") == expected.value("expectedWorkspaceId")
+            && identity.value("documentOpenGeneration") == expected.value("expectedDocumentOpenGeneration")
+            && identity.value("revision") == expected.value("expectedRevision");
+    };
+    const auto failure = [](const QString& code) { return QJsonObject{{"code", code}, {"message", code}, {"retryable", false}}; };
+    if (!matches()) { finish({{}, failure("document.stale")}); return {}; }
+    requestLeaveDocument([this, path, expected, completion, finish, failure](bool accepted) {
+        if (!*completion) return;
+        if (!accepted) { finish({{}, failure("job.cancelled")}); return; }
+        const auto identity = documentIdentity();
+        if (identity.value("workspaceId") != expected.value("expectedWorkspaceId")
+            || identity.value("documentOpenGeneration") != expected.value("expectedDocumentOpenGeneration") || dirty()) {
+            finish({{}, failure("document.stale")}); return;
+        }
+        if (!openFileWithOrigin(QUrl::fromLocalFile(path), ChartDocumentOrigin::NetPreview)) {
+            finish({{}, failure("file.read_failed")}); return;
+        }
+        finish({QJsonObject{{"previewRef", expected.value("previewRef")}, {"document", documentIdentity()}}, {}});
+    });
+    return [finish, failure] { finish({{}, failure("job.cancelled")}); };
+}
+
+bool DocumentModel::openFileWithOrigin(const QUrl& fileUrl, ChartDocumentOrigin origin)
+{
     const QString path = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
     if (fileService_ == nullptr) return false;
     miacode::ChartWorkspaceFileResult result;
     if (!runWorkspaceMutation([&] {
-            result = fileService_->open(path);
+            result = fileService_->open(path, origin);
             return result.accepted;
         })) {
         uiRequests_->postNotice(miacode::NoticeSeverity::Error,
@@ -1353,7 +1403,7 @@ void DocumentModel::saveSectionOrAskForPath(
         finish(false);
         return;
     }
-    if (!workspace_->snapshot().filePath.isEmpty()) {
+    if (!workspace_->snapshot().filePath.isEmpty() && !workspace_->isNetPreview()) {
         const bool saved = runWorkspaceMutation(
             [&] { return fileService_->save(difficultyId).accepted; });
         if (saved) {
@@ -1375,6 +1425,7 @@ void DocumentModel::saveSectionOrAskForPath(
     miacode::FileRequest request;
     request.title = miacode::localizedText("action.save_as");
     request.saveMode = true;
+    if (workspace_->isNetPreview()) request.startPath = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
     request.nameFilters = {miacode::localizedText("qml.simai_files_txt_simai"), miacode::localizedText("qml.all_files_2")};
     const qulonglong generation = documentGeneration_;
     requests->requestFile(request, [this, difficultyId, generation, finish](const QString& path) {
@@ -1401,6 +1452,7 @@ void DocumentModel::saveSectionOrAskForPath(
 bool DocumentModel::saveMetadataImmediately()
 {
     metadataSaveTimer_.stop();
+    if (workspace_ && workspace_->isNetPreview()) return true;
     if (closeDecisionPending_) return true;
     if (workspace_ == nullptr || !workspace_->metadataDirty()
         || currentFilePath().isEmpty()) return true;
@@ -1434,7 +1486,7 @@ void DocumentModel::requestLeaveSection(int difficultyId, std::function<void(boo
     metadataSaveTimer_.stop();
     const auto finish = [this, onDecided = std::move(onDecided)](bool mayLeave) {
         closeDecisionPending_ = false;
-        if (workspace_ != nullptr && workspace_->metadataDirty() && !currentFilePath().isEmpty()) {
+        if (workspace_ != nullptr && !workspace_->isNetPreview() && workspace_->metadataDirty() && !currentFilePath().isEmpty()) {
             metadataSaveTimer_.start();
         }
         if (onDecided) onDecided(mayLeave);
@@ -1456,6 +1508,7 @@ void DocumentModel::requestLeaveSection(int difficultyId, std::function<void(boo
         return;
     }
     const qulonglong generation = documentGeneration_;
+    const auto revision = workspace_->snapshot().revision;
     uiRequests_->requestChoice(
         miacode::localizedText(wholeDocument ? "dialog.unsaved_changes.title" : "dialog.unsaved_tab_changes.title"),
         wholeDocument ? miacode::localizedText("dialog.unsaved_changes.message")
@@ -1463,8 +1516,8 @@ void DocumentModel::requestLeaveSection(int difficultyId, std::function<void(boo
                             .arg(SimaiDocument::difficultyName(difficultyId)),
         unsavedSectionChoices(),
         QStringLiteral("cancel"),
-        [this, difficultyId, wholeDocument, generation, finish](const QString& choiceId) {
-            if (generation != documentGeneration_) {
+        [this, difficultyId, wholeDocument, generation, revision, finish](const QString& choiceId) {
+            if (generation != documentGeneration_ || revision != workspace_->snapshot().revision) {
                 finish(false);
                 return;
             }
@@ -1500,6 +1553,7 @@ int DocumentModel::saveSectionDifficultyId() const
 bool DocumentModel::save()
 {
     if (!hasDocument()) return false;
+    if (workspace_->isNetPreview()) { saveSectionOrAskForPath(0, {}); return true; }
     emit editingFinishedRequested();
     if (fileService_ == nullptr) return false;
     const int sectionId = saveSectionDifficultyId();
@@ -1518,6 +1572,7 @@ bool DocumentModel::save()
 bool DocumentModel::saveWholeDocument()
 {
     if (!hasDocument()) return false;
+    if (workspace_->isNetPreview()) { saveSectionOrAskForPath(0, {}); return true; }
     emit editingFinishedRequested();
     if (fileService_ == nullptr) return false;
     if (!runWorkspaceMutation([&] { return fileService_->save(0).accepted; })) {
@@ -1732,7 +1787,7 @@ void DocumentModel::publishWorkspaceCommit(
     Q_UNUSED(usedSystemEncoding);
     if (workspace_ == nullptr) return;
     if (!closeDecisionPending_ && kind != WorkspaceCommitKind::SavePoint && workspace_->metadataDirty()
-        && !currentFilePath().isEmpty()) {
+        && !currentFilePath().isEmpty() && !workspace_->isNetPreview()) {
         // 同一事件中的字段修改合并为一次写入，覆盖页面与运行时入口。
         metadataSaveTimer_.start();
     }

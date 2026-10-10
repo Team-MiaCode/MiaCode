@@ -181,6 +181,10 @@ scripts/ffmpeg/trim/ffmpeg-codec-survey.txt
 # HUD font subsetting toolchain (script + 通用规范汉字表 charset + docs).
 !scripts/governance/
 !scripts/governance/*.py
+!scripts/api/
+scripts/api/*
+!scripts/api/generate_net_api.py
+!scripts/api/validate_net_api.mjs
 # Release pipeline: the update manifests release.yml generates and publishes.
 !scripts/release/
 scripts/release/*

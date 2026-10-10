@@ -1,5 +1,53 @@
 # Explicit spec targets; contract IDs stay stable across source/target renames.
 
+miacode_add_spec(net_api_contract_spec
+    OWNER src/app/services/api
+    CONTRACT net.api-contract
+    DOMAIN services KIND behavior RISK high
+    EXECUTION ctest STATUS active PLATFORM all
+    SOURCES
+        src/tools/services/NetApiContractSpec.cpp
+        src/app/services/api/ApiCatalog.cpp
+        src/app/services/api/ApiDispatcher.cpp
+        src/app/services/net/NetService.cpp
+        src/app/services/net/NetAccountStore.cpp
+        src/app/services/net/NetService.h
+        src/app/services/jobs/JobRegistry.cpp
+        src/app/services/jobs/JobRegistry.h
+    LIBS miacode_media_tools Qt6::Core $<$<PLATFORM_ID:Windows>:Advapi32>
+    INCLUDES src
+)
+
+miacode_add_spec(job_registry_spec
+    OWNER src/app/services/jobs
+    CONTRACT jobs.registry
+    DOMAIN services KIND behavior RISK high
+    EXECUTION ctest STATUS active PLATFORM all
+    SOURCES
+        src/tools/services/JobRegistrySpec.cpp
+        src/app/services/jobs/JobRegistry.cpp
+        src/app/services/jobs/JobRegistry.h
+    LIBS Qt6::Core
+    INCLUDES src
+)
+
+miacode_add_spec(net_service_spec
+    OWNER src/app/services/net
+    CONTRACT net.application-service
+    DOMAIN services KIND behavior RISK high
+    EXECUTION ctest STATUS active PLATFORM all
+    SOURCES
+        src/tools/services/NetServiceSpec.cpp
+        src/app/services/api/ApiCatalog.cpp
+        src/app/services/net/NetService.cpp
+        src/app/services/net/NetAccountStore.cpp
+        src/app/services/net/NetService.h
+        src/app/services/jobs/JobRegistry.cpp
+        src/app/services/jobs/JobRegistry.h
+    LIBS Qt6::Core $<$<PLATFORM_ID:Windows>:Advapi32>
+    INCLUDES src
+)
+
 miacode_add_spec(chart_workspace_spec
     OWNER src/app/services
     CONTRACT v2.chart-workspace
