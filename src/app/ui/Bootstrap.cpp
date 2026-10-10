@@ -231,6 +231,18 @@ bool Bootstrap::start(const QString& startupOpenTarget)
     if (QQuickWindow* window = qobject_cast<QQuickWindow*>(engine_->rootObjects().constFirst());
         window != nullptr) {
         rootWindow_ = window;
+        const auto activateRootWindow = [window]() {
+            window->setWindowStates(window->windowStates() & ~Qt::WindowMinimized);
+            window->show();
+            window->raise();
+            window->requestActivate();
+        };
+        QObject::connect(
+            static_cast<ShellLifecycle*>(applicationContext_->shell()),
+            &ShellLifecycle::closeConfirmationRequested, window, activateRootWindow);
+        QObject::connect(
+            &applicationServices_->shellNotifications(),
+            &miacode::ShellNotifications::videoExportCompleted, window, activateRootWindow);
         // The QML root owns the visual drop surface. The bridge is only a
         // window-level event adapter and the sole owner of the OS drag route.
         if (!rootLifecycle_.registerRoot()) {

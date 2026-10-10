@@ -2,6 +2,7 @@
 
 #include "app/runtime/export/VideoExportHost.h"
 #include "app/services/JobProgressService.h"
+#include "app/services/ShellNotifications.h"
 #include "app/runtime/Shared.h"
 #include "app/runtime/playback/PlaybackCoordinator.h"
 #include "app/runtime/shell/ShellHost.h"
@@ -1105,6 +1106,7 @@ void miacode::runtime::VideoExportHost::handleVideoExportWorkerProcessFinished(i
                     QDesktopServices::openUrl(QUrl::fromLocalFile(outputDir));
                 }
             });
+        emit session_.applicationServices_.shellNotifications().videoExportCompleted();
     } else {
         miacode::LocalizedText details = session_.videoExportWorkerResultDetails_.trimmed();
         if (!session_.videoExportWorkerFirstCrashDiagnostics_.trimmed().isEmpty()) {

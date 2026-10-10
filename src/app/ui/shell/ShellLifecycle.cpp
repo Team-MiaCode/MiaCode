@@ -28,6 +28,7 @@ void ShellLifecycle::requestClose()
         // Escape, the title-bar button and ⌘Q can all arrive while the prompt
         // is up. One question is enough.
         appendLifecycleLog(QStringLiteral("confirm_close"), QStringLiteral("result=already_asking"));
+        emit closeConfirmationRequested();
         return;
     }
     if (router() == nullptr) {
@@ -42,6 +43,11 @@ void ShellLifecycle::requestClose()
                            QStringLiteral("result=%1").arg(confirmed ? "accepted" : "cancelled"));
         emit closeDecided(confirmed);
     });
+    // A synchronous decision has already cleared the flag. A pending decision
+    // means the shell is waiting for the user's confirmation or save path.
+    if (closeRequestInFlight_) {
+        emit closeConfirmationRequested();
+    }
 }
 
 void ShellLifecycle::notifyRootCloseAccepted(const QString& source)

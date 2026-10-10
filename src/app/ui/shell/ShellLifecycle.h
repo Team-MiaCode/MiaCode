@@ -37,6 +37,7 @@ public:
     Q_INVOKABLE void notifyRootCloseAccepted(const QString& source);
 
 signals:
+    void closeConfirmationRequested();
     void closeDecided(bool accepted);
     void rootCloseAccepted(const QString& source);
 

@@ -46,6 +46,7 @@ signals:
     void editorPreferencesChanged();
     void muriPromptPreferenceChanged();
     void videoExportWorkerRunningChanged(bool running);
+    void videoExportCompleted();
 
     // Menu / shortcut entry points that land on the window and have to reach
     // whichever QML surface owns the action.
