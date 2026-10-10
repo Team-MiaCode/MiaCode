@@ -3,6 +3,22 @@
 <TS version="2.1" language="zh_CN">
 <context>
     <name></name>
+    <message id="sidebar.menu">
+        <source>Menu</source>
+        <translation>菜单</translation>
+    </message>
+    <message id="dialog.preferences.sidebar_mode">
+        <source>Sidebar mode</source>
+        <translation>侧栏模式</translation>
+    </message>
+    <message id="dialog.preferences.sidebar_mode.standard">
+        <source>Standard</source>
+        <translation>标准模式</translation>
+    </message>
+    <message id="dialog.preferences.sidebar_mode.efficient">
+        <source>Efficient</source>
+        <translation>高效模式</translation>
+    </message>
     <message id="about.build_type">
         <source>Build Type</source>
         <translation>构建类型</translation>

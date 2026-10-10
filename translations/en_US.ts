@@ -3,6 +3,22 @@
 <TS version="2.1" language="en_US">
 <context>
     <name></name>
+    <message id="sidebar.menu">
+        <source>Menu</source>
+        <translation>Menu</translation>
+    </message>
+    <message id="dialog.preferences.sidebar_mode">
+        <source>Sidebar mode</source>
+        <translation>Sidebar mode</translation>
+    </message>
+    <message id="dialog.preferences.sidebar_mode.standard">
+        <source>Standard</source>
+        <translation>Standard</translation>
+    </message>
+    <message id="dialog.preferences.sidebar_mode.efficient">
+        <source>Efficient</source>
+        <translation>Efficient</translation>
+    </message>
     <message id="about.build_type">
         <source>Build Type</source>
         <translation>Build Type</translation>

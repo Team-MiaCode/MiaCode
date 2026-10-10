@@ -9,12 +9,14 @@ ChromeRow {
     id: root
 
     property int textLeftPadding: 20
+    property bool emphasizedText: false
+    property real textPixelSize: Theme.uiFontSize
     property url iconSource
     property url filledIconSource
     readonly property bool hasIcon: iconSource.toString().length > 0
     readonly property color contentColor: !root.enabled ? Theme.colors.text.disabled
         : (root.chromeSelected || root.hovered || root.visualFocus) ? Theme.colors.text.active
-        : Theme.colors.text.secondary
+        : root.emphasizedText ? Theme.colors.text.primary : Theme.colors.text.secondary
     stateColors: Theme.colors.listState
 
     implicitHeight: 30
@@ -40,7 +42,7 @@ ChromeRow {
             text: root.text
             color: root.contentColor
             font.family: Theme.uiFont
-            font.pixelSize: Theme.uiFontSize
+            font.pixelSize: root.textPixelSize
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
         }

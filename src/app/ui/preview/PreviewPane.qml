@@ -160,6 +160,7 @@ Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
+        efficientMode: root.preferences.efficientSidebarEnabled
         statistics: root.previewSession.statistics
         dataAvailable: !root.latencyActive && root.previewSession.statisticsAvailable
         enabled: root.documentAvailable

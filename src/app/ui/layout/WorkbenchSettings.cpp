@@ -20,6 +20,7 @@ namespace miacode::ui {
 namespace {
 constexpr auto kUiSection = "ui";
 constexpr auto kBlurMaterialsEnabled = "blur_materials_enabled";
+constexpr auto kEfficientSidebarEnabled = "efficient_sidebar_enabled";
 constexpr auto kSidebarVisible = "sidebar_visible";
 constexpr auto kSidebarWidth = "sidebar_width";
 constexpr auto kBottomPanelVisible = "bottom_panel_visible";
@@ -88,6 +89,7 @@ WorkbenchSettings::WorkbenchSettings(QObject* parent)
 
     // 启动时读取并约束到界面可接受范围。无 json 键时回退到旧 QSettings，供 macOS 上已有记录迁入。
     const QJsonObject ui = loadUiObject();
+    efficientSidebarEnabled_ = ui.value(QLatin1String(kEfficientSidebarEnabled)).toBool(false);
     previewDetached_ = ui.value(QLatin1String(kPreviewDetached)).toBool(false);
     blurMaterialsEnabled_ = ui.value(QLatin1String(kBlurMaterialsEnabled)).toBool(true);
     QSettings legacySettings;
@@ -186,6 +188,7 @@ QVariantMap WorkbenchSettings::aboutInfo() const
     };
 }
 
+bool WorkbenchSettings::efficientSidebarEnabled() const { return efficientSidebarEnabled_; }
 bool WorkbenchSettings::sidebarVisible() const { return sidebarVisible_; }
 int WorkbenchSettings::sidebarWidth() const { return sidebarWidth_; }
 int WorkbenchSettings::sidebarMinimumContentWidth() const { return kSidebarMinimumContentWidth; }
@@ -344,6 +347,14 @@ void WorkbenchSettings::setDarkThemeToken(const QString& token)
     }
     PreferenceDocument::setPreferredDarkTheme(next);
     reloadTheme();
+}
+
+void WorkbenchSettings::setEfficientSidebarEnabled(bool value)
+{
+    if (efficientSidebarEnabled_ == value) return;
+    efficientSidebarEnabled_ = value;
+    storeUiValue(kEfficientSidebarEnabled, value);
+    emit efficientSidebarEnabledChanged();
 }
 
 void WorkbenchSettings::setSidebarVisible(bool value)

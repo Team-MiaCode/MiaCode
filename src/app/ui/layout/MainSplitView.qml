@@ -39,7 +39,8 @@ Item {
         ? detachedPreviewWindow.Overlay.overlay : root.Overlay.overlay
     property bool previewSurfaceMoving: false
     readonly property rect activityBarMaterialRect: Qt.rect(0, 0,
-        root.compact ? 0 : sidebar.activityBarWidth,
+        root.compact ? 0 : root.preferences.efficientSidebarEnabled
+            ? sidebar.width + sidebarToggle.width : sidebar.activityBarWidth,
         horizontalSplit.height)
     readonly property real minimumEditorWidth: Math.max(editorPane.minimumWidth,
         bottomPanel.minimumWidth)
@@ -49,6 +50,7 @@ Item {
         : Math.max(620, minimumEditorWidth + preview.minimumWidth + Theme.splitDividerThickness)
     readonly property real expandedSidebarWidth:
         sidebar.activityBarWidth + root.preferences.sidebarWidth + Theme.splitDividerThickness
+        + (root.preferences.efficientSidebarEnabled ? 20 : 0)
     readonly property real minimumHeight: Math.max(
         editorHost.SplitView.minimumHeight + (root.bottomPanelEffectivelyVisible
             ? bottomPanel.minimumHeight + Theme.splitDividerThickness : 0),
@@ -415,7 +417,7 @@ Item {
             commands: root.commands
             pages: root.pages
             compact: false
-            visible: !root.compact
+            visible: !root.compact && (!root.preferences.efficientSidebarEnabled || root.viewState.sidebarVisible)
             width: visible ? sidebar.activityBarWidth + (root.viewState.sidebarVisible
                 ? (root.sidebarResizing ? root.sidebarDragWidth : root.preferences.sidebarWidth) : 0) : 0
             height: parent.height
@@ -426,7 +428,7 @@ Item {
         SplitView {
             id: workspaceSplit
             orientation: Qt.Horizontal
-            x: sidebar.width + sidebarHandle.width
+            x: sidebar.width + sidebarHandle.width + sidebarToggle.width
             width: parent.width - x
             height: parent.height
             Component.onCompleted: root.syncWorkspacePanelOrder()
@@ -526,7 +528,7 @@ Item {
 
         CornerMask {
             id: workspaceCorner
-            visible: sidebar.visible
+            visible: sidebar.visible && !root.preferences.efficientSidebarEnabled
             x: root.compact ? 0 : sidebar.activityBarWidth
             backgroundSource: root.backgroundSource
             backgroundOffset: Qt.point(root.backgroundOffset.x + x, root.backgroundOffset.y)
@@ -552,21 +554,60 @@ Item {
 
         Rectangle {
             x: workspaceCorner.x
-            y: workspaceCorner.height
+            y: workspaceCorner.visible ? workspaceCorner.height : 0
             width: 1 / root.Screen.devicePixelRatio
             height: parent.height - y
-            visible: sidebar.visible
+            visible: sidebar.visible && !root.preferences.efficientSidebarEnabled
             color: workspaceCorner.separatorColor
             enabled: false
         }
 
+        Rectangle {
+            id: sidebarToggle
+            x: sidebar.width
+            y: 1 / root.Screen.devicePixelRatio
+            width: visible ? 20 : 0
+            height: parent.height - y
+            visible: !root.compact && root.preferences.efficientSidebarEnabled
+            color: Theme.chromeSurfaceColor(Theme.colors.background.panel)
+
+            IconButton {
+                id: sidebarToggleButton
+                objectName: "efficientSidebarToggleButton"
+                anchors.centerIn: parent
+                width: parent.width
+                height: 32
+                iconWidth: 14
+                iconHeight: 14
+                Accessible.name: tooltip
+                background: Rectangle {
+                    radius: Theme.compactControlRadius
+                    color: Theme.overlayColor(sidebarToggleButton.down
+                        ? Theme.chromeStateColors.pressed
+                        : sidebarToggleButton.hovered || sidebarToggleButton.visualFocus
+                            ? Theme.chromeStateColors.hover : "transparent")
+                }
+                iconSource: root.viewState.sidebarVisible
+                    ? Qt.resolvedUrl("icons/chevron-left.svg")
+                    : Qt.resolvedUrl("icons/chevron-right.svg")
+                tooltip: root.viewState.sidebarVisible
+                    ? qsTrId("qml.close_sidebar") : qsTrId("qml.open_sidebar")
+                onClicked: {
+                    root.viewState.sidebarVisible = !root.viewState.sidebarVisible
+                    root.preferences.sidebarVisible = root.viewState.sidebarVisible
+                }
+            }
+        }
+
         SplitHandle {
             id: sidebarHandle
-            x: sidebar.width
-            width: visible && root.viewState.sidebarVisible ? Theme.splitDividerThickness : 0
+            x: sidebar.width + sidebarToggle.width
+            width: visible && (root.viewState.sidebarVisible || root.preferences.efficientSidebarEnabled)
+                ? Theme.splitDividerThickness : 0
             height: parent.height
             visible: !root.compact
-            showDivider: root.viewState.sidebarVisible
+            enabled: root.viewState.sidebarVisible || !root.preferences.efficientSidebarEnabled
+            showDivider: root.viewState.sidebarVisible || root.preferences.efficientSidebarEnabled
             handlePressed: sidebarDrag.pressed
             handleHovered: sidebarDrag.containsMouse
 

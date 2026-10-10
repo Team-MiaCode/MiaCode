@@ -83,10 +83,12 @@ Item {
                     rect: Qt.rect(origin.x, origin.y,
                         strip.width, strip.height)
                 })
-                regions.push({
-                    rect: Qt.rect(origin.x + strip.width, origin.y,
-                        Theme.workspaceRadius, Theme.workspaceRadius)
-                })
+                if (!root.preferences.efficientSidebarEnabled) {
+                    regions.push({
+                        rect: Qt.rect(origin.x + strip.width, origin.y,
+                            Theme.workspaceRadius, Theme.workspaceRadius)
+                    })
+                }
             }
             return regions
         }

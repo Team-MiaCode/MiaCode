@@ -3,6 +3,22 @@
 <TS version="2.1" language="ja_JP">
 <context>
     <name></name>
+    <message id="sidebar.menu">
+        <source>Menu</source>
+        <translation>メニュー</translation>
+    </message>
+    <message id="dialog.preferences.sidebar_mode">
+        <source>Sidebar mode</source>
+        <translation>サイドバーモード</translation>
+    </message>
+    <message id="dialog.preferences.sidebar_mode.standard">
+        <source>Standard</source>
+        <translation>標準モード</translation>
+    </message>
+    <message id="dialog.preferences.sidebar_mode.efficient">
+        <source>Efficient</source>
+        <translation>効率モード</translation>
+    </message>
     <message id="about.build_type">
         <source>Build Type</source>
         <translation>ビルド種別</translation>

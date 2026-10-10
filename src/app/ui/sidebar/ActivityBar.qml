@@ -13,13 +13,14 @@ Rectangle {
     property bool toolsAvailable: true
     property bool chartEditorAvailable: true
     property bool normalizationEnabled: true
+    readonly property bool toolsMenuActive: toolsPopup.active
     signal viewRequested(string viewId)
     signal toolRequested(string toolId)
     signal settingsRequested()
 
-    function showMediaToolsMenu() {
+    function showMediaToolsMenu(anchorItem) {
         if (root.toolsAvailable)
-            toolsPopup.popup(toolsButton, toolsButton.width, 0)
+            toolsPopup.popup(anchorItem || toolsButton, (anchorItem || toolsButton).width, 0)
     }
 
     implicitWidth: Theme.activityButtonSize

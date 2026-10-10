@@ -640,6 +640,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/layout/CompactPanelLayer.qml
     src/app/ui/sidebar/Sidebar.qml
     src/app/ui/sidebar/ActivityBar.qml
+    src/app/ui/sidebar/EfficientSidebar.qml
     src/app/ui/sidebar/ChartFieldSidebar.qml
     src/app/ui/sidebar/DifficultyList.qml
     src/app/ui/sidebar/ExportSidebarPage.qml

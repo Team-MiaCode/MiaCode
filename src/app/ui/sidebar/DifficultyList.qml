@@ -11,7 +11,12 @@ Column {
     required property var viewState
     required property var documentSession
     required property var commands
+    property bool overlayActive: false
+    property bool flatNavigation: false
+    property var rowStateColors: Theme.colors.listState
+    readonly property bool sectionExpanded: flatNavigation || viewState.difficultySectionExpanded
 
+    spacing: root.flatNavigation ? 2 : 0
     width: parent ? parent.width : implicitWidth
 
     component FoldIndicator: Text {
@@ -28,10 +33,36 @@ Column {
 
     Item {
         width: root.width
-        height: 30
+        height: root.flatNavigation ? 36 : 30
+
+        NavRow {
+            id: addRow
+            stateColors: root.rowStateColors
+            emphasizedText: root.flatNavigation
+            textPixelSize: Theme.uiFontSize + (root.flatNavigation ? 1 : 0)
+            anchors.left: parent.left
+            anchors.right: flatRemove.left
+            height: parent.height
+            visible: root.flatNavigation
+            text: qsTrId("sidebar.add_difficulty")
+            iconSource: Qt.resolvedUrl("icons/add.svg")
+            enabled: root.documentSession.availableDifficulties.length > 0
+            onClicked: addDifficultyMenu.popup(addRow, 0, addRow.height)
+        }
+        IconButton {
+            id: flatRemove
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            visible: root.flatNavigation
+            iconSource: Qt.resolvedUrl("icons/remove.svg")
+            tooltip: qsTrId("qml.delete_current_difficulty")
+            enabled: root.documentSession.currentDifficultyId > 0
+            onClicked: removeDifficultyDialog.open()
+        }
 
         ChromeRow {
             id: sectionButton
+            visible: !root.flatNavigation
             anchors.left: parent.left
             anchors.right: actions.left
             anchors.verticalCenter: parent.verticalCenter
@@ -75,6 +106,7 @@ Column {
 
         Row {
             id: actions
+            visible: !root.flatNavigation
             anchors.right: parent.right
             anchors.rightMargin: 4
             anchors.verticalCenter: parent.verticalCenter
@@ -109,7 +141,7 @@ Column {
             required property var modelData
             // 侧边栏只反映编辑器会话中的活动标签。文档模型的
             // currentDifficultyId 负责正文数据源，不参与导航选中状态。
-            readonly property bool activeEditor: root.viewState.activeEditorKey
+            readonly property bool activeEditor: !root.overlayActive && root.viewState.activeEditorKey
                 === root.viewState.difficultyEditorKey(modelData.id)
             // `bookmarkGeneration` is an explicit QML binding dependency;
             // invokable return values alone cannot observe document edits.
@@ -128,11 +160,12 @@ Column {
             readonly property bool foldsBookmarks: activeEditor && bookmarks.length > 0
 
             width: root.width
-            visible: root.viewState.difficultySectionExpanded
+            spacing: root.flatNavigation ? 2 : 0
+            visible: root.sectionExpanded
 
             Item {
                 width: difficultyGroup.width
-                height: root.viewState.difficultySectionExpanded ? 30 : 0
+                height: root.sectionExpanded ? (root.flatNavigation ? 36 : 30) : 0
 
                 // The row IS the fold control: clicking a difficulty that is not
                 // the one being edited switches to it, exactly as before, and
@@ -142,6 +175,9 @@ Column {
                 // the left of what you press.
                 NavRow {
                     id: difficultyButton
+                    stateColors: root.rowStateColors
+                    emphasizedText: root.flatNavigation
+                    textPixelSize: Theme.uiFontSize + (root.flatNavigation ? 1 : 0)
                     anchors.left: parent.left
                     anchors.right: parent.right
                     height: parent.height
@@ -195,9 +231,10 @@ Column {
 
                 delegate: NavRow {
                     id: bookmarkRow
+                    stateColors: root.rowStateColors
                     required property var modelData
                     width: difficultyGroup.width
-                    height: root.viewState.difficultySectionExpanded ? 26 : 0
+                    height: root.sectionExpanded ? (root.flatNavigation ? 32 : 26) : 0
                     // Past the difficulty label's own 38, so a bookmark reads as
                     // belonging to the row above it rather than sitting level
                     // with it.
@@ -225,7 +262,7 @@ Column {
                                 text: String(bookmarkRow.modelData.line)
                                 color: Theme.colors.text.primary
                                 font.family: Theme.uiFont
-                                font.pixelSize: Math.max(9, Theme.uiFontSize - 2)
+                                font.pixelSize: Math.max(9, Theme.uiFontSize - 2) + (root.flatNavigation ? 1 : 0)
                             }
                         }
 
@@ -238,9 +275,9 @@ Column {
                             text: bookmarkRow.modelData.title
                             color: !bookmarkRow.enabled ? Theme.colors.text.disabled
                                    : bookmarkRow.selected ? Theme.colors.text.active
-                                   : Theme.colors.text.secondary
+                                   : root.flatNavigation ? Theme.colors.text.primary : Theme.colors.text.secondary
                             font.family: Theme.uiFont
-                            font.pixelSize: Math.max(1, Theme.uiFontSize - 1)
+                            font.pixelSize: Math.max(1, Theme.uiFontSize - 1) + (root.flatNavigation ? 1 : 0)
                             verticalAlignment: Text.AlignVCenter
                             elide: Text.ElideRight
                         }

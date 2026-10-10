@@ -268,6 +268,16 @@ AppDialog {
                     onPicked: function(value) { root.preferencesModel.languageToken = value }
                 }
                 LabeledCombo {
+                    objectName: "preferencesSidebarModeCombo"
+                    label: qsTrId("dialog.preferences.sidebar_mode")
+                    options: [
+                        { value: false, label: qsTrId("dialog.preferences.sidebar_mode.standard") },
+                        { value: true, label: qsTrId("dialog.preferences.sidebar_mode.efficient") }
+                    ]
+                    currentValue: root.preferences.efficientSidebarEnabled
+                    onPicked: value => root.preferences.efficientSidebarEnabled = value
+                }
+                LabeledCombo {
                     objectName: "preferencesThemeModeCombo"
                     label: qsTrId("dialog.preferences.theme.mode")
                     options: root.preferencesModel.themeModeOptions

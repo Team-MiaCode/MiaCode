@@ -17,6 +17,7 @@ namespace miacode::ui {
 class WorkbenchSettings final : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(bool efficientSidebarEnabled READ efficientSidebarEnabled WRITE setEfficientSidebarEnabled NOTIFY efficientSidebarEnabledChanged)
     Q_PROPERTY(bool sidebarVisible READ sidebarVisible WRITE setSidebarVisible NOTIFY sidebarVisibleChanged)
     Q_PROPERTY(int sidebarWidth READ sidebarWidth WRITE setSidebarWidth NOTIFY sidebarWidthChanged)
     Q_PROPERTY(int sidebarMinimumContentWidth READ sidebarMinimumContentWidth CONSTANT)
@@ -56,6 +57,7 @@ public:
     Q_INVOKABLE QVariantMap aboutInfo() const;
     explicit WorkbenchSettings(QObject* parent = nullptr);
 
+    bool efficientSidebarEnabled() const;
     bool sidebarVisible() const;
     int sidebarWidth() const;
     int sidebarMinimumContentWidth() const;
@@ -91,6 +93,7 @@ public:
     bool editorSelectionBeatDisplay() const;
     bool editorOverviewRulerEnabled() const;
 
+    void setEfficientSidebarEnabled(bool value);
     void setSidebarVisible(bool value);
     void setSidebarWidth(int value);
     void setBottomPanelVisible(bool value);
@@ -111,6 +114,7 @@ public:
     void setEditorOverviewRulerEnabled(bool enabled);
 
 signals:
+    void efficientSidebarEnabledChanged();
     void sidebarVisibleChanged();
     void sidebarWidthChanged();
     void bottomPanelVisibleChanged();
@@ -132,6 +136,7 @@ private:
     static constexpr double kPreviewMinimumWidthRatio = 0.3;
     static constexpr double kPreviewMaximumWidthRatio = 0.5;
 
+    bool efficientSidebarEnabled_ = false;
     bool sidebarVisible_ = true;
     bool blurMaterialsEnabled_ = true;
     int sidebarWidth_ = 190;

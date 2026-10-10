@@ -10,18 +10,27 @@ Item {
     required property var commands
     required property var pages
     property bool compact: false
+    readonly property bool efficientMode: preferences.efficientSidebarEnabled
     readonly property bool primarySidebarVisible: compact || viewState.sidebarVisible
-    readonly property Item navigationItem: activityBar
-    readonly property Item chartSidebarItem: chartSidebar.navigationContentItem
+    readonly property Item navigationItem: efficientMode ? efficientSidebar : activityBar
+    readonly property Item chartSidebarItem: efficientMode
+        ? efficientSidebar.navigationContentItem : chartSidebar.navigationContentItem
     readonly property real activityBarWidth: activityBar.width
-    readonly property Item cornerSourceItem: root.viewState.activeSidebarView === "export"
+    readonly property Item cornerSourceItem: efficientMode ? efficientSidebar.cornerSourceItem
+        : root.viewState.activeSidebarView === "export"
         ? exportSidebar.cornerSourceItem : chartSidebar.cornerSourceItem
 
     signal settingsRequested()
     signal mediaToolRequested(string toolId)
 
     function showMediaToolsMenu() {
-        activityBar.showMediaToolsMenu()
+        if (root.efficientMode) {
+            root.viewState.sidebarVisible = true
+            root.preferences.sidebarVisible = true
+            Qt.callLater(efficientSidebar.showTools)
+        } else {
+            activityBar.showMediaToolsMenu()
+        }
     }
 
     clip: true
@@ -60,6 +69,8 @@ Item {
     ActivityBar {
         netEnabled: root.pages.netEnabled
         id: activityBar
+        visible: !root.efficientMode
+        width: root.efficientMode ? 0 : implicitWidth
         color: root.compact ? "transparent" : Theme.chromeSurfaceColor(Theme.colors.background.activityBar)
         anchors.left: parent.left
         anchors.top: parent.top
@@ -98,7 +109,7 @@ Item {
             id: chartSidebar
             color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
             anchors.fill: parent
-            visible: root.viewState.activeSidebarView === "chart"
+            visible: !root.efficientMode && root.viewState.activeSidebarView === "chart"
             enabled: root.documentSession.hasDocument
             viewState: root.viewState
             documentSession: root.documentSession
@@ -106,11 +117,26 @@ Item {
             pages: root.pages
         }
 
+        EfficientSidebar {
+            id: efficientSidebar
+            anchors.fill: parent
+            visible: root.efficientMode
+            nativeMaterialActive: !root.compact && Theme.nativeMaterialActive
+            color: root.compact ? "transparent" : Theme.chromeSurfaceColor(Theme.colors.background.panel)
+            viewState: root.viewState
+            documentSession: root.documentSession
+            commands: root.commands
+            pages: root.pages
+            toolsMenuActive: activityBar.toolsMenuActive
+            onToolsRequested: activityBar.showMediaToolsMenu(efficientSidebar.toolsItem)
+            onSettingsRequested: root.settingsRequested()
+        }
+
         ExportSidebarPage {
             id: exportSidebar
             color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
             anchors.fill: parent
-            visible: root.viewState.activeSidebarView === "export"
+            visible: !root.efficientMode && root.viewState.activeSidebarView === "export"
             documentAvailable: root.documentSession.hasDocument
             pages: root.pages
         }

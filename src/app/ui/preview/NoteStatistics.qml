@@ -12,6 +12,7 @@ Item {
 
     required property var statistics
     property bool dataAvailable: true
+    property bool efficientMode: false
 
     readonly property int iconSlotWidth: 24
     readonly property int contentSpacing: 6
@@ -24,7 +25,7 @@ Item {
     readonly property int columns: wideLayout ? 6 : 3
     readonly property int rows: wideLayout ? 1 : 2
 
-    implicitHeight: wideLayout ? 55 : 96
+    implicitHeight: efficientMode ? 76 : wideLayout ? 55 : 96
     height: implicitHeight
 
     Text {
@@ -45,6 +46,7 @@ Item {
 
     Grid {
         id: grid
+        visible: !root.efficientMode
         anchors.fill: parent
         anchors.leftMargin: 4
         anchors.rightMargin: 4
@@ -134,4 +136,47 @@ Item {
             }
         }
     }
+
+    Grid {
+        id: textGrid
+        visible: root.efficientMode
+        anchors.fill: parent
+        anchors.margins: 6
+        columns: 3
+        columnSpacing: 6
+        rowSpacing: 6
+
+        Repeater {
+            model: root.efficientMode ? root.statistics.length : 0
+
+            delegate: Rectangle {
+                id: textCell
+                required property int index
+                readonly property var modelData: root.statistics[index]
+                width: (textGrid.width - 2 * textGrid.columnSpacing) / 3
+                height: (textGrid.height - textGrid.rowSpacing) / 2
+                radius: Theme.controlRadius
+                color: Theme.overlayColor(Theme.colors.background.control)
+                border.width: 1
+                border.color: modelData.kind === "total"
+                    ? Theme.colors.accent.focus : Theme.separatorColor
+
+                Text {
+                    anchors.fill: parent
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
+                    text: textCell.modelData.name + "  "
+                        + (root.dataAvailable ? textCell.modelData.value : "—")
+                    color: root.enabled ? Theme.colors.text.primary : Theme.colors.text.disabled
+                    font.family: Theme.uiFont
+                    font.pixelSize: Theme.uiFontSize
+                    fontSizeMode: Text.HorizontalFit
+                    minimumPixelSize: Math.max(1, Theme.secondaryFontSize - 1)
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+        }
+    }
+
 }
