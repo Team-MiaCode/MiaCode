@@ -75,3 +75,8 @@ VideoExportResult VideoExportController::exportFullPreview(
     _mc_op_.note(QStringLiteral("output=%1").arg(task.outputPath));
     return exportPreparedTask(task);
 }
+
+QString VideoExportController::ffmpegExecutablePath()
+{
+    return resolveFfmpegExecutable();
+}

@@ -287,7 +287,8 @@ void VideoExportQuickRenderBackend::resetOffscreenPboReadback()
     session_.resetOffscreenPboReadback();
 }
 
-bool VideoExportQuickRenderBackend::setupIntro(const IntroBannerSpec& intro, QString* errorMessage)
+bool VideoExportQuickRenderBackend::setupIntro(const IntroBannerSpec& intro, bool pvVideoUnderlay,
+                                               QString* errorMessage)
 {
     const bool d3d11Active = sessionBackend_ == ExportQuickRenderSessionBackend::D3D11Qrhi;
     const QUrl overlayUrl(QString::fromLatin1(miacode::intro::kOverlayQmlUrl));
@@ -323,13 +324,22 @@ bool VideoExportQuickRenderBackend::setupIntro(const IntroBannerSpec& intro, QSt
         templateMap, intro.fontDisplayPath, intro.fontBodyPath);
 
     const QUrl logoUrl(QString::fromLatin1(miacode::intro::kLogoFallbackUrl));
-    const QVariantMap styleMap = introBannerStyleMap(intro);
+    const QVariantMap styleMap = introBannerStyleMap(intro, pvVideoUnderlay);
     if (d3d11Active) {
         d3d11Session_.setIntroBannerData(track, templateMap, jacketUrl, logoUrl, styleMap);
     } else {
         session_.setIntroBannerData(track, templateMap, jacketUrl, logoUrl, styleMap);
     }
     return true;
+}
+
+void VideoExportQuickRenderBackend::setChartLayersVisible(bool visible)
+{
+    if (sessionBackend_ == ExportQuickRenderSessionBackend::D3D11Qrhi) {
+        d3d11Session_.setChartLayersVisible(visible);
+        return;
+    }
+    session_.setChartLayersVisible(visible);
 }
 
 void VideoExportQuickRenderBackend::setIntroFrame(int authoringFrame, bool active)

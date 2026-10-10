@@ -331,6 +331,18 @@
         <source>Prepend the maimai track-start intro (full-range exports only).</source>
         <translation>添加 maimai 开场片头（适用于全范围导出）。</translation>
     </message>
+    <message id="cli.video_export.intro_card_shadow">
+        <source>Draw a soft drop shadow behind the intro difficulty card.</source>
+        <translation>在片头难度卡后绘制柔和阴影。</translation>
+    </message>
+    <message id="cli.video_export.intro_pv_invalid">
+        <source>--intro-pv-start must be zero or a positive number</source>
+        <translation>--intro-pv-start 必须是不小于零的数</translation>
+    </message>
+    <message id="cli.video_export.intro_pv_start">
+        <source>PV-preview intro: chart second where the fixed 6.5 s PV + music segment starts (implies --intro).</source>
+        <translation>PV 预览片头：6.5 秒 PV 与音乐片段的起始谱面时间（秒），同时启用 --intro。</translation>
+    </message>
     <message id="cli.video_export.judge_line_scale">
         <source>Judge line size scale.</source>
         <translation>判定线大小比例。</translation>
@@ -553,10 +565,6 @@
         <source>Cover layout (*.miacover)</source>
         <translation>封面布局 (*.miacover)</translation>
     </message>
-    <message id="cover.cover_layout_miacover_legacy_json">
-        <source>Cover layout (*.miacover);;Legacy JSON (*.json)</source>
-        <translation>封面布局 (*.miacover);;旧版 JSON (*.json)</translation>
-    </message>
     <message id="cover.custom_image">
         <source>Custom image</source>
         <translation>自定义图片</translation>
@@ -648,6 +656,14 @@
     <message id="cover.inner_bg">
         <source>Inner bg</source>
         <translation>内圈背景</translation>
+    </message>
+    <message id="cover.inner_pv_fill">
+        <source>PV (fill)</source>
+        <translation>PV填充</translation>
+    </message>
+    <message id="cover.inner_pv_fit">
+        <source>PV (fit)</source>
+        <translation>PV适应</translation>
     </message>
     <message id="cover.jacket">
         <source>Jacket</source>
@@ -1036,8 +1052,8 @@ Failed: %2</source>
         <translation>所选图片无法读取。</translation>
     </message>
     <message id="dialog.preferences.background.image_filter">
-        <source>Images (*.png *.jpg *.jpeg *.bmp *.webp);;All Files (*)</source>
-        <translation>图片 (*.png *.jpg *.jpeg *.bmp *.webp);;所有文件 (*)</translation>
+        <source>Images (*.png *.jpg *.jpeg *.bmp *.webp)</source>
+        <translation>图片 (*.png *.jpg *.jpeg *.bmp *.webp)</translation>
     </message>
     <message id="dialog.preferences.background.position">
         <source>Position</source>
@@ -3976,6 +3992,42 @@ Error: %1</source>
     <message id="video_export.intro">
         <source>Intro</source>
         <translation>片头</translation>
+    </message>
+    <message id="video_export.intro_audition">
+        <source>Audition</source>
+        <translation>试听</translation>
+    </message>
+    <message id="video_export.intro_audition_loop">
+        <source>Loop audition</source>
+        <translation>循环试听</translation>
+    </message>
+    <message id="video_export.intro_audition_stop">
+        <source>Stop</source>
+        <translation>停止</translation>
+    </message>
+    <message id="video_export.intro_music_segment">
+        <source>Music segment</source>
+        <translation>音乐片段</translation>
+    </message>
+    <message id="video_export.intro_pv_segment">
+        <source>PV segment</source>
+        <translation>PV 片段</translation>
+    </message>
+    <message id="video_export.intro_pv_start">
+        <source>Start</source>
+        <translation>起点</translation>
+    </message>
+    <message id="video_export.intro_style">
+        <source>Intro style</source>
+        <translation>片头样式</translation>
+    </message>
+    <message id="video_export.intro_style_classic">
+        <source>Classic</source>
+        <translation>经典</translation>
+    </message>
+    <message id="video_export.intro_style_pv_preview">
+        <source>PV preview</source>
+        <translation>PV 预览</translation>
     </message>
     <message id="video_export.output">
         <source>Output</source>

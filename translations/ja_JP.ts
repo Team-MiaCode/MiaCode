@@ -331,6 +331,18 @@
         <source>Prepend the maimai track-start intro (full-range exports only).</source>
         <translation>maimai の楽曲開始イントロを追加します（全範囲のエクスポート用）。</translation>
     </message>
+    <message id="cli.video_export.intro_card_shadow">
+        <source>Draw a soft drop shadow behind the intro difficulty card.</source>
+        <translation>イントロの難易度カードの背後にソフトな影を描画します。</translation>
+    </message>
+    <message id="cli.video_export.intro_pv_invalid">
+        <source>--intro-pv-start must be zero or a positive number</source>
+        <translation>--intro-pv-start は 0 以上の数で指定してください</translation>
+    </message>
+    <message id="cli.video_export.intro_pv_start">
+        <source>PV-preview intro: chart second where the fixed 6.5 s PV + music segment starts (implies --intro).</source>
+        <translation>PV プレビューイントロ：6.5 秒の PV と楽曲の区間を開始する譜面時刻（秒）。--intro を含みます。</translation>
+    </message>
     <message id="cli.video_export.judge_line_scale">
         <source>Judge line size scale.</source>
         <translation>判定ラインのサイズ倍率。</translation>
@@ -553,10 +565,6 @@
         <source>Cover layout (*.miacover)</source>
         <translation>カバーレイアウト (*.miacover)</translation>
     </message>
-    <message id="cover.cover_layout_miacover_legacy_json">
-        <source>Cover layout (*.miacover);;Legacy JSON (*.json)</source>
-        <translation>カバーレイアウト (*.miacover);;旧版 JSON (*.json)</translation>
-    </message>
     <message id="cover.custom_image">
         <source>Custom image</source>
         <translation>カスタム画像</translation>
@@ -648,6 +656,14 @@
     <message id="cover.inner_bg">
         <source>Inner bg</source>
         <translation>内側の背景</translation>
+    </message>
+    <message id="cover.inner_pv_fill">
+        <source>PV (fill)</source>
+        <translation>PV（フィル）</translation>
+    </message>
+    <message id="cover.inner_pv_fit">
+        <source>PV (fit)</source>
+        <translation>PV（フィット）</translation>
     </message>
     <message id="cover.jacket">
         <source>Jacket</source>
@@ -1036,8 +1052,8 @@ Failed: %2</source>
         <translation>選択した画像を読み込めません。</translation>
     </message>
     <message id="dialog.preferences.background.image_filter">
-        <source>Images (*.png *.jpg *.jpeg *.bmp *.webp);;All Files (*)</source>
-        <translation>画像 (*.png *.jpg *.jpeg *.bmp *.webp);;すべてのファイル (*)</translation>
+        <source>Images (*.png *.jpg *.jpeg *.bmp *.webp)</source>
+        <translation>画像 (*.png *.jpg *.jpeg *.bmp *.webp)</translation>
     </message>
     <message id="dialog.preferences.background.position">
         <source>Position</source>
@@ -3976,6 +3992,42 @@ Error: %1</source>
     <message id="video_export.intro">
         <source>Intro</source>
         <translation>イントロ</translation>
+    </message>
+    <message id="video_export.intro_audition">
+        <source>Audition</source>
+        <translation>試聴</translation>
+    </message>
+    <message id="video_export.intro_audition_loop">
+        <source>Loop audition</source>
+        <translation>ループ試聴</translation>
+    </message>
+    <message id="video_export.intro_audition_stop">
+        <source>Stop</source>
+        <translation>停止</translation>
+    </message>
+    <message id="video_export.intro_music_segment">
+        <source>Music segment</source>
+        <translation>楽曲区間</translation>
+    </message>
+    <message id="video_export.intro_pv_segment">
+        <source>PV segment</source>
+        <translation>PV 区間</translation>
+    </message>
+    <message id="video_export.intro_pv_start">
+        <source>Start</source>
+        <translation>開始</translation>
+    </message>
+    <message id="video_export.intro_style">
+        <source>Intro style</source>
+        <translation>イントロのスタイル</translation>
+    </message>
+    <message id="video_export.intro_style_classic">
+        <source>Classic</source>
+        <translation>クラシック</translation>
+    </message>
+    <message id="video_export.intro_style_pv_preview">
+        <source>PV preview</source>
+        <translation>PV プレビュー</translation>
     </message>
     <message id="video_export.output">
         <source>Output</source>

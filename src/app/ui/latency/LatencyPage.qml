@@ -132,7 +132,7 @@ Rectangle {
             SettingsSection {
                 objectName: "latencyAuditionCard"
                 Layout.fillWidth: true
-                title: qsTrId("dialog.render_settings.music.audition")
+                title: ""
 
                 ButtonGroup { id: subdivisionGroup }
 

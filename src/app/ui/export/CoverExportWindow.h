@@ -38,6 +38,8 @@ private:
     QIcon icon_;
     PlatformChrome platform_;
     WindowChrome windowChrome_;
+    // The window's own request queue. It has its own UiRequestHost; on the shell's
+    // shared queue, the main window's host would open every pick a second time.
     miacode::UiRequestService requests_;
     CoverExportSession session_;
     std::unique_ptr<QQmlApplicationEngine> engine_;

@@ -14,6 +14,40 @@ inline constexpr int kDurationFrames = 349;
 inline constexpr double kDurationSeconds =
     static_cast<double>(kDurationFrames) / static_cast<double>(kAuthoringFps);  // ~5.82 s
 
+// The cycle-2 wipe span (IntroOverlay.cycle2SpanFrames), shared by both intro
+// styles. The classic intro starts it at frame 195; the PV preview starts it
+// at the end of its card hold.
+inline constexpr int kCycle2SpanFrames = 154;
+// Frames from the cycle-2 start until the wipe fully covers the screen
+// (IntroOverlay.mergeFrame).
+inline constexpr int kCycle2MergeOffsetFrames = 75;
+
+// PV-preview intro: no cycle-1 wipe and no opening SFX. The card holds over a
+// fixed-length PV + music segment from a chosen chart second (fading in from
+// black), then the classic cycle-2 wipe hard-cuts in and hands off.
+inline constexpr int kPvPreviewHoldFrames = 390;  // 6.5 s
+inline constexpr double kPvPreviewHoldSeconds =
+    static_cast<double>(kPvPreviewHoldFrames) / static_cast<double>(kAuthoringFps);
+inline constexpr int kPvPreviewDurationFrames = kPvPreviewHoldFrames + kCycle2SpanFrames;  // 544
+// Music envelope: the segment's music keeps playing past the hard cut until the
+// wipe fully covers the screen, so the fade-out straddles the cut instead of
+// ending on it. Both ramps are smooth S-curves (BassExportAudioBackend).
+inline constexpr double kPvPreviewAudioTailSeconds =
+    static_cast<double>(kCycle2MergeOffsetFrames) / static_cast<double>(kAuthoringFps);  // 1.25 s
+inline constexpr double kPvPreviewAudioFadeInSeconds = 0.8;
+inline constexpr double kPvPreviewAudioFadeOutSeconds = 2.0;
+
+// Authoring-frame length of the whole intro window for either style.
+inline constexpr int introDurationFrames(bool pvPreview)
+{
+    return pvPreview ? kPvPreviewDurationFrames : kDurationFrames;
+}
+
+inline constexpr double introDurationSeconds(bool pvPreview)
+{
+    return static_cast<double>(introDurationFrames(pvPreview)) / static_cast<double>(kAuthoringFps);
+}
+
 // Chart-background ("曲绘") fade-from-black. Applied to the ffmpeg BACKGROUND base
 // (so the playfield outline + HUD, which live in the QSG overlay, are unaffected)
 // — NOT in the QML overlay. The bg is held black through the covered intro and the

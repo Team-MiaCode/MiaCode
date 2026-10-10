@@ -204,6 +204,10 @@ public:
         bool showObjectStatsHud = false;
         bool showChartInfoHud = false;
         bool addIntro = false;
+        // PV-preview intro style (IntroBannerSpec::pvPreview) and its segment.
+        bool introCardShadow = false;
+        bool introPvPreview = false;
+        double introPvStartSeconds = 0.0;
         double previewMaxOutputSeconds = 0.0;  // 0 = full; >0 caps output (intro preview)
         miacode::preview_gameplay::CenterDisplayMode centerDisplayMode =
             miacode::preview_gameplay::kDefaultCenterDisplayMode;
@@ -491,6 +495,8 @@ public:
     // re-derive the negative-time intro region after an intro edit.
     double currentPreviewAuthoritativeAudioClockSecond() const;
     void refreshExportIntroState();
+    void setExportIntroAuditionPlaying(bool playing);
+    bool exportIntroAuditionPlaying() const;
 
     bool hasActiveDifficulty() const;
     int activeDifficultyId() const;

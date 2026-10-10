@@ -240,14 +240,15 @@ bool buildVideoExportAudioRenderPlan(
     built.leadInSeconds = task.fullRangeExport
         ? miacode::video_export::kLeadInSeconds
         : miacode::video_export::kPartialRangePreloadSeconds;
-    // Pre-roll maimai track-start intro: extra silent padding in FRONT of the
-    // lead-in (full-range exports only). The chart timeline origin, total
-    // duration and frame count all absorb it, so the existing linear
-    // frame->chart-second mapping still reaches -leadIn at frame introFrameCount
-    // and chart 0 at the same wall-time as the rendered intro hand-off. The
-    // window is pure silence today (the opening SFX is added later).
+    // Pre-roll maimai track-start intro: extra padding in FRONT of the lead-in
+    // (full-range exports only). The chart timeline origin, total duration and
+    // frame count all absorb it, so the existing linear frame->chart-second
+    // mapping still reaches -leadIn at frame introFrameCount and chart 0 at the
+    // same wall-time as the rendered intro hand-off. The classic window is
+    // silence here (the opening SFX is mixed later); the PV preview carries its
+    // music segment as introPreviewTrack.
     built.introLeadSeconds = (task.fullRangeExport && task.intro.enabled)
-        ? miacode::intro::kDurationSeconds
+        ? introDurationSeconds(task.intro)
         : 0.0;
     built.introFrameCount = built.introLeadSeconds > 0.0
         ? qMax(0, qRound(built.introLeadSeconds * qMax(1, task.fps)))
@@ -315,6 +316,19 @@ bool buildVideoExportAudioRenderPlan(
         }
         if (backgroundPlan.durationSeconds > kTimelineEpsilonSeconds && backgroundPlan.gain > 0.0) {
             built.backgroundTrack = backgroundPlan;
+        }
+        if (built.introLeadSeconds > 0.0 && task.intro.pvPreview && built.backgroundTrack.enabled) {
+            BackgroundTrackRenderPlan introPlan;
+            introPlan.enabled = true;
+            introPlan.path = normalizedTrackPath;
+            introPlan.gain = built.backgroundTrack.gain;
+            introPlan.sourceStartSecond = qMax(0.0, task.intro.pvPreviewStartSeconds);
+            introPlan.mixStartSecond = 0.0;
+            introPlan.durationSeconds =
+                miacode::intro::kPvPreviewHoldSeconds + miacode::intro::kPvPreviewAudioTailSeconds;
+            introPlan.fadeInSeconds = miacode::intro::kPvPreviewAudioFadeInSeconds;
+            introPlan.fadeOutSeconds = miacode::intro::kPvPreviewAudioFadeOutSeconds;
+            built.introPreviewTrack = introPlan;
         }
     }
 

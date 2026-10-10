@@ -176,9 +176,14 @@ Item {
     // tick is gated by frameSwapped (present-driven pacing), so the
     // playhead stalled and chart sprites stopped advancing — the
     // symptom was a "frozen" preview.
+    //
+    // The PV-preview intro hold shows the stage PV around the card, so the
+    // chart and HUD drop out by opacity for that phase; the animating intro
+    // overlay keeps the frame dirty, so presents keep their cadence.
     PreviewQuickSceneRoot {
         anchors.fill: parent
         z: 1
+        opacity: root.runtime && root.runtime.introHidesChart ? 0 : 1
         runtime: root.runtime
         backgroundColor: root.backgroundColor
     }
@@ -186,6 +191,7 @@ Item {
     PreviewQuickHudLayer {
         anchors.fill: parent
         z: 2
+        opacity: root.runtime && root.runtime.introHidesChart ? 0 : 1
         runtime: root.runtime
         textColor: root.stageMediaVisible ? root.mediaHudTextColor : root.hudTextColor
         shadowColor: root.stageMediaVisible ? root.mediaHudShadowColor : root.hudShadowColor
@@ -218,6 +224,7 @@ Item {
         function syncIntroOverlayFrame() {
             if (!introOverlayLoader.item || !root.runtime)
                 return
+            introOverlayLoader.item.stillFrame = root.runtime.introStillFrame
             introOverlayLoader.item.frame = root.runtime.introOverlayFrame
         }
 

@@ -199,6 +199,7 @@ public:
     // the region (negative) vs the chart (>=0); refreshExportIntroState reacts to
     // the 添加片头 toggle / install (resizes the slider, enters/leaves the region).
     bool exportIntroEnabled() const;
+    double exportIntroDurationSeconds() const;
     double exportIntroLowerBoundSeconds() const;
     void setupExportIntroOverlayData();
     void renderExportIntroFrame(double positionSeconds);
@@ -208,9 +209,19 @@ public:
     void pauseExportIntroAdvance();
     void startExportIntroAdvance(double fromPositionSeconds);
     void tickExportIntroLeadIn();
+    // PV-preview intro audition (see SessionMembers.inc): the transport plays
+    // the segment; the playback tick hands each second to the intro tick.
+    void startExportIntroPvSegment(double startSeconds, double elapsedSeconds);
+    void tickExportIntroPvSegment(double chartSecond);
+    void stopExportIntroPvSegment();
+    // Ends a due audition (music faded out); true when it replayed or parked.
+    bool finishExportIntroAuditionIfDue(double elapsedSeconds);
+    void haltExportIntroLeadInTimer();
     void cancelExportIntroLeadIn();
     bool handleExportIntroSliderSeek(double second);
     void refreshExportIntroState();
+    void setExportIntroAuditionPlaying(bool playing);
+    bool exportIntroAuditionPlaying() const;
     // clock_count count-in for the export-page audition (see MemberStorage). Setup
     // is seeded when the audition scene installs; the cursor resets to skip elapsed
     // ticks at each playback start; due ticks fire one-shot from the playback tick.

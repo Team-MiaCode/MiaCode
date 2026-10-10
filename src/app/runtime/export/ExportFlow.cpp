@@ -402,6 +402,10 @@ VideoExportTask miacode::runtime::VideoExportHost::buildVideoExportSeedTask(int 
     VideoExportTask task;
     task.chartPath = session_.currentFilePath_;
     task.trackPath = session_.resolveDefaultTrackPath();
+    // The export page reads it to offer the PV-preview intro, the cover editor
+    // to offer the chart-frame PV background (same resolution as the snapshot).
+    task.backgroundMediaPath = miacode::chart_assets::resolveChartVideoPath(
+        session_.currentFilePath_, session_.applicationServices_.workspace().document().videoPath);
     // Seed the skin dir so the dialog's "Export Cover" chart-frame renderer can
     // load the note sprites without building a full export snapshot.
     task.skinDirectory = session_.resolvePreviewSkinDir();

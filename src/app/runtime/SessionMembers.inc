@@ -220,13 +220,31 @@
         // Negative-time intro region: the intro occupies [-duration, 0) on the
         // preview timeline. Scrub/pause shows a static intro frame at that
         // position; play advances through it and crosses 0 into the chart.
-        // The intro duration is the constant miacode::intro::kDurationSeconds and
-        // "添加片头 on" is read live via exportIntroEnabled() (no cached flag — a
+        // The duration follows the 片头 style (miacode::intro::introDurationSeconds)
+        // and "添加片头 on" is read live via exportIntroEnabled() (no cached flag — a
         // cache desynced and collapsed the slider). Playhead is the current
         // position in [-duration, 0]; AdvanceFrom is where a play started.
         double exportIntroPlayheadSeconds_ = 0.0;
         double exportIntroAdvanceFromSeconds_ = 0.0;
         bool exportIntroRegionActive_ = false;
+        // Chart second the paused scene/PV is parked at under the intro region
+        // (the PV-preview hold parks it inside the segment); -1 = not parked.
+        double exportIntroParkedChartSecond_ = -1.0;
+        // PV-preview intro audition: while set, the transport plays song + PV from
+        // the segment start (chart second = start + intro elapsed) under the
+        // overlay, with note SFX silenced and the song on the intro's fade
+        // envelope (TrackGain) via applyPreviewAudioSettingsToRuntime.
+        bool exportIntroPvSegmentActive_ = false;
+        double exportIntroPvSegmentStartSeconds_ = 0.0;
+        double exportIntroPvSegmentTrackGain_ = 1.0;
+        // The 片头 tab's 试听: plays the PV-preview intro until its music has
+        // faded out, then parks back at ReturnSeconds (or replays while the page
+        // loops it). Any other transport action ends it.
+        bool exportIntroAuditionActive_ = false;
+        // Region playheads: where each (looped) play starts, and where the
+        // audition parks when it ends or is stopped.
+        double exportIntroAuditionStartSeconds_ = 0.0;
+        double exportIntroAuditionReturnSeconds_ = 0.0;
         // clock_count count-in for the export-page audition: clock.wav ticks at
         // chart-time [0, count*beat) (beat = 60/clockBpm), mirroring the export's
         // appendClockCountPlaybacks. Fired one-shot from the playback tick (NOT the

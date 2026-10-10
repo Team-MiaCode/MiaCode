@@ -16,6 +16,9 @@ struct BackgroundTrackRenderPlan {
     double sourceStartSecond = 0.0;
     double durationSeconds = 0.0;
     double gain = 1.0;
+    // Linear volume ramps at the head / tail of the mixed span (0 = none).
+    double fadeInSeconds = 0.0;
+    double fadeOutSeconds = 0.0;
 };
 
 struct ScheduledSfxPlaybackRenderPlan {
@@ -58,6 +61,10 @@ struct VideoExportAudioRenderPlan {
     QString sfxDirectory;
     QVector<TimelineNoteMarker> exportMarkers;
     BackgroundTrackRenderPlan backgroundTrack;
+    // PV-preview intro: the chosen music segment under the card hold (plus a
+    // tail under the wipe for the fade-out), mixed at output 0 with the BGM's
+    // loudness normalisation.
+    BackgroundTrackRenderPlan introPreviewTrack;
     QVector<ScheduledSfxPlaybackRenderPlan> scheduledSfxPlaybacks;
     QVector<TouchholdSpanRenderPlan> touchholdSpanPlaybacks;
 };

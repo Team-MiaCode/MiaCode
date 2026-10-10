@@ -257,6 +257,19 @@ void miacode::runtime::PlaybackCoordinator::onQtPreviewTickAtSecond(double secon
     if (!state_.playing_) {
         return;
     }
+    if (state_.exportIntroPvSegmentActive_) {
+        // The transport plays the 片头 PV segment: the second drives the intro,
+        // not the chart, the timeline or the playback range.
+        tickExportIntroPvSegment(second);
+        if (state_.playing_) {
+            if (previewCanvasUsesFrameSwappedPacing()) {
+                requestNextDisplayRefreshPreviewFrame();
+            } else {
+                requestNextFixedIntervalPreviewFrame();
+            }
+        }
+        return;
+    }
     const bool diagEnabled = miacode::debug_options::previewFramePacingDiagnosticsEnabled();
     QElapsedTimer tickProfileTimer;
     qint64 syncMediaElapsedNs = 0;

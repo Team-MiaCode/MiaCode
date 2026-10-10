@@ -133,6 +133,15 @@ int runCliVideoExport(QGuiApplication& app, QString* errorMessage)
         qtTrId("cli.video_export.intro")
     ));
     parser.addOption(QCommandLineOption(
+        QStringLiteral("intro-card-shadow"),
+        qtTrId("cli.video_export.intro_card_shadow")
+    ));
+    parser.addOption(QCommandLineOption(
+        QStringLiteral("intro-pv-start"),
+        qtTrId("cli.video_export.intro_pv_start"),
+        QStringLiteral("seconds")
+    ));
+    parser.addOption(QCommandLineOption(
         QStringLiteral("preview-seconds"),
         qtTrId("cli.video_export.preview_seconds"),
         QStringLiteral("seconds"),
@@ -314,6 +323,19 @@ int runCliVideoExport(QGuiApplication& app, QString* errorMessage)
         }
     }
 
+    const bool introPvPreview = parser.isSet(QStringLiteral("intro-pv-start"));
+    double introPvStartSeconds = 0.0;
+    if (introPvPreview) {
+        bool startOk = false;
+        introPvStartSeconds = parser.value(QStringLiteral("intro-pv-start")).toDouble(&startOk);
+        if (!startOk || !std::isfinite(introPvStartSeconds) || introPvStartSeconds < 0.0) {
+            if (errorMessage != nullptr) {
+                *errorMessage = qtTrId("cli.video_export.intro_pv_invalid");
+            }
+            return 2;
+        }
+    }
+
     Session::CliVideoExportRequest request;
     request.chartPathOrDirectory = chartInput;
     request.difficulty = parser.value(QStringLiteral("difficulty")).trimmed();
@@ -326,7 +348,10 @@ int runCliVideoExport(QGuiApplication& app, QString* errorMessage)
     request.showTimestamp = !parser.isSet(QStringLiteral("hide-timestamp"));
     request.showObjectStatsHud = parser.isSet(QStringLiteral("show-object-stats"));
     request.showChartInfoHud = parser.isSet(QStringLiteral("show-chart-info"));
-    request.addIntro = parser.isSet(QStringLiteral("intro"));
+    request.addIntro = parser.isSet(QStringLiteral("intro")) || introPvPreview;
+    request.introCardShadow = parser.isSet(QStringLiteral("intro-card-shadow"));
+    request.introPvPreview = introPvPreview;
+    request.introPvStartSeconds = introPvStartSeconds;
     {
         bool previewOk = false;
         const double previewSeconds = parser.value(QStringLiteral("preview-seconds")).toDouble(&previewOk);

@@ -43,10 +43,16 @@ public:
         if (queryPos >= 0) {
             key.truncate(queryPos);
         }
+        // "<key>" serves the chart still, "pv/<key>" the layer's PV background.
+        const QString pvPrefix = QStringLiteral("pv/");
+        const bool pvFrame = key.startsWith(pvPrefix);
+        if (pvFrame) {
+            key.remove(0, pvPrefix.size());
+        }
         QImage image;
         if (model_ != nullptr) {
             if (CoverLayer* layer = model_->layer(key)) {
-                image = layer->frameImage();
+                image = pvFrame ? layer->pvFrameImage() : layer->frameImage();
             }
         }
         if (image.isNull()) {
@@ -202,6 +208,17 @@ QImage renderCoverComposite(CoverLayoutModel* model,
     if (image.isNull()) {
         settleEvents(true);
         image = window->grabWindow();
+    }
+    // The grab renders into the window's surface. Should that surface be smaller
+    // than requested, lay the normalised composition out on it instead of
+    // cropping the full-size layout; the scale below restores the output size.
+    if (!image.isNull()) {
+        const qreal grabDpr = image.devicePixelRatio() > 0 ? image.devicePixelRatio() : 1.0;
+        const QSizeF surface(image.width() / grabDpr, image.height() / grabDpr);
+        if (surface.width() + 1 < width || surface.height() + 1 < height) {
+            root->setSize(surface);
+            image = window->grabWindow();
+        }
     }
     delete window;
     if (image.isNull()) {

@@ -125,6 +125,47 @@ bool verifyAutoCopyKeepsDetectedMode(QTextStream& err)
     return true;
 }
 
+bool verifyPvPreviewTimeline(QTextStream& err)
+{
+    IntroBannerSpec intro;
+    if (!require(introDurationFrames(intro) == miacode::intro::kDurationFrames,
+                 QStringLiteral("classic intro keeps the fixed 349-frame window"), err)) {
+        return false;
+    }
+    intro.pvPreview = true;
+    if (!require(introDurationFrames(intro) == 390 + miacode::intro::kCycle2SpanFrames
+                     && qAbs(introDurationSeconds(intro) - (390.0 + 154.0) / 60.0) < 1e-9,
+                 QStringLiteral("PV preview window is the fixed 6.5 s hold + cycle 2"), err)) {
+        return false;
+    }
+
+    QVariantMap style = introBannerStyleMap(intro, true);
+    if (!require(style.value(QStringLiteral("pvPreviewMode")).toBool()
+                     && style.value(QStringLiteral("pvPreviewHoldFrames")).toInt() == 390
+                     && style.value(QStringLiteral("pvPreviewVideoUnderlay")).toBool(),
+                 QStringLiteral("style map carries the PV preview timeline"), err)) {
+        return false;
+    }
+    intro.pvPreview = false;
+    style = introBannerStyleMap(intro, true);
+    if (!require(!style.value(QStringLiteral("pvPreviewMode")).toBool()
+                     && !style.value(QStringLiteral("pvPreviewVideoUnderlay")).toBool(),
+                 QStringLiteral("classic intro never asks for a PV underlay"), err)) {
+        return false;
+    }
+
+    // The style is a dialog choice; the start belongs to each chart and must
+    // not leak from the dialog task onto another chart's spec.
+    IntroBannerSpec from;
+    from.pvPreview = true;
+    from.pvPreviewStartSeconds = 33.0;
+    IntroBannerSpec to;
+    to.pvPreviewStartSeconds = 12.0;
+    copyIntroStyling(from, &to);
+    return require(to.pvPreview && qAbs(to.pvPreviewStartSeconds - 12.0) < 1e-9,
+                   QStringLiteral("dialog styling copy keeps the style and the chart's own start"), err);
+}
+
 }  // namespace
 
 int main()
@@ -134,6 +175,9 @@ int main()
         return 1;
     }
     if (!verifyAutoCopyKeepsDetectedMode(err)) {
+        return 1;
+    }
+    if (!verifyPvPreviewTimeline(err)) {
         return 1;
     }
 

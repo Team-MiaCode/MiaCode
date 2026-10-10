@@ -4,6 +4,7 @@
 #include <QPointer>
 #include <QString>
 #include <QStringList>
+#include <QTimer>
 #include <QVariantList>
 
 #include "app/services/UiRequestService.h"
@@ -70,6 +71,19 @@ class ExportSession final : public QObject, public miacode::ExportPagePort
     Q_PROPERTY(bool introLevelTextRender READ introLevelTextRender WRITE setIntroLevelTextRender NOTIFY introChanged)
     Q_PROPERTY(QString introFontDisplayPath READ introFontDisplayPath WRITE setIntroFontDisplayPath NOTIFY introChanged)
     Q_PROPERTY(QString introFontBodyPath READ introFontBodyPath WRITE setIntroFontBodyPath NOTIFY introChanged)
+    // PV-preview intro style. The start is the chart's own (project preference)
+    // and is remembered per chart; the segment length is fixed.
+    Q_PROPERTY(bool introPvPreview READ introPvPreview WRITE setIntroPvPreview NOTIFY introChanged)
+    Q_PROPERTY(double introPvStartSeconds READ introPvStartSeconds WRITE setIntroPvStartSeconds NOTIFY introChanged)
+    Q_PROPERTY(double introPvSegmentSeconds READ introPvSegmentSeconds CONSTANT)
+    // How long the segment's music plays into the intro (it fades out under the wipe).
+    Q_PROPERTY(double introPvMusicSeconds READ introPvMusicSeconds CONSTANT)
+    Q_PROPERTY(bool introPvVideoAvailable READ introPvVideoAvailable NOTIFY introChanged)
+    // Preview-only state of the PV segment picker: dragging its window fades the
+    // card; 试听 plays the intro to the end of its music and returns.
+    Q_PROPERTY(bool introPvSegmentDragging READ introPvSegmentDragging WRITE setIntroPvSegmentDragging NOTIFY introPreviewStateChanged)
+    Q_PROPERTY(bool introAuditionLoop READ introAuditionLoop WRITE setIntroAuditionLoop NOTIFY introPreviewStateChanged)
+    Q_PROPERTY(bool introAuditionPlaying READ introAuditionPlaying NOTIFY introPreviewStateChanged)
     Q_PROPERTY(QVariantList introSoundOptions READ introSoundOptions NOTIFY introSoundOptionsChanged)
     Q_PROPERTY(int introSoundIndex READ introSoundIndex WRITE setIntroSoundIndex NOTIFY introChanged)
     Q_PROPERTY(QString introSoundFileName READ introSoundFileName WRITE setIntroSoundFileName NOTIFY introChanged)
@@ -143,6 +157,15 @@ public:
     bool introLevelTextRender() const;
     QString introFontDisplayPath() const { return task_.intro.fontDisplayPath; }
     QString introFontBodyPath() const { return task_.intro.fontBodyPath; }
+    bool introPvPreview() const { return task_.intro.pvPreview; }
+    double introPvStartSeconds() const { return task_.intro.pvPreviewStartSeconds; }
+    double introPvSegmentSeconds() const;
+    double introPvMusicSeconds() const;
+    bool introPvVideoAvailable() const;
+    bool introPvSegmentDragging() const override { return introPvSegmentDragging_; }
+    bool introAuditionLoop() const override { return introAuditionLoop_; }
+    bool introAuditionFromHead() const override { return introAuditionFromHead_; }
+    bool introAuditionPlaying() const;
     QVariantList introSoundOptions() const;
     int introSoundIndex() const;
     QString introSoundFileName() const { return task_.introSoundFileName; }
@@ -194,6 +217,10 @@ public:
     // this the range would survive to ambush an unrelated later page entry.
     void clearPendingSelectionRangeExport();
     Q_INVOKABLE QString setExportStartText(const QString& text);
+    Q_INVOKABLE QString setIntroPvStartText(const QString& text);
+    Q_INVOKABLE void toggleIntroAudition();
+    // The picker seeked inside its window (click or playhead drag).
+    Q_INVOKABLE void noteIntroPvSeek();
     Q_INVOKABLE QString setExportEndText(const QString& text);
     Q_INVOKABLE void startExport();
     Q_INVOKABLE void cancelExport();
@@ -216,6 +243,10 @@ public:
     void setIntroLevelTextRender(bool value);
     void setIntroFontDisplayPath(const QString& path);
     void setIntroFontBodyPath(const QString& path);
+    void setIntroPvPreview(bool value);
+    void setIntroPvStartSeconds(double seconds);
+    void setIntroPvSegmentDragging(bool dragging);
+    void setIntroAuditionLoop(bool loop);
     void setIntroSoundIndex(int index);
     void setIntroSoundFileName(const QString& fileName);
     void setExportStartSeconds(double value);
@@ -224,6 +255,7 @@ public:
 
 signals:
     void pageSessionActiveChanged();
+    void introPreviewStateChanged();
     void selectedDifficultyIdChanged();
     void activeTabChanged();
     void settingsTabChanged();
@@ -303,6 +335,16 @@ private:
     QVariantList difficulties_;
     VideoExportTask task_;
     double chartDurationSeconds_ = 0.0;
+    // Dragging the PV start writes the chart's project preferences once the
+    // drag settles; the path is captured with the value so a pending write can
+    // never land on the next chart.
+    QTimer introPvStartSaveTimer_;
+    QString pendingIntroPvStartChartPath_;
+    double pendingIntroPvStartSeconds_ = 0.0;
+    void flushIntroPvStart();
+    bool introPvSegmentDragging_ = false;
+    bool introAuditionLoop_ = false;
+    bool introAuditionFromHead_ = true;
     // Staged by requestSelectionRangeExport(); consumed once by the next
     // seedFromDifficulty() and cleared, so a later plain page entry/switch
     // does not silently reapply a stale selection's range.

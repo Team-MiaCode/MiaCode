@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQml.Models
 import QtQuick.Controls
 import QtQuick.Layouts
 import MiaCode.UI
@@ -115,6 +116,20 @@ Rectangle {
         return parts[parts.length - 1] || path
     }
 
+    // Rows whose model changes at runtime go through Instantiator +
+    // insertItem: a Repeater among a Menu's static rows inserts its new rows
+    // at an unrelated position once its model changes.
+    function menuItemIndex(menu, item) {
+        for (let i = 0; i < menu.count; ++i) {
+            if (menu.itemAt(i) === item)
+                return i
+        }
+        return -1
+    }
+    function insertMenuItemAfter(menu, anchor, offset, item) {
+        menu.insertItem(menuItemIndex(menu, anchor) + 1 + offset, item)
+    }
+
     function showLayerInspector(key) {
         if (key)
             inspectorTabs.setCurrentIndex(1)
@@ -197,20 +212,20 @@ Rectangle {
                 text: qsTrId("cover.import_layout_file")
                 onTriggered: root.session.importLayout()
             }
-            AppMenuSeparator {}
-            AppMenuItem {
-                text: qsTrId("cover.no_recent_files")
-                enabled: false
-                height: visible ? implicitHeight : 0
-                visible: !root.session || root.session.recentLayoutFiles.length === 0
-            }
-            Repeater {
-                model: root.session ? root.session.recentLayoutFiles : []
+            AppMenuSeparator { id: recentLayoutsAnchor }
+            // The empty state is a model entry, so the list always has a row.
+            Instantiator {
+                model: root.session && root.session.recentLayoutFiles.length > 0
+                       ? root.session.recentLayoutFiles : [""]
                 delegate: AppMenuItem {
                     required property string modelData
-                    text: root.baseName(modelData)
-                    onTriggered: root.session.openRecentLayout(modelData)
+                    text: modelData.length > 0 ? root.baseName(modelData) : qsTrId("cover.no_recent_files")
+                    tooltip: modelData
+                    enabled: modelData.length > 0
+                    onTriggered: if (modelData.length > 0) root.session.openRecentLayout(modelData)
                 }
+                onObjectAdded: (index, item) => root.insertMenuItemAfter(layoutMenu, recentLayoutsAnchor, index, item)
+                onObjectRemoved: (index, item) => layoutMenu.removeItem(item)
             }
             AppMenuSeparator {}
             AppMenuItem {
@@ -226,7 +241,7 @@ Rectangle {
                 objectName: "coverPresetMenu"
                 title: qsTrId("cover.presets")
 
-                Repeater {
+                Instantiator {
                     model: root.session ? root.session.builtinPresets : []
                     delegate: AppMenuItem {
                         required property var modelData
@@ -235,18 +250,23 @@ Rectangle {
                                  && (!modelData.requiresChartFrame || root.session.chartFrameAvailable)
                         onTriggered: root.session.applyBuiltinPreset(modelData.id)
                     }
+                    onObjectAdded: (index, item) => presetMenu.insertItem(index, item)
+                    onObjectRemoved: (index, item) => presetMenu.removeItem(item)
                 }
                 AppMenuSeparator {
+                    id: userPresetsAnchor
                     visible: !!root.session && root.session.presets.length > 0
                     height: visible ? implicitHeight : 0
                 }
-                Repeater {
+                Instantiator {
                     model: root.session ? root.session.presets : []
                     delegate: AppMenuItem {
                         required property var modelData
                         text: modelData.name
                         onTriggered: root.session.applyPreset(modelData.name)
                     }
+                    onObjectAdded: (index, item) => root.insertMenuItemAfter(presetMenu, userPresetsAnchor, index, item)
+                    onObjectRemoved: (index, item) => presetMenu.removeItem(item)
                 }
                 AppMenuSeparator {}
                 AppMenuItem {
@@ -431,6 +451,9 @@ Rectangle {
                     Binding { target: composer.item; property: "cardShadowEnabled"; value: root.session ? root.session.cardShadow : false; when: composer.status === Loader.Ready }
                     Binding { target: composer.item; property: "chartFrameDiskDiameter"; value: root.session ? root.session.chartFrameDiskDiameter : 0; when: composer.status === Loader.Ready }
                     Binding { target: composer.item; property: "activeChartFrameKey"; value: root.session ? root.session.activeLayerKey : ""; when: composer.status === Loader.Ready }
+                    Binding { target: composer.item; property: "chartFramePvSource"; value: root.session ? root.session.chartFramePvSource : ""; when: composer.status === Loader.Ready }
+                    Binding { target: composer.item; property: "chartFramePlaying"; value: root.session ? root.session.chartFramePlaying : false; when: composer.status === Loader.Ready }
+                    Binding { target: composer.item; property: "activeChartFrameSeconds"; value: root.session ? root.session.activeChartFrameSeconds : 0; when: composer.status === Loader.Ready }
                     Binding { target: composer.item; property: "selectedKey"; value: root.session ? root.session.activeLayerKey : ""; when: composer.status === Loader.Ready }
                     Binding { target: composer.item; property: "selectionBinder"; value: root.session; when: composer.status === Loader.Ready }
                     Binding { target: composer.item; property: "chartSceneBinder"; value: root.session; when: composer.status === Loader.Ready }
@@ -844,20 +867,31 @@ Rectangle {
                                                 }
                                             }
                                         }
+                                        // PV: the chart's video PV at this frame's time; offered only
+                                        // when the chart has one. The frame is square, so the preview's
+                                        // Fit and 1:1 Fit coincide: fill, or the whole PV in the square.
                                         LabeledCombo {
+                                            objectName: "coverFrameBackgroundCombo"
                                             label: qsTrId("cover.inner")
                                             labelWidth: root.labelWidth
-                                            options: [
-                                                { value: "image", label: qsTrId("cover.inner_bg") },
-                                                { value: "transparent", label: qsTrId("cover.transparent") }
-                                            ]
+                                            options: root.session && root.session.chartFramePvAvailable
+                                                ? [
+                                                    { value: "transparent", label: qsTrId("cover.transparent") },
+                                                    { value: "image", label: qsTrId("cover.inner_bg") },
+                                                    { value: "pv", label: qsTrId("cover.inner_pv_fill") },
+                                                    { value: "pvFit", label: qsTrId("cover.inner_pv_fit") }
+                                                ]
+                                                : [
+                                                    { value: "transparent", label: qsTrId("cover.transparent") },
+                                                    { value: "image", label: qsTrId("cover.inner_bg") }
+                                                ]
                                             currentValue: root.activeLayer ? root.activeLayer.frameBgMode : "image"
                                             onPicked: function(value) { if (root.session) root.session.setActiveLayerFrameBackgroundMode(value) }
                                         }
                                         LabeledSlider {
                                             label: qsTrId("cover.brightness")
                                             labelWidth: root.labelWidth
-                                            enabled: root.activeLayer && root.activeLayer.frameBgMode === "image"
+                                            enabled: root.activeLayer && root.activeLayer.frameBgMode !== "transparent"
                                             value: (root.activeLayer ? root.activeLayer.frameBgBrightness : 0.8) * 100
                                             onMoved: function(value) { if (root.session) root.session.setActiveLayerFrameBackgroundBrightness(value / 100) }
                                         }

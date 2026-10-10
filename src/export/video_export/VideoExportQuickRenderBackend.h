@@ -74,8 +74,11 @@ public:
     // Pre-roll intro overlay (full-range exports). setupIntro mounts the QML
     // scene + pushes the banner data once; setIntroFrame is called per output
     // frame to advance/hide it. Both no-op if the offscreen renderer isn't up.
-    bool setupIntro(const IntroBannerSpec& intro, QString* errorMessage = nullptr);
+    // `pvVideoUnderlay`: the PV-preview segment is composited under the overlay.
+    bool setupIntro(const IntroBannerSpec& intro, bool pvVideoUnderlay,
+                    QString* errorMessage = nullptr);
     void setIntroFrame(int authoringFrame, bool active);
+    void setChartLayersVisible(bool visible);
     bool renderOverlayFrameOffscreenPboStep(
         const QSize& outputSize,
         double playheadSeconds,

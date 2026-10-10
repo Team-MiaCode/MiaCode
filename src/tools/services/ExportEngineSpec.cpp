@@ -112,9 +112,12 @@ public:
     MuriRenderOptions muriRenderOptions() const override { return {}; }
     double currentAudioClockSecond() const override { return audioClockSecond; }
     void refreshIntroState() override { ++introRefreshCount; }
+    void setIntroAuditionPlaying(bool playing) override { introAuditioning = playing; }
+    bool introAuditionPlaying() const override { return introAuditioning; }
 
     QList<int> difficulties{3, 4};
     int lastOpened = 4;
+    bool introAuditioning = false;
     int introRefreshCount = 0;
     double audioClockSecond = 7.5;
 

@@ -1405,6 +1405,16 @@ void PreviewQuickExportSession::setIntroBannerData(
     }
 }
 
+void PreviewQuickExportSession::setChartLayersVisible(bool visible)
+{
+    if (sceneRoot_ != nullptr) {
+        sceneRoot_->setVisible(visible);
+    }
+    if (hudLayer_ != nullptr) {
+        hudLayer_->setVisible(visible);
+    }
+}
+
 void PreviewQuickExportSession::setIntroFrame(int authoringFrame, bool active)
 {
     introActive_ = active;

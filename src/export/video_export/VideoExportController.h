@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/chart/IntroConfig.h"
 #include "core/scene/PreviewHudState.h"
 
 #include <functional>
@@ -64,7 +65,25 @@ struct IntroBannerSpec {
     // another machine falls back to the default at render time.
     QString fontDisplayPath;
     QString fontBodyPath;
+    // PV-preview intro style: drops the cycle-1 wipe and the opening SFX; the
+    // card holds over the chart's own PV + music from pvPreviewStartSeconds
+    // (chart second == media second) for the fixed kPvPreviewHoldSeconds, then
+    // the cycle-2 wipe hands off. A chart without a video PV shows the crisp 曲绘.
+    // The style is a dialog preference; the start belongs to the chart and is
+    // read from its project preferences when the spec is built.
+    bool pvPreview = false;
+    double pvPreviewStartSeconds = 0.0;
 };
+
+inline int introDurationFrames(const IntroBannerSpec& intro)
+{
+    return miacode::intro::introDurationFrames(intro.pvPreview);
+}
+
+inline double introDurationSeconds(const IntroBannerSpec& intro)
+{
+    return miacode::intro::introDurationSeconds(intro.pvPreview);
+}
 
 inline bool isAutoIntroBannerMode(const QString& mode)
 {
@@ -152,11 +171,14 @@ inline void copyIntroStyling(const IntroBannerSpec& from, IntroBannerSpec* to)
     to->cardShadow = from.cardShadow;
     to->fontDisplayPath = from.fontDisplayPath;
     to->fontBodyPath = from.fontBodyPath;
+    to->pvPreview = from.pvPreview;
 }
 
 // IntroOverlay root properties beyond the track: custom backdrop URL (empty ->
-// the 曲绘 backdrop), blur toggle, card drop shadow.
-inline QVariantMap introBannerStyleMap(const IntroBannerSpec& intro)
+// the 曲绘 backdrop), blur toggle, card drop shadow, PV-preview timeline.
+// `pvVideoUnderlay` says whether the caller composites the PV segment under the
+// overlay; without it the PV preview falls back to the crisp backdrop image.
+inline QVariantMap introBannerStyleMap(const IntroBannerSpec& intro, bool pvVideoUnderlay = false)
 {
     QUrl backdrop;
     if (intro.backgroundMode == QStringLiteral("custom")
@@ -168,6 +190,9 @@ inline QVariantMap introBannerStyleMap(const IntroBannerSpec& intro)
     style.insert(QStringLiteral("backdropImage"), backdrop);
     style.insert(QStringLiteral("backdropBlurEnabled"), intro.blurBackground);
     style.insert(QStringLiteral("cardShadowEnabled"), intro.cardShadow);
+    style.insert(QStringLiteral("pvPreviewMode"), intro.pvPreview);
+    style.insert(QStringLiteral("pvPreviewHoldFrames"), miacode::intro::kPvPreviewHoldFrames);
+    style.insert(QStringLiteral("pvPreviewVideoUnderlay"), intro.pvPreview && pvVideoUnderlay);
     return style;
 }
 
@@ -269,4 +294,7 @@ public:
         const VideoExportTask& task,
         const VideoExportProgressCallback& progressCallback = {}
     );
+    // The ffmpeg binary the export uses (MIACODE_FFMPEG_PATH, bundled, PATH);
+    // empty when none is found.
+    static QString ffmpegExecutablePath();
 };

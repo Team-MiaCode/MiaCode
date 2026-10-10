@@ -620,6 +620,23 @@ Rectangle {
                                 Text {
                                     font.family: Theme.uiFont
                                     font.pixelSize: Theme.uiFontSize
+                                    text: qsTrId("video_export.intro_style")
+                                    color: Theme.colors.text.secondary
+                                    Layout.preferredWidth: 120
+                                }
+                                AppComboBox {
+                                    objectName: "introStyleCombo"
+                                    Layout.fillWidth: true
+                                    model: [qsTrId("video_export.intro_style_classic"),
+                                            qsTrId("video_export.intro_style_pv_preview")]
+                                    currentIndex: root.session && root.session.introPvPreview ? 1 : 0
+                                    onActivated: if (root.session) root.session.introPvPreview = currentIndex === 1
+                                }
+                            }
+                            RowLayout {
+                                Text {
+                                    font.family: Theme.uiFont
+                                    font.pixelSize: Theme.uiFontSize
                                     text: qsTrId("dialog.preferences.background_group")
                                     color: Theme.colors.text.secondary
                                     Layout.preferredWidth: 120
@@ -658,8 +675,10 @@ Rectangle {
                                     onActivated: if (root.session) root.session.introModeIndex = currentIndex
                                 }
                             }
+                            // The PV preview shows the PV itself; without one, the still is crisp.
                             AppSwitch {
                                 text: qsTrId("cover.blur_background")
+                                visible: !(root.session && root.session.introPvPreview)
                                 checked: root.session ? root.session.introBlurBackground : true
                                 onToggled: if (root.session) root.session.introBlurBackground = checked
                             }
@@ -672,6 +691,91 @@ Rectangle {
                                 text: qsTrId("qml.render_level_as_text")
                                 checked: root.session ? root.session.introLevelTextRender : false
                                 onToggled: if (root.session) root.session.introLevelTextRender = checked
+                            }
+                        }
+
+                        SettingsSection {
+                            objectName: "introPvSegmentSection"
+                            // Without a video PV the segment is music over the 曲绘 still.
+                            title: root.session && !root.session.introPvVideoAvailable
+                                   ? qsTrId("video_export.intro_music_segment")
+                                   : qsTrId("video_export.intro_pv_segment")
+                            visible: !!root.session && root.session.introPvPreview
+                            enabled: root.introSettingsEnabled
+
+                            // The lane is the song. While the intro's music plays the
+                            // playhead is the segment position (start + intro elapsed);
+                            // in the chart it is the chart position.
+                            ExportRangeSelector {
+                                id: introPvSegmentSelector
+                                objectName: "introPvSegmentSelector"
+                                objectNamePrefix: "introPvSegment"
+                                Layout.fillWidth: true
+                                exportSession: root.session
+                                previewSession: root.previewSession
+                                fixedLength: true
+                                minimumRangeSeconds: root.session ? root.session.introPvSegmentSeconds : 0
+                                requestedStartSeconds: root.session ? root.session.introPvStartSeconds : 0
+                                requestedEndSeconds: requestedStartSeconds + minimumRangeSeconds
+                                windowPlayheadSeconds: {
+                                    if (!root.session || !root.previewSession)
+                                        return -1
+                                    const position = Number(root.previewSession.positionSeconds) || 0
+                                    if (position >= 0)
+                                        return -1
+                                    const elapsed = position - root.previewSession.lowerBoundSeconds
+                                    return elapsed >= 0 && elapsed < root.session.introPvMusicSeconds ? elapsed : -1
+                                }
+                                // Moving the window puts the playhead at the segment head.
+                                windowMoveOffsetSeconds: 0
+                                applyRange: function(start, end) {
+                                    if (root.session)
+                                        root.session.introPvStartSeconds = start
+                                }
+                                previewSecondForWindowOffset: function(offset) {
+                                    return root.previewSession ? root.previewSession.lowerBoundSeconds + offset : 0
+                                }
+                                onWindowMovingChanged: if (root.session) root.session.introPvSegmentDragging = windowMoving
+                                onWindowSeeked: if (root.session) root.session.noteIntroPvSeek()
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.chromePadding
+
+                                IconButton {
+                                    objectName: "introAuditionButton"
+                                    readonly property bool auditioning: !!root.session && root.session.introAuditionPlaying
+                                    iconSource: Qt.resolvedUrl(auditioning ? "icons/stop.svg" : "icons/play.svg")
+                                    label: auditioning ? qsTrId("video_export.intro_audition_stop")
+                                                       : qsTrId("video_export.intro_audition")
+                                    tooltip: label
+                                    onClicked: if (root.session) root.session.toggleIntroAudition()
+                                }
+                                IconButton {
+                                    objectName: "introAuditionLoopButton"
+                                    iconSource: Qt.resolvedUrl("icons/repeat.svg")
+                                    filledIconSource: Qt.resolvedUrl("icons/repeat-active.svg")
+                                    active: !!root.session && root.session.introAuditionLoop
+                                    tooltip: qsTrId("video_export.intro_audition_loop")
+                                    onClicked: if (root.session) root.session.introAuditionLoop = !root.session.introAuditionLoop
+                                }
+                                Item { Layout.fillWidth: true }
+                                Text {
+                                    text: qsTrId("video_export.intro_pv_start")
+                                    color: Theme.colors.text.secondary
+                                    font.family: Theme.uiFont
+                                    font.pixelSize: Theme.uiFontSize
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                                AppTextField {
+                                    id: introPvStartField
+
+                                    objectName: "introPvStartField"
+                                    Layout.preferredWidth: 100
+                                    Layout.alignment: Qt.AlignVCenter
+                                    text: root.session ? root.session.introPvStartSeconds.toFixed(3) : "0"
+                                    onEditingFinished: if (root.session) text = root.session.setIntroPvStartText(text)
+                                }
                             }
                         }
 
@@ -832,6 +936,11 @@ Rectangle {
 
     Connections {
         target: root.session
+
+        function onIntroChanged() {
+            if (!introPvStartField.activeFocus)
+                introPvStartField.text = root.session.introPvStartSeconds.toFixed(3)
+        }
 
         function onRangeChanged() {
             if (!exportRangeStartField.activeFocus)

@@ -23,6 +23,13 @@ public:
     virtual bool pageSessionActive() const = 0;
     virtual int selectedDifficultyId() const = 0;
     virtual IntroBannerSpec previewIntroSpec() const = 0;
+    // PV-preview intro, preview only: the card fades while the PV segment
+    // window is being dragged, and the audition repeats while looping is on.
+    virtual bool introPvSegmentDragging() const = 0;
+    virtual bool introAuditionLoop() const = 0;
+    // The audition starts at the segment head after the window moved, and at
+    // the picked moment after an explicit seek inside the window.
+    virtual bool introAuditionFromHead() const = 0;
     virtual void requestSelectionRangeExport(double startSecond, double endSecond) = 0;
 
 protected:

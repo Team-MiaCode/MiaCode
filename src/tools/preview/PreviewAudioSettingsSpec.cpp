@@ -315,6 +315,30 @@ bool verifyApplicationCheerPreference(QTextStream& err)
                    QStringLiteral("applying a local preset should not revert canonical cheer preference"), err);
 }
 
+// The PV-preview intro audition plays the song through the normal transport:
+// every note SFX kind is silent and only the song follows the fade gain.
+bool verifyIntroSegmentLevels(QTextStream& err)
+{
+    PreviewAudioSettings mix;
+    mix.globalVolume = 0.5;
+    mix.trackVolume = 0.8;
+    mix.normalize();
+    const PreviewAudioSettings levels = makePreviewIntroSegmentLevels(mix, 0.25);
+    bool ok = requireNear(previewTrackVolume(levels), previewTrackVolume(mix) * 0.25, 1e-9,
+                          QStringLiteral("intro segment scales the song by the fade gain"), err);
+    for (const QString& kind : {QStringLiteral("answer"), QStringLiteral("judge"), QStringLiteral("break"),
+                                QStringLiteral("break_slide"), QStringLiteral("slide"), QStringLiteral("ex"),
+                                QStringLiteral("touch"), QStringLiteral("touchhold"), QStringLiteral("firework"),
+                                QStringLiteral("clock"), QStringLiteral("track_start")}) {
+        ok &= require(previewSfxVolumeForKind(levels, kind) == 0.0,
+                      QStringLiteral("intro segment silences %1").arg(kind), err);
+    }
+    ok &= require(!levels.mineSfxEnabled, QStringLiteral("intro segment silences mine SFX"), err);
+    ok &= requireNear(previewTrackVolume(makePreviewIntroSegmentLevels(mix, 1.0)), previewTrackVolume(mix), 1e-9,
+                      QStringLiteral("full fade gain keeps the user's song level"), err);
+    return ok;
+}
+
 }  // namespace
 
 int main(int argc, char* argv[])
@@ -339,6 +363,9 @@ int main(int argc, char* argv[])
         return 1;
     }
     if (!verifyApplicationCheerPreference(err)) {
+        return 1;
+    }
+    if (!verifyIntroSegmentLevels(err)) {
         return 1;
     }
 

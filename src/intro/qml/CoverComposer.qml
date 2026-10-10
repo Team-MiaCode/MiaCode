@@ -45,6 +45,11 @@ Item {
     property real chartFrameBgBrightness: 0.8   // 0..1; MultiEffect.brightness = this − 1
     property real chartFrameDiskDiameter: 0.0   // ring diameter / square side (0 = no disk)
     property string activeChartFrameKey: ""      // only this chart frame hosts the live scene
+    // Editor only: while the active chart frame plays, its PV disk plays the PV
+    // file silently instead of showing the still (chartFramePvSource empty = no PV).
+    property url chartFramePvSource: ""
+    property bool chartFramePlaying: false
+    property real activeChartFrameSeconds: 0
     // §4 — which layer wears the selection chrome (any kind, incl. the card). Driven
     // two-way: C++ pushes it (list / inspector selection → blue box moves), and a
     // canvas tap / drag pushes it back via selectionBinder.selectLayerKey. The
@@ -151,15 +156,23 @@ Item {
     // ---- card drop-shadow helpers (template.cardShadow) ----
     function cardShadowColor() {
         return (coverTemplate && coverTemplate.cardShadow && coverTemplate.cardShadow.color)
-                ? coverTemplate.cardShadow.color : "#99000000"
+                ? coverTemplate.cardShadow.color : "#B8000000"
     }
     function cardShadowBlur() {
         return (coverTemplate && coverTemplate.cardShadow && coverTemplate.cardShadow.blur !== undefined)
-                ? coverTemplate.cardShadow.blur : 0.6
+                ? coverTemplate.cardShadow.blur : 0.8
     }
     function cardShadowOffsetY() {
         return (coverTemplate && coverTemplate.cardShadow && coverTemplate.cardShadow.offsetY !== undefined)
-                ? coverTemplate.cardShadow.offsetY : 14
+                ? coverTemplate.cardShadow.offsetY : 5.3
+    }
+    function cardShadowBlurMax() {
+        return (coverTemplate && coverTemplate.cardShadow && coverTemplate.cardShadow.blurMax !== undefined)
+                ? coverTemplate.cardShadow.blurMax : 48
+    }
+    function cardShadowScale() {
+        return (coverTemplate && coverTemplate.cardShadow && coverTemplate.cardShadow.scale !== undefined)
+                ? coverTemplate.cardShadow.scale : 1.02
     }
 
     readonly property url backdropSourceUrl:
@@ -464,6 +477,19 @@ Item {
                 isChartFrame && layerItem.frameBgMode === "transparent"
                 && canvas.chartFrameDiskDiameter > 0
                 && layerItem.frameBgTransparency < 1.0
+            // PV mode: the PV frame at this layer's chart time (pv/<key> in the
+            // "coverchart" provider) takes the image mode's place in the disk.
+            readonly property bool showsPvDiskBg:
+                isChartFrame && (layerItem.frameBgMode === "pv" || layerItem.frameBgMode === "pvFit")
+                && canvas.chartFrameDiskDiameter > 0
+                && layerItem.ld && layerItem.ld.pvFrameRevision >= 0
+            readonly property bool showsMediaDiskBg: showsImageDiskBg || showsPvDiskBg
+            // "pvFit": the preview's Fit (完整显示) on the square frame — the whole
+            // PV inside the square over black, clipped by the disk like the rest.
+            readonly property bool fitsPvIntoFrame: showsPvDiskBg && layerItem.frameBgMode === "pvFit"
+            readonly property bool hostsPvVideo:
+                showsPvDiskBg && canvas.editable && layerItem.isActiveChartFrame
+                && canvas.chartFramePvSource.toString().length > 0
 
             width: canvas.layerContentW(ld)
             height: canvas.layerContentH(ld)
@@ -473,47 +499,119 @@ Item {
             visible: ld ? ld.visible : true
             opacity: layerItem.isChartFrame ? 1.0 : (ld && ld.opacity !== undefined ? ld.opacity : 1.0)
 
-            // Card content, optionally drop-shadowed via a layer effect on the
-            // content ONLY (so the selection chrome is never rasterised with it).
-            // The shadow applies in EVERY background mode — over a backdrop, and
-            // in Transparent mode where it casts a soft shadow onto the alpha PNG.
+            // Card halo. The shadow applies in EVERY background mode — over a
+            // backdrop, and in Transparent mode where it casts a soft shadow onto
+            // the alpha PNG. It is drawn from a hidden texture copy of the
+            // content, BEHIND the content, instead of as a layer effect on the
+            // content: a layer would rasterise the card into a texture that is
+            // then resampled at the layer's fractional device-pixel position,
+            // blurring its text. MultiEffect has no shadow-only mode, so it also
+            // draws its copy of the card; the crisp card on top covers it.
+            readonly property bool castsCardShadow: layerItem.isCard && canvas.cardShadowEnabled
+            ShaderEffectSource {
+                id: cardShadowSource
+                anchors.fill: content
+                sourceItem: layerItem.castsCardShadow ? content : null
+                hideSource: false
+                live: true
+                visible: false
+            }
+            MultiEffect {
+                anchors.fill: content
+                visible: layerItem.castsCardShadow
+                source: cardShadowSource
+                shadowEnabled: true
+                shadowColor: canvas.cardShadowColor()
+                // Scale the shadow blur radius by the card's px-per-native scale
+                // (the SAME factor as the offset below) so softness, offset and
+                // geometry all track output resolution → preview == export.
+                blurMax: Math.max(2, Math.round(canvas.cardShadowBlurMax() * layerItem.height
+                                  / canvas.cardContentNativeH(canvas.coverTemplate)))
+                shadowBlur: canvas.cardShadowBlur()
+                shadowScale: canvas.cardShadowScale()
+                // offsetY is card-native px; scale into wrapper px.
+                shadowVerticalOffset: canvas.cardShadowOffsetY()
+                                      * (layerItem.height / canvas.cardContentNativeH(canvas.coverTemplate))
+                shadowHorizontalOffset: 0
+                autoPaddingEnabled: true
+            }
+
             Item {
                 id: content
                 anchors.fill: parent
-                layer.enabled: layerItem.isCard && canvas.cardShadowEnabled
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: canvas.cardShadowColor()
-                    // Scale the shadow blur radius by the card's px-per-native scale
-                    // (the SAME factor as the offset below) so softness, offset and
-                    // geometry all track output resolution → preview == export.
-                    blurMax: Math.max(2, Math.round(64 * layerItem.height
-                                      / canvas.cardContentNativeH(canvas.coverTemplate)))
-                    shadowBlur: canvas.cardShadowBlur()
-                    // offsetY is card-native px; scale into wrapper px.
-                    shadowVerticalOffset: canvas.cardShadowOffsetY()
-                                          * (layerItem.height / canvas.cardContentNativeH(canvas.coverTemplate))
-                    shadowHorizontalOffset: 0
-                    autoPaddingEnabled: true
-                }
                 // B1 — chart-frame inner-ring background, BEHIND the overlay. The
-                // crisp cover background, circular-masked to the playfield disk and
+                // crisp cover background (PV mode: the PV frame at the layer's chart
+                // time), circular-masked to the playfield disk and
                 // dimmed (MultiEffect.brightness); only the BG is masked, so the
                 // overlay (notes/ring/effects) still extends across the square as in
                 // A2. Hidden for the card layer / transparent bg. The source Image is
                 // a native texture provider while hidden; the circular mask is
                 // captured via ShaderEffectSource (the repo's proven hideSource
                 // pattern, cf. IntroOverlay.qml). Declared first → paints behind.
-                Image {
-                    id: chartBgDiskImage
+                // The disk media as one item, so the circular mask covers all of it.
+                Item {
+                    id: chartBgDiskContent
                     anchors.fill: parent
+                    readonly property real mediaAspect: chartBgDiskImage.implicitHeight > 0
+                        ? chartBgDiskImage.implicitWidth / chartBgDiskImage.implicitHeight : 16 / 9
+
+                    Rectangle {
+                        anchors.fill: parent
+                        visible: layerItem.fitsPvIntoFrame
+                        color: "#000000"
+                    }
+                    // The media at its own aspect, centred: covering the square
+                    // (fill, the square crops it evenly) or inside it (fit).
+                    Item {
+                        id: chartBgDiskMedia
+                        anchors.centerIn: parent
+                        readonly property real aspect: chartBgDiskContent.mediaAspect
+                        width: parent.width * (layerItem.fitsPvIntoFrame ? Math.min(1, aspect) : Math.max(1, aspect))
+                        height: parent.height * (layerItem.fitsPvIntoFrame ? Math.min(1, 1 / aspect) : Math.max(1, 1 / aspect))
+
+                        Image {
+                            id: chartBgDiskImage
+                            anchors.fill: parent
+                            source: !layerItem.isChartFrame ? ""
+                                    : layerItem.showsPvDiskBg
+                                      ? ("image://coverchart/pv/" + layerItem.ld.key + "?r=" + layerItem.ld.pvFrameRevision)
+                                      : canvas.backdropSourceUrl
+                            fillMode: Image.Stretch
+                            asynchronous: false
+                            cache: false
+                            smooth: true
+                            mipmap: true
+                        }
+                        // Silent PV playback over the still while the frame plays.
+                        Loader {
+                            anchors.fill: parent
+                            active: layerItem.hostsPvVideo
+                            source: "CoverPvVideo.qml"
+                            onLoaded: {
+                                item.source = Qt.binding(() => canvas.chartFramePvSource)
+                                item.seconds = Qt.binding(() => canvas.activeChartFrameSeconds)
+                                item.playing = Qt.binding(() => canvas.chartFramePlaying)
+                                item.stillRevision = Qt.binding(() => layerItem.ld ? layerItem.ld.pvFrameRevision : -1)
+                            }
+                        }
+                        // Brightness = the SAME multiplicative dim the realtime preview's
+                        // 内圈亮度 uses (stage-background draws black at alpha 1−brightness
+                        // → media × brightness). MultiEffect.brightness is ADDITIVE
+                        // (crushes dark pixels straight to black) so it is NOT used here.
+                        Rectangle {
+                            anchors.fill: parent
+                            color: "#000000"
+                            opacity: Math.max(0, Math.min(1, 1.0 - layerItem.frameBgBrightness))
+                        }
+                    }
+                }
+                ShaderEffectSource {
+                    id: chartBgDiskContentTex
+                    anchors.fill: parent
+                    sourceItem: chartBgDiskContent
+                    hideSource: true
+                    live: true
                     visible: false
-                    source: layerItem.isChartFrame ? canvas.backdropSourceUrl : ""
-                    fillMode: Image.PreserveAspectCrop
-                    asynchronous: false
-                    cache: false
-                    smooth: true
-                    mipmap: true
                 }
                 Item {
                     id: chartBgDiskMaskContent
@@ -537,25 +635,11 @@ Item {
                 }
                 MultiEffect {
                     anchors.fill: parent
-                    visible: layerItem.showsImageDiskBg
-                    source: chartBgDiskImage
+                    visible: layerItem.showsMediaDiskBg
+                    source: chartBgDiskContentTex
                     maskEnabled: true
                     maskSource: chartBgDiskMaskTex
                     maskThresholdMin: 0.5
-                }
-                // Brightness = the SAME multiplicative dim the realtime preview's
-                // 内圈亮度 uses (stage-background draws black at alpha 1−brightness
-                // → media × brightness). MultiEffect.brightness is ADDITIVE
-                // (crushes dark pixels straight to black) so it is NOT used here.
-                Rectangle {
-                    visible: layerItem.showsImageDiskBg
-                    anchors.centerIn: parent
-                    width: canvas.chartFrameDiskDiameter * parent.width
-                    height: width
-                    radius: width / 2
-                    antialiasing: true
-                    color: "#000000"
-                    opacity: Math.max(0, Math.min(1, 1.0 - layerItem.frameBgBrightness))
                 }
                 Rectangle {
                     visible: layerItem.showsTransparentDiskBg

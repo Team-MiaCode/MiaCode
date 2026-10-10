@@ -665,6 +665,20 @@ PreviewAudioSettings makePreviewLatencyAuditionLevels(const PreviewAudioSettings
     return levels;
 }
 
+PreviewAudioSettings makePreviewIntroSegmentLevels(const PreviewAudioSettings& mix, double trackGain)
+{
+    PreviewAudioSettings levels = mix;
+    levels.trackVolume = PreviewAudioSettings::clamp(mix.trackVolume * qBound(0.0, trackGain, 1.0));
+    for (double* volume : {&levels.answerVolume, &levels.tapVolume, &levels.exVolume,
+                           &levels.breakVolume, &levels.breakSlideVolume, &levels.slideVolume,
+                           &levels.touchVolume, &levels.fireworkVolume, &levels.introVolume}) {
+        *volume = 0.0;
+    }
+    levels.mineSfxEnabled = false;
+    levels.normalize();
+    return levels;
+}
+
 bool resolveBreakSlideTailCheerMutedPreference(const QJsonObject& preview)
 {
     const QJsonValue canonical = preview.value(QStringLiteral("break_slide_tail_cheer_muted"));

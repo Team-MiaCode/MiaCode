@@ -906,6 +906,16 @@ void PreviewQuickD3D11ExportSession::setIntroBannerData(
     }
 }
 
+void PreviewQuickD3D11ExportSession::setChartLayersVisible(bool visible)
+{
+    if (sceneRoot_ != nullptr) {
+        sceneRoot_->setVisible(visible);
+    }
+    if (hudLayer_ != nullptr) {
+        hudLayer_->setVisible(visible);
+    }
+}
+
 void PreviewQuickD3D11ExportSession::setIntroFrame(int authoringFrame, bool active)
 {
     introActive_ = active;

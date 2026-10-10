@@ -472,9 +472,10 @@ VideoExportResult VideoExportController::exportPreparedTask(
     // WAV to the temp dir so ffmpeg can read it. Prefer assets/music, then the
     // resolved SFX folder, so users can replace track_start.wav without touching
     // qrc; fall back to the bundled qrc copy when the custom file is absent.
+    // The PV-preview intro carries its music segment instead (audio plan).
     const bool introAudioEnabled = audioRenderPlan.introLeadSeconds > 0.0;
     QString introSfxTempPath;
-    if (introAudioEnabled) {
+    if (introAudioEnabled && !task.intro.pvPreview) {
         const QString resolvedIntroSfxPath =
             miacode::preview_sfx::assetFilePathForKind(
                 audioRenderPlan.sfxDirectory,
@@ -541,6 +542,27 @@ VideoExportResult VideoExportController::exportPreparedTask(
                  << QString::number(task.fps);
         }
         args << QStringLiteral("-i") << ffmpegMediaPath;
+    }
+    // PV-preview intro: the chosen PV segment as its own input-seeked stream,
+    // so only that segment is decoded and it lands at output 0 under the card.
+    const bool introPvUnderlay =
+        introAudioEnabled && task.intro.pvPreview && hasMedia && !mediaIsImage;
+    const double introPvSegmentSeconds = miacode::intro::kPvPreviewHoldSeconds;
+    int introPvInputIndex = -1;
+    if (introPvUnderlay) {
+        introPvInputIndex = currentInputIndex++;
+        args << QStringLiteral("-ss")
+             << QString::number(qMax(0.0, task.intro.pvPreviewStartSeconds), 'f', 6)
+             << QStringLiteral("-t")
+             << QString::number(introPvSegmentSeconds, 'f', 6)
+             << QStringLiteral("-i") << ffmpegMediaPath;
+        appendVideoExportLog(
+            QStringLiteral("intro_pv_segment"),
+            QStringLiteral("media=%1 start=%2 duration=%3 inputIndex=%4")
+                .arg(ffmpegMediaPath)
+                .arg(task.intro.pvPreviewStartSeconds, 0, 'f', 3)
+                .arg(introPvSegmentSeconds, 0, 'f', 3)
+                .arg(introPvInputIndex));
     }
     if (innerCircleFitOuterFill) {
         const QString innerMediaMaskPath = QDir(tempDir.path()).filePath(QStringLiteral("inner_circle_media_mask.png"));
@@ -784,9 +806,27 @@ VideoExportResult VideoExportController::exportPreparedTask(
         const double chartZeroOutputSecond = -timelineOriginSecond;
         const double bgFadeStartSecond =
             qMax(0.0, chartZeroOutputSecond - miacode::intro::kBgFadeDurationSeconds);
-        filterParts << QStringLiteral("[base_src]fade=t=in:st=%1:d=%2:color=black,format=rgb24[base]")
+        filterParts << QStringLiteral("[base_src]fade=t=in:st=%1:d=%2:color=black,format=rgb24[%3]")
                            .arg(QString::number(bgFadeStartSecond, 'f', 6))
-                           .arg(QString::number(miacode::intro::kBgFadeDurationSeconds, 'f', 6));
+                           .arg(QString::number(miacode::intro::kBgFadeDurationSeconds, 'f', 6))
+                           .arg(introPvUnderlay ? QStringLiteral("base_faded") : QStringLiteral("base"));
+        if (introPvUnderlay) {
+            // The PV segment sits on the faded (black) base for the card hold,
+            // full-frame and undimmed; the overlay's own fade-from-black and the
+            // cycle-2 hard cut frame it. Short media holds its last frame, and
+            // EOF passes the base through for the rest of the export.
+            filterParts << QStringLiteral(
+                               "[%1:v]scale=%2:%3:force_original_aspect_ratio=increase,crop=%2:%3,"
+                               "setsar=1,fps=%4,format=rgb24,setpts=PTS-STARTPTS,"
+                               "tpad=stop_mode=clone:stop_duration=%5,trim=duration=%5[intro_pv]")
+                               .arg(introPvInputIndex)
+                               .arg(frameWidth)
+                               .arg(frameHeight)
+                               .arg(task.fps)
+                               .arg(QString::number(introPvSegmentSeconds, 'f', 6));
+            filterParts << QStringLiteral(
+                "[base_faded][intro_pv]overlay=0:0:eof_action=pass:format=rgb,format=rgb24[base]");
+        }
     } else {
         filterParts << QStringLiteral("[base_src]null[base]");
     }
@@ -1002,9 +1042,11 @@ VideoExportResult VideoExportController::exportPreparedTask(
     bool introEnabled = task.intro.enabled
         && task.fullRangeExport
         && audioRenderPlan.introFrameCount > 0;
+    const int introHudRevealFrame = introDurationFrames(task.intro);
+    const int introPvHoldFrames = miacode::intro::kPvPreviewHoldFrames;
     if (introEnabled) {
         QString introError;
-        if (!exportCanvas.setupIntro(task.intro, &introError)) {
+        if (!exportCanvas.setupIntro(task.intro, introPvUnderlay, &introError)) {
             introEnabled = false;
             appendVideoExportLog(
                 QStringLiteral("intro_setup_failed"),
@@ -1012,10 +1054,12 @@ VideoExportResult VideoExportController::exportPreparedTask(
         } else {
             appendVideoExportLog(
                 QStringLiteral("intro_setup"),
-                QStringLiteral("frames=%1 leadSeconds=%2 difficulty=%3")
+                QStringLiteral("frames=%1 leadSeconds=%2 difficulty=%3 pvPreview=%4 pvUnderlay=%5")
                     .arg(audioRenderPlan.introFrameCount)
                     .arg(audioRenderPlan.introLeadSeconds, 0, 'f', 3)
-                    .arg(task.intro.difficulty));
+                    .arg(task.intro.difficulty)
+                    .arg(task.intro.pvPreview ? 1 : 0)
+                    .arg(introPvUnderlay ? 1 : 0));
         }
     }
     // On OpenGL, the export preset selects the readback path:
@@ -2064,12 +2108,16 @@ VideoExportResult VideoExportController::exportPreparedTask(
         const bool inIntroWindow =
             introEnabled && frameIndex < audioRenderPlan.introFrameCount;
         // HUD / timestamp hide only while the maimai wipe still covers the chart;
-        // once it retracts (kHudRevealFrame) they show over the black/fading
-        // background, unaffected by the bg fade.
+        // once it retracts (the end of the intro window) they show over the
+        // black/fading background, unaffected by the bg fade.
         const bool inIntroCover =
-            introEnabled && introAuthoringFrame < miacode::intro::kHudRevealFrame;
+            introEnabled && introAuthoringFrame < introHudRevealFrame;
         if (introEnabled) {
             exportCanvas.setIntroFrame(introAuthoringFrame, inIntroWindow);
+            // The PV-preview hold leaves the overlay transparent around the card;
+            // the chart (still frozen at its lead-in) must not show over the PV.
+            exportCanvas.setChartLayersVisible(
+                !(task.intro.pvPreview && introAuthoringFrame < introPvHoldFrames));
         }
         const bool showTimestampThisFrame = task.showTimestamp && !inIntroCover;
         const bool showObjectStatsThisFrame = task.showObjectStatsHud && !inIntroCover;

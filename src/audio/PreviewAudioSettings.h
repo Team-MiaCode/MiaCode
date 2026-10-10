@@ -150,6 +150,12 @@ inline double previewTrackVolume(const PreviewAudioSettings& settings)
 // (MainWindow::applyPreviewAudioSettingsToRuntime); there is no snapshot/restore.
 PreviewAudioSettings makePreviewLatencyAuditionLevels(const PreviewAudioSettings& mix, int sfxPercent);
 
+// The export page's PV-preview intro audition plays the song from the chosen
+// segment through the normal transport: every note SFX kind is silent and the
+// song keeps the user's level scaled by `trackGain` (the intro's fade envelope).
+// Pure function of the mix, like the latency audition levels.
+PreviewAudioSettings makePreviewIntroSegmentLevels(const PreviewAudioSettings& mix, double trackGain);
+
 bool resolveBreakSlideTailCheerMutedPreference(const QJsonObject& preview);
 PreviewAudioSettings previewAudioSettingsWithBreakSlideTailCheerPreference(
     PreviewAudioSettings settings,

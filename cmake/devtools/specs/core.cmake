@@ -120,6 +120,17 @@ miacode_add_spec(cover_layout_model_spec
     INCLUDES src
 )
 
+miacode_add_spec(cover_pv_frame_source_spec
+    OWNER src/export/cover_export
+    CONTRACT cover-export.cover-pv-frame-source
+    DOMAIN cover_export KIND behavior RISK normal
+    EXECUTION ctest STATUS active PLATFORM all
+    SOURCES
+        src/tools/cover_export/CoverPvFrameSourceSpec.cpp
+    LIBS miacode_export Qt6::Core Qt6::Gui
+    INCLUDES src
+)
+
 miacode_add_spec(cover_frame_playback_controller_spec
     OWNER src/export/cover_export
     CONTRACT cover-export.cover-frame-playback-controller
