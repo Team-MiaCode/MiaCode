@@ -378,6 +378,7 @@ void ScintillaEditorBridge::textMutated()
     }
     emit selectionChanged();
     emit availabilityChanged();
+    if (hasActiveFocus()) updateInputMethod(Qt::ImQueryInput);
 }
 void ScintillaEditorBridge::refreshDecorations()
 {
@@ -427,6 +428,7 @@ void ScintillaEditorBridge::publishContext(bool userCaret)
 }
 void ScintillaEditorBridge::refreshSelection(bool userCaret)
 {
+    if (handlingIme_) return;
     const int anchor = send(SCI_GETANCHOR);
     const int caret = send(SCI_GETCURRENTPOS);
     if (anchor == reportedAnchor_ && caret == reportedCaret_) return;
@@ -441,6 +443,7 @@ void ScintillaEditorBridge::refreshSelection(bool userCaret)
             else
                 controller_->closeCompletion();
         }
+        if (hasActiveFocus()) updateInputMethod(Qt::ImQueryInput);
     }
 }
 void ScintillaEditorBridge::revealPosition(int utf16, bool center)
@@ -905,6 +908,7 @@ void ScintillaEditorBridge::inputMethodEvent(QInputMethodEvent* event)
     if (imeComposing_) {
         if (syncController_) syncController_->setTouchPadControlHold(false);
         publishContext(false);
+        refreshSelection(false);
     } else if (changesText) textMutated();
     else refreshSelection(false);
 }

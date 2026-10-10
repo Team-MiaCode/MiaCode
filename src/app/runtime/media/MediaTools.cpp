@@ -791,6 +791,9 @@ bool decodeAudioStreamWithFfmpeg(
         *cancelled = false;
     }
 
+#ifdef Q_OS_IOS
+    return false;
+#else
     const miacode::LocalizedText title = miacode::localizedText("media_tools.align_pv_to_audio");
     const miacode::LocalizedText label = miacode::localizedText("media_tools.analyzing_audio_alignment");
     const quint64 jobToken = jobProgress->begin(title, label, /*cancellable=*/true);
@@ -849,6 +852,7 @@ bool decodeAudioStreamWithFfmpeg(
     decoded->sampleRate = kAlignmentAudioSampleRate;
     decoded->durationSeconds = static_cast<double>(sampleCount) / kAlignmentAudioSampleRate;
     return true;
+#endif
 }
 
 QVector<double> buildAlignmentEnvelope(const miacode::latency_analysis::DecodedAudio& decoded)
