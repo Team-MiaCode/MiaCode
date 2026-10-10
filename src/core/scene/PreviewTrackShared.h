@@ -64,6 +64,17 @@ struct PreviewSlideEraseByAreaData {
     bool isValid() const { return !segments.isEmpty() && totalArrowCount > 0; }
 };
 
+struct PreviewSlideTrackTrimStart {
+    int segmentIndex = 0;
+    int areaIndex = 0;
+    int localCut = 0;
+};
+
+// segments.size() identifies a fully trimmed track; removedArrowCount is nonnegative.
+PreviewSlideTrackTrimStart findPreviewSlideTrackTrimStart(
+    const QVector<QVector<QVector<QPointF>>>& segments,
+    int removedArrowCount);
+
 PreviewSlideEraseByAreaData buildPreviewSlideEraseByAreaData(const TimelineNoteMarker& marker);
 
 // Locates the star the way PreviewSlideMotionLayerState draws it: the segment

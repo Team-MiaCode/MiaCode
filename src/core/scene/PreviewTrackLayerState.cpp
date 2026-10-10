@@ -467,33 +467,11 @@ PreviewTrackLayerState buildPreviewTrackLayerState(
                     }
                 }
             } else {
-                int trimSegment = marker.slideTrackAreaPoints.size();
-                int trimArea = 0;
-                int trimLocalCut = 0;
-                int remainingToRemove = removedArrowCount;
-                for (int segmentIndex = 0; segmentIndex < marker.slideTrackAreaPoints.size(); ++segmentIndex) {
-                    const QVector<QVector<QPointF>>& areas = marker.slideTrackAreaPoints[segmentIndex];
-                    int segmentArrowCount = 0;
-                    for (const QVector<QPointF>& areaPoints : areas) {
-                        segmentArrowCount += areaPoints.size();
-                    }
-                    if (remainingToRemove >= segmentArrowCount) {
-                        remainingToRemove -= segmentArrowCount;
-                        continue;
-                    }
-                    trimSegment = segmentIndex;
-                    for (int areaIndex = 0; areaIndex < areas.size(); ++areaIndex) {
-                        const int areaArrowCount = areas[areaIndex].size();
-                        if (remainingToRemove < areaArrowCount) {
-                            trimArea = areaIndex;
-                            trimLocalCut = qBound(0, remainingToRemove, areaArrowCount);
-                            remainingToRemove = 0;
-                            break;
-                        }
-                        remainingToRemove -= areaArrowCount;
-                    }
-                    break;
-                }
+                const auto trimStart = findPreviewSlideTrackTrimStart(
+                    marker.slideTrackAreaPoints, removedArrowCount);
+                const int trimSegment = trimStart.segmentIndex;
+                const int trimArea = trimStart.areaIndex;
+                const int trimLocalCut = trimStart.localCut;
 
                 for (int segmentIndex = marker.slideTrackAreaPoints.size() - 1; segmentIndex > trimSegment; --segmentIndex) {
                     const QVector<QVector<QPointF>>& areas = marker.slideTrackAreaPoints[segmentIndex];

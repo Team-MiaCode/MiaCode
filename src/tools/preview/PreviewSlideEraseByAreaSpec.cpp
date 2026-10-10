@@ -377,6 +377,37 @@ bool verifyWifiClearsAreaByAreaAndCompletes(QTextStream& err)
     );
 }
 
+bool verifyTrackTrimCrossesAreaAndSegmentBoundaries(QTextStream& err)
+{
+    const QVector<QVector<QVector<QPointF>>> segments = {
+        {QVector<QPointF>(3), QVector<QPointF>(2)},
+        {},
+        {QVector<QPointF>(), QVector<QPointF>(4), QVector<QPointF>(1)},
+    };
+    struct Case {
+        int removed;
+        int segment;
+        int area;
+        int cut;
+    };
+    const Case cases[] = {
+        {0, 0, 0, 0}, {2, 0, 0, 2}, {3, 0, 1, 0}, {4, 0, 1, 1},
+        {5, 2, 1, 0}, {8, 2, 1, 3}, {9, 2, 2, 0}, {10, 3, 0, 0},
+    };
+    for (const auto& test : cases) {
+        const auto start = miacode::preview::scene::findPreviewSlideTrackTrimStart(segments, test.removed);
+        if (!require(start.segmentIndex == test.segment && start.areaIndex == test.area
+                         && start.localCut == test.cut,
+                     QStringLiteral("track trim locates the first visible arrow after %1 removals")
+                         .arg(test.removed), err)) {
+            return false;
+        }
+    }
+    const auto empty = miacode::preview::scene::findPreviewSlideTrackTrimStart({}, 0);
+    return require(empty.segmentIndex == 0 && empty.areaIndex == 0 && empty.localCut == 0,
+                   QStringLiteral("empty track returns its end position"), err);
+}
+
 }  // namespace
 
 int main(int argc, char** argv)
@@ -385,6 +416,9 @@ int main(int argc, char** argv)
     QTextStream out(stdout);
     QTextStream err(stderr);
 
+    if (!verifyTrackTrimCrossesAreaAndSegmentBoundaries(err)) {
+        return 1;
+    }
     if (!verifyEraseByAreaStepsAndLeavesATail(err)) {
         return 1;
     }

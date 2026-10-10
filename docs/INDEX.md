@@ -23,11 +23,12 @@
 | [无理检测测试清单](tests/MURI_DETECTION_TEST_CHECKLIST.md) | verify.muri |
 | [Timeline 坐标与聚焦测试清单](tests/TIMELINE_COORDINATE_FOCUS_TEST_CHECKLIST.md) | verify.timeline-focus |
 
-## working（4）
+## working（5）
 
 | 文档 | Canonical ID |
 | --- | --- |
 | [模块分层阶段一交付报告（方案 A + 偏好注入）](audit/MODULE_LAYERING_A_DELIVERY_ZH.md) | — |
 | [模块分层阶段一复审](audit/MODULE_LAYERING_A_REVIEW_ZH.md) | — |
 | [Windows 首次播放无响应：BASS DEV_DEFAULT 时序根因与修复](audit/PREVIEW_FIRST_PLAY_DEV_DEFAULT_ROOT_CAUSE_AND_FIX_ZH.md) | — |
+| [Windows 预览 Slide 轨道访问异常调查与修复](audit/PREVIEW_SLIDE_TRACK_ACCESS_VIOLATION_ZH.md) | — |
 | [模块分层与解耦方向](specs/architecture/MODULE_LAYERING_ZH.md) | — |
