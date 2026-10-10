@@ -50,7 +50,7 @@ void miacode::runtime::PlaybackCoordinator::updatePreviewFollowDecorationForTime
     if (spanOut != nullptr) {
         *spanOut = TimelineQuickModel::PreviewFollowSpan();
     }
-    if (!hasActiveDifficulty()) {
+    if (!state_.previewFollowEnabled_ || !hasActiveDifficulty()) {
         clearPreviewFollowDecoration();
         invalidatePreviewFollowBindingCache();
         return;

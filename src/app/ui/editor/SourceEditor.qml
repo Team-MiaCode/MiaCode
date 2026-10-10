@@ -12,6 +12,7 @@ Rectangle {
     required property var syncController
     required property var analysisSession
     property var preferences: null
+    readonly property bool overviewRulerEnabled: preferences ? preferences.editorOverviewRulerEnabled : true
     property bool navigationVisible: false
     onNavigationVisibleChanged: {
         if (!navigationVisible) {
@@ -20,7 +21,7 @@ Rectangle {
         }
     }
     property int pendingBookmarkLine: -1
-    readonly property int editorRailBaseWidth: 18
+    readonly property int editorRailBaseWidth: 12
     readonly property real editorRailDevicePixelRatio: Math.max(0.01,
         root.Window.window ? root.Window.window.devicePixelRatio : 1)
     readonly property int editorRailPhysicalWidth: 3 * Math.ceil(
@@ -483,13 +484,36 @@ Rectangle {
         rightPadding: 0
         orientation: Qt.Vertical
         hoverEnabled: true
-        active: hovered || pressed || sourceArea.activeFocus
+        readonly property int scrollValue: sourceArea.vertical_scroll_value
+        onScrollValueChanged: scrollActivityTimer.restart()
+        active: hovered || pressed || scrollActivityTimer.running
+        Timer {
+            id: scrollActivityTimer
+            interval: 1200
+        }
         onPressedChanged: if (pressed) sourceArea.beginViewportInteraction()
         size: sourceArea.vertical_scroll_page / root.editorRailDisplayLineCount
         position: sourceArea.vertical_scroll_value / root.editorRailDisplayLineCount
         onPositionChanged: if (pressed) sourceArea.scrollVertical(Math.round(position * root.editorRailDisplayLineCount))
+        contentItem: Item {
+            implicitWidth: root.editorRailWidth
+            Rectangle {
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: root.editorRailWidth
+                radius: width / 2
+                opacity: verticalBar.active ? 0.5 : 0
+                Behavior on opacity { NumberAnimation { duration: 150 } }
+                color: verticalBar.hovered || verticalBar.pressed
+                       ? Theme.colors.scroll.handleHover
+                       : Theme.colors.scroll.handle
+                visible: verticalBar.size < 1
+            }
+        }
         background: Item {
             id: verticalRailBackground
+            visible: root.overviewRulerEnabled
             readonly property int alignmentRevision: root.editorRailSceneRevision
             readonly property real sceneLeft: {
                 const revision = alignmentRevision
@@ -520,7 +544,9 @@ Rectangle {
                 y: root.overviewCurrentMarkerTop()
                 width: root.editorRailWidth
                 height: root.editorRailCurrentMarkerHeight
-                color: Theme.contentOverlayColor(Theme.colors.text.editor, 0.32)
+                color: sourceArea.overviewFollowing
+                       ? Theme.colors.state.followHighlight
+                       : Theme.contentOverlayColor(Theme.colors.text.editor, 0.55)
                 visible: sourceArea.overviewCurrentDisplayLine >= 0
                          && sourceArea.overviewDisplayLineCount > 0
             }

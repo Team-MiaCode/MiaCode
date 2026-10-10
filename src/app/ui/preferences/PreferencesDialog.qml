@@ -491,6 +491,12 @@ AppDialog {
                     checked: root.preferencesModel.editorSelectionBeatDisplay
                     onToggled: root.preferencesModel.editorSelectionBeatDisplay = checked
                 }
+                AppSwitch {
+                    objectName: "preferencesOverviewRulerSwitch"
+                    text: qsTrId("preferences.editor_overview_ruler")
+                    checked: root.preferencesModel.editorOverviewRulerEnabled
+                    onToggled: root.preferencesModel.editorOverviewRulerEnabled = checked
+                }
             }
 
             // ---- 性能 ----

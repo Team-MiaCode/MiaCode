@@ -32,6 +32,7 @@ constexpr auto kFontSize = "ui_font_size";
 constexpr auto kEditorAutoWrap = "editor_auto_wrap";
 constexpr auto kEditorScrollPastEnd = "editor_scroll_past_end";
 constexpr auto kEditorSelectionBeatDisplay = "editor_selection_beat_display";
+constexpr auto kEditorOverviewRulerEnabled = "editor_overview_ruler_enabled";
 
 constexpr auto kLegacySidebarVisible = "ui/sidebarVisible";
 constexpr auto kLegacySidebarWidth = "ui/sidebarWidth";
@@ -232,6 +233,7 @@ bool WorkbenchSettings::editorImeInputDisabled() const { return editorImeInputDi
 bool WorkbenchSettings::editorAutoWrap() const { return editorAutoWrap_; }
 bool WorkbenchSettings::editorScrollPastEnd() const { return editorScrollPastEnd_; }
 bool WorkbenchSettings::editorSelectionBeatDisplay() const { return editorSelectionBeatDisplay_; }
+bool WorkbenchSettings::editorOverviewRulerEnabled() const { return editorOverviewRulerEnabled_; }
 
 void WorkbenchSettings::reloadEditorSettings()
 {
@@ -255,6 +257,8 @@ void WorkbenchSettings::reloadEditorSettings()
     const bool scrollPastEnd = editorUi.value(QLatin1String(kEditorScrollPastEnd)).toBool(true);
     const bool selectionBeatDisplay =
         editorUi.value(QLatin1String(kEditorSelectionBeatDisplay)).toBool(true);
+    const bool overviewRulerEnabled =
+        editorUi.value(QLatin1String(kEditorOverviewRulerEnabled)).toBool(true);
     if (codeFont_ == codeFont
         && editorBlockSpacing_ == blockSpacing
         && editorHalfWidthInputEnabled_ == halfWidth
@@ -263,7 +267,8 @@ void WorkbenchSettings::reloadEditorSettings()
         && editorImeInputDisabled_ == imeDisabled
         && editorAutoWrap_ == autoWrap
         && editorScrollPastEnd_ == scrollPastEnd
-        && editorSelectionBeatDisplay_ == selectionBeatDisplay) {
+        && editorSelectionBeatDisplay_ == selectionBeatDisplay
+        && editorOverviewRulerEnabled_ == overviewRulerEnabled) {
         return;
     }
     codeFont_ = codeFont;
@@ -275,6 +280,7 @@ void WorkbenchSettings::reloadEditorSettings()
     editorAutoWrap_ = autoWrap;
     editorScrollPastEnd_ = scrollPastEnd;
     editorSelectionBeatDisplay_ = selectionBeatDisplay;
+    editorOverviewRulerEnabled_ = overviewRulerEnabled;
     emit editorSettingsChanged();
 }
 
@@ -445,6 +451,16 @@ void WorkbenchSettings::setEditorSelectionBeatDisplay(bool enabled)
     }
     editorSelectionBeatDisplay_ = enabled;
     storeUiValue(kEditorSelectionBeatDisplay, enabled);
+    emit editorSettingsChanged();
+}
+
+void WorkbenchSettings::setEditorOverviewRulerEnabled(bool enabled)
+{
+    if (editorOverviewRulerEnabled_ == enabled) {
+        return;
+    }
+    editorOverviewRulerEnabled_ = enabled;
+    storeUiValue(kEditorOverviewRulerEnabled, enabled);
     emit editorSettingsChanged();
 }
 

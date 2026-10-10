@@ -3013,6 +3013,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Show selection beat count</source>
         <translation>Show selection beat count</translation>
     </message>
+    <message id="preferences.editor_overview_ruler">
+        <source>Overview ruler</source>
+        <translation>Overview ruler</translation>
+    </message>
     <message id="preferences.input_handling">
         <source>Input methods and character correction</source>
         <translation>Input methods and character correction</translation>

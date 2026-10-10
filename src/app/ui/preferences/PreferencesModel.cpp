@@ -318,6 +318,20 @@ void PreferencesModel::setEditorSelectionBeatDisplay(bool enabled)
     emit editorChanged();
 }
 
+bool PreferencesModel::editorOverviewRulerEnabled() const
+{
+    return settings_ != nullptr && settings_->editorOverviewRulerEnabled();
+}
+
+void PreferencesModel::setEditorOverviewRulerEnabled(bool enabled)
+{
+    if (settings_ == nullptr || enabled == editorOverviewRulerEnabled()) {
+        return;
+    }
+    settings_->setEditorOverviewRulerEnabled(enabled);
+    emit editorChanged();
+}
+
 bool PreferencesModel::videoDecodePrefersSoftware() const
 {
     return store() != nullptr && store()->videoDecodePrefersSoftware();

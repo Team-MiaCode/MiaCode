@@ -48,6 +48,7 @@ class WorkbenchSettings final : public QObject
     Q_PROPERTY(bool editorAutoWrap READ editorAutoWrap WRITE setEditorAutoWrap NOTIFY editorSettingsChanged)
     Q_PROPERTY(bool editorScrollPastEnd READ editorScrollPastEnd WRITE setEditorScrollPastEnd NOTIFY editorSettingsChanged)
     Q_PROPERTY(bool editorSelectionBeatDisplay READ editorSelectionBeatDisplay WRITE setEditorSelectionBeatDisplay NOTIFY editorSettingsChanged)
+    Q_PROPERTY(bool editorOverviewRulerEnabled READ editorOverviewRulerEnabled WRITE setEditorOverviewRulerEnabled NOTIFY editorSettingsChanged)
 
 public:
     // What 关于 MiaCode shows: version, platform triple and build type. Read
@@ -88,6 +89,7 @@ public:
     void setEditorAutoWrap(bool enabled);
     bool editorScrollPastEnd() const;
     bool editorSelectionBeatDisplay() const;
+    bool editorOverviewRulerEnabled() const;
 
     void setSidebarVisible(bool value);
     void setSidebarWidth(int value);
@@ -106,6 +108,7 @@ public:
     void setEditorAppearance(int pointSize, double lineSpacingFactor);
     void setEditorScrollPastEnd(bool enabled);
     void setEditorSelectionBeatDisplay(bool enabled);
+    void setEditorOverviewRulerEnabled(bool enabled);
 
 signals:
     void sidebarVisibleChanged();
@@ -149,6 +152,7 @@ private:
     bool editorAutoWrap_ = true;
     bool editorScrollPastEnd_ = true;
     bool editorSelectionBeatDisplay_ = true;
+    bool editorOverviewRulerEnabled_ = true;
     bool darkTheme_ = true;
     QString publishedThemeModeToken_;
     QString publishedLightThemeToken_;

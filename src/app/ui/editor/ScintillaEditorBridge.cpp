@@ -601,13 +601,16 @@ void ScintillaEditorBridge::refreshOverviewProjection()
 
     if (dirtyParts & OverviewCurrentLineDirty) {
         int currentDisplayLine = -1;
+        bool useFollowPosition = false;
         if (ready_ && documentSession_ && documentSession_->currentDifficultyId() > 0) {
-            const bool useFollowPosition = !hasActiveFocus() && styler_.following();
+            useFollowPosition = !hasActiveFocus() && styler_.following();
             const int position = useFollowPosition ? followCaretPosition_ : cursorPosition();
             currentDisplayLine = overviewDisplayLineForPosition(position);
         }
-        if (overviewCurrentDisplayLine_ != currentDisplayLine) {
+        if (overviewCurrentDisplayLine_ != currentDisplayLine
+            || overviewFollowing_ != useFollowPosition) {
             overviewCurrentDisplayLine_ = currentDisplayLine;
+            overviewFollowing_ = useFollowPosition;
             changed = true;
         }
     }

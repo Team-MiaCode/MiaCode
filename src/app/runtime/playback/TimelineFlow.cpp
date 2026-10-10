@@ -773,13 +773,10 @@ void miacode::runtime::PlaybackCoordinator::onTimelineFollowPreviewToggled(bool 
     }
     invalidatePreviewFollowBindingCache();
     preferences_.savePortableState();
-    if (!hasActiveDifficulty()) {
+    if (!enabled || !hasActiveDifficulty()) {
         clearPreviewFollowDecoration();
         return;
     }
-    // Turning the option off stops the caret/viewport follow, not the highlight:
-    // it stays as the on-screen cue for where the playhead is (and as the target
-    // touch-pad click authoring writes to). Refresh it either way.
     const double second = qMax(0.0, authoritativeAudioClockSecond());
     syncEditorCursorToPreviewSecond(
         second,

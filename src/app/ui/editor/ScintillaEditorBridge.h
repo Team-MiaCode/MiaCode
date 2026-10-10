@@ -50,6 +50,7 @@ class ScintillaEditorBridge : public ScintillaQuick_item
     Q_PROPERTY(QVariantList overviewMarkers READ overviewMarkers NOTIFY overviewChanged)
     Q_PROPERTY(int overviewDisplayLineCount READ overviewDisplayLineCount NOTIFY overviewChanged)
     Q_PROPERTY(int overviewCurrentDisplayLine READ overviewCurrentDisplayLine NOTIFY overviewChanged)
+    Q_PROPERTY(bool overviewFollowing READ overviewFollowing NOTIFY overviewChanged)
     Q_PROPERTY(bool imeComposing READ imeComposing NOTIFY imeComposingChanged)
 public:
     QColor sceneBackgroundColor() const { return Qt::transparent; }
@@ -93,6 +94,7 @@ public:
     QVariantList overviewMarkers() const { return overviewMarkers_; }
     int overviewDisplayLineCount() const;
     int overviewCurrentDisplayLine() const { return overviewCurrentDisplayLine_; }
+    bool overviewFollowing() const { return overviewFollowing_; }
     bool imeComposing() const { return imeComposing_; }
     Q_INVOKABLE void undo();
     Q_INVOKABLE void redo();
@@ -188,6 +190,7 @@ private:
     int overviewDiagnosticDifficulty_ = -1;
     int overviewDisplayLineCount_ = 0;
     int overviewCurrentDisplayLine_ = -1;
+    bool overviewFollowing_ = false;
     int overviewDirtyParts_ = OverviewAllDirty;
     bool overviewRefreshPending_ = false;
     QFont effectiveFont_;
