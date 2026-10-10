@@ -17,6 +17,7 @@ QtObject {
         background: {
             surface: "#121314",
             panel: "#191A1B",
+            editorTabStrip: "#191A1B",
             elevated: "#202122",
             control: "#121314",
             controlDisabled: "#202122",
@@ -82,7 +83,7 @@ QtObject {
             // Base UI state colors; HoverChrome applies the shared overlay alpha.
             hover: "#1E2021",
             pressed: "#282A2B",
-            selected: "#232526",
+            selected: "#333536",
 
             // Editor text selection (not row chrome).
             menuSelection: Qt.rgba(0x39 / 255, 0x94 / 255, 0xBC / 255, 0x26 / 255),
@@ -95,12 +96,12 @@ QtObject {
         listState: {
             hover: "#1E2021",
             pressed: "#282A2B",
-            selected: "#232526"
+            selected: "#333536"
         },
         activityState: {
             hover: "#1E2021",
             pressed: "#282A2B",
-            selected: "#232526"
+            selected: "#333536"
         },
         activityIcon: {
             active: "#E8E8E8",
@@ -115,7 +116,7 @@ QtObject {
         buttonState: {
             hover: "#333536",
             pressed: "#282A2B",
-            selected: "#3A3B3C"
+            selected: "#333536"
         },
         accentState: {
             hover: "#328EB8",
@@ -165,6 +166,7 @@ QtObject {
         background: {
             surface: "#F4F6F8",
             panel: "#EBEFF3",
+            editorTabStrip: "#E3E3E3",
             elevated: "#FFFFFF",
             control: "#FFFFFF",
             controlDisabled: "#E5EAF0",
@@ -300,6 +302,7 @@ QtObject {
         background: {
             surface: "#F8FAFD",
             panel: "#F5F7FA",
+            editorTabStrip: "#F5F7FA",
             elevated: "#FFFFFF",
             control: "#FFFFFF",
             controlDisabled: "#F2F5F9",
@@ -433,6 +436,7 @@ QtObject {
         background: {
             surface: "#151A20",
             panel: "#1B2129",
+            editorTabStrip: "#1B2129",
             elevated: "#232B35",
             control: "#171D24",
             controlDisabled: "#202833",
@@ -696,6 +700,7 @@ QtObject {
     readonly property int workspaceRadius: 10
     readonly property int itemRadius: controlRadius
     readonly property int controlMinHeight: 30
+    readonly property int controlHighlightHeight: 26
     readonly property int compactControlHeight: 24
     readonly property int compactFontSize: uiFontSize - 2
     readonly property int settingsRowSpacing: 10

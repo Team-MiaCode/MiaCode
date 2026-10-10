@@ -25,7 +25,7 @@ Item {
     readonly property real minimumHeight: tabs.implicitHeight + timelineItem.minimumViewportHeight
     readonly property real minimumWidth: tabs.minimumWidth
     readonly property real analysisTextLeftInset:
-        Theme.panelPadding - Theme.chromeInsetX + Theme.compactTabContentPadding
+        Theme.panelPadding + Theme.chromePadding
     readonly property real analysisListLeftInset:
         Math.max(0, analysisTextLeftInset - Theme.rowPaddingX)
     readonly property real analysisVerticalSpacing: Theme.chromeInsetY

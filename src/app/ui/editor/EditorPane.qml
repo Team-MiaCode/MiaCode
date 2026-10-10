@@ -201,7 +201,8 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        visible: root.documentSession.hasDocument || root.viewState.openEditorTabs.length > 0
+        visible: root.viewState.openEditorTabs.length > 0
+        height: visible ? implicitHeight : 0
         viewState: root.viewState
         documentSession: root.documentSession
         commands: root.commands

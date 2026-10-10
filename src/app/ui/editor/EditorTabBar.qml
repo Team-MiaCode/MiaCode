@@ -17,7 +17,11 @@ Item {
     readonly property int minimumTabWidth: 80
     readonly property int tabCount: viewState.openEditorTabs.length
     readonly property real availableTabWidth: Math.max(0, width - (tabsOverflow ? overflowButton.width : 0))
-    readonly property bool tabsOverflow: tabCount * minimumTabWidth > width
+    readonly property real activePreferredWidth: activeTabIndex >= 0
+        ? preferredTabWidths[activeTabIndex] : 0
+    readonly property bool tabsOverflow: activeTabIndex >= 0
+        ? activePreferredWidth + (tabCount - 1) * minimumTabWidth > width
+        : tabCount * minimumTabWidth > width
     readonly property var preferredTabWidths: viewState.openEditorTabs.map(key => {
         const title = (documentSession.dirtyEditorKeys.indexOf(key) >= 0 ? "*" : "") + titleForKey(key)
         const iconWidth = difficultyIdForKey(key) > 0 ? Theme.difficultySwatchSize
@@ -27,11 +31,17 @@ Item {
             Math.ceil(tabFontMetrics.advanceWidth(title) + 14 + 9 + 24 + 6 + (iconWidth > 0 ? iconWidth + 6 : 0)))
     })
     readonly property real preferredTabsWidth: preferredTabWidths.reduce((sum, value) => sum + value, 0)
-    readonly property real compressionScale: preferredTabsWidth > tabCount * minimumTabWidth
-        ? Math.max(0, Math.min(1, (availableTabWidth - tabCount * minimumTabWidth)
-            / (preferredTabsWidth - tabCount * minimumTabWidth))) : 1
-    readonly property var tabWidths: preferredTabWidths.map(value =>
-        minimumTabWidth + (value - minimumTabWidth) * compressionScale)
+    readonly property var tabWidths: {
+        const otherCount = tabCount - (activeTabIndex >= 0 ? 1 : 0)
+        const otherPreferredWidth = preferredTabsWidth - activePreferredWidth
+        const minimumOtherWidth = otherCount * minimumTabWidth
+        const remainingWidth = availableTabWidth - activePreferredWidth
+        const scale = otherPreferredWidth > minimumOtherWidth
+            ? Math.max(0, Math.min(1, (remainingWidth - minimumOtherWidth)
+                / (otherPreferredWidth - minimumOtherWidth))) : 1
+        return preferredTabWidths.map((value, index) => index === activeTabIndex
+            ? value : minimumTabWidth + (value - minimumTabWidth) * scale)
+    }
 
     FontMetrics {
         id: tabFontMetrics
@@ -149,11 +159,15 @@ Item {
     readonly property real leftCurve: activeTabIndex === 0 ? 0 : curve
     readonly property real leftEdge: activeTabIndex === 0
         ? activeTabLeft - outlineWidth : activeTabLeft
+    readonly property bool activeTabAtRightEdge: activeTabRight >= width - outlineWidth
+    readonly property real rightCurve: activeTabAtRightEdge ? 0 : curve
+    readonly property real rightEdge: activeTabAtRightEdge
+        ? activeTabRight + outlineWidth : activeTabRight
 
     // One contour supplies both fills and the continuous separator stroke.
     readonly property string tabContour: {
         const k = 0.55228475
-        const l = leftEdge, r = activeTabRight, c = curve, a = leftCurve
+        const l = leftEdge, r = rightEdge, c = rightCurve, a = leftCurve
         // The workspace draws the shared top edge; keep this stroke above its clip.
         const t = -outlineWidth / 2, b = separatorY
         return "M " + (l - a) + " " + b
@@ -177,7 +191,7 @@ Item {
 
         ShapePath {
             strokeWidth: -1
-            fillColor: Theme.surfaceColor(Theme.colors.background.panel)
+            fillColor: Theme.surfaceColor(Theme.colors.background.editorTabStrip)
             fillRule: ShapePath.OddEvenFill
             PathSvg {
                 path: "M 0 0 H " + root.width + " V " + root.height + " H 0 Z " + root.activeFillPath

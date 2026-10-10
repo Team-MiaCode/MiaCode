@@ -1,5 +1,6 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import MiaCode.UI
 
@@ -10,12 +11,12 @@ Item {
     required property var analysisSession
     required property var timelineSession
 
-    readonly property int edgePadding: 5
+    readonly property int edgePadding: 4
     readonly property int rowVerticalMargin:
-        edgePadding - Theme.chromeInsetY + Theme.chromeHighlightOutset
+        edgePadding - (Theme.controlMinHeight - Theme.controlHighlightHeight) / 2
     readonly property int rowHorizontalMargin:
-        edgePadding - Theme.chromeInsetX + Theme.chromeHighlightOutset
-    implicitHeight: Theme.compactControlHeight + 2 * rowVerticalMargin
+        edgePadding - Theme.chromeInsetX
+    implicitHeight: Theme.controlMinHeight + 2 * rowVerticalMargin
     readonly property real minimumWidth: tabLayout.implicitWidth
         + tabLayout.anchors.leftMargin + tabLayout.anchors.rightMargin
 
@@ -31,7 +32,7 @@ Item {
         return { errors: errors, warnings: warnings }
     }
 
-    component BottomTab: AbstractButton {
+    component BottomTab: AppTabButton {
         id: tab
 
         property int count: -1
@@ -39,43 +40,20 @@ Item {
         readonly property int badgeFontSize: Theme.uiFontSize - 2
         readonly property int badgeHeight: badgeFontSize + 5
 
-        implicitWidth: contentRow.implicitWidth + leftPadding + rightPadding
-        implicitHeight: Math.max(24, title.implicitHeight + 6, badgeHeight + 6)
-        leftPadding: Theme.compactTabContentPadding
-        rightPadding: leftPadding
-        topPadding: 0
-        bottomPadding: 0
-        hoverEnabled: true
-        focusPolicy: Qt.TabFocus
-        checkable: true
         Layout.alignment: Qt.AlignVCenter
-        Accessible.name: text
         Accessible.description: count > 0 ? String(count) : ""
 
-        contentItem: Row {
-            id: contentRow
-            spacing: 6
+        accessory: count > 0 ? badgeAccessory : null
 
-            Text {
-                id: title
-                width: implicitWidth
-                height: contentRow.height
-                text: tab.text
-                font.family: Theme.uiFont
-                font.pixelSize: Theme.uiFontSize
-                font.preferTypoLineMetrics: true
-                color: tab.checked || tab.hovered || tab.visualFocus
-                    ? Theme.colors.text.active : Theme.colors.text.secondary
-                verticalAlignment: Text.AlignVCenter
-            }
-
+        Component {
+            id: badgeAccessory
             Rectangle {
-                width: Math.max(height, Math.ceil(countLabel.implicitWidth) + 8)
-                height: tab.badgeHeight
-                anchors.verticalCenter: parent.verticalCenter
-                visible: tab.count > 0
+                implicitWidth: tab.count > 0
+                    ? Math.max(implicitHeight, Math.ceil(countLabel.implicitWidth) + 8) : 0
+                implicitHeight: tab.count > 0 ? tab.badgeHeight : 0
                 radius: height / 2
                 color: tab.countColor
+                visible: tab.count > 0
 
                 Text {
                     id: countLabel
@@ -89,16 +67,6 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                 }
             }
-        }
-
-        background: HoverChrome {
-            cornerRadius: Theme.compactControlRadius
-            stateColors: Theme.colors.popupState
-            contentHeight: Math.max(title.implicitHeight, tab.badgeHeight)
-            selected: tab.checked
-            hovered: tab.hovered
-            pressed: tab.down
-            focused: tab.visualFocus
         }
     }
 
@@ -144,13 +112,7 @@ Item {
 
         IconButton {
             id: settingsButton
-            implicitWidth: 24
-            implicitHeight: 24
-            iconWidth: 16
-            iconHeight: 16
-            cornerRadius: Theme.compactControlRadius
-            highlightOutset: Theme.chromeHighlightOutset
-            stateColors: Theme.colors.popupState
+            stateColors: Theme.chromeStateColors
 
             Layout.alignment: Qt.AlignVCenter
             visible: root.timelineSession.currentTabId === "timeline"

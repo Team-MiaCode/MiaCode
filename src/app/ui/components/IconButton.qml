@@ -94,7 +94,7 @@ AbstractButton {
         cornerRadius: root.cornerRadius
         highlightOutset: root.highlightOutset
         contentWidth: root.contentImplicitWidth
-        contentHeight: root.glyph.length > 0 ? glyphLabel.implicitHeight : root.iconHeight
+        contentHeight: Theme.controlHighlightHeight - 2 * Theme.chromePadding
         stateColors: root.stateColors
         selected: root.active || root.checked
         hovered: root.hovered

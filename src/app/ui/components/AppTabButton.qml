@@ -19,6 +19,7 @@ TabButton {
     focusPolicy: Qt.TabFocus
     font.family: Theme.uiFont
     font.pixelSize: compact ? Theme.compactFontSize : Theme.uiFontSize
+    font.preferTypoLineMetrics: true
 
     contentItem: RowLayout {
         spacing: 6
@@ -40,8 +41,9 @@ TabButton {
 
     background: HoverChrome {
         cornerRadius: root.compact ? Theme.compactControlRadius : Theme.controlRadius
+        highlightOutset: 0
         stateColors: Theme.colors.popupState
-        contentHeight: label.implicitHeight
+        contentHeight: Theme.controlHighlightHeight - 2 * Theme.chromePadding
         selected: root.checked
         hovered: root.hovered
         pressed: root.down

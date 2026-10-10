@@ -36,8 +36,9 @@ ToolButton {
     }
 
     background: HoverChrome {
+        highlightOutset: 0
         stateColors: Theme.colors.popupState
-        contentHeight: label.implicitHeight
+        contentHeight: Theme.controlHighlightHeight - 2 * Theme.chromePadding
         selected: root.checked
         hovered: root.hovered
         pressed: root.down
