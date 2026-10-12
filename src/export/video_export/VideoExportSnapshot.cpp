@@ -208,7 +208,6 @@ QJsonObject VideoExportSnapshot::toJson() const
     render.insert(QStringLiteral("show_timestamp"), showTimestamp);
     render.insert(QStringLiteral("show_object_stats_hud"), showObjectStatsHud);
     render.insert(QStringLiteral("show_chart_info_hud"), showChartInfoHud);
-    render.insert(QStringLiteral("fix_hud_text_layout"), fixHudTextLayout);
     render.insert(QStringLiteral("clock_count_enabled"), clockCountEnabled);
     render.insert(
         QStringLiteral("center_display_mode"),
@@ -369,8 +368,6 @@ bool VideoExportSnapshot::fromJson(
         render.value(QStringLiteral("show_object_stats_hud")).toBool(parsed.showObjectStatsHud);
     parsed.showChartInfoHud =
         render.value(QStringLiteral("show_chart_info_hud")).toBool(parsed.showChartInfoHud);
-    parsed.fixHudTextLayout =
-        render.value(QStringLiteral("fix_hud_text_layout")).toBool(parsed.fixHudTextLayout);
     parsed.clockCountEnabled =
         render.value(QStringLiteral("clock_count_enabled")).toBool(parsed.clockCountEnabled);
     parsed.centerDisplayMode = miacode::preview_gameplay::centerDisplayModeFromToken(
@@ -527,7 +524,6 @@ bool buildVideoExportTaskFromSnapshot(
     built.showTimestamp = snapshot.showTimestamp;
     built.showObjectStatsHud = snapshot.showObjectStatsHud;
     built.showChartInfoHud = snapshot.showChartInfoHud;
-    built.fixHudTextLayout = snapshot.fixHudTextLayout;
     // Reconstruct chart metadata from the parsed SimaiDocument so the
     // out-of-process worker can populate the chart info HUD without
     // shipping the strings separately. Per-difficulty designer takes

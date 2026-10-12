@@ -920,15 +920,6 @@ void PreviewRuntime::setShowObjectStatsHud(bool show)
     update();
 }
 
-void PreviewRuntime::setFixHudTextLayout(bool enabled)
-{
-    if (frameState_.render.fixHudTextLayout == enabled) {
-        return;
-    }
-    frameState_.render.fixHudTextLayout = enabled;
-    update();
-}
-
 void PreviewRuntime::setCenterDisplayMode(miacode::preview_gameplay::CenterDisplayMode mode)
 {
     const auto oldMode = frameState_.render.centerDisplayMode;

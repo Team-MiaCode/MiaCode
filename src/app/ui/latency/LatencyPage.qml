@@ -7,6 +7,7 @@ Item {
     id: root
 
     required property var latency
+    required property var previewSession
     required property var pages
 
     clip: true
@@ -178,6 +179,14 @@ Item {
                     stepSize: 1
                     value: root.latency.sfxVolumePercent
                     onMoved: function(value) { root.latency.sfxVolumePercent = Math.round(value) }
+                }
+
+                AppButton {
+                    objectName: "latencyAuditionButton"
+                    Layout.alignment: Qt.AlignRight
+                    emphasized: !root.previewSession.playing
+                    text: root.previewSession.playing ? qsTrId("preview.pause") : qsTrId("qml.start_audition")
+                    onClicked: root.previewSession.playing = !root.previewSession.playing
                 }
             }
         }

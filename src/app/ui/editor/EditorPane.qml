@@ -15,6 +15,7 @@ Item {
     required property var analysisSession
     required property var preferences
     required property var latency
+    required property var previewSession
     required property var pages
     required property var net
     required property var netUpload
@@ -216,6 +217,7 @@ Item {
         anchors.bottom: parent.bottom
         visible: root.viewState.latencyEditorActive && root.pages.activePageId === "latency"
         latency: root.latency
+        previewSession: root.previewSession
         pages: root.pages
     }
 

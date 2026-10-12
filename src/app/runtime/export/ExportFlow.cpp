@@ -323,7 +323,6 @@ void miacode::runtime::VideoExportHost::applySharedExportTaskSettings(const Vide
     if (session_.scene_ != nullptr) {
         session_.scene_->setShowTimestamp(session_.previewShowTimestamp_);
         session_.scene_->setShowObjectStatsHud(session_.previewShowObjectStatsHud_);
-        session_.scene_->setFixHudTextLayout(task.fixHudTextLayout);
         // Chart info stays exclusive to the export audition; editor preview
         // state is left untouched.
         if (session_.exportPreviewActive_) {
@@ -526,7 +525,6 @@ void miacode::runtime::VideoExportHost::endExportPreviewSession()
     teardownExportPreviewAuditionScene();
     if (session_.scene_ != nullptr) {
         session_.scene_->setSuppressDebugInfo(false);
-        session_.scene_->setFixHudTextLayout(false);
         session_.scene_->setShowChartInfoHud(false);
         session_.scene_->setChartInfo(QString(), QString(), QString(), QString());
     }
@@ -796,7 +794,6 @@ bool miacode::runtime::VideoExportHost::startQmlExportAudition(int difficultyId,
         session_.scene_->setBackgroundScaleMode(visualTask.backgroundScaleMode);
         session_.scene_->setTapFlowSpeed(visualTask.tapFlowSpeed);
         session_.scene_->setTouchFlowSpeed(visualTask.touchFlowSpeed);
-        session_.scene_->setFixHudTextLayout(visualTask.fixHudTextLayout);
         session_.scene_->setShowTimestamp(visualTask.showTimestamp);
         session_.scene_->setShowObjectStatsHud(visualTask.showObjectStatsHud);
         session_.scene_->setShowChartInfoHud(visualTask.showChartInfoHud);

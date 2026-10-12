@@ -3597,6 +3597,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Sound-effect volume</source>
         <translation>音效音量</translation>
     </message>
+    <message id="qml.start_audition">
+        <source>Start audition</source>
+        <translation>开始试听</translation>
+    </message>
     <message id="qml.start_compression">
         <source>Start compression</source>
         <translation>开始压缩</translation>

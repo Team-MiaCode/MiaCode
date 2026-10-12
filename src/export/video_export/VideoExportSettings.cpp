@@ -232,7 +232,6 @@ void copyVideoExportUserSettings(const VideoExportTask& source, VideoExportTask*
     target->showTimestamp = source.showTimestamp;
     target->showObjectStatsHud = source.showObjectStatsHud;
     target->showChartInfoHud = source.showChartInfoHud;
-    target->fixHudTextLayout = source.fixHudTextLayout;
     target->clockCountEnabled = source.clockCountEnabled;
     target->intro.enabled = source.intro.enabled;
     target->intro.pvPreview = source.intro.pvPreview;

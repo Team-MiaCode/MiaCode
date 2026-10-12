@@ -199,7 +199,6 @@ public:
     void setHudFontSettings(const miacode::preview::scene::PreviewHudFontSettings& settings);
     void setShowTimestamp(bool show);
     void setShowObjectStatsHud(bool show);
-    void setFixHudTextLayout(bool enabled);
     void setCenterDisplayMode(miacode::preview_gameplay::CenterDisplayMode mode);
     void setSuppressObjectStatsHud(bool suppress);
     void setShowChartInfoHud(bool show);

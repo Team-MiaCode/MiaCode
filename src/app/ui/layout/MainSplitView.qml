@@ -474,6 +474,7 @@ Item {
                         commands: root.commands
                         preferences: root.preferences
                         latency: root.latency
+                        previewSession: root.previewSession
                         net: root.net
                         netUpload: root.netUpload
                         pages: root.pages

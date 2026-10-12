@@ -672,7 +672,6 @@ bool miacode::runtime::VideoExportHost::buildVideoExportSnapshot(
     built.showTimestamp = requestedTask.showTimestamp;
     built.showObjectStatsHud = requestedTask.showObjectStatsHud;
     built.showChartInfoHud = requestedTask.showChartInfoHud;
-    built.fixHudTextLayout = requestedTask.fixHudTextLayout;
     built.centerDisplayMode = requestedTask.centerDisplayMode;
     built.skinLoadWaitMs = requestedTask.skinLoadWaitMs;
     // Bake the dialog's count-in on/off into the snapshot (default-true elsewhere
@@ -878,7 +877,6 @@ bool miacode::runtime::VideoExportHost::buildVideoExportSnapshotForChartDirector
     built.showTimestamp = requestedTask.showTimestamp;
     built.showObjectStatsHud = requestedTask.showObjectStatsHud;
     built.showChartInfoHud = requestedTask.showChartInfoHud;
-    built.fixHudTextLayout = requestedTask.fixHudTextLayout;
     built.centerDisplayMode = requestedTask.centerDisplayMode;
     built.skinLoadWaitMs = requestedTask.skinLoadWaitMs;
     // Batch uses the same opt-in count-in setting as single export. The

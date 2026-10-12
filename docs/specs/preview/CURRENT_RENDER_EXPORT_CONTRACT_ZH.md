@@ -2,7 +2,7 @@
 lifecycle: stable-current
 owner: src/preview
 canonical_id: preview.render-export
-last_verified: 2026-10-06
+last_verified: 2026-10-12
 code_anchors: ["src/preview/runtime", "src/preview/quick_scene", "src/preview/stage_media", "src/core/scene", "src/export", "src/app/main.cpp"]
 ---
 
@@ -34,6 +34,14 @@ code_anchors: ["src/preview/runtime", "src/preview/quick_scene", "src/preview/st
 | 导出配置 | QML session / preferences → runtime snapshot → VideoExportSnapshot JSON → worker task |
 | 封面合成 | QmlCoverExportWindow/Session 与 `src/export/cover_export/`；窗口拥有自己的 engine 和捕获资源 |
 | HUD 字体与导出设置 | `PreviewHudState` 与导出页经偏好端口 `miacode::preferences` 读写 `app.video_export`；GUI、CLI 导出和导出 worker 在入口安装 `PreferenceDocumentProvider` |
+
+谱面信息、物量统计和调试 HUD 共用按字号计算的 1.25 倍基线步进；字形轮廓、
+栅格覆盖余量、阴影和至少 0.12 倍字号的留白共同兜底，不依赖字体内置行高。
+物量统计保留标题/数值及段落间距，紧凑双列布局使用相同规则；空间不足时仍缩字或紧凑显示。
+HUD（含中央显示）在短边 1080、96 DPI 的统一逻辑画布上完成字号、行距和自适应布局，
+再按实际画布等比缩放绘制。同一宽高比下，预览面板尺寸、屏幕 DPI 和输出分辨率只影响
+栅格清晰度，不改变布局比例；预览窗口实际宽高比改变时才重新适配几何。
+预览与导出始终使用该布局，旧快照中的 `fix_hud_text_layout` 字段忽略，不再传递开关。
 
 ## 生命周期与验证
 
