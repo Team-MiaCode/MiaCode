@@ -64,6 +64,7 @@ bool probeDuration(
     const QString& videoPath,
     const std::atomic_bool* cancelRequested,
     double* durationSeconds,
+    QString* videoEncoder,
     miacode::LocalizedText* error)
 {
     QProcess process;
@@ -87,6 +88,13 @@ bool probeDuration(
     }
 
     const QString output = QString::fromLocal8Bit(process.readAll());
+    *videoEncoder = pvCompressionEncoderFromInputInfo(output);
+    if (videoEncoder->isEmpty()) {
+        if (error != nullptr) {
+            *error = miacode::localizedText("media_tools.batch_pv_duration_failed");
+        }
+        return false;
+    }
     static const QRegularExpression pattern(
         QStringLiteral(R"(Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?))"));
     const QRegularExpressionMatch match = pattern.match(output);
@@ -158,8 +166,10 @@ bool compressJob(
     }
 
     double durationSeconds = 0.0;
+    QString videoEncoder;
     miacode::LocalizedText error;
-    if (!probeDuration(ffmpegPath, backupPath, cancelRequested, &durationSeconds, &error)) {
+    if (!probeDuration(
+            ffmpegPath, backupPath, cancelRequested, &durationSeconds, &videoEncoder, &error)) {
         *resultStatus = error;
         return false;
     }
@@ -177,11 +187,11 @@ bool compressJob(
     for (int attempt = 0; attempt < 2; ++attempt) {
         QFile::remove(tempPath);
         const QString passLogPath = QDir(passLogDirectory.path()).filePath(
-            QStringLiteral("x264-attempt-%1").arg(attempt));
+            QStringLiteral("pv-attempt-%1").arg(attempt));
         const QStringList firstPass = makePvCompressionPassArguments(
-            backupPath, tempPath, passLogPath, plan, 1);
+            backupPath, tempPath, passLogPath, videoEncoder, plan, 1);
         const QStringList secondPass = makePvCompressionPassArguments(
-            backupPath, tempPath, passLogPath, plan, 2);
+            backupPath, tempPath, passLogPath, videoEncoder, plan, 2);
         const bool firstPassOk = runProcess(
             ffmpegPath, firstPass, cancelRequested, nullptr, &error);
         const bool secondPassOk = firstPassOk && runProcess(

@@ -255,7 +255,9 @@ $generator = $toolchainSpec.Generator
 Write-Host "Configure: generator '$generator', Qt '$QtRoot', config '$Config'"
 
 $configureArgs = @("-S", $repoRoot, "-B", $BuildDir, "-G", $generator,
+    "-U", "Qt6*_DIR",
     "-DCMAKE_PREFIX_PATH=$QtRoot",
+    "-DQt6_DIR=$(Join-Path $QtRoot 'lib\cmake\Qt6')",
     "-DCMAKE_TRY_COMPILE_CONFIGURATION=$Config",
     "-DMIACODE_BUILD_DEV_TOOLS=$buildDevTools")
 if (![string]::IsNullOrWhiteSpace($vulkanIncludeDir)) {

@@ -426,7 +426,12 @@ bool runFfmpegBlocking(
     return true;
 }
 
-bool probeMediaDurationSeconds(const QString& ffmpegPath, const QString& mediaPath, double* durationSeconds, miacode::LocalizedText* error)
+bool probeMediaDurationSeconds(
+    const QString& ffmpegPath,
+    const QString& mediaPath,
+    double* durationSeconds,
+    miacode::LocalizedText* error,
+    QString* videoEncoder = nullptr)
 {
     QStringList args;
     args << QStringLiteral("-hide_banner")
@@ -453,6 +458,15 @@ bool probeMediaDurationSeconds(const QString& ffmpegPath, const QString& mediaPa
     }
 
     const QString output = QString::fromLocal8Bit(process.readAll());
+    if (videoEncoder != nullptr) {
+        *videoEncoder = miacode::media::pvCompressionEncoderFromInputInfo(output);
+        if (videoEncoder->isEmpty()) {
+            if (error != nullptr) {
+                *error = miacode::localizedText("media_tools.duration_read_failed");
+            }
+            return false;
+        }
+    }
     static const QRegularExpression durationPattern(
         QStringLiteral(R"(Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?))")
     );
@@ -509,7 +523,9 @@ bool compressVideoUnder20Mb(
     }
 
     double durationSeconds = 0.0;
-    if (!probeMediaDurationSeconds(ffmpegPath, backupPath, &durationSeconds, error)) {
+    QString videoEncoder;
+    if (!probeMediaDurationSeconds(
+            ffmpegPath, backupPath, &durationSeconds, error, &videoEncoder)) {
         return false;
     }
 
@@ -528,11 +544,11 @@ bool compressVideoUnder20Mb(
     for (int attempt = 0; attempt < 2; ++attempt) {
         QFile::remove(tempPath);
         const QString passLogPath = QDir(passLogDirectory.path()).filePath(
-            QStringLiteral("x264-attempt-%1").arg(attempt));
+            QStringLiteral("pv-attempt-%1").arg(attempt));
         const QStringList firstPass = miacode::media::makePvCompressionPassArguments(
-            backupPath, tempPath, passLogPath, plan, 1);
+            backupPath, tempPath, passLogPath, videoEncoder, plan, 1);
         const QStringList secondPass = miacode::media::makePvCompressionPassArguments(
-            backupPath, tempPath, passLogPath, plan, 2);
+            backupPath, tempPath, passLogPath, videoEncoder, plan, 2);
         const bool firstPassOk = runFfmpegBlocking(
             ffmpegPath,
             firstPass,

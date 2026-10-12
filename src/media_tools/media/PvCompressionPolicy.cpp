@@ -1,6 +1,7 @@
 #include "media_tools/media/PvCompressionPolicy.h"
 
 #include <QProcess>
+#include <QRegularExpression>
 
 #include <algorithm>
 #include <cmath>
@@ -45,10 +46,40 @@ bool isAcceptablePvCompressionOutput(qint64 originalBytes, qint64 outputBytes)
         && (originalBytes <= 0 || outputBytes < originalBytes);
 }
 
+QString pvCompressionEncoderFromInputInfo(const QString& ffmpegInputInfo)
+{
+    static const QRegularExpression codecPattern(
+        QStringLiteral(R"(Video:\s*([A-Za-z0-9_]+))"),
+        QRegularExpression::CaseInsensitiveOption);
+    const QRegularExpressionMatch match = codecPattern.match(ffmpegInputInfo);
+    if (!match.hasMatch()) {
+        return {};
+    }
+
+    const QString codec = match.captured(1).toLower();
+    if (codec == QStringLiteral("h264")) {
+        return QStringLiteral("libx264");
+    }
+    if (codec == QStringLiteral("hevc")) {
+        return QStringLiteral("libx265");
+    }
+    if (codec == QStringLiteral("av1")) {
+        return QStringLiteral("libaom-av1");
+    }
+    if (codec == QStringLiteral("mpeg4")) {
+        return QStringLiteral("mpeg4");
+    }
+    if (codec == QStringLiteral("vp9")) {
+        return QStringLiteral("libvpx-vp9");
+    }
+    return {};
+}
+
 QStringList makePvCompressionPassArguments(
     const QString& inputPath,
     const QString& outputPath,
     const QString& passLogPath,
+    const QString& videoEncoder,
     const PvCompressionPlan& plan,
     int passNumber)
 {
@@ -60,8 +91,7 @@ QStringList makePvCompressionPassArguments(
         QStringLiteral("-i"), inputPath,
         QStringLiteral("-map"), QStringLiteral("0:v:0"),
         QStringLiteral("-map_metadata"), QStringLiteral("-1"),
-        QStringLiteral("-c:v"), QStringLiteral("libx264"),
-        QStringLiteral("-preset"), QStringLiteral("slow"),
+        QStringLiteral("-c:v"), videoEncoder,
         QStringLiteral("-b:v"), QStringLiteral("%1k").arg(plan.videoBitrateKbps),
         QStringLiteral("-vf"), QStringLiteral("scale='min(1280,iw)':-2"),
         QStringLiteral("-pix_fmt"), QStringLiteral("yuv420p"),
@@ -70,6 +100,16 @@ QStringList makePvCompressionPassArguments(
         QStringLiteral("-pass"), QString::number(passNumber),
         QStringLiteral("-passlogfile"), passLogPath,
     };
+    if (videoEncoder == QStringLiteral("libx264")
+        || videoEncoder == QStringLiteral("libx265")) {
+        args << QStringLiteral("-preset") << QStringLiteral("fast");
+    } else if (videoEncoder == QStringLiteral("libaom-av1")) {
+        args << QStringLiteral("-cpu-used") << QStringLiteral("6")
+             << QStringLiteral("-row-mt") << QStringLiteral("1");
+    } else if (videoEncoder == QStringLiteral("libvpx-vp9")) {
+        args << QStringLiteral("-deadline") << QStringLiteral("good")
+             << QStringLiteral("-cpu-used") << QStringLiteral("4");
+    }
 
     if (passNumber == 1) {
         args << QStringLiteral("-f") << QStringLiteral("null") << QProcess::nullDevice();

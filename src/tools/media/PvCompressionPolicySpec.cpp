@@ -42,16 +42,42 @@ int main(int argc, char** argv)
         QStringLiteral("input.mp4"),
         QStringLiteral("output.mp4"),
         QStringLiteral("passlog"),
+        QStringLiteral("libx264"),
         plan,
         1);
     const QStringList secondPass = makePvCompressionPassArguments(
         QStringLiteral("input.mp4"),
         QStringLiteral("output.mp4"),
         QStringLiteral("passlog"),
+        QStringLiteral("libx264"),
         plan,
         2);
     ok &= check(firstPass.contains(QStringLiteral("-an")), "first pass removes audio");
     ok &= check(secondPass.contains(QStringLiteral("-an")), "second pass removes audio");
+    const int videoCodecIndex = argumentValueIndex(secondPass, QStringLiteral("-c:v"));
+    ok &= check(
+        videoCodecIndex >= 0 && secondPass.value(videoCodecIndex + 1) == QStringLiteral("libx264"),
+        "PV compression uses the selected source codec family");
+    const int presetIndex = argumentValueIndex(secondPass, QStringLiteral("-preset"));
+    ok &= check(
+        presetIndex >= 0 && secondPass.value(presetIndex + 1) == QStringLiteral("fast"),
+        "PV compression uses the fast H.264 preset for H.264 input");
+    ok &= check(
+        pvCompressionEncoderFromInputInfo(QStringLiteral("Stream #0:0: Video: h264 (High), 1920x1080"))
+            == QStringLiteral("libx264"),
+        "H.264 sources use the H.264 encoder");
+    ok &= check(
+        pvCompressionEncoderFromInputInfo(QStringLiteral("Stream #0:0: Video: hevc (Main), 1920x1080"))
+            == QStringLiteral("libx265"),
+        "HEVC sources use the HEVC encoder");
+    ok &= check(
+        pvCompressionEncoderFromInputInfo(QStringLiteral("Stream #0:0: Video: av1 (Main), 1920x1080"))
+            == QStringLiteral("libaom-av1"),
+        "AV1 sources use the AV1 encoder");
+    ok &= check(
+        pvCompressionEncoderFromInputInfo(QStringLiteral("Stream #0:0: Video: unknown, 1920x1080"))
+            .isEmpty(),
+        "unsupported source codecs are rejected rather than converted");
     const int fpsModeIndex = argumentValueIndex(secondPass, QStringLiteral("-fps_mode"));
     ok &= check(
         fpsModeIndex >= 0 && secondPass.value(fpsModeIndex + 1) == QStringLiteral("passthrough"),

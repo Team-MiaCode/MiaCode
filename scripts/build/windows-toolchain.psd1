@@ -5,7 +5,7 @@
 # contract live in one place. Edit here, not in the scripts.
 @{
     Qt = @{
-        Version = '6.11.1'
+        Version = '6.12.0'
         Modules = @('qtmultimedia', 'qtshadertools', 'qtquick3d')
         # Probed in order before any download. {version} and {archdir} expand
         # per selected toolchain. A candidate must contain lib\cmake\Qt6 and
