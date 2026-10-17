@@ -1375,8 +1375,17 @@ VideoExportResult VideoExportController::exportPreparedTask(
     const QString overlayAlphaMode = usePremultipliedPipe
         ? QStringLiteral("premultiplied")
         : QStringLiteral("straight");
-    filterParts << QStringLiteral("[base][overlay_src]overlay=0:0:format=rgb:alpha=%1[vout]")
-                       .arg(overlayAlphaMode);
+    // The rawvideo pipe carries no alpha mode, and FFmpeg 8.1 and later treat such
+    // frames as straight: before an `alpha=premultiplied` overlay they premultiply
+    // them once more, which darkens every translucent pixel. Tagging the frames
+    // keeps their bytes as they are. Every bundled Windows ffmpeg knows the option.
+    QString overlayInput = QStringLiteral("[overlay_src]");
+    if (usePremultipliedPipe) {
+        filterParts << QStringLiteral("[overlay_src]setparams=alpha_mode=premultiplied[overlay_tagged]");
+        overlayInput = QStringLiteral("[overlay_tagged]");
+    }
+    filterParts << QStringLiteral("[base]%1overlay=0:0:format=rgb:alpha=%2[vout]")
+                       .arg(overlayInput, overlayAlphaMode);
     const QString mappedVideoPad = encoderConfig.needsVaapiHwUpload
         ? QStringLiteral("[vout_hw]")
         : QStringLiteral("[vout]");

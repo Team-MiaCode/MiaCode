@@ -12,13 +12,12 @@
 # The whole dev/ tree is gitignored - never committed. CMake discovers it via
 # the MIACODE_FFMPEG_DEV_DIR cache variable (built from the target architecture).
 #
-# Both architectures use the FFmpeg 8.1 ABI. x64 comes from the decode-only
-# source build in scripts/ffmpeg/trim; arm64 uses a pinned upstream shared SDK.
-# LGPL (decode-only, no --enable-gpl/--enable-nonfree) matches the existing
-# redistribution terms. Major versions stay avcodec-62, avformat-62,
-# avutil-60, swresample-6, swscale-9 and avfilter-11 to
-# match scripts/build/windows-toolchain.psd1. (avdevice is dropped -
-# capture-device only, see third_party/ffmpeg/README.md -> Size trimming.)
+# x64 uses the FFmpeg 9.0 ABI from the decode-only source build in
+# scripts/ffmpeg/trim; arm64 uses the FFmpeg 8.1 ABI from a pinned upstream
+# shared SDK. LGPL (decode-only, no --enable-gpl/--enable-nonfree) matches the
+# existing redistribution terms. The runtime DLL names per architecture come
+# from scripts/build/windows-toolchain.psd1. (avdevice is dropped because it is
+# capture-device only, see third_party/ffmpeg/README.md.)
 #
 # The GPL variant is used only for the standalone export binary
 # (ensure-windows-ffmpeg.ps1), which needs libx264.
@@ -55,10 +54,8 @@ $binDir = Join-Path $devDir "bin"
 # Runtime DLLs the build + package require (names are major-version pinned).
 # avdevice is intentionally excluded - it's capture-device-only and dropped to
 # trim package size (QtAVPlayer is patched not to link/use it).
-$requiredDlls = @(
-    "avcodec-62.dll", "avformat-62.dll", "avutil-60.dll",
-    "swresample-6.dll", "swscale-9.dll", "avfilter-11.dll"
-)
+$toolchainData = Import-PowerShellDataFile -Path (Join-Path $RepoRoot "scripts\build\windows-toolchain.psd1")
+$requiredDlls = @($toolchainData.FFmpeg.RuntimeDllsByArch.$Arch)
 $requiredLibs = @(
     "avcodec.lib", "avformat.lib", "avutil.lib",
     "swresample.lib", "swscale.lib", "avfilter.lib"

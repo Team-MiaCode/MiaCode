@@ -220,12 +220,21 @@ def find_named(root: Path, name: str) -> Path | None:
     return matches[0] if matches else None
 
 
+def windows_ffmpeg_matches(binary: Path, pattern: str) -> bool:
+    # A media cache restored through a fallback key can hold an older release, which
+    # only the version banner tells apart.
+    if not binary.is_file():
+        return False
+    banner = subprocess.run([str(binary), "-version"], capture_output=True, text=True).stdout
+    return re.search(pattern, banner, re.MULTILINE) is not None
+
+
 def provision_windows_ffmpeg():
     spec = WINDOWS[PLATFORM]
     arch = spec["arch"]
     dest_dir = ROOT / "third_party" / "ffmpeg" / "windows" / spec["ffmpeg_dir"]
     binary = dest_dir / "ffmpeg.exe"
-    if binary.is_file() and binary.stat().st_size > 1024 * 1024:
+    if windows_ffmpeg_matches(binary, spec["ffmpeg_version_pattern"]):
         print(f"Using existing Windows ffmpeg: {binary}")
     else:
         with tempfile.TemporaryDirectory(prefix="miacode-ffmpeg-") as temp:
@@ -243,25 +252,20 @@ def provision_windows_ffmpeg():
             if probe is not None:
                 shutil.copy2(probe, dest_dir / "ffprobe.exe")
             print(f"Prepared Windows ffmpeg at {binary}")
+    sdk = dest_dir / "dev"
+    dlls = spec["ffmpeg_dev_dlls"]
+    if (sdk / "include" / "libavcodec" / "avcodec.h").is_file() and all((sdk / "bin" / name).is_file() for name in dlls):
+        print(f"Using existing FFmpeg preview SDK: {sdk}")
+        return
     if arch == "x64":
-        sdk = dest_dir / "dev"
-        header = sdk / "include" / "libavcodec" / "avcodec.h"
-        dll = sdk / "bin" / "avcodec-61.dll"
-        if header.is_file() and dll.is_file():
-            print(f"Using existing FFmpeg preview SDK: {sdk}")
-            return
         script = ROOT / "scripts" / "ffmpeg" / "trim" / "build-trimmed-ffmpeg.ps1"
         run(["powershell", "-ExecutionPolicy", "Bypass", "-File", script, "-OutputDir", sdk, "-Jobs", cpu_jobs()])
-        return
-    sdk = dest_dir / "dev"
-    if (sdk / "include" / "libavcodec").is_dir() and (sdk / "bin" / "avcodec-62.dll").is_file():
-        print(f"Using existing FFmpeg preview SDK: {sdk}")
         return
     url = spec["ffmpeg_dev_url"]
     with tempfile.TemporaryDirectory(prefix="miacode-ffmpeg-dev-") as temp:
         archive = Path(temp) / "sdk.zip"
         extracted = Path(temp) / "extracted"
-        print("Downloading FFmpeg dev SDK (arm64)")
+        print(f"Downloading FFmpeg dev SDK ({arch})")
         download(url, archive)
         extract_archive(archive, extracted)
         include = next(path for path in extracted.rglob("libavcodec") if path.parent.name == "include")
@@ -271,7 +275,7 @@ def provision_windows_ffmpeg():
         shutil.copytree(src / "include", sdk / "include")
         shutil.copytree(src / "lib", sdk / "lib")
         (sdk / "bin").mkdir(parents=True, exist_ok=True)
-        for name in ("avcodec-62.dll", "avformat-62.dll", "avutil-60.dll", "swresample-6.dll", "swscale-9.dll", "avfilter-11.dll"):
+        for name in dlls:
             shutil.copy2(src / "bin" / name, sdk / "bin" / name)
     print(f"Prepared FFmpeg preview SDK at {sdk}")
 
@@ -484,8 +488,10 @@ WINDOWS = {
         "host": "windows_x86",
         "generator": "Ninja Multi-Config",
         "ffmpeg_dir": "win64",
-        "ffmpeg_url": "https://github.com/GyanD/codexffmpeg/releases/download/7.1.1/ffmpeg-7.1.1-essentials_build.7z",
+        "ffmpeg_url": "https://github.com/GyanD/codexffmpeg/releases/download/9.0.2/ffmpeg-9.0.2-essentials_build.7z",
         "ffmpeg_archive": "ffmpeg.7z",
+        "ffmpeg_version_pattern": r"^ffmpeg version 9\.0\.2-essentials_build-www\.gyan\.dev",
+        "ffmpeg_dev_dlls": ("avcodec-63.dll", "avformat-63.dll", "avutil-61.dll", "swresample-7.dll", "swscale-10.dll", "avfilter-12.dll"),
     },
     "windows-arm64": {
         "arch": "arm64",
@@ -496,7 +502,9 @@ WINDOWS = {
         "ffmpeg_dir": "winarm64",
         "ffmpeg_url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-winarm64-gpl-8.1.zip",
         "ffmpeg_archive": "ffmpeg.zip",
+        "ffmpeg_version_pattern": r"^ffmpeg version n8\.1\.",
         "ffmpeg_dev_url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-winarm64-lgpl-shared-8.1.zip",
+        "ffmpeg_dev_dlls": ("avcodec-62.dll", "avformat-62.dll", "avutil-60.dll", "swresample-6.dll", "swscale-9.dll", "avfilter-11.dll"),
     },
 }
 

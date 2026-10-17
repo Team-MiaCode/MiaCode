@@ -1041,7 +1041,7 @@ endif()
 # FFmpeg runtime the preview backend (miacode_stage_media) loads next to MiaCode.
     if (WIN32)
         # Runtime: the preview backend loads these next to MiaCode.exe. Resolve
-        # the six families from the project FFmpeg 8.1 SDK; the package contract
+        # the six families from the project FFmpeg SDK; the package contract
         # in scripts/build/windows-toolchain.psd1 pins the exact names.
         file(GLOB MIACODE_FFMPEG_WINDOWS_RUNTIME_DLLS
             "${MIACODE_FFMPEG_DEV_DIR}/bin/avcodec-*.dll"
