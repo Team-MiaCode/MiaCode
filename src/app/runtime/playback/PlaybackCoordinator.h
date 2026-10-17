@@ -269,6 +269,7 @@ public:
     double durationSeconds() const;
     double lowerBoundSeconds() const;
     void togglePlayback() override;
+    void stopOrPlay() override;
     void setPlaybackRangeEnabled(bool enabled, double startSecond, double endSecond) override;
     void stop() override;
     void seek(double second) override;

@@ -8,6 +8,9 @@ ApplicationWindow {
     property bool sourceEditorFocused: false
     property bool sourceEditorOverlayHeld: false
     readonly property bool playbackCommandsEnabled: mainView.chartEditorActive
+        || (mainView.pages.exportSession
+            && mainView.pages.exportSession.pageSessionActive
+            && mainView.pages.exportSession.selectedDifficultyId > 0)
     readonly property Item backdropSource: sceneContent
     readonly property bool nativeMaterialActive: Theme.nativeMaterialActive
     readonly property real tooltipTopMargin: 6 + (
@@ -209,7 +212,6 @@ ApplicationWindow {
         shortcuts: window.applicationContext.shortcuts
         commands: window.applicationContext.commands
         previewSession: window.applicationContext.preview
-        sourceEditorFocused: window.sourceEditorFocused
         commandsEnabled: !mainView.beginnerGuideActive
         chartCommandsEnabled: mainView.chartEditorActive
         playbackCommandsEnabled: window.playbackCommandsEnabled

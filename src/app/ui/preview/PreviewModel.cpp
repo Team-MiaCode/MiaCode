@@ -384,6 +384,8 @@ void PreviewModel::stop() { playbackControl()->stop(); }
 
 void PreviewModel::togglePlayback() { playbackControl()->togglePlayback(); }
 
+void PreviewModel::stopOrPlay() { playbackControl()->stopOrPlay(); }
+
 void PreviewModel::setPlaybackRangeEnabled(bool enabled, double startSecond, double endSecond)
 {
     playbackControl()->setPlaybackRangeEnabled(enabled, startSecond, endSecond);

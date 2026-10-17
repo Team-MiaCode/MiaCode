@@ -19,7 +19,6 @@ Item {
     required property var shortcuts
     required property var commands
     required property var previewSession
-    required property bool sourceEditorFocused
     // Transforms edit the chart, so they are inert without one.
     property bool commandsEnabled: true
     property bool chartCommandsEnabled: true
@@ -51,28 +50,21 @@ Item {
 
     // Preview commands bind straight to the preview session instead of going
     // through the backend command table.
-    // Stop or Play: a playing preview stops, a stopped one starts. It is an
-    // application shortcut so that it still fires while the source editor has
-    // focus, which a window shortcut loses to the editor.
+    // Runtime owns the stop/start decision, including pending startup.
     Shortcut {
         sequence: root.shortcuts.revision >= 0
             ? root.shortcuts.sequence("preview.stop_or_play", "Ctrl+Shift+C")
             : ""
         enabled: root.playbackCommandsEnabled && sequence !== ""
         context: Qt.ApplicationShortcut
-        onActivated: {
-            if (root.previewSession.playing)
-                root.previewSession.stop()
-            else
-                root.previewSession.togglePlayback()
-        }
+        onActivated: root.previewSession.stopOrPlay()
     }
 
     Shortcut {
         sequence: root.shortcuts.revision >= 0
             ? root.shortcuts.sequence("preview.play_pause_global", "Ctrl+Shift+X")
             : ""
-        enabled: root.playbackCommandsEnabled && sequence !== "" && !root.sourceEditorFocused
+        enabled: root.playbackCommandsEnabled && sequence !== ""
         context: Qt.ApplicationShortcut
         onActivated: root.previewSession.togglePlayback()
     }

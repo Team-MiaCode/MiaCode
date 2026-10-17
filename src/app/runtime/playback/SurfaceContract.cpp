@@ -3,6 +3,7 @@
 #include "app/runtime/shell/ShellHost.h"
 #include "app/runtime/preview/StageMediaHost.h"
 #include "app/runtime/playback/PlaybackCoordinator.h"
+#include "app/runtime/playback/PreviewStopOrPlayPolicy.h"
 #include "app/runtime/playback/Playback.Internal.h"
 #include "app/runtime/validation/ValidationHost.h"
 
@@ -63,6 +64,19 @@ void miacode::runtime::PlaybackCoordinator::togglePlayback()
         return;
     }
     onTogglePreviewPause();
+}
+
+void miacode::runtime::PlaybackCoordinator::stopOrPlay()
+{
+    if (!beginPlaybackCommand()) {
+        return;
+    }
+    if (previewStopOrPlayShouldStop(state_.playing_, state_.previewStartupSyncPending_,
+                                   state_.previewLateVideoStartPending_)) {
+        onStopPreview();
+    } else {
+        onTogglePreviewPause();
+    }
 }
 
 void miacode::runtime::PlaybackCoordinator::setPlaybackRangeEnabled(

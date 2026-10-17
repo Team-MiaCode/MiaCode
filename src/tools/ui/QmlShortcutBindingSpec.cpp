@@ -2,10 +2,18 @@
 #include "app/ui/chrome/ShortcutCommands.h"
 #include "app/ui/chrome/ShortcutModel.h"
 #include "app/services/ShortcutRegistry.h"
+#include "app/runtime/playback/PreviewStopOrPlayPolicy.h"
 
 #include <QDirIterator>
 #include <QFile>
 #include <QGuiApplication>
+#include <QQmlEngine>
+#include <QQmlComponent>
+#include <QQmlExpression>
+#include <QQmlContext>
+#include <QQuickWindow>
+#include <QQuickItem>
+#include <QTest>
 #include <QKeySequence>
 #include <QMetaEnum>
 #include <QRegularExpression>
@@ -78,6 +86,11 @@ int main(int argc, char** argv)
     int failed = 0;
 
     miacode::ui::ShortcutModel model;
+    for (int flags = 0; flags < 8; ++flags) {
+        expect(miacode::runtime::previewStopOrPlayShouldStop(flags & 1, flags & 2, flags & 4)
+                   == (flags != 0),
+               QStringLiteral("Stop or Play stops active or pending startup states (%1)").arg(flags), out, &failed);
+    }
     const QStringList boundIds = miacode::ui::shortcutCommandIds();
 
     // A declared command can intentionally have no default binding. Identity,
@@ -222,24 +235,124 @@ int main(int argc, char** argv)
            QStringLiteral("subdivision +1/2 defaults to Ctrl++ and no default also claims its Ctrl+Shift+= twin"),
            out, &failed);
 
-    // Stop or Play keeps MiaCode 1.x behaviour: it starts a stopped preview as
-    // well as stopping a playing one, and it is an application shortcut so the
-    // source editor does not take the key first. Its fallback sequence matches
-    // the registry default.
+    expect(registry.defaultShortcutText(QStringLiteral("preview.stop_or_play"))
+                   == QStringLiteral("Ctrl+Shift+C")
+               && registry.defaultShortcutText(QStringLiteral("preview.play_pause_global"))
+                   == QStringLiteral("Ctrl+Shift+X"),
+           QStringLiteral("preview shortcut defaults match the v1 C and X bindings"), out, &failed);
+
     {
-        QFile file(QStringLiteral(MIACODE_SOURCE_ROOT "/src/app/ui/chrome/ShortcutBindings.qml"));
-        QString source = file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()) : QString();
-        source.remove(QLatin1Char('\r'));
-        const int start = source.indexOf(QStringLiteral("\"preview.stop_or_play\""));
-        const int end = start < 0 ? -1 : source.indexOf(QStringLiteral("\n    }\n"), start);
-        const QString binding = (start < 0 || end < 0) ? QString() : source.mid(start, end - start);
-        expect(binding.contains(QStringLiteral("\"preview.stop_or_play\", \"")
-                                + registry.defaultShortcutText(QStringLiteral("preview.stop_or_play")) + QStringLiteral("\""))
-                   && binding.contains(QStringLiteral("Qt.ApplicationShortcut"))
-                   && binding.contains(QStringLiteral("togglePlayback()"))
-                   && binding.contains(QStringLiteral("stop()")),
-               QStringLiteral("Stop or Play stops a playing preview, starts a stopped one and fires from the editor"),
+        QQmlEngine engine;
+        QQmlComponent component(&engine);
+        component.setData(QByteArray(R"QML(
+import QtQuick
+import QtQuick.Controls
+import "file:MIACODE_CHROME_DIR" as Chrome
+Window {
+    width: 320; height: 200; visible: true
+    property int starts: 0
+    property int toggles: 0
+    property bool playbackAllowed: false
+    property QtObject mainView: QtObject {
+        property bool chartEditorActive: false
+        property QtObject pages: QtObject {
+            property QtObject exportSession: QtObject {
+                property bool pageSessionActive: true
+                property int selectedDifficultyId: 4
+            }
+        }
+    }
+    QtObject {
+        id: preview
+        property bool playing: false
+        function stopOrPlay() { starts++ }
+        function togglePlayback() { toggles++ }
+        function stop() {}
+        function adjustRate(direction) {}
+    }
+    QtObject {
+        id: bindings
+        property int revision: 1
+        property string cKey: "Ctrl+Shift+C"
+        property string xKey: "Ctrl+Shift+X"
+        function sequence(id, fallback) {
+            if (id === "preview.stop_or_play") return cKey
+            if (id === "preview.play_pause_global") return xKey
+            return ""
+        }
+    }
+    QtObject { id: commandSource; function shortcutCommandIds() { return [] } }
+    TextInput { anchors.fill: parent; focus: true }
+    Chrome.ShortcutBindings {
+        shortcuts: bindings; commands: commandSource; previewSession: preview
+        chartCommandsEnabled: false
+        playbackCommandsEnabled: playbackAllowed
+    }
+    function rebind() { bindings.cKey = "Ctrl+Alt+J"; bindings.xKey = "Ctrl+Alt+K"; bindings.revision++ }
+}
+)QML").replace("MIACODE_CHROME_DIR", MIACODE_SOURCE_ROOT "/src/app/ui/chrome"), QUrl());
+        QScopedPointer<QObject> object(component.create());
+        auto* window = qobject_cast<QQuickWindow*>(object.data());
+        expect(window != nullptr,
+               window ? QStringLiteral("preview shortcut QML fixture loads") : component.errorString(),
                out, &failed);
+        if (window) {
+            QFile mainFile(QStringLiteral(MIACODE_SOURCE_ROOT "/src/app/ui/Main.qml"));
+            const QString mainSource = mainFile.open(QIODevice::ReadOnly)
+                ? QString::fromUtf8(mainFile.readAll()) : QString();
+            const QRegularExpression gatePattern(
+                QStringLiteral("readonly property bool playbackCommandsEnabled:([\\s\\S]*?)\\n    readonly property"));
+            const QString gate = gatePattern.match(mainSource).captured(1);
+            QQmlExpression eligibility(QQmlEngine::contextForObject(window), window, gate);
+            expect(!gate.isEmpty(), QStringLiteral("Main playback eligibility expression is present"), out, &failed);
+            const QVariant exportEnabled = eligibility.evaluate();
+            if (eligibility.hasError()) out << "  eligibility error: " << eligibility.error().toString() << '\n';
+            expect(!gate.isEmpty() && exportEnabled.toBool() && !eligibility.hasError(),
+                   QStringLiteral("Main enables playback for export audition without an active chart"), out, &failed);
+            QObject* mainView = window->property("mainView").value<QObject*>();
+            QObject* pages = mainView->property("pages").value<QObject*>();
+            QObject* exportSession = pages->property("exportSession").value<QObject*>();
+            exportSession->setProperty("selectedDifficultyId", 0);
+            expect(!eligibility.evaluate().toBool(),
+                   QStringLiteral("export playback requires a selected difficulty"), out, &failed);
+            exportSession->setProperty("selectedDifficultyId", 4);
+            exportSession->setProperty("pageSessionActive", false);
+            expect(!eligibility.evaluate().toBool(),
+                   QStringLiteral("inactive export pages do not enable preview shortcuts"), out, &failed);
+            mainView->setProperty("chartEditorActive", true);
+            expect(eligibility.evaluate().toBool(),
+                   QStringLiteral("chart editing continues to enable preview shortcuts"), out, &failed);
+            mainView->setProperty("chartEditorActive", false);
+            expect(pages->setProperty("exportSession", QVariant::fromValue<QObject*>(nullptr)),
+                   QStringLiteral("export session fixture accepts withdrawal"), out, &failed);
+            expect(!eligibility.evaluate().toBool() && !eligibility.hasError(),
+                   QStringLiteral("a withdrawn export session leaves shortcuts disabled"), out, &failed);
+            expect(pages->setProperty("exportSession", QVariant::fromValue(exportSession)),
+                   QStringLiteral("export session fixture accepts restoration"), out, &failed);
+            exportSession->setProperty("pageSessionActive", true);
+            window->setProperty("playbackAllowed", eligibility.evaluate().toBool());
+            window->requestActivate();
+            QTest::qWait(100);
+            expect(window->activeFocusItem()
+                       && window->activeFocusItem()->inherits("QQuickTextInput"),
+                   QStringLiteral("shortcut test keeps a real text editor focused"), out, &failed);
+            const auto press = [window](int key, Qt::KeyboardModifiers mods) {
+                QTest::keyClick(window, static_cast<Qt::Key>(key), mods);
+                QCoreApplication::processEvents();
+            };
+            press(Qt::Key_C, Qt::ControlModifier | Qt::ShiftModifier);
+            press(Qt::Key_X, Qt::ControlModifier | Qt::ShiftModifier);
+            expect(window->property("starts").toInt() == 1 && window->property("toggles").toInt() == 1,
+                   QStringLiteral("both preview commands fire with editor focus and no chart commands"), out, &failed);
+            QMetaObject::invokeMethod(window, "rebind");
+            QCoreApplication::processEvents();
+            press(Qt::Key_C, Qt::ControlModifier | Qt::ShiftModifier);
+            press(Qt::Key_X, Qt::ControlModifier | Qt::ShiftModifier);
+            press(Qt::Key_J, Qt::ControlModifier | Qt::AltModifier);
+            press(Qt::Key_K, Qt::ControlModifier | Qt::AltModifier);
+            expect(window->property("starts").toInt() == 2 && window->property("toggles").toInt() == 2,
+                   QStringLiteral("preview bindings follow revised sequences and release their previous keys"), out, &failed);
+        }
     }
 
     if (failed != 0) {

@@ -98,7 +98,7 @@ miacode_add_dev_tool(qml_shortcut_binding_spec TEST
         src/app/services/ShortcutRegistry.cpp
         src/app/services/ShortcutRegistry.h
         resources/app_icons.qrc
-    LIBS miacode_chart Qt6::Core Qt6::Gui
+    LIBS miacode_chart Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::Test
     INCLUDES src
 )
 target_compile_definitions(qml_shortcut_binding_spec PRIVATE
