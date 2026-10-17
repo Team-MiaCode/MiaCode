@@ -222,6 +222,26 @@ int main(int argc, char** argv)
            QStringLiteral("subdivision +1/2 defaults to Ctrl++ and no default also claims its Ctrl+Shift+= twin"),
            out, &failed);
 
+    // Stop or Play keeps MiaCode 1.x behaviour: it starts a stopped preview as
+    // well as stopping a playing one, and it is an application shortcut so the
+    // source editor does not take the key first. Its fallback sequence matches
+    // the registry default.
+    {
+        QFile file(QStringLiteral(MIACODE_SOURCE_ROOT "/src/app/ui/chrome/ShortcutBindings.qml"));
+        QString source = file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()) : QString();
+        source.remove(QLatin1Char('\r'));
+        const int start = source.indexOf(QStringLiteral("\"preview.stop_or_play\""));
+        const int end = start < 0 ? -1 : source.indexOf(QStringLiteral("\n    }\n"), start);
+        const QString binding = (start < 0 || end < 0) ? QString() : source.mid(start, end - start);
+        expect(binding.contains(QStringLiteral("\"preview.stop_or_play\", \"")
+                                + registry.defaultShortcutText(QStringLiteral("preview.stop_or_play")) + QStringLiteral("\""))
+                   && binding.contains(QStringLiteral("Qt.ApplicationShortcut"))
+                   && binding.contains(QStringLiteral("togglePlayback()"))
+                   && binding.contains(QStringLiteral("stop()")),
+               QStringLiteral("Stop or Play stops a playing preview, starts a stopped one and fires from the editor"),
+               out, &failed);
+    }
+
     if (failed != 0) {
         out << "QmlShortcutBinding spec failed: " << failed << '\n';
         return 1;

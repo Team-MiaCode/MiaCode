@@ -51,13 +51,21 @@ Item {
 
     // Preview commands bind straight to the preview session instead of going
     // through the backend command table.
+    // Stop or Play: a playing preview stops, a stopped one starts. It is an
+    // application shortcut so that it still fires while the source editor has
+    // focus, which a window shortcut loses to the editor.
     Shortcut {
         sequence: root.shortcuts.revision >= 0
-            ? root.shortcuts.sequence("preview.stop_or_play", "Ctrl+X")
+            ? root.shortcuts.sequence("preview.stop_or_play", "Ctrl+Shift+C")
             : ""
         enabled: root.playbackCommandsEnabled && sequence !== ""
-        context: Qt.WindowShortcut
-        onActivated: root.previewSession.stop()
+        context: Qt.ApplicationShortcut
+        onActivated: {
+            if (root.previewSession.playing)
+                root.previewSession.stop()
+            else
+                root.previewSession.togglePlayback()
+        }
     }
 
     Shortcut {
