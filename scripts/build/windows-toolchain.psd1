@@ -65,11 +65,12 @@
             x64   = 'third_party\ffmpeg\windows\win64'
             arm64 = 'third_party\ffmpeg\windows\winarm64'
         }
-        # x64 uses the verified compact FFmpeg 7.1 preview SDK; arm64 keeps 8.1.
+        # x64 uses the trimmed FFmpeg 9.0 preview SDK built from source; arm64 uses the
+        # FFmpeg 8.1 shared SDK.
         RuntimeDllsByArch = @{
             x64 = @(
-                'avcodec-61.dll', 'avformat-61.dll', 'avutil-59.dll',
-                'swresample-5.dll', 'swscale-8.dll', 'avfilter-10.dll'
+                'avcodec-63.dll', 'avformat-63.dll', 'avutil-61.dll',
+                'swresample-7.dll', 'swscale-10.dll', 'avfilter-12.dll'
             )
             arm64 = @(
                 'avcodec-62.dll', 'avformat-62.dll', 'avutil-60.dll',
@@ -197,8 +198,8 @@
         AdditionalRequiredRelativePathsByArch = @{
             x64 = @(
                 'app\bass_aac.dll',
-                'app\avcodec-61.dll', 'app\avformat-61.dll', 'app\avutil-59.dll',
-                'app\swresample-5.dll', 'app\swscale-8.dll', 'app\avfilter-10.dll'
+                'app\avcodec-63.dll', 'app\avformat-63.dll', 'app\avutil-61.dll',
+                'app\swresample-7.dll', 'app\swscale-10.dll', 'app\avfilter-12.dll'
             )
             arm64 = @(
                 'app\avcodec-62.dll', 'app\avformat-62.dll', 'app\avutil-60.dll',
