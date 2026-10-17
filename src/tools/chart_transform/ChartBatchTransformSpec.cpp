@@ -871,6 +871,14 @@ void runInlineSpecs(QTextStream& err, int* failed)
         expectEqual(miacode::chart_transform::randomRotateForSelection(input, []() { return 1; }),
                     QStringLiteral("B1h"),
                     QStringLiteral("random rotation recognizes bare touch hold"), failed, err);
+        expectEqual(miacode::chart_transform::randomRotateForSelection(QStringLiteral("1-5[4:1]"),
+                                                                       []() { return 2; }),
+                    QStringLiteral("3-7[4:1]"),
+                    QStringLiteral("random rotation moves the slide head with its path"), failed, err);
+        expectEqual(miacode::chart_transform::randomRotateForSelection(QStringLiteral("1>3[4:1]"),
+                                                                       []() { return 2; }),
+                    QStringLiteral("3<5[4:1]"),
+                    QStringLiteral("random rotation keeps the turning direction of an arc"), failed, err);
         expectEqual(miacode::chart_transform::toggleBreakForSelection(QStringLiteral("B8h[8:1")),
                     QStringLiteral("B8bh[8:1"),
                     QStringLiteral("selection ending inside duration preserves its partial suffix"), failed, err);

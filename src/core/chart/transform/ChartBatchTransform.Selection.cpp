@@ -372,11 +372,14 @@ QString rotateRandomToken(const QString& token, const std::function<int()>& next
 
     SlideTokenParts slide;
     if (parseSlideTokenParts(token, &slide) && slide.valid) {
-        const int step = nextStep();
-        for (auto& seg : slide.segments) {
-            seg.text = rotateSlideCoreOutsideBrackets(seg.text, step);
+        // The whole slide turns as one piece: its head moves with its path,
+        // and `<`/`>` are picked again for the new head so that each arc keeps
+        // its turning direction. The 45 degree transform already does both.
+        const int step = ((nextStep() % 8) + 8) % 8;
+        QString rebuilt = token;
+        for (int i = 0; i < step; ++i) {
+            rebuilt = transformChartText(rebuilt, ChartTransformOp::Rotate45Clockwise);
         }
-        const QString rebuilt = buildSlideToken(slide);
         if (rebuilt != token && changedCount != nullptr) {
             *changedCount += 1;
         }

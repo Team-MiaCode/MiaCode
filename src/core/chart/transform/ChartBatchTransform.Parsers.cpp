@@ -354,25 +354,4 @@ QChar rotateLaneChar(QChar lane, int steps)
     return QChar('0' + (((lane.digitValue() - 1 + normalized) % 8) + 1));
 }
 
-QString rotateSlideCoreOutsideBrackets(const QString& text, int steps)
-{
-    QString rotated = text;
-    int bracketDepth = 0;
-    for (int i = 0; i < rotated.size(); ++i) {
-        const QChar ch = rotated.at(i);
-        if (ch == QChar('[')) {
-            ++bracketDepth;
-            continue;
-        }
-        if (ch == QChar(']')) {
-            bracketDepth = qMax(0, bracketDepth - 1);
-            continue;
-        }
-        if (bracketDepth == 0 && isDigitLane(ch)) {
-            rotated[i] = rotateLaneChar(ch, steps);
-        }
-    }
-    return rotated;
-}
-
 }  // namespace miacode::chart_transform::detail
