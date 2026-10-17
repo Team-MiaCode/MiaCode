@@ -875,6 +875,14 @@ void runInlineSpecs(QTextStream& err, int* failed)
                                                                        []() { return 2; }),
                     QStringLiteral("3-7[4:1]"),
                     QStringLiteral("random rotation moves the slide head with its path"), failed, err);
+        expectEqual(miacode::chart_transform::randomRotateForSelection(QStringLiteral("1-3-5-7[4:1]"),
+                                                                       []() { return 2; }),
+                    QStringLiteral("3-5-7-1[4:1]"),
+                    QStringLiteral("random rotation moves every endpoint of a multi-segment slide"), failed, err);
+        expectEqual(miacode::chart_transform::randomRotateForSelection(QStringLiteral("1V35[4:1]"),
+                                                                       []() { return 2; }),
+                    QStringLiteral("3V57[4:1]"),
+                    QStringLiteral("random rotation moves both V-slide endpoints with its head"), failed, err);
         expectEqual(miacode::chart_transform::randomRotateForSelection(QStringLiteral("1>3[4:1]"),
                                                                        []() { return 2; }),
                     QStringLiteral("3<5[4:1]"),
