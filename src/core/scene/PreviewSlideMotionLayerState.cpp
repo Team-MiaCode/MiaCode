@@ -134,7 +134,9 @@ PreviewSlideMotionLayerState buildPreviewSlideMotionLayerState(
         if (marker.type != QLatin1String("slide") && marker.type != QLatin1String("wifi")) {
             continue;
         }
-        if (marker.slideTraceSecond <= marker.second) {
+        // A slide with no wait (`[0##...]`) starts moving the moment its head is
+        // hit, so its trace may start at its own second.
+        if (marker.slideTraceSecond < marker.second) {
             continue;
         }
         const bool slideMarker = marker.type == QLatin1String("slide");

@@ -617,6 +617,42 @@ bool verifySlideMotionAngleInterpolationUsesShortestArc(QTextStream& err)
     return true;
 }
 
+bool verifySlideMotionDrawsStarOfSlideWithoutWait(QTextStream& err)
+{
+    const QRectF playfieldRect(
+        0.0,
+        0.0,
+        miacode::preview::scene::kLogicalCanvasSize,
+        miacode::preview::scene::kLogicalCanvasSize
+    );
+
+    PreviewFrameState state;
+    state.playheadSeconds = 0.5;
+    state.skin.starImage = solidImage(32, 32);
+
+    TimelineNoteMarker marker;
+    marker.type = QStringLiteral("slide");
+    marker.second = 0.0;
+    marker.slideTraceSecond = 0.0;
+    marker.endSecond = 1.0;
+    marker.lane = 1;
+    marker.endLane = 5;
+    marker.slideSegmentShootSeconds = {0.0};
+    marker.slideSegmentDurations = {1.0};
+    marker.slideSegmentPoints = {{QPointF(0.0, 0.0), QPointF(12.0, 0.0)}};
+    marker.slideSegmentAngles = {{0.0, 0.0}};
+    state.noteMarkers.append(marker);
+
+    const PreviewSlideMotionLayerState layerState =
+        miacode::preview::scene::buildPreviewSlideMotionLayerState(
+            state,
+            PreviewActiveMarkerView(state.noteMarkers),
+            playfieldRect
+        );
+    return require(layerState.sprites.size() == 1,
+                   QStringLiteral("a slide without wait still draws its moving star"), err);
+}
+
 bool verifyTrackAndSlideMotionUseTextOrderForSameSecondSlides(QTextStream& err)
 {
     const QRectF playfieldRect(
@@ -1210,6 +1246,9 @@ int main(int argc, char* argv[])
         return 1;
     }
     if (!verifySlideMotionAngleInterpolationUsesShortestArc(err)) {
+        return 1;
+    }
+    if (!verifySlideMotionDrawsStarOfSlideWithoutWait(err)) {
         return 1;
     }
     if (!verifyTrackAndSlideMotionUseTextOrderForSameSecondSlides(err)) {
