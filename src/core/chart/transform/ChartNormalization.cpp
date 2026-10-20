@@ -50,6 +50,13 @@ constexpr double kNormalizationEpsilon = 1e-6;
 constexpr int kMinimumSnapSubdivisionBeats = 16;
 constexpr int kMaximumSnapSubdivisionBeats = 384;
 constexpr double kSnapToleranceWhole = (1.0 / (2.0 * static_cast<double>(kMaximumSnapSubdivisionBeats))) + 1e-9;
+// Largest {N} an exact chunk may render. Common subdivisions of fine offsets
+// (`{995}` beside `{12}`) reach millions of slots per measure, which would
+// stall normalization; such charts are rejected instead.
+constexpr qint64 kMaximumExactSubdivisionBeats = 4096;
+// Set when a chunk needed more than kMaximumExactSubdivisionBeats during the
+// current normalizeChartFragment call on this thread.
+thread_local bool tExactSubdivisionExceeded = false;
 
 struct Rational {
     qint64 numerator = 0;
@@ -1078,7 +1085,8 @@ int chooseExactBeatsForRange(
         }
         const Rational relativePosition = moment.positionWhole - start;
         beats = safeLcm(beats, relativePosition.denominator);
-        if (beats <= 0 || beats > std::numeric_limits<int>::max()) {
+        if (beats <= 0 || beats > kMaximumExactSubdivisionBeats) {
+            tExactSubdivisionExceeded = true;
             return 0;
         }
     }
@@ -1092,6 +1100,10 @@ QString renderExactChunk(
     const Rational& end,
     int beats)
 {
+    if (beats > kMaximumExactSubdivisionBeats) {
+        tExactSubdivisionExceeded = true;
+        return QString();
+    }
     qint64 slotCount64 = 0;
     const Rational chunkLength = end - start;
     if (!scaleRationalExact(chunkLength, beats, &slotCount64) || slotCount64 <= 0) {
@@ -1470,6 +1482,7 @@ ChartNormalizationResult normalizeChartFragment(
     bool appendTrailingBeatsMarker = true)
 {
     ChartNormalizationResult result;
+    tExactSubdivisionExceeded = false;
 
     const SimaiValidationReport report = SimaiParser::buildValidationReport(
         input,
@@ -1811,6 +1824,12 @@ ChartNormalizationResult normalizeChartFragment(
         bool renderedCompactUnitMeasure = false;
         if (!measure.lengthWhole.isZero() || !measure.moments.isEmpty()) {
             const QString renderedLine = renderMeasureLine(measure, options);
+            if (tExactSubdivisionExceeded) {
+                result.errorMessage = QStringLiteral(
+                    "A measure needs a subdivision finer than {%1}; normalization skipped.")
+                                          .arg(kMaximumExactSubdivisionBeats);
+                return result;
+            }
             renderedCompactUnitMeasure = options.syntax == ChartNormalizationSyntax::CompactSingleLine
                 && renderedLine.trimmed() == QStringLiteral("{1},");
             outputLines.append(renderedLine);

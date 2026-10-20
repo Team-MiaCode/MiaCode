@@ -4,6 +4,7 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
@@ -2281,6 +2282,25 @@ void runInlineSpecs(QTextStream& err, int* failed)
         const miacode::chart_transform::ChartNormalizationResult normalized =
             miacode::chart_transform::normalizeChartText(QStringLiteral("@\nE"));
         expectTrue(!normalized.ok, QStringLiteral("normalize whole chart blocks charts with syntax errors"), failed, err);
+    }
+
+    {
+        // `{995}` fine offsets beside `{12}` need a common subdivision in the
+        // millions without 1/384 alignment; normalization must refuse quickly
+        // instead of rendering every slot.
+        const QString fine = QStringLiteral(",").repeated(83);
+        const QString chart = QStringLiteral("(193){4}1,2,3,4,\n{8},6/5,7/4,,\n{12}3,\n{995}4") + fine + QStringLiteral("\n{12}3,6,\n{995}5")
+            + fine + QStringLiteral("\n{12}6,\n{4}1,2,3,4,\nE");
+        miacode::chart_transform::ChartNormalizationOptions exact;
+        exact.reduceTo384Grid = false;
+        QElapsedTimer timer;
+        timer.start();
+        const miacode::chart_transform::ChartNormalizationResult normalized =
+            miacode::chart_transform::normalizeChartText(chart, miacode::simai::SimaiTimingMetadata(), exact);
+        expectTrue(!normalized.ok && !normalized.errorMessage.isEmpty(),
+                   QStringLiteral("normalize whole chart refuses subdivisions above its cap"), failed, err);
+        expectTrue(timer.elapsed() < 5000,
+                   QStringLiteral("normalize whole chart rejects oversized subdivisions promptly"), failed, err);
     }
 
     {
