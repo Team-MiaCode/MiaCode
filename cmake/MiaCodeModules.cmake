@@ -532,7 +532,6 @@ miacode_add_module(miacode_export
         src/export/cover_export/CoverCompositionPersistenceGuard.h
         src/export/cover_export/CoverCompositionState.cpp
         src/export/cover_export/CoverCompositionState.h
-        src/export/cover_export/CoverBatchExportPolicy.h
         src/export/cover_export/CoverFrameExportPlan.cpp
         src/export/cover_export/CoverFrameExportPlan.h
         src/export/cover_export/CoverFramePlaybackController.cpp

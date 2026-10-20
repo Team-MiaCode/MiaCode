@@ -69,8 +69,6 @@ int main(int argc, char** argv)
     const auto expect = [&](bool condition, const char* message) {
         if (!condition) { err << "FAIL: " << message << Qt::endl; ok = false; }
     };
-    expect(qtTrId("dialog.batch_export.cover_preset") == QStringLiteral("封面预设"), "batch cover label is translated");
-    expect(qtTrId("dialog.batch_export.cover_none") == QStringLiteral("关闭封面导出"), "batch cover default option is translated");
     QTemporaryDir scratch(QDir::temp().filePath(QStringLiteral("MiaCode picker #XXXXXX")));
     expect(scratch.isValid(), "scratch directory exists");
     QDir parent(scratch.path());

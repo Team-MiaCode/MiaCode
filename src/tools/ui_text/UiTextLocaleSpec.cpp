@@ -397,15 +397,6 @@ int main(int argc, char* argv[])
         }
     }
 
-    for (const auto& expected : {
-             qMakePair("dialog.batch_export.cover_preset", "Cover preset"),
-             qMakePair("dialog.batch_export.cover_none", "Cover export off")}) {
-        if (qtTrId(expected.first) != QLatin1String(expected.second)) {
-            err << "ui_text_locale_spec: unresolved batch cover label " << expected.first << Qt::endl;
-            ok = false;
-        }
-    }
-
     // --- Invariant 5: no bare CJK UI literals in ui product sources. -----
     {
         const QRegularExpression bareCjkRe(QStringLiteral(

@@ -638,37 +638,11 @@ bool miacode::runtime::VideoExportHost::runBatchExport(
                 break;
             }
             result->failedCharts.append(job.displayName + QStringLiteral(" - ") + failureText);
-        } else {
-            ++result->successCount;
-            for (const auto& outputPath : videoExportOutputPaths(snapshot.outputPath, snapshot.outputMode)) {
-                result->exportedFiles.append(QFileInfo(outputPath).fileName());
-            }
+            continue;
         }
-        if (callbacks.cancellationRequested && callbacks.cancellationRequested()) {
-            result->canceled = true;
-            break;
-        }
-        if (callbacks.exportCover) {
-            if (callbacks.progressChanged) {
-                callbacks.progressChanged(qRound(static_cast<double>(index) * 100.0 / totalJobs),
-                    qtTrId("cover.export_cover") + QStringLiteral("\n") + job.displayName);
-            }
-            VideoExportTask coverTask;
-            QString coverError;
-            QStringList adjustments;
-            QString coverPath;
-            if (buildVideoExportTaskFromSnapshot(snapshot, &coverTask, &coverError)) {
-                coverPath = callbacks.exportCover(coverTask, snapshot.outputPath, &coverError, &adjustments);
-            }
-            if (coverPath.isEmpty()) {
-                result->failedCovers.append(job.displayName + QStringLiteral(" - ") + coverError);
-            } else {
-                ++result->coverSuccessCount;
-                result->exportedFiles.append(QFileInfo(coverPath).fileName());
-            }
-            for (const auto& adjustment : adjustments) {
-                result->coverAdjustments.append(job.displayName + QStringLiteral(" - ") + adjustment);
-            }
+        ++result->successCount;
+        for (const auto& outputPath : videoExportOutputPaths(snapshot.outputPath, snapshot.outputMode)) {
+            result->exportedFiles.append(QFileInfo(outputPath).fileName());
         }
     }
     if (callbacks.progressChanged) {

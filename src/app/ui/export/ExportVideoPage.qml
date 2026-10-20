@@ -231,15 +231,6 @@ Rectangle {
                             }
                         }
 
-                        LabeledCombo {
-                            Layout.fillWidth: true
-                            label: qsTrId("dialog.batch_export.cover_preset")
-                            options: root.session ? root.session.batchCoverPresetOptions : []
-                            currentValue: root.session ? root.session.batchCoverPreset : ""
-                            enabled: root.session && !root.session.exportRunning
-                            onPicked: function(value) { if (root.session) root.session.batchCoverPreset = value }
-                        }
-
                         SettingsSection {
                             title: qsTrId("dialog.batch_export.chart_folders")
 

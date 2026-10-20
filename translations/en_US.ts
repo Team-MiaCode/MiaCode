@@ -4813,26 +4813,6 @@ Error: %1</translation>
         <source>The prepended PV exceeds its size budget or the 20 MB limit.</source>
         <translation>The prepended PV exceeds its size budget or the 20 MB limit.</translation>
     </message>
-    <message id="dialog.batch_export.cover_preset">
-        <source>Cover preset</source>
-        <translation>Cover preset</translation>
-    </message>
-    <message id="dialog.batch_export.cover_none">
-        <source>Cover export off</source>
-        <translation>Cover export off</translation>
-    </message>
-    <message id="dialog.batch_export.cover_summary">
-        <source>Covers: %1 succeeded, %2 failed</source>
-        <translation>Covers: %1 succeeded, %2 failed</translation>
-    </message>
-    <message id="dialog.batch_export.cover_preset_unavailable">
-        <source>The cover preset cannot be applied to this chart</source>
-        <translation>The cover preset cannot be applied to this chart</translation>
-    </message>
-    <message id="dialog.batch_export.cover_frame_adjusted">
-        <source>%1: frame time adjusted from %2 s to %3 s</source>
-        <translation>%1: frame time adjusted from %2 s to %3 s</translation>
-    </message>
     <message id="file_picker.native_failed">
         <source>Could not open the system folder picker.</source>
         <translation>Could not open the system folder picker.</translation>
