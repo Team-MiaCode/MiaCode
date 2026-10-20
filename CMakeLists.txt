@@ -766,6 +766,7 @@ set(MIACODE_UI_ICON_FILES
     src/app/ui/resources/icons/folder-open.svg
     src/app/ui/resources/icons/folder-arrow-right.svg
     src/app/ui/resources/icons/globe.svg
+    src/app/ui/resources/icons/wand.svg
     src/app/ui/resources/icons/save.svg
     src/app/ui/resources/icons/save-multiple.svg
     src/app/ui/resources/icons/undo.svg

@@ -4709,9 +4709,13 @@ Error: %1</source>
         <source>Export page: export videos and covers, or package the chart as a ZIP.</source>
         <translation>导出页面：导出视频、封面与打包成 ZIP。</translation>
     </message>
+    <message id="guide.navigation.net">
+        <source>Net: Majnet chart download and upload.</source>
+        <translation>Net相关：Majnet谱面下载与上传。</translation>
+    </message>
     <message id="guide.navigation.tools">
-        <source>Toolbox: chart normalization, audio and video processing, Net management and more.</source>
-        <translation>工具箱：谱面整理、音视频处理工具、Net管理等。</translation>
+        <source>Toolbox: chart normalization and audio and video processing tools.</source>
+        <translation>工具箱：谱面整理、音视频处理工具等。</translation>
     </message>
     <message id="guide.navigation.preferences">
         <source>Preferences: configure interface appearance and styling, the editor and shortcuts.</source>

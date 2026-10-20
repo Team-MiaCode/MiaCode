@@ -301,13 +301,15 @@ Item {
             anchors.leftMargin: Theme.panelPadding
             anchors.rightMargin: Theme.panelPadding
             readonly property real gap: 8
+            readonly property real normalizeButtonWidth: normalizeButton.implicitWidth
             readonly property real wideWidth:
                 levelField.implicitWidth + designerField.implicitWidth
-                + offsetField.implicitWidth + 2 * gap
+                + offsetField.implicitWidth + normalizeButtonWidth + 3 * gap
             readonly property real firstRowWidth:
                 levelField.implicitWidth + offsetField.implicitWidth + gap
             readonly property real twoRowWidth:
-                Math.max(firstRowWidth, designerField.implicitWidth)
+                Math.max(firstRowWidth,
+                    designerField.implicitWidth + normalizeButtonWidth + gap)
             readonly property bool wide: width >= wideWidth
             readonly property bool twoRows: !wide && width >= twoRowWidth
 
@@ -336,12 +338,27 @@ Item {
                         : offsetField.y + offsetField.height + headerContent.gap
                 stacked: !headerContent.wide && !headerContent.twoRows
                     && headerContent.width < implicitWidth
-                width: Math.max(0, headerContent.width - x)
+                // Leave roughly a third of the row for the normalize action.
+                width: Math.max(0, Math.min(
+                    Math.floor((headerContent.width - x) * 2 / 3),
+                    headerContent.width - x - headerContent.normalizeButtonWidth - headerContent.gap))
                 labelText: qsTrId("net.designer")
                 value: root.documentSession.currentDifficultyDesigner
                 editorWidth: 100
                 fillEditorWidth: true
                 onCommitted: value => root.documentSession.currentDifficultyDesigner = value
+            }
+
+            IconButton {
+                id: normalizeButton
+                objectName: "normalizeChartButton"
+                anchors.right: parent.right
+                y: designerField.y + Math.max(0, (designerField.height - height) / 2)
+                iconSource: Qt.resolvedUrl("icons/wand.svg")
+                label: qsTrId("qml.normalize_whole_chart")
+                tooltip: qsTrId("qml.normalize_whole_chart")
+                enabled: root.normalizationAvailable
+                onClicked: root.pages.openNormalizeWholeChart()
             }
 
             DifficultyHeaderField {

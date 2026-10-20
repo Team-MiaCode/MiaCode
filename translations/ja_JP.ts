@@ -4709,9 +4709,13 @@ Error: %1</source>
         <source>Export page: export videos and covers, or package the chart as a ZIP.</source>
         <translation>エクスポートページ：動画やカバーの出力、ZIP へのパッケージ化ができます。</translation>
     </message>
+    <message id="guide.navigation.net">
+        <source>Net: Majnet chart download and upload.</source>
+        <translation>Net 関連：Majnet の譜面ダウンロードとアップロード。</translation>
+    </message>
     <message id="guide.navigation.tools">
-        <source>Toolbox: chart normalization, audio and video processing, Net management and more.</source>
-        <translation>ツールボックス：譜面の整理、音声・動画処理ツール、Net 管理など。</translation>
+        <source>Toolbox: chart normalization and audio and video processing tools.</source>
+        <translation>ツールボックス：譜面の整理、音声・動画処理ツールなど。</translation>
     </message>
     <message id="guide.navigation.preferences">
         <source>Preferences: configure interface appearance and styling, the editor and shortcuts.</source>

@@ -4709,9 +4709,13 @@ Error: %1</translation>
         <source>Export page: export videos and covers, or package the chart as a ZIP.</source>
         <translation>Export page: export videos and covers, or package the chart as a ZIP.</translation>
     </message>
+    <message id="guide.navigation.net">
+        <source>Net: Majnet chart download and upload.</source>
+        <translation>Net: Majnet chart download and upload.</translation>
+    </message>
     <message id="guide.navigation.tools">
-        <source>Toolbox: chart normalization, audio and video processing, Net management and more.</source>
-        <translation>Toolbox: chart normalization, audio and video processing, Net management and more.</translation>
+        <source>Toolbox: chart normalization and audio and video processing tools.</source>
+        <translation>Toolbox: chart normalization and audio and video processing tools.</translation>
     </message>
     <message id="guide.navigation.preferences">
         <source>Preferences: configure interface appearance and styling, the editor and shortcuts.</source>
