@@ -174,6 +174,7 @@ miacode_add_module(miacode_scene
         src/core/scene/PreviewMuriActionLayerState.h
         src/core/scene/PreviewMuriPadLayerState.cpp
         src/core/scene/PreviewMuriPadLayerState.h
+        src/core/scene/PreviewNoteLayerAnomaly.h
         src/core/scene/PreviewOpacityCurves.cpp
         src/core/scene/PreviewOpacityCurves.h
         src/core/scene/PreviewPreparedSceneCache.cpp

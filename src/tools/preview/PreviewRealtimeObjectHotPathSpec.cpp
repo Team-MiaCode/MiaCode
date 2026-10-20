@@ -10,8 +10,10 @@
 #include "core/chart/parser/SimaiParser.h"
 #include "core/chart/model/TimelineMarkerOffset.h"
 #include "core/scene/PreviewActiveMarkerView.h"
+#include "core/scene/PreviewFireworkWarmupPolicy.h"
 #include "core/scene/PreviewMarkerDrawOrder.h"
 #include "core/scene/PreviewMuriActionLayerState.h"
+#include "core/scene/PreviewNoteLayerAnomaly.h"
 #include "core/scene/PreviewPreparedSceneCache.h"
 #include "core/scene/PreviewSceneConstants.h"
 #include "core/scene/PreviewSceneMath.h"
@@ -1279,6 +1281,52 @@ bool verifyLayerWindowCursorRecoversFromNonFinitePlayhead(QTextStream& err)
     return true;
 }
 
+bool verifyNoteLayersEmptyAnomalyPredicate(QTextStream& err)
+{
+    using miacode::preview::scene::previewNoteLayersEmptyAnomaly;
+    using miacode::preview::scene::previewNoteMarkerSpan;
+
+    TimelineNoteMarker hold = makeMarker(4.0, QStringLiteral("hold"));
+    hold.endSecond = 6.0;
+    TimelineNoteMarker warmup = makeMarker(100.0, QStringLiteral("touch"));
+    warmup.isFirework = true;
+    warmup.touchPoint = QPointF(miacode::preview::scene::kFireworkWarmupOffscreenCoordinate,
+                                miacode::preview::scene::kFireworkWarmupOffscreenCoordinate);
+    const QVector<TimelineNoteMarker> markers = {
+        makeMarker(2.0, QStringLiteral("tap")),
+        makeMarker(1.0, QStringLiteral("tap")),
+        hold,
+        warmup,
+    };
+
+    const auto span = previewNoteMarkerSpan(markers);
+    if (!require(span.noteCount == 3 && qFuzzyCompare(span.firstSecond, 1.0) && qFuzzyCompare(span.lastSecond, 6.0),
+                 QStringLiteral("note span covers chart notes and skips the warm-up synthetic (count=%1 first=%2 last=%3)")
+                     .arg(span.noteCount)
+                     .arg(span.firstSecond)
+                     .arg(span.lastSecond),
+                 err)) {
+        return false;
+    }
+    bool ok = require(previewNoteLayersEmptyAnomaly(span, 5.0, 0, 0, 0),
+                      QStringLiteral("empty head, track and touch cursors inside the chart are an anomaly"), err);
+    ok &= require(!previewNoteLayersEmptyAnomaly(span, 5.0, 1, 0, 0),
+                  QStringLiteral("an active head entry clears the anomaly"), err);
+    ok &= require(!previewNoteLayersEmptyAnomaly(span, 5.0, 0, 1, 0),
+                  QStringLiteral("an active track entry clears the anomaly"), err);
+    ok &= require(!previewNoteLayersEmptyAnomaly(span, 5.0, 0, 0, 1),
+                  QStringLiteral("an active touch entry clears the anomaly"), err);
+    ok &= require(!previewNoteLayersEmptyAnomaly(span, 0.5, 0, 0, 0),
+                  QStringLiteral("a playhead before the first note is not an anomaly"), err);
+    ok &= require(!previewNoteLayersEmptyAnomaly(span, 50.0, 0, 0, 0),
+                  QStringLiteral("a playhead after the last chart note is not an anomaly"), err);
+    ok &= require(!previewNoteLayersEmptyAnomaly(span, std::numeric_limits<double>::quiet_NaN(), 0, 0, 0),
+                  QStringLiteral("a NaN playhead is not reported as an anomaly"), err);
+    ok &= require(!previewNoteLayersEmptyAnomaly(previewNoteMarkerSpan({warmup}), 100.0, 0, 0, 0),
+                  QStringLiteral("a marker set holding only the warm-up synthetic is not an anomaly"), err);
+    return ok;
+}
+
 }  // namespace
 
 int main(int argc, char* argv[])
@@ -1324,6 +1372,9 @@ int main(int argc, char* argv[])
         return 1;
     }
     if (!verifyLayerWindowCursorRecoversFromNonFinitePlayhead(err)) {
+        return 1;
+    }
+    if (!verifyNoteLayersEmptyAnomalyPredicate(err)) {
         return 1;
     }
 
