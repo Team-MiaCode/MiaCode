@@ -64,7 +64,7 @@ Item {
     // ---- PV-preview style (IntroBannerSpec.pvPreview) ----
     property bool pvPreviewMode: false
     // Card + PV window [0, hold); also the cycle-2 start frame.
-    property int pvPreviewHoldFrames: 390
+    property int pvPreviewHoldFrames: 510
     // true -> the caller composites the PV segment under this overlay, so the
     // hold leaves the frame transparent around the card.
     property bool pvPreviewVideoUnderlay: false
