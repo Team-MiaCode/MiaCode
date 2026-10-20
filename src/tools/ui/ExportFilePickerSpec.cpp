@@ -18,6 +18,7 @@
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QSignalSpy>
+#include <QHash>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -53,6 +54,40 @@ public:
 };
 }
 
+// ExportSession reads v1's batch history from the native QSettings store,
+// which QSettings::setPath cannot redirect. Set the developer's real values
+// aside for the run and put them back afterwards, even when a check fails.
+class LegacyBatchHistoryGuard
+{
+public:
+    LegacyBatchHistoryGuard()
+    {
+        for (const QString& key : keys()) {
+            if (store_.contains(key)) saved_.insert(key, store_.value(key));
+            store_.remove(key);
+        }
+    }
+    ~LegacyBatchHistoryGuard()
+    {
+        for (const QString& key : keys()) {
+            if (saved_.contains(key)) store_.setValue(key, saved_.value(key));
+            else store_.remove(key);
+        }
+        store_.sync();
+    }
+    QString value(const QString& key) { store_.sync(); return store_.value(key).toString(); }
+    void setValue(const QString& key, const QString& value) { store_.setValue(key, value); store_.sync(); }
+
+private:
+    static QStringList keys()
+    {
+        return {QStringLiteral("batch_video_export_dialog/last_chart_directory"),
+                QStringLiteral("batch_video_export_dialog/last_output_directory")};
+    }
+    QSettings store_{QStringLiteral("fanfaredash"), QStringLiteral("MiaCode")};
+    QHash<QString, QVariant> saved_;
+};
+
 int main(int argc, char** argv)
 {
     const bool native = argc > 1 && QByteArray(argv[1]) == "--native";
@@ -65,6 +100,7 @@ int main(int argc, char** argv)
     QTranslator translator;
     if (translator.load(QStringLiteral(":/i18n/zh_CN.qm"))) app.installTranslator(&translator);
     QTextStream err(stderr);
+    LegacyBatchHistoryGuard legacy;
     bool ok = true;
     const auto expect = [&](bool condition, const char* message) {
         if (!condition) { err << "FAIL: " << message << Qt::endl; ok = false; }
@@ -280,7 +316,6 @@ ApplicationWindow {
     }
     const QString legacyRoot = chosen("legacy-root");
     const QString legacyChart = chosen("legacy-root/song");
-    QSettings legacy(QStringLiteral("fanfaredash"), QStringLiteral("MiaCode"));
     legacy.setValue(QStringLiteral("batch_video_export_dialog/last_chart_directory"), legacyChart);
     auto withoutNewHistory = miacode::app_preferences::loadDialogPreferences();
     withoutNewHistory.remove("last_batch_chart_directory");
@@ -307,6 +342,26 @@ ApplicationWindow {
         session.addChartDirectories();
         expect(folder() != legacyRoot && QDir(folder()).exists(), "deleted new history falls back without resurrecting old history");
         historyRequests.cancelFileRequest(historyId);
+    }
+    legacy.setValue(QStringLiteral("batch_video_export_dialog/last_output_directory"), legacyRoot);
+    auto withoutOutputHistory = miacode::app_preferences::loadDialogPreferences();
+    withoutOutputHistory.remove("last_batch_output_directory");
+    miacode::app_preferences::saveDialogPreferences(withoutOutputHistory);
+    {
+        miacode::ui::ExportSession session(notifications, historyRequests, progress, appearance, seedSlot, preview);
+        session.enter(5);
+        wait();
+        expect(session.batchOutputDirectory() == legacyRoot, "v1 batch output history survives the upgrade");
+        session.setBatchOutputDirectory(fontSource);
+        expect(miacode::app_preferences::loadDialogPreferences().value("last_batch_output_directory").toString() == fontSource,
+               "a new batch output choice is recorded in the dialog preferences");
+        expect(legacy.value(QStringLiteral("batch_video_export_dialog/last_output_directory")) == legacyRoot,
+               "v1's native settings store is only read, never written");
+        session.setBatchOutputDirectory({});
+        session.leave();
+        session.enter(5);
+        wait();
+        expect(session.batchOutputDirectory().isEmpty(), "a cleared output does not revive v1's history");
     }
     miacode::FileRequest save;
     save.saveMode = true;

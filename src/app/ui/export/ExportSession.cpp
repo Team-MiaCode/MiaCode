@@ -36,6 +36,18 @@
 namespace miacode::ui {
 namespace {
 
+constexpr auto kBatchOutputDirectoryKey = "last_batch_output_directory";
+
+// v1 kept the batch pickers' history in the native QSettings store. v2 only
+// reads it, as the upgrade fallback, and records its own in the dialog
+// preferences.
+QString legacyBatchExportDirectory(const char* key)
+{
+    QSettings settings(QStringLiteral("fanfaredash"), QStringLiteral("MiaCode"));
+    return miacode::file_dialog_preferences::validDirectory(
+        settings.value(QStringLiteral("batch_video_export_dialog/") + QLatin1String(key)).toString());
+}
+
 inline constexpr auto& kResolutionPresets = miacode::video_export::kVideoExportResolutionPresets;
 inline constexpr auto& kFpsOptions = miacode::video_export::kVideoExportFpsOptions;
 inline constexpr auto& kAudioBitrateOptions =
@@ -617,9 +629,12 @@ void ExportSession::seedFromDifficulty(int difficultyId)
         batchSelectedDifficultyIds_.append(difficultyId);
     }
     if (batchOutputDirectory_.isEmpty()) {
-        QSettings settings(QStringLiteral("fanfaredash"), QStringLiteral("MiaCode"));
-        batchOutputDirectory_ = miacode::file_dialog_preferences::validDirectory(
-            settings.value(QStringLiteral("batch_video_export_dialog/last_output_directory")).toString());
+        // A stored empty value is a cleared choice and must not revive v1's.
+        const QJsonObject preferences = miacode::app_preferences::loadDialogPreferences();
+        batchOutputDirectory_ = preferences.contains(QLatin1String(kBatchOutputDirectoryKey))
+            ? miacode::file_dialog_preferences::validDirectory(
+                  preferences.value(QLatin1String(kBatchOutputDirectoryKey)).toString())
+            : legacyBatchExportDirectory("last_output_directory");
     }
     adoptPreviewRenderSettings();
     emit outputChanged();
@@ -1007,9 +1022,7 @@ void ExportSession::addChartDirectories()
     const QJsonObject preferences = miacode::app_preferences::loadDialogPreferences();
     request.startPath = preferences.value(QStringLiteral("last_batch_chart_directory")).toString();
     if (request.startPath.isEmpty()) {
-        QSettings settings(QStringLiteral("fanfaredash"), QStringLiteral("MiaCode"));
-        const QString legacy = miacode::file_dialog_preferences::validDirectory(
-            settings.value(QStringLiteral("batch_video_export_dialog/last_chart_directory")).toString());
+        const QString legacy = legacyBatchExportDirectory("last_chart_directory");
         if (!legacy.isEmpty()) request.startPath = QFileInfo(legacy).absolutePath();
     }
     if (!QDir(request.startPath).exists() || request.startPath.isEmpty()) {
@@ -1542,8 +1555,9 @@ void ExportSession::setBatchOutputDirectory(const QString& path)
         return;
     }
     batchOutputDirectory_ = path;
-    QSettings settings(QStringLiteral("fanfaredash"), QStringLiteral("MiaCode"));
-    settings.setValue(QStringLiteral("batch_video_export_dialog/last_output_directory"), path);
+    QJsonObject preferences = miacode::app_preferences::loadDialogPreferences();
+    preferences.insert(QLatin1String(kBatchOutputDirectoryKey), path);
+    miacode::app_preferences::saveDialogPreferences(preferences);
     emit batchChanged();
 }
 
