@@ -824,6 +824,44 @@ QString noteSecondsText(const QString& chart)
     return (result.ok ? QString() : QStringLiteral("[parse failed] ")) + seconds.join(QLatin1Char(' '));
 }
 
+// Normalization may reorder notes that share a moment, so pair them by moment,
+// lane and type, then require the same HS and end time. Returns the first
+// mismatch, or an empty string when every note survives.
+QString noteHsMismatch(const QString& before, const QString& after)
+{
+    const SimaiParseResult original = SimaiParser::parseForTimeline(before);
+    const SimaiParseResult normalized = SimaiParser::parseForTimeline(after);
+    if (original.noteMarkers.size() != normalized.noteMarkers.size()) {
+        return QStringLiteral("note count %1 -> %2").arg(original.noteMarkers.size()).arg(normalized.noteMarkers.size());
+    }
+    QVector<bool> used(normalized.noteMarkers.size(), false);
+    for (const TimelineNoteMarker& note : original.noteMarkers) {
+        bool matched = false;
+        for (int j = 0; j < normalized.noteMarkers.size() && !matched; ++j) {
+            const TimelineNoteMarker& candidate = normalized.noteMarkers.at(j);
+            if (used.at(j) || !nearlyEqual(note.second, candidate.second) || note.lane != candidate.lane
+                || note.type != candidate.type) {
+                continue;
+            }
+            used[j] = true;
+            matched = true;
+            if (!nearlyEqual(note.hsMultiplier, candidate.hsMultiplier)
+                || !nearlyEqual(note.endSecond, candidate.endSecond)) {
+                return QStringLiteral("%1 lane %2 at %3s: hs %4 -> %5")
+                    .arg(note.type)
+                    .arg(note.lane)
+                    .arg(note.second, 0, 'f', 3)
+                    .arg(note.hsMultiplier)
+                    .arg(candidate.hsMultiplier);
+            }
+        }
+        if (!matched) {
+            return QStringLiteral("%1 lane %2 at %3s has no counterpart").arg(note.type).arg(note.lane).arg(note.second, 0, 'f', 3);
+        }
+    }
+    return QString();
+}
+
 using SubdivisionInContext = QString (*)(
     const QString&, const miacode::chart_transform::SelectionContext&, int*);
 
@@ -2281,6 +2319,38 @@ void runInlineSpecs(QTextStream& err, int* failed)
         const miacode::chart_transform::ChartNormalizationResult normalized =
             miacode::chart_transform::normalizeChartText(QStringLiteral("@\nE"));
         expectTrue(!normalized.ok, QStringLiteral("normalize whole chart blocks charts with syntax errors"), failed, err);
+    }
+
+    {
+        // An <HS*N> change applies from the next note. Mid-measure directives
+        // used to be emitted after the whole measure line, handing the notes
+        // after them the previous HS.
+        const bool previousNegativeHs = SimaiParser::allowNegativeHsEnabled();
+        SimaiParser::setAllowNegativeHsEnabled(true);
+        QString sample;
+        QString readError;
+        expectTrue(readUtf8File(QStringLiteral("samples/negative_hs_demo/maidata.txt"), &sample, &readError),
+                   QStringLiteral("negative HS sample is readable: %1").arg(readError), failed, err);
+        const SimaiDocument sampleDocument = SimaiDocument::fromText(sample);
+        const SimaiDifficultyData* master = sampleDocument.difficulty(5);
+        const QStringList charts = {
+            QStringLiteral("(120){4}1,2,<HS*2>3,4,\n{8}<HS*0.5>5,6,7,<HS*1>8,1,2,3,4,\n{4}<HS*-2>1/5,2,<HS*3>3-7[4:1],4,\nE"),
+            master != nullptr ? master->chart : QString(),
+        };
+        for (const QString& chart : charts) {
+            for (const bool reduce : {false, true}) {
+                miacode::chart_transform::ChartNormalizationOptions options;
+                options.reduceTo384Grid = reduce;
+                const miacode::chart_transform::ChartNormalizationResult normalized =
+                    miacode::chart_transform::normalizeChartText(chart, miacode::simai::SimaiTimingMetadata(), options);
+                const QString mismatch = normalized.ok ? noteHsMismatch(chart, normalized.text) : normalized.errorMessage;
+                expectTrue(normalized.ok && mismatch.isEmpty(),
+                           QStringLiteral("normalize whole chart keeps every note's HS (reduce=%1): %2")
+                               .arg(reduce ? QStringLiteral("on") : QStringLiteral("off"), mismatch),
+                           failed, err);
+            }
+        }
+        SimaiParser::setAllowNegativeHsEnabled(previousNegativeHs);
     }
 
     {

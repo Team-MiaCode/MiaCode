@@ -236,7 +236,6 @@ struct MeasureBuilder {
     int meterDenominator = miacode::simai::kDefaultWholeTimeSignatureDenominator;
     Rational startPhaseWhole;
     QVector<BoundaryItem> leadingItems;
-    QVector<BoundaryItem> trailingItems;
     QVector<MeasureMoment> moments;
     QVector<ExplicitSubdivisionSegment> explicitSegments;
 };
@@ -247,7 +246,6 @@ struct RenderMeasure {
     Rational startPhaseWhole;
     Rational lengthWhole;
     QVector<BoundaryItem> leadingItems;
-    QVector<BoundaryItem> trailingItems;
     QVector<MeasureMoment> moments;
     QVector<ExplicitSubdivisionSegment> explicitSegments;
 };
@@ -1560,7 +1558,6 @@ ChartNormalizationResult normalizeChartFragment(
     const auto appendRenderedMeasure = [&](const Rational& lengthWhole) {
         if (lengthWhole.isZero()
             && currentMeasure.leadingItems.isEmpty()
-            && currentMeasure.trailingItems.isEmpty()
             && currentMeasure.moments.isEmpty()) {
             return;
         }
@@ -1570,7 +1567,6 @@ ChartNormalizationResult normalizeChartFragment(
         stored.startPhaseWhole = currentMeasure.startPhaseWhole;
         stored.lengthWhole = lengthWhole;
         stored.leadingItems = currentMeasure.leadingItems;
-        stored.trailingItems = currentMeasure.trailingItems;
         stored.moments = currentMeasure.moments;
         stored.explicitSegments = currentMeasure.explicitSegments;
         renderedMeasures.append(stored);
@@ -1588,15 +1584,6 @@ ChartNormalizationResult normalizeChartFragment(
     const auto currentRemainingMeasureLength = [&]() {
         return measureLengthWhole(currentMeasure.meterNumerator, currentMeasure.meterDenominator)
             - currentMeasure.startPhaseWhole;
-    };
-    const auto appendBoundaryItem = [&](const BoundaryItem& item) {
-        flushMoment();
-        closeActiveSegmentAt(currentPositionWhole, true);
-        if (!currentMeasure.moments.isEmpty() || !currentPositionWhole.isZero()) {
-            currentMeasure.trailingItems.append(item);
-            return;
-        }
-        currentMeasure.leadingItems.append(item);
     };
     const auto restartMeasureAtCurrentPosition = [&](const BoundaryItem& item, int nextMeterNumerator, int nextMeterDenominator) {
         flushMoment();
@@ -1737,7 +1724,10 @@ ChartNormalizationResult normalizeChartFragment(
                 if (close < 0) {
                     break;
                 }
-                appendBoundaryItem(BoundaryItem{
+                // An HS change applies from the next note on, so a directive in
+                // the middle of a measure splits it there. Emitting it after
+                // the measure line would hand the following notes the old HS.
+                splitMeasureAtCurrentPosition(BoundaryItem{
                     BoundaryItemKind::StandaloneText,
                     line.mid(index, close - index + 1).trimmed()});
                 index = close;
@@ -1782,8 +1772,7 @@ ChartNormalizationResult normalizeChartFragment(
     closeActiveSegmentAt(currentPositionWhole, true);
     if (!currentMeasure.moments.isEmpty()
         || !currentPositionWhole.isZero()
-        || !currentMeasure.leadingItems.isEmpty()
-        || !currentMeasure.trailingItems.isEmpty()) {
+        || !currentMeasure.leadingItems.isEmpty()) {
         appendRenderedMeasure(currentPositionWhole);
     }
 
@@ -1817,7 +1806,6 @@ ChartNormalizationResult normalizeChartFragment(
             ++emittedMeasureLines;
             ++sectionMeasureIndex;
         }
-        appendBoundaryItems(&outputLines, measure.trailingItems);
         const int sectionLength = !options.splitEveryFourMeasures && options.sectionMeasureCount == 4
             ? 0
             : (options.sectionMeasureCount > 0
