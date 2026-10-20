@@ -1031,6 +1031,9 @@ add_custom_command(TARGET MiaCode POST_BUILD
     VERBATIM
 )
 
+include(cmake/MiaCodeNativeFileDialogs.cmake)
+miacode_enable_native_file_dialogs(MiaCode)
+
 if (APPLE)
     target_sources(MiaCode PRIVATE
         src/app/ui/chrome/NativeWindowThemeMac.h

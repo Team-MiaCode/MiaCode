@@ -176,6 +176,8 @@ public:
     QStringList dirtyEditorKeys() const;
     qulonglong bookmarkGeneration() const;
 
+    // Fresh values for every open, shared by the shell and save-before-leave.
+    Q_INVOKABLE QVariantMap fileDialogLocation(bool saveMode) const;
     Q_INVOKABLE bool openFile(const QUrl& fileUrl);
     QJsonObject documentIdentity() const;
     net::NetEnginePort::Cancel openNetPreview(const QString& path, const QJsonObject& expected,

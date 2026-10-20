@@ -1,3 +1,4 @@
+#include "app/services/FileDialogPreferences.h"
 #include "common/LocalizedText.h"
 
 #include "app/ui/export/ExportSession.h"
@@ -623,7 +624,8 @@ void ExportSession::seedFromDifficulty(int difficultyId)
     }
     if (batchOutputDirectory_.isEmpty()) {
         QSettings settings(QStringLiteral("fanfaredash"), QStringLiteral("MiaCode"));
-        batchOutputDirectory_ = settings.value(QStringLiteral("batch_video_export_dialog/last_output_directory")).toString();
+        batchOutputDirectory_ = miacode::file_dialog_preferences::validDirectory(
+            settings.value(QStringLiteral("batch_video_export_dialog/last_output_directory")).toString());
     }
     adoptPreviewRenderSettings();
     emit outputChanged();
@@ -891,7 +893,10 @@ void ExportSession::browseOutputPath()
 {
     miacode::FileRequest request;
     request.title = miacode::localizedText("dialog.video_export.title");
-    request.startPath = task_.outputPath;
+    const QString directory = task_.chartPath.isEmpty() ? QDir::currentPath() : QFileInfo(task_.chartPath).absolutePath();
+    request.startPath = QDir(directory).absoluteFilePath(task_.outputPath.isEmpty()
+        ? (task_.outputMode == VideoExportOutputMode::Wav ? QStringLiteral("out.wav") : QStringLiteral("out.mp4"))
+        : task_.outputPath);
     request.nameFilters = {miacode::localizedText(
         task_.outputMode == VideoExportOutputMode::Wav ? "file_filter.wav" : "file_filter.mp4")};
     request.saveMode = true;
@@ -919,8 +924,10 @@ void ExportSession::importIntroSound()
 {
     miacode::FileRequest request;
     request.title = miacode::localizedText("dialog.render_settings.music.intro_sound");
+    request.startPath = miacode::file_dialog_preferences::recentDirectory(miacode::file_dialog_preferences::Purpose::IntroSound);
     request.nameFilters = {miacode::localizedText("file_filter.audio")};
     uiRequests_->requestFile(request, [this](const QString& path) {
+        miacode::file_dialog_preferences::rememberFile(miacode::file_dialog_preferences::Purpose::IntroSound, path);
         applyIntroSoundImport(path);
     });
 }
@@ -929,8 +936,10 @@ void ExportSession::importIntroFont()
 {
     miacode::FileRequest request;
     request.title = miacode::localizedText("card_font.import");
+    request.startPath = miacode::file_dialog_preferences::recentDirectory(miacode::file_dialog_preferences::Purpose::IntroFont);
     request.nameFilters = {miacode::localizedText("file_filter.font")};
     uiRequests_->requestFile(request, [this](const QString& path) {
+        miacode::file_dialog_preferences::rememberFile(miacode::file_dialog_preferences::Purpose::IntroFont, path);
         applyFontImport(path);
     });
 }
@@ -994,7 +1003,10 @@ void ExportSession::browseBatchOutputDirectory()
 {
     miacode::FileRequest request;
     request.title = miacode::localizedText("dialog.batch_export.select_folder");
-    request.startPath = batchOutputDirectory_;
+    request.startPath = miacode::file_dialog_preferences::validDirectory(batchOutputDirectory_);
+    if (request.startPath.isEmpty()) {
+        request.startPath = QDir::homePath();
+    }
     request.selectFolder = true;
     uiRequests_->requestFile(request, [this](const QString& path) {
         if (!path.isEmpty()) {
@@ -1008,17 +1020,37 @@ void ExportSession::addChartDirectories()
     miacode::FileRequest request;
     request.title = miacode::localizedText("dialog.batch_export.select_charts");
     request.selectFolder = true;
-    uiRequests_->requestFile(request, [this](const QString& path) {
-        addChartDirectory(path);
+    const QJsonObject preferences = miacode::app_preferences::loadDialogPreferences();
+    request.startPath = preferences.value(QStringLiteral("last_batch_chart_directory")).toString();
+    if (request.startPath.isEmpty()) {
+        QSettings settings(QStringLiteral("fanfaredash"), QStringLiteral("MiaCode"));
+        const QString legacy = miacode::file_dialog_preferences::validDirectory(
+            settings.value(QStringLiteral("batch_video_export_dialog/last_chart_directory")).toString());
+        if (!legacy.isEmpty()) request.startPath = QFileInfo(legacy).absolutePath();
+    }
+    if (!QDir(request.startPath).exists() || request.startPath.isEmpty()) {
+        request.startPath = task_.chartPath.isEmpty() ? QDir::homePath()
+            : QFileInfo(QFileInfo(task_.chartPath).absolutePath()).absolutePath();
+    }
+    uiRequests_->requestFiles(request, [self = QPointer<ExportSession>(this)](const QStringList& paths) {
+        if (!self || paths.isEmpty()) return;
+        for (const QString& path : paths) self->addChartDirectory(path);
+        // Open the containing directory next time so sibling charts can be
+        // added without repeatedly navigating back out of a chart folder.
+        QJsonObject preferences = miacode::app_preferences::loadDialogPreferences();
+        preferences.insert(QStringLiteral("last_batch_chart_directory"), QFileInfo(paths.last()).absolutePath());
+        miacode::app_preferences::saveDialogPreferences(preferences);
     });
 }
 
 void ExportSession::addChartDirectory(const QString& path)
 {
-    if (path.isEmpty() || chartDirectories_.contains(path)) {
+    if (path.isEmpty() || !QFileInfo(path).isDir()) {
         return;
     }
-    chartDirectories_.append(path);
+    const QString normalized = QFileInfo(path).canonicalFilePath();
+    if (chartDirectories_.contains(normalized)) return;
+    chartDirectories_.append(normalized);
     emit batchChanged();
 }
 

@@ -2,6 +2,7 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QTimer>
 
 namespace miacode {
 
@@ -99,6 +100,22 @@ void UiRequestService::retranslate()
 
 QString UiRequestService::requestFile(const FileRequest& request, FileCallback onResolved)
 {
+    FileRequest single = request;
+    single.selectMultiple = false;
+    return requestFileSelection(single, [callback = std::move(onResolved)](const QStringList& paths) {
+        if (callback) callback(paths.isEmpty() ? QString() : paths.first());
+    });
+}
+
+QString UiRequestService::requestFiles(const FileRequest& request, FilesCallback onResolved)
+{
+    FileRequest multiple = request;
+    multiple.selectMultiple = !multiple.saveMode;
+    return requestFileSelection(multiple, std::move(onResolved));
+}
+
+QString UiRequestService::requestFileSelection(const FileRequest& request, FilesCallback onResolved)
+{
     const QString requestId = QStringLiteral("file-%1").arg(nextRequestSerial_++);
     pendingFileRequests_.insert(requestId, std::move(onResolved));
 
@@ -110,6 +127,7 @@ QString UiRequestService::requestFile(const FileRequest& request, FileCallback o
     payload.insert(QStringLiteral("nameFilters"), filters);
     payload.insert(QStringLiteral("saveMode"), request.saveMode);
     payload.insert(QStringLiteral("selectFolder"), request.selectFolder);
+    payload.insert(QStringLiteral("selectMultiple"), request.selectMultiple);
     addStartLocation(request, payload);
     filePresentations_.insert(requestId, payload);
     emit fileRequested(requestId, presentation(payload));
@@ -230,15 +248,65 @@ void UiRequestService::submitNoticeResult(const QString& requestId, bool actionC
 
 void UiRequestService::submitFileResult(const QString& requestId, const QUrl& fileUrl)
 {
-    resolve(requestId, fileUrl.isLocalFile() ? fileUrl.toLocalFile() : QString());
+    submitFileResults(requestId, {fileUrl});
+}
+
+void UiRequestService::submitFileResults(const QString& requestId, const QList<QUrl>& fileUrls)
+{
+    const auto presentation = filePresentations_.constFind(requestId);
+    if (presentation == filePresentations_.cend()) return;
+    const bool multiple = presentation->value(QStringLiteral("selectMultiple")).toBool();
+    QStringList paths;
+    for (const QUrl& url : fileUrls) {
+        if (!url.isLocalFile() || url.toLocalFile().isEmpty()) continue;
+        const QString path = QDir::cleanPath(url.toLocalFile());
+        if (!paths.contains(path)) paths.append(path);
+        if (!multiple) break;
+    }
+    resolve(requestId, paths);
 }
 
 void UiRequestService::cancelFileRequest(const QString& requestId)
 {
-    resolve(requestId, QString());
+    resolve(requestId, {});
 }
 
-void UiRequestService::resolve(const QString& requestId, const QString& path)
+void UiRequestService::setNativeFolderPicker(NativeFolderPicker picker)
+{
+    nativeFolderPicker_ = std::move(picker);
+}
+
+void UiRequestService::openNativeFolders(const QString& requestId, QObject* parentWindow)
+{
+    const auto payload = presentation(filePresentations_.value(requestId));
+    if (!pendingFileRequests_.contains(requestId) || nativeFolderLifetimes_.contains(requestId)
+        || !payload.value(QStringLiteral("selectFolder")).toBool()
+        || !payload.value(QStringLiteral("selectMultiple")).toBool()) return;
+
+    auto* lifetime = new QObject(this);
+    nativeFolderLifetimes_.insert(requestId, lifetime);
+    const QPointer<QObject> owner(parentWindow);
+    QTimer::singleShot(0, lifetime, [this, lifetime, owner, requestId, payload] {
+        const auto finish = [self = QPointer<UiRequestService>(this), requestId](const QList<QUrl>& urls,
+                                                                                const QString& error) {
+            if (!self || !self->pendingFileRequests_.contains(requestId)) return;
+            if (!error.isEmpty()) {
+                self->postNotice(NoticeSeverity::Error,
+                                 localizedText("dialog.batch_export.select_charts"),
+                                 localizedText("file_picker.native_failed"), error);
+            }
+            self->submitFileResults(requestId, urls);
+        };
+        if (!nativeFolderPicker_) {
+            finish({}, QStringLiteral("Native folder picker is unavailable"));
+            return;
+        }
+        nativeFolderPicker_(lifetime, owner, payload.value(QStringLiteral("title")).toString(),
+                            payload.value(QStringLiteral("startFolder")).toUrl(), finish);
+    });
+}
+
+void UiRequestService::resolve(const QString& requestId, const QStringList& paths)
 {
     filePresentations_.remove(requestId);
     const auto pending = pendingFileRequests_.find(requestId);
@@ -247,10 +315,11 @@ void UiRequestService::resolve(const QString& requestId, const QString& path)
     }
     // Take the continuation out before running it: a callback that starts
     // another pick must not observe its own entry.
-    const FileCallback callback = std::move(pending.value());
+    const FilesCallback callback = std::move(pending.value());
     pendingFileRequests_.erase(pending);
+    delete nativeFolderLifetimes_.take(requestId).data();
     if (callback) {
-        callback(path);
+        callback(paths);
     }
 }
 

@@ -1,3 +1,4 @@
+#include "app/services/FileDialogPreferences.h"
 #include "common/LocalizedText.h"
 #include "app/services/HudFontPreferences.h"
 
@@ -493,8 +494,10 @@ void PreviewSettingsModel::importHudFont()
     }
     miacode::FileRequest request;
     request.title = miacode::localizedText("dialog.video_export.option.import_hud_font");
+    request.startPath = miacode::file_dialog_preferences::recentDirectory(miacode::file_dialog_preferences::Purpose::HudFont);
     request.nameFilters = {miacode::localizedText("file_filter.font")};
     uiRequests_->requestFile(request, [this](const QString& path) {
+        miacode::file_dialog_preferences::rememberFile(miacode::file_dialog_preferences::Purpose::HudFont, path);
         applyHudFontImport(path);
     });
 }

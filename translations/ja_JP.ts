@@ -4817,63 +4817,6 @@ Error: %1</source>
         <source>The prepended PV exceeds its size budget or the 20 MB limit.</source>
         <translation>黒画面を追加した PV がサイズ予算または 20 MB の上限を超えています。</translation>
     </message>
-</context>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<context>
-    <name>BatchCoverExport</name>
     <message id="dialog.batch_export.cover_preset">
         <source>Cover preset</source>
         <translation>カバープリセット</translation>
@@ -4894,5 +4837,64 @@ Error: %1</source>
         <source>%1: frame time adjusted from %2 s to %3 s</source>
         <translation>%1：フレーム時間を %2 秒から %3 秒に調整</translation>
     </message>
+    <message id="file_picker.native_failed">
+        <source>Could not open the system folder picker.</source>
+        <translation>システムのフォルダー選択画面を開けませんでした。</translation>
+    </message>
 </context>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </TS>

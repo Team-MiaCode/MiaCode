@@ -301,6 +301,14 @@ miacode_add_dev_tool(preference_repository_spec TEST
     INCLUDES src
 )
 
+miacode_add_dev_tool(file_dialog_preferences_spec TEST
+    SOURCES
+        src/tools/services/FileDialogPreferencesSpec.cpp
+        src/app/services/PreferenceDocument.cpp
+    LIBS miacode_base Qt6::Core
+    INCLUDES src
+)
+
 miacode_add_dev_tool(export_preferences_spec TEST
     SOURCES src/tools/services/ExportPreferencesSpec.cpp
     LIBS miacode_export Qt6::Core

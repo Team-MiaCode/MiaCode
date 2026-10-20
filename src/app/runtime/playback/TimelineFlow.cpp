@@ -581,7 +581,7 @@ void miacode::runtime::PlaybackCoordinator::setCurrentFilePath(const QString& pa
         miacode::app::entry::logProcessStartupDiagnostics(QStringLiteral("log_dir_rebound"));
     }
     if (!state_.currentFilePath_.isEmpty()) {
-        preferences_.setLastOpenDirectory(state_.currentFilePath_);
+        if (!netPreview) preferences_.setLastOpenDirectory(state_.currentFilePath_);
 
         if (!nextTrackPath.isEmpty()) {
             // Keep preview audio in sync with the currently opened chart directory.

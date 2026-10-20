@@ -1,3 +1,4 @@
+#include "app/services/FileDialogPreferences.h"
 #include "common/LocalizedText.h"
 
 #include "app/ui/export/CoverExportSession.h"
@@ -721,9 +722,13 @@ void CoverExportSession::addImageLayer()
 {
     miacode::FileRequest request;
     request.title = miacode::localizedText("cover.choose_image");
+    request.startPath = miacode::file_dialog_preferences::chartDirectory(
+        miacode::file_dialog_preferences::ChartPurpose::CoverImage, task_.chartPath);
     request.nameFilters = {miacode::localizedText("cover.images_png_jpg_jpeg_bmp")};
-    uiRequests_->requestFile(request, [this](const QString& path) {
-        if (path.isEmpty() || layout_ == nullptr) return;
+    uiRequests_->requestFile(request, [this, chartPath = task_.chartPath, generation = sourceGeneration_](const QString& path) {
+        if (path.isEmpty() || layout_ == nullptr || generation != sourceGeneration_) return;
+        miacode::file_dialog_preferences::rememberChartFile(
+            miacode::file_dialog_preferences::ChartPurpose::CoverImage, chartPath, path);
         if (auto* layer = layout_->addImageLayer(path)) {
             selectLayerKey(layer->key());
             persistComposition();
@@ -821,11 +826,14 @@ void CoverExportSession::browseActiveLayerImage()
     if (layer == nullptr || layer->kind() != QStringLiteral("image")) return;
     miacode::FileRequest request;
     request.title = miacode::localizedText("cover.choose_image");
-    request.startPath = QFileInfo(layer->imagePath()).absolutePath();
+    request.startPath = miacode::file_dialog_preferences::chartDirectory(
+        miacode::file_dialog_preferences::ChartPurpose::CoverImage, task_.chartPath);
     request.nameFilters = {miacode::localizedText("cover.images_png_jpg_jpeg_bmp")};
-    uiRequests_->requestFile(request, [this](const QString& path) {
-        if (path.isEmpty()) return;
-        if (auto* active = activeCoverLayer(); active != nullptr && active->kind() == QStringLiteral("image")) {
+    uiRequests_->requestFile(request, [this, chartPath = task_.chartPath, generation = sourceGeneration_, layerKey = layer->key()](const QString& path) {
+        if (path.isEmpty() || generation != sourceGeneration_ || layout_ == nullptr) return;
+        miacode::file_dialog_preferences::rememberChartFile(
+            miacode::file_dialog_preferences::ChartPurpose::CoverImage, chartPath, path);
+        if (auto* active = layout_->layer(layerKey); active != nullptr && active->kind() == QStringLiteral("image")) {
             active->setImagePath(path);
             persistComposition();
         }
@@ -836,9 +844,11 @@ void CoverExportSession::requestFont(bool displayFont, bool textLayerFont)
 {
     miacode::FileRequest request;
     request.title = miacode::localizedText("card_font.import");
+    request.startPath = miacode::file_dialog_preferences::recentDirectory(miacode::file_dialog_preferences::Purpose::CoverFont);
     request.nameFilters = {miacode::localizedText("file_filter.font")};
     uiRequests_->requestFile(request, [this, displayFont, textLayerFont](const QString& path) {
         if (path.isEmpty()) return;
+        miacode::file_dialog_preferences::rememberFile(miacode::file_dialog_preferences::Purpose::CoverFont, path);
         const auto result = miacode::video_export::importFontFileIntoLibrary(path, miacode::app_preferences::fontLibraryDirectory());
         if (result.path.isEmpty()) {
             notifyError(miacode::localizedText("card_font.import"),
@@ -1157,10 +1167,13 @@ void CoverExportSession::browseBackgroundImage()
 {
     miacode::FileRequest request;
     request.title = miacode::localizedText("cover.choose_background_image");
-    request.startPath = QFileInfo(backgroundPath_).absolutePath();
+    request.startPath = miacode::file_dialog_preferences::chartDirectory(
+        miacode::file_dialog_preferences::ChartPurpose::CoverBackground, task_.chartPath);
     request.nameFilters = {miacode::localizedText("cover.images_png_jpg_jpeg_bmp")};
-    uiRequests_->requestFile(request, [this, generation = sourceGeneration_](const QString& path) {
+    uiRequests_->requestFile(request, [this, chartPath = task_.chartPath, generation = sourceGeneration_](const QString& path) {
         if (path.isEmpty() || sourceGeneration_ != generation) return;
+        miacode::file_dialog_preferences::rememberChartFile(
+            miacode::file_dialog_preferences::ChartPurpose::CoverBackground, chartPath, path);
         backgroundPath_ = path;
         backgroundMode_ = miacode::cover_export::CoverBackgroundMode::Custom;
         backgroundDirty_ = true;
@@ -1452,7 +1465,9 @@ void CoverExportSession::saveLayout()
 {
     miacode::FileRequest request;
     request.title = miacode::localizedText("cover.save_cover_layout");
-    request.startPath = QStringLiteral("cover-layout.miacover");
+    const QString directory = miacode::file_dialog_preferences::recentDirectory(
+        miacode::file_dialog_preferences::Purpose::CoverLayout, QFileInfo(recentLayoutFiles_.value(0)).absolutePath());
+    request.startPath = QDir(directory).filePath(QStringLiteral("cover-layout.miacover"));
     request.nameFilters = {miacode::localizedText("cover.cover_layout_miacover")};
     request.saveMode = true;
     uiRequests_->requestFile(request, [this](QString path) {
@@ -1465,6 +1480,7 @@ void CoverExportSession::saveLayout()
                         miacode::localizedText("cover.could_not_write_the_layout"), path);
             return;
         }
+        miacode::file_dialog_preferences::rememberFile(miacode::file_dialog_preferences::Purpose::CoverLayout, path);
         miacode::app_preferences::coverExportPreferences().pushRecentFile(path);
         refreshSavedLists();
     });
@@ -1474,8 +1490,13 @@ void CoverExportSession::importLayout()
 {
     miacode::FileRequest request;
     request.title = miacode::localizedText("cover.import_cover_layout");
+    request.startPath = miacode::file_dialog_preferences::recentDirectory(
+        miacode::file_dialog_preferences::Purpose::CoverLayout, QFileInfo(recentLayoutFiles_.value(0)).absolutePath());
     request.nameFilters = {miacode::localizedText("cover.cover_layout_miacover")};
-    uiRequests_->requestFile(request, [this](const QString& path) { openRecentLayout(path); });
+    uiRequests_->requestFile(request, [this](const QString& path) {
+        miacode::file_dialog_preferences::rememberFile(miacode::file_dialog_preferences::Purpose::CoverLayout, path);
+        openRecentLayout(path);
+    });
 }
 
 void CoverExportSession::openRecentLayout(const QString& path)

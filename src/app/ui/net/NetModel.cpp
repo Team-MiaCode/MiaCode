@@ -1,6 +1,7 @@
 #include "app/ui/net/NetModel.h"
 
 #include <QDateTime>
+#include <QStandardPaths>
 #include <QCoreApplication>
 #include <QDir>
 #include <QUuid>
@@ -14,6 +15,10 @@ namespace miacode::ui {
 NetModel::NetModel(NetService* service, QObject* parent) : QAbstractListModel(parent), service_(service)
 {
     outputDirectory_ = net_configuration::value("last_net_batch_output_dir").toString();
+    if (outputDirectory_.trimmed().isEmpty()) {
+        outputDirectory_ = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
+        if (outputDirectory_.isEmpty()) outputDirectory_ = QDir::homePath();
+    }
     if (service_) {
         auto version = QCoreApplication::applicationVersion();
         if (version.isEmpty()) version = QStringLiteral("unknown");

@@ -1,3 +1,4 @@
+#include "app/services/FileDialogPreferences.h"
 #include "common/LocalizedText.h"
 
 #include "app/ui/document/ChartTransformCommands.h"
@@ -526,17 +527,26 @@ void DocumentModel::requestMetadataAudio(std::function<void(const QString&)> onS
     // itself: preselecting maidata.txt would offer the one file it must not read.
     const QString chartPath = currentFilePath();
     const QString trackPath = miacode::chart_assets::resolveTrackPath(chartPath);
-    if (QFileInfo(trackPath).suffix().compare(QStringLiteral("mp3"), Qt::CaseInsensitive) == 0) {
-        request.startPath = trackPath;
-    } else if (!chartPath.isEmpty()) {
-        request.startPath = QFileInfo(chartPath).absolutePath();
+    request.startPath = miacode::file_dialog_preferences::storedChartDirectory(
+        miacode::file_dialog_preferences::ChartPurpose::MetadataAudio, chartPath);
+    if (request.startPath.isEmpty()) {
+        request.startPath = miacode::file_dialog_preferences::chartDirectory(
+            miacode::file_dialog_preferences::ChartPurpose::MetadataAudio, chartPath);
+        if (QFileInfo(trackPath).suffix().compare(QStringLiteral("mp3"), Qt::CaseInsensitive) == 0
+            && QFileInfo(trackPath).absolutePath() == request.startPath) {
+            request.startPath = trackPath;
+        }
     }
     request.nameFilters = {
         miacode::localizedText("track_metadata.metadata_audio_file_filter"),
         miacode::localizedText("qml.all_files"),
     };
-    uiRequests_->requestFile(request, [callback = std::move(onSelected)](const QString& path) {
-        if (callback && !path.trimmed().isEmpty()) callback(QDir::cleanPath(path));
+    const auto generation = documentGeneration_;
+    uiRequests_->requestFile(request, [this, chartPath, generation, callback = std::move(onSelected)](const QString& path) {
+        if (path.trimmed().isEmpty() || generation != documentGeneration_) return;
+        miacode::file_dialog_preferences::rememberChartFile(
+            miacode::file_dialog_preferences::ChartPurpose::MetadataAudio, chartPath, path);
+        if (callback) callback(QDir::cleanPath(path));
     });
 }
 
@@ -695,13 +705,17 @@ void DocumentModel::requestChartMediaImport(miacode::ChartMediaService::Kind kin
     const bool video = kind == miacode::ChartMediaService::Kind::Video;
     miacode::FileRequest request;
     request.title = miacode::localizedText(video ? "track_metadata.import_background_video" : "track_metadata.import_file");
-    request.startPath = QFileInfo(chartPath).absolutePath();
+    const auto purpose = video ? miacode::file_dialog_preferences::ChartPurpose::Video
+                               : miacode::file_dialog_preferences::ChartPurpose::Image;
+    request.startPath = miacode::file_dialog_preferences::chartDirectory(purpose, chartPath);
     request.nameFilters = {
         miacode::localizedText(video ? "track_metadata.video_file_filter" : "track_metadata.image_file_filter"),
         miacode::localizedText("qml.all_files"),
     };
-    uiRequests_->requestFile(request, [this, kind](const QString& sourcePath) {
-        if (sourcePath.trimmed().isEmpty() || uiRequests_ == nullptr) return;
+    const auto generation = documentGeneration_;
+    uiRequests_->requestFile(request, [this, kind, purpose, chartPath, generation](const QString& sourcePath) {
+        if (sourcePath.trimmed().isEmpty() || uiRequests_ == nullptr || generation != documentGeneration_) return;
+        miacode::file_dialog_preferences::rememberChartFile(purpose, chartPath, sourcePath);
         if (!miacode::ChartMediaService::sourceIsSupported(sourcePath, kind)) {
             uiRequests_->postNotice(
                 miacode::NoticeSeverity::Warning,
@@ -1333,6 +1347,32 @@ bool DocumentModel::revertDifficultyChart(int difficultyId)
     return true;
 }
 
+QVariantMap DocumentModel::fileDialogLocation(bool saveMode) const
+{
+    const auto app = PreferenceDocument::loadPreferencesObject().value(QStringLiteral("app")).toObject();
+    const bool netPreview = workspace_ != nullptr && workspace_->isNetPreview();
+    QString lastDirectory = app.value(QStringLiteral("last_open_dir")).toString();
+    // Older runtimes also remembered preview cache locations. They cannot be
+    // used as save destinations, and must not seed the regular Open dialog.
+    if (netPreview && QDir::cleanPath(lastDirectory) == QFileInfo(currentFilePath()).absolutePath()) {
+        lastDirectory.clear();
+    }
+    QString directory;
+    if (netPreview && miacode::file_dialog_preferences::validDirectory(lastDirectory).isEmpty()) {
+        directory = miacode::file_dialog_preferences::validDirectory(
+            QStandardPaths::writableLocation(QStandardPaths::DesktopLocation));
+        if (directory.isEmpty()) directory = QDir::homePath();
+    } else {
+        directory = miacode::file_dialog_preferences::documentDirectory(
+            lastDirectory, netPreview ? QString() : currentFilePath());
+    }
+    if (!saveMode) return {{QStringLiteral("folder"), QUrl::fromLocalFile(directory)}};
+    const QString path = !netPreview && !currentFilePath().isEmpty() ? currentFilePath()
+        : QDir(directory).filePath(netPreview ? QStringLiteral("maidata.txt") : QStringLiteral("chart.txt"));
+    return {{QStringLiteral("folder"), QUrl::fromLocalFile(QFileInfo(path).absolutePath())},
+            {QStringLiteral("file"), QUrl::fromLocalFile(path)}};
+}
+
 bool DocumentModel::openFile(const QUrl& fileUrl)
 {
     return openFileWithOrigin(fileUrl, ChartDocumentOrigin::Local);
@@ -1466,7 +1506,7 @@ void DocumentModel::saveSectionOrAskForPath(
     miacode::FileRequest request;
     request.title = miacode::localizedText("action.save_as");
     request.saveMode = true;
-    if (workspace_->isNetPreview()) request.startPath = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
+    request.startPath = fileDialogLocation(true).value(QStringLiteral("file")).toUrl().toLocalFile();
     request.nameFilters = {miacode::localizedText("qml.simai_files_txt_simai"), miacode::localizedText("qml.all_files_2")};
     const qulonglong generation = documentGeneration_;
     requests->requestFile(request, [this, difficultyId, generation, finish](const QString& path) {

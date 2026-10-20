@@ -141,12 +141,12 @@ Item {
         onNetUploadRequested: root.pages.openNetPage("net-upload")
         onMediaToolRequested: toolId => root.runMediaTool(toolId)
         onUnavailableFeatureRequested: featureName => root.showUnavailableFeature(featureName)
-        onOpenRequested: openFileDialog.open()
+        onOpenRequested: root.showOpenFileDialog()
         onSaveRequested: root.saveDocument()
         onSaveWholeDocumentRequested: root.saveWholeDocument()
         onSaveAsRequested: {
             if (root.documentSession.hasDocument)
-                saveFileDialog.open()
+                root.showSaveFileDialog()
         }
         onChartTransformRequested: opId => {
             if (root.chartEditorActive)
@@ -252,11 +252,25 @@ Item {
         unavailableFeatureDialog.open()
     }
 
+    function showOpenFileDialog() {
+        const location = root.documentSession.fileDialogLocation(false)
+        openFileDialog.currentFolder = location.folder
+        openFileDialog.selectedFile = ""
+        openFileDialog.open()
+    }
+
+    function showSaveFileDialog() {
+        const location = root.documentSession.fileDialogLocation(true)
+        saveFileDialog.currentFolder = location.folder
+        saveFileDialog.selectedFile = location.file
+        saveFileDialog.open()
+    }
+
     function saveDocument() {
         if (!root.editorActive)
             return
         if (root.documentSession.currentFilePath.length === 0) {
-            saveFileDialog.open()
+            root.showSaveFileDialog()
             return
         }
         root.commands.saveDocument()
@@ -266,7 +280,7 @@ Item {
         if (!root.documentSession.hasDocument)
             return
         if (root.documentSession.currentFilePath.length === 0) {
-            saveFileDialog.open()
+            root.showSaveFileDialog()
             return
         }
         root.commands.saveWholeDocument()
@@ -376,7 +390,7 @@ Item {
                 }
                 onUndoRequested: root.undo()
                 onRedoRequested: root.redo()
-                onOpenRequested: openFileDialog.open()
+                onOpenRequested: root.showOpenFileDialog()
                 onOpenCurrentFolderRequested: root.commands.openCurrentFolder()
                 onSaveRequested: root.saveDocument()
                 onSaveWholeDocumentRequested: root.saveWholeDocument()
@@ -414,7 +428,7 @@ Item {
                 netUpload: root.applicationContext.netUpload
                 compact: root.compact
                 documentTitle: root.documentTitle
-                onOpenRequested: openFileDialog.open()
+                onOpenRequested: root.showOpenFileDialog()
                 onSettingsRequested: preferencesDialog.open()
                 onCompletionSettingsRequested: function(group) { preferencesDialog.openCompletionSettings(group) }
                 onAudioSettingsRequested: audioSettingsDialog.open()

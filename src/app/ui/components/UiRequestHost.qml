@@ -35,6 +35,10 @@ Item {
     // "C:/..." names host "c", and the dialog stalls on that SMB lookup.
     function openRequest(requestId, request) {
         if (request.selectFolder) {
+            if (request.selectMultiple) {
+                root.requests.openNativeFolders(requestId, root.Window.window)
+                return
+            }
             root.activeFolderRequestId = requestId
             root.folderRequest = request
             if (request.startFolder)
@@ -46,7 +50,9 @@ Item {
         root.fileRequest = request
         // Mode first: an open dialog rejects a selectedFile that does not
         // exist, a save dialog accepts the proposed name.
-        fileDialog.fileMode = request.saveMode ? FileDialog.SaveFile : FileDialog.OpenFile
+        fileDialog.fileMode = request.saveMode ? FileDialog.SaveFile
+                            : request.selectMultiple ? FileDialog.OpenFiles : FileDialog.OpenFile
+        fileDialog.selectedFile = ""
         if (request.startFolder)
             fileDialog.currentFolder = request.startFolder
         if (request.startFile)
@@ -90,7 +96,9 @@ Item {
         onAccepted: {
             const requestId = root.activeFileRequestId
             root.activeFileRequestId = ""
-            root.requests.submitFileResult(requestId, selectedFile)
+            if (root.fileRequest.selectMultiple)
+                root.requests.submitFileResults(requestId, selectedFiles)
+            else root.requests.submitFileResult(requestId, selectedFile)
         }
         onRejected: {
             const requestId = root.activeFileRequestId

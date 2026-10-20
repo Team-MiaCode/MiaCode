@@ -4,6 +4,7 @@
 
 #include <QHash>
 #include <QObject>
+#include <QPointer>
 #include <QString>
 #include <QStringList>
 #include <QUrl>
@@ -31,6 +32,7 @@ struct FileRequest {
     LocalizedTextList nameFilters;
     bool saveMode = false;
     bool selectFolder = false;
+    bool selectMultiple = false;
 };
 
 // The boundary that lets a Widgets-free application object ask the QML shell for
@@ -48,6 +50,11 @@ class UiRequestService final : public QObject
 
 public:
     using FileCallback = std::function<void(const QString& path)>;
+    using FilesCallback = std::function<void(const QStringList& paths)>;
+    using NativeFolderResult = std::function<void(const QList<QUrl>& urls, const QString& error)>;
+    using NativeFolderPicker = std::function<void(QObject* lifetime, QObject* parentWindow,
+                                                 const QString& title, const QUrl& startFolder,
+                                                 NativeFolderResult onResolved)>;
     // true when the viewer chose the notice's extra action.
     using NoticeCallback = std::function<void(bool actionChosen)>;
     // The id of the button that was pressed, or the request's dismissChoiceId
@@ -58,6 +65,9 @@ public:
 
     // Returns the id the shell must echo back when the pick resolves.
     QString requestFile(const FileRequest& request, FileCallback onResolved);
+    QString requestFiles(const FileRequest& request, FilesCallback onResolved);
+    // Installed by the desktop UI; the request boundary remains QtCore-only.
+    void setNativeFolderPicker(NativeFolderPicker picker);
 
     // Fire-and-forget message. Nothing is waiting on the viewer's dismissal.
     void postNotice(NoticeSeverity severity,
@@ -101,7 +111,9 @@ public:
     int pendingChoiceCount() const { return static_cast<int>(pendingChoices_.size()); }
 
     Q_INVOKABLE void submitFileResult(const QString& requestId, const QUrl& fileUrl);
+    Q_INVOKABLE void submitFileResults(const QString& requestId, const QList<QUrl>& fileUrls);
     Q_INVOKABLE void cancelFileRequest(const QString& requestId);
+    Q_INVOKABLE void openNativeFolders(const QString& requestId, QObject* parentWindow);
     Q_INVOKABLE void submitNoticeResult(const QString& requestId, bool actionChosen);
     // An unknown choiceId resolves as the dismissal, not as nothing: a shell
     // that answers with a button the request never offered still leaves the
@@ -117,7 +129,8 @@ signals:
     void choiceRequested(const QString& requestId, const QVariantMap& request);
 
 private:
-    void resolve(const QString& requestId, const QString& path);
+    QString requestFileSelection(const FileRequest& request, FilesCallback onResolved);
+    void resolve(const QString& requestId, const QStringList& paths);
     QString emitNotice(NoticeSeverity severity,
                        const LocalizedText& title,
                        const LocalizedText& text,
@@ -128,7 +141,9 @@ private:
 
     QHash<QString, QVariantMap> filePresentations_;
     QHash<QString, QVariantMap> noticePresentations_;
-    QHash<QString, FileCallback> pendingFileRequests_;
+    QHash<QString, FilesCallback> pendingFileRequests_;
+    NativeFolderPicker nativeFolderPicker_;
+    QHash<QString, QPointer<QObject>> nativeFolderLifetimes_;
     QHash<QString, NoticeCallback> pendingNotices_;
     struct PendingChoice {
         ChoiceCallback callback;

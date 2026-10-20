@@ -25,6 +25,7 @@
 #include "app/ui/drop/ChartDropBridge.h"
 #include "app/ui/document/DocumentModel.h"
 #include "app/ui/layout/PageHost.h"
+#include "app/ui/dialogs/NativeFolderPicker.h"
 #include "common/DebugLog.h"
 #include "common/OperationLog.h"
 
@@ -95,6 +96,7 @@ bool Bootstrap::start(const QString& startupOpenTarget)
 #endif
 
     applicationServices_ = std::make_unique<miacode::ApplicationServices>();
+    installNativeFolderPicker(applicationServices_->uiRequests());
     connect(&miacode::LocaleService::instance(), &miacode::LocaleService::languageChanged,
             this, [this](const QString&) {
         applicationServices_->uiRequests().retranslate();

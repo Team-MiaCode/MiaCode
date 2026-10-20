@@ -213,6 +213,60 @@ bool verifyStartLocation(QTextStream& err)
     return ok;
 }
 
+bool verifyMultiplePaths(QTextStream& err)
+{
+    miacode::UiRequestService service;
+    QSignalSpy requested(&service, &miacode::UiRequestService::fileRequested);
+    miacode::FileRequest request;
+    request.selectFolder = true;
+    QStringList selected;
+    int calls = 0;
+    const auto id = service.requestFiles(request, [&](const QStringList& paths) {
+        selected = paths;
+        ++calls;
+    });
+    bool ok = require(requested.last().at(1).toMap().value("selectMultiple").toBool(),
+                      QStringLiteral("a list request tells the shell to allow multiple selections"), err);
+    QTemporaryDir scratch;
+    const QString a = QDir(scratch.path()).filePath(QStringLiteral("Song #1"));
+    const QString b = QDir(scratch.path()).filePath(QStringLiteral("中文 Song 2"));
+    QDir().mkpath(a);
+    QDir().mkpath(b);
+    service.submitFileResults(id, {QUrl::fromLocalFile(a), QUrl(QStringLiteral("https://example.com")),
+                                   QUrl::fromLocalFile(b), QUrl::fromLocalFile(a)});
+    service.cancelFileRequest(id);
+    service.submitFileResults(id, {QUrl::fromLocalFile(b)});
+    ok &= require(selected == QStringList{a, b} && calls == 1 && service.pendingFileRequestCount() == 0,
+                  QStringLiteral("all local paths arrive once, with order preserved and duplicates removed"), err);
+    service.cancelFileRequest(service.requestFiles(request, [&](const QStringList& paths) {
+        selected = paths;
+        ++calls;
+    }));
+    ok &= require(selected.isEmpty() && calls == 2,
+                  QStringLiteral("multi-selection cancellation resolves once with an empty list"), err);
+    const auto single = service.requestFile(request, [&](const QString& path) { selected = {path}; });
+    service.submitFileResults(single, {QUrl::fromLocalFile(a), QUrl::fromLocalFile(b)});
+    ok &= require(selected == QStringList{a}, QStringLiteral("single-path callers keep their single result"), err);
+    miacode::UiRequestService::NativeFolderResult finish;
+    QPointer<QObject> lifetime;
+    int opens = 0;
+    service.setNativeFolderPicker([&](QObject* context, QObject*, const QString&, const QUrl&, auto callback) {
+        lifetime = context;
+        finish = std::move(callback);
+        ++opens;
+    });
+    const auto nativeId = service.requestFiles(request, [&](const QStringList& paths) { selected = paths; });
+    service.openNativeFolders(nativeId, nullptr);
+    service.openNativeFolders(nativeId, nullptr);
+    QCoreApplication::processEvents();
+    ok &= require(opens == 1 && lifetime, QStringLiteral("a native request opens once and owns its dialog lifetime"), err);
+    service.cancelFileRequest(nativeId);
+    ok &= require(!lifetime && selected.isEmpty(), QStringLiteral("cancellation closes the native dialog lifetime"), err);
+    finish({QUrl::fromLocalFile(a)}, {});
+    ok &= require(selected.isEmpty(), QStringLiteral("a late native result cannot revive a cancelled request"), err);
+    return ok;
+}
+
 bool verifyNotices(QTextStream& err)
 {
     miacode::UiRequestService service;
@@ -402,7 +456,7 @@ int main(int argc, char** argv)
     QCoreApplication app(argc, argv);
     QTextStream err(stderr);
     const bool ok = verifyFileRequestRoundTrip(err) && verifyCancellationAndUnknownIds(err)
-        && verifyStartLocation(err) && verifyNotices(err) && verifyActionableNotices(err) && verifyConfirmations(err)
+        && verifyStartLocation(err) && verifyMultiplePaths(err) && verifyNotices(err) && verifyActionableNotices(err) && verifyConfirmations(err)
         && verifyChoices(err);
     if (ok) {
         QTextStream out(stdout);

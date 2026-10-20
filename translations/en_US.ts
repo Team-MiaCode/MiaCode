@@ -4817,63 +4817,6 @@ Error: %1</translation>
         <source>The prepended PV exceeds its size budget or the 20 MB limit.</source>
         <translation>The prepended PV exceeds its size budget or the 20 MB limit.</translation>
     </message>
-</context>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<context>
-    <name>BatchCoverExport</name>
     <message id="dialog.batch_export.cover_preset">
         <source>Cover preset</source>
         <translation>Cover preset</translation>
@@ -4894,5 +4837,64 @@ Error: %1</translation>
         <source>%1: frame time adjusted from %2 s to %3 s</source>
         <translation>%1: frame time adjusted from %2 s to %3 s</translation>
     </message>
+    <message id="file_picker.native_failed">
+        <source>Could not open the system folder picker.</source>
+        <translation>Could not open the system folder picker.</translation>
+    </message>
 </context>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </TS>

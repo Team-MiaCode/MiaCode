@@ -66,8 +66,9 @@ int main(int argc, char** argv)
     miacode::UiRequestService requests;
     miacode::PlaybackControl* playback = nullptr;
     QString requestId;
+    QVariantMap request;
     QObject::connect(&requests, &miacode::UiRequestService::fileRequested,
-                     [&](const QString& id, const QVariantMap&) { requestId = id; });
+                     [&](const QString& id, const QVariantMap& value) { requestId = id; request = value; });
     {
         miacode::ui::CoverExportSession session(engine, requests, playback);
         session.enter(5);
@@ -107,6 +108,40 @@ int main(int argc, char** argv)
         session.leave();
         session.enter(5);
         expect(engine.seeds == seedsBefore + 1, "reentering the same difficulty refreshes the source");
+    }
+
+    directory.mkpath("images"); directory.mkpath("fonts"); directory.mkpath("layouts");
+    const QString imageSource = temporary.filePath("images/custom.png");
+    expect(red.save(imageSource), "external image fixture saved");
+    {
+        miacode::ui::CoverExportSession session(engine, requests, playback);
+        session.enter(5);
+        session.addImageLayer();
+        requests.submitFileResult(requestId, QUrl::fromLocalFile(imageSource));
+        session.addImageLayer();
+        expect(request.value("startFolder").toUrl().toLocalFile() == temporary.filePath("images"),
+               "new cover image layers restore the external source folder");
+        requests.cancelFileRequest(requestId);
+        session.importCardDisplayFont();
+        requests.submitFileResult(requestId, QUrl::fromLocalFile(temporary.filePath("fonts/test.ttf")));
+        session.importCardBodyFont();
+        expect(request.value("startFolder").toUrl().toLocalFile() == temporary.filePath("fonts"),
+               "cover font inputs share their source folder");
+        requests.cancelFileRequest(requestId);
+        session.saveLayout();
+        requests.submitFileResult(requestId, QUrl::fromLocalFile(temporary.filePath("layouts/test.miacover")));
+    }
+    {
+        miacode::ui::CoverExportSession session(engine, requests, playback);
+        session.enter(5);
+        session.saveLayout();
+        expect(request.value("startFolder").toUrl().toLocalFile() == temporary.filePath("layouts"),
+               "cover layout save location survives session recreation");
+        requests.cancelFileRequest(requestId);
+        session.importLayout();
+        expect(request.value("startFolder").toUrl().toLocalFile() == temporary.filePath("layouts"),
+               "cover layout import shares the saved layout directory");
+        requests.cancelFileRequest(requestId);
     }
 
     // The persistent live scene must rebuild its prepared windows on every new chart.

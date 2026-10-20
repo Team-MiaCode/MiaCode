@@ -84,7 +84,6 @@ void miacode::runtime::VideoExportHost::packChartToZipAtPath(
     if (!outputPath.endsWith(QStringLiteral(".zip"), Qt::CaseInsensitive)) {
         outputPath += QStringLiteral(".zip");
     }
-    session_.setLastOpenDirectory(outputPath);
     _mc_op_.note(QStringLiteral("out=%1").arg(outputPath));
 
     miacode::zip_export::ChartZipInput input;

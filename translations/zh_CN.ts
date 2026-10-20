@@ -4817,63 +4817,6 @@ Error: %1</source>
         <source>The prepended PV exceeds its size budget or the 20 MB limit.</source>
         <translation>插入黑屏后的 PV 超出体积预算或 20 MB 上限。</translation>
     </message>
-</context>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<context>
-    <name>BatchCoverExport</name>
     <message id="dialog.batch_export.cover_preset">
         <source>Cover preset</source>
         <translation>封面预设</translation>
@@ -4894,5 +4837,64 @@ Error: %1</source>
         <source>%1: frame time adjusted from %2 s to %3 s</source>
         <translation>%1：截图时间从 %2 秒调整为 %3 秒</translation>
     </message>
+    <message id="file_picker.native_failed">
+        <source>Could not open the system folder picker.</source>
+        <translation>无法打开系统文件夹选择窗口。</translation>
+    </message>
 </context>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </TS>
