@@ -143,15 +143,15 @@ bool verifyPvPreviewTimeline(QTextStream& err)
         return false;
     }
     intro.pvPreview = true;
-    if (!require(introDurationFrames(intro) == 390 + miacode::intro::kCycle2SpanFrames
-                     && qAbs(introDurationSeconds(intro) - (390.0 + 154.0) / 60.0) < 1e-9,
-                 QStringLiteral("PV preview window is the fixed 6.5 s hold + cycle 2"), err)) {
+    if (!require(introDurationFrames(intro) == 510 + miacode::intro::kCycle2SpanFrames
+                     && qAbs(introDurationSeconds(intro) - (510.0 + 154.0) / 60.0) < 1e-9,
+                 QStringLiteral("PV preview window is the fixed 8.5 s hold + cycle 2"), err)) {
         return false;
     }
 
     QVariantMap style = introBannerStyleMap(intro, true);
     if (!require(style.value(QStringLiteral("pvPreviewMode")).toBool()
-                     && style.value(QStringLiteral("pvPreviewHoldFrames")).toInt() == 390
+                     && style.value(QStringLiteral("pvPreviewHoldFrames")).toInt() == 510
                      && style.value(QStringLiteral("pvPreviewVideoUnderlay")).toBool(),
                  QStringLiteral("style map carries the PV preview timeline"), err)) {
         return false;

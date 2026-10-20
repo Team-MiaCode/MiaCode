@@ -25,10 +25,10 @@ inline constexpr int kCycle2MergeOffsetFrames = 75;
 // PV-preview intro: no cycle-1 wipe and no opening SFX. The card holds over a
 // fixed-length PV + music segment from a chosen chart second (fading in from
 // black), then the classic cycle-2 wipe hard-cuts in and hands off.
-inline constexpr int kPvPreviewHoldFrames = 390;  // 6.5 s
+inline constexpr int kPvPreviewHoldFrames = 510;  // 8.5 s
 inline constexpr double kPvPreviewHoldSeconds =
     static_cast<double>(kPvPreviewHoldFrames) / static_cast<double>(kAuthoringFps);
-inline constexpr int kPvPreviewDurationFrames = kPvPreviewHoldFrames + kCycle2SpanFrames;  // 544
+inline constexpr int kPvPreviewDurationFrames = kPvPreviewHoldFrames + kCycle2SpanFrames;  // 664
 // Music envelope: the segment's music keeps playing past the hard cut until the
 // wipe fully covers the screen, so the fade-out straddles the cut instead of
 // ending on it. Both ramps are smooth S-curves (BassExportAudioBackend).
