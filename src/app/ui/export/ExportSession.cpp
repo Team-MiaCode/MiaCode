@@ -1440,6 +1440,23 @@ void ExportSession::setIntroPvStartSeconds(double seconds)
     }
 }
 
+void ExportSession::setIntroPvBrightness(double value)
+{
+    if (!std::isfinite(value)) {
+        return;
+    }
+    value = qBound(0.0, value, 1.0);
+    if (qAbs(value - task_.intro.pvPreviewBrightness) < 1e-6) {
+        return;
+    }
+    task_.intro.pvPreviewBrightness = value;
+    emit introChanged();
+    savePreferences();
+    if (engine() != nullptr) {
+        engine()->refreshIntroState();
+    }
+}
+
 bool ExportSession::introAuditionPlaying() const
 {
     return engine() != nullptr && engine()->introAuditionPlaying();

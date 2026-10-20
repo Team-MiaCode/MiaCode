@@ -35,7 +35,7 @@ inline constexpr int kPvPreviewDurationFrames = kPvPreviewHoldFrames + kCycle2Sp
 inline constexpr double kPvPreviewAudioTailSeconds =
     static_cast<double>(kCycle2MergeOffsetFrames) / static_cast<double>(kAuthoringFps);  // 1.25 s
 inline constexpr double kPvPreviewAudioFadeInSeconds = 0.8;
-inline constexpr double kPvPreviewAudioFadeOutSeconds = 2.0;
+inline constexpr double kPvPreviewAudioFadeOutSeconds = 3.0;
 
 // Authoring-frame length of the whole intro window for either style.
 inline constexpr int introDurationFrames(bool pvPreview)

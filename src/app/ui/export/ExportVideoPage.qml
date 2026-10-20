@@ -702,6 +702,18 @@ Rectangle {
                                     onActivated: if (root.session) root.session.introModeIndex = currentIndex
                                 }
                             }
+                            LabeledSlider {
+                                objectName: "introPvBrightnessSlider"
+                                visible: !!root.session && root.session.introPvPreview
+                                label: qsTrId("dialog.render_settings.video.brightness")
+                                from: 0
+                                to: 100
+                                value: root.session ? root.session.introPvBrightness * 100 : 100
+                                onMoved: function(v) {
+                                    if (root.session)
+                                        root.session.introPvBrightness = v / 100
+                                }
+                            }
                             // The PV preview shows the PV itself; without one, the still is crisp.
                             AppSwitch {
                                 text: qsTrId("cover.blur_background")

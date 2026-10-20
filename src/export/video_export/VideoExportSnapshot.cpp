@@ -255,6 +255,7 @@ QJsonObject VideoExportSnapshot::toJson() const
     introObject.insert(QStringLiteral("font_body_path"), intro.fontBodyPath);
     introObject.insert(QStringLiteral("pv_preview"), intro.pvPreview);
     introObject.insert(QStringLiteral("pv_preview_start_seconds"), intro.pvPreviewStartSeconds);
+    introObject.insert(QStringLiteral("pv_preview_brightness"), intro.pvPreviewBrightness);
     if (!introSoundFileName.trimmed().isEmpty()) {
         introObject.insert(QStringLiteral("sound_file"), QFileInfo(introSoundFileName).fileName());
     }
@@ -427,6 +428,8 @@ bool VideoExportSnapshot::fromJson(
         introObject.value(QStringLiteral("pv_preview")).toBool(parsed.intro.pvPreview);
     parsed.intro.pvPreviewStartSeconds = qMax(
         0.0, introObject.value(QStringLiteral("pv_preview_start_seconds")).toDouble(parsed.intro.pvPreviewStartSeconds));
+    parsed.intro.pvPreviewBrightness = qBound(
+        0.0, introObject.value(QStringLiteral("pv_preview_brightness")).toDouble(parsed.intro.pvPreviewBrightness), 1.0);
     parsed.introSoundFileName = QFileInfo(introObject.value(QStringLiteral("sound_file")).toString()).fileName();
 
     if (parsed.chartTextUtf8.isEmpty()) {
