@@ -931,7 +931,10 @@ bool snapRangeFitsBeats(const QVector<Rational>& momentPositions, int beats)
     return true;
 }
 
-QString renderMeasureLineApproximate(const RenderMeasure& measure)
+// Note positions always snap to the 384 grid here; `reduceDurations` decides
+// whether hold/slide durations are approximated as well (only with 1/384
+// alignment, see normalizePlainDurationSignature).
+QString renderMeasureLineApproximate(const RenderMeasure& measure, bool reduceDurations)
 {
     const int measureGridLength = qMax(1, qRound(toDouble(measure.lengthWhole) * 384.0));
     const int startPhaseGrid = qMax(0, qRound(toDouble(measure.startPhaseWhole) * 384.0));
@@ -1038,7 +1041,7 @@ QString renderMeasureLineApproximate(const RenderMeasure& measure)
             lastSegmentBeats = beats;
         }
         for (const MomentGroups& slotGroup : slotGroups) {
-            line.append(buildMomentText(slotGroup, beats, true));
+            line.append(buildMomentText(slotGroup, beats, reduceDurations));
             line.append(QLatin1Char(','));
         }
         if (segmentEndGrid < endPhaseGrid && beatGrid > 0 && (segmentEndGrid % beatGrid) == 0) {
@@ -1328,7 +1331,7 @@ QString renderMeasureLine(const RenderMeasure& measure, const ChartNormalization
         // Mixed explicit subdivisions still use the existing safe renderer,
         // but compact-single-line output removes visual beat separators and spaces.
         QString compact = options.reduceTo384Grid
-            ? renderMeasureLineApproximate(measure)
+            ? renderMeasureLineApproximate(measure, true)
             : renderMeasureLine(measure, ChartNormalizationOptions{
                 options.startAtNewMeasure,
                 options.reduceTo384Grid,
@@ -1343,7 +1346,7 @@ QString renderMeasureLine(const RenderMeasure& measure, const ChartNormalization
     if (!options.reduceTo384Grid && measureRequiresExactRendering(measure)) {
         return renderMeasureLineExact(measure);
     }
-    return renderMeasureLineApproximate(measure);
+    return renderMeasureLineApproximate(measure, options.reduceTo384Grid);
 }
 
 QString summarizeValidationError(const SimaiValidationReport& report)

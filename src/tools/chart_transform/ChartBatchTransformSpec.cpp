@@ -2304,6 +2304,36 @@ void runInlineSpecs(QTextStream& err, int* failed)
     }
 
     {
+        // Durations outside the 384 family keep their exact text unless 1/384
+        // alignment is on; ordinary measures used to approximate them anyway.
+        const QString chart = QStringLiteral(
+            "(120){16}1-5[20:2],,,,,,,,,,,,,,,,\n{16}3-7[15:2],,,,2h[20:3],,,,,,,,,,,,\nE");
+        miacode::chart_transform::ChartNormalizationOptions exact;
+        exact.reduceTo384Grid = false;
+        const miacode::chart_transform::ChartNormalizationResult kept =
+            miacode::chart_transform::normalizeChartText(chart, miacode::simai::SimaiTimingMetadata(), exact);
+        expectTrue(kept.ok && kept.text.contains(QStringLiteral("1-5[20:2]"))
+                       && kept.text.contains(QStringLiteral("3-7[15:2]"))
+                       && kept.text.contains(QStringLiteral("2h[20:3]")),
+                   QStringLiteral("normalize without 1/384 alignment keeps non-384 durations verbatim"), failed, err);
+        const SimaiParseResult before = SimaiParser::parseForTimeline(chart);
+        const SimaiParseResult after = SimaiParser::parseForTimeline(kept.text);
+        bool sameEnds = before.noteMarkers.size() == after.noteMarkers.size();
+        for (int i = 0; sameEnds && i < before.noteMarkers.size(); ++i) {
+            sameEnds = qAbs(before.noteMarkers.at(i).endSecond - after.noteMarkers.at(i).endSecond) <= 1e-6;
+        }
+        expectTrue(sameEnds, QStringLiteral("normalize without 1/384 alignment keeps hold and slide end times"),
+                   failed, err);
+
+        miacode::chart_transform::ChartNormalizationOptions aligned;
+        aligned.reduceTo384Grid = true;
+        const miacode::chart_transform::ChartNormalizationResult snapped =
+            miacode::chart_transform::normalizeChartText(chart, miacode::simai::SimaiTimingMetadata(), aligned);
+        expectTrue(snapped.ok && !snapped.text.contains(QStringLiteral("[20:2]")),
+                   QStringLiteral("normalize with 1/384 alignment still approximates non-384 durations"), failed, err);
+    }
+
+    {
         const miacode::simai::SimaiTimingMetadata timingMetadata =
             miacode::simai::buildTimingMetadataFromRawText(QStringLiteral("&whole_time_signature=3/4"), true);
         const miacode::chart_transform::ChartNormalizationResult normalized =
