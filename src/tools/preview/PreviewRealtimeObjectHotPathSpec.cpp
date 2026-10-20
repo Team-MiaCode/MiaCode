@@ -4,6 +4,8 @@
 #include <QTextStream>
 #include <QtMath>
 
+#include <limits>
+
 #include "core/video/PreviewGameplayConfig.h"
 #include "core/chart/parser/SimaiParser.h"
 #include "core/chart/model/TimelineMarkerOffset.h"
@@ -1219,6 +1221,64 @@ bool verifyTouchJudgeUsesTwoEightSparkleRings(QTextStream& err)
     return true;
 }
 
+// Issue #48: one NaN playhead used to drain both cursor indices to the end of
+// the layer, and forward playback then never activated a note again.
+bool verifyLayerWindowCursorRecoversFromNonFinitePlayhead(QTextStream& err)
+{
+    PreviewPreparedLayerWindow<PreviewPreparedMarkerEntry> layer;
+    for (int index = 0; index < 100; ++index) {
+        layer.entries.append(PreviewPreparedMarkerEntry{index, index * 1.0, index * 1.0 + 2.5, -1});
+    }
+    miacode::preview::scene::finalizePreparedLayerWindow(&layer);
+    const auto freshActive = [&layer](double playheadSeconds) {
+        PreviewLayerWindowCursor fresh;
+        miacode::preview::scene::syncPreviewLayerWindowCursor(layer, playheadSeconds, &fresh);
+        return fresh.activePreparedIndices;
+    };
+
+    for (double nonFinite : {std::numeric_limits<double>::quiet_NaN(),
+                             std::numeric_limits<double>::infinity(),
+                             -std::numeric_limits<double>::infinity()}) {
+        PreviewLayerWindowCursor cursor;
+        miacode::preview::scene::syncPreviewLayerWindowCursor(layer, 10.0, &cursor);
+        if (!require(cursor.activePreparedIndices.size() == 3,
+                     QStringLiteral("cursor holds three active entries at 10 s"), err)) {
+            return false;
+        }
+        miacode::preview::scene::syncPreviewLayerWindowCursor(layer, nonFinite, &cursor);
+        if (!require(!cursor.valid && cursor.activePreparedIndices.isEmpty(),
+                     QStringLiteral("playhead %1 invalidates the cursor (valid=%2 active=%3 next_activation=%4)")
+                         .arg(nonFinite)
+                         .arg(cursor.valid ? 1 : 0)
+                         .arg(cursor.activePreparedIndices.size())
+                         .arg(cursor.nextActivationIndex),
+                     err)) {
+            return false;
+        }
+        for (double second : {11.0, 30.0}) {
+            miacode::preview::scene::syncPreviewLayerWindowCursor(layer, second, &cursor);
+            if (!require(!cursor.activePreparedIndices.isEmpty() && cursor.activePreparedIndices == freshActive(second),
+                         QStringLiteral("forward playback after playhead %1 activates entries at %2 s (active=%3)")
+                             .arg(nonFinite)
+                             .arg(second)
+                             .arg(cursor.activePreparedIndices.size()),
+                         err)) {
+                return false;
+            }
+        }
+
+        PreviewLayerWindowCursor coldCursor;
+        miacode::preview::scene::syncPreviewLayerWindowCursor(layer, nonFinite, &coldCursor);
+        miacode::preview::scene::syncPreviewLayerWindowCursor(layer, 11.0, &coldCursor);
+        if (!require(coldCursor.activePreparedIndices == freshActive(11.0),
+                     QStringLiteral("a cursor first synced at playhead %1 recovers at 11 s").arg(nonFinite),
+                     err)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 }  // namespace
 
 int main(int argc, char* argv[])
@@ -1261,6 +1321,9 @@ int main(int argc, char* argv[])
         return 1;
     }
     if (!verifyTouchJudgeUsesTwoEightSparkleRings(err)) {
+        return 1;
+    }
+    if (!verifyLayerWindowCursorRecoversFromNonFinitePlayhead(err)) {
         return 1;
     }
 

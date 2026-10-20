@@ -4,6 +4,8 @@
 #include <QGuiApplication>
 #include <QTextStream>
 
+#include <limits>
+
 using miacode::preview::scene::PreviewPreparedSceneCache;
 
 namespace {
@@ -63,6 +65,27 @@ bool verifyResetNeverReplaysACachedRevision(QTextStream& err)
     return ok;
 }
 
+bool verifySetPlayheadIgnoresNonFiniteSeconds(QTextStream& err)
+{
+    PreviewRuntime runtime;
+    runtime.setPlayheadSeconds(12.5);
+    bool ok = true;
+    for (double value : {std::numeric_limits<double>::quiet_NaN(),
+                         std::numeric_limits<double>::infinity(),
+                         -std::numeric_limits<double>::infinity()}) {
+        runtime.setPlayheadSeconds(value);
+        ok &= require(runtime.frameState().playheadSeconds == 12.5,
+                      QStringLiteral("live playhead keeps its last finite value after %1").arg(value), err);
+        runtime.setPlayheadSeconds(value, false);
+        ok &= require(runtime.frameStateSnapshot()->playheadSeconds == 12.5,
+                      QStringLiteral("published playhead keeps its last finite value after %1").arg(value), err);
+    }
+    runtime.setPlayheadSeconds(13.0);
+    ok &= require(runtime.frameStateSnapshot()->playheadSeconds == 13.0,
+                  QStringLiteral("finite playhead updates still apply"), err);
+    return ok;
+}
+
 }  // namespace
 
 int main(int argc, char** argv)
@@ -70,6 +93,7 @@ int main(int argc, char** argv)
     QGuiApplication app(argc, argv);
     QTextStream err(stderr);
     bool ok = verifyResetNeverReplaysACachedRevision(err);
+    ok &= verifySetPlayheadIgnoresNonFiniteSeconds(err);
     if (!ok) {
         return 1;
     }
