@@ -230,6 +230,16 @@ int main(int argc, char** argv)
         withUi(legacy, QStringLiteral("editor_auto_completion"), true));
     expect(canonical.value("ui").toObject().value("editor_auto_completion").toBool(),
            "canonical editor setting wins over legacy value");
+    const QJsonObject legacyScroll{{QStringLiteral("ui"),
+        QJsonObject{{QStringLiteral("editor_scroll_beyond_last_line"), false}}}};
+    const QJsonObject migratedScroll = PreferenceDocument::normalizePreferencesObject(legacyScroll);
+    expect(!migratedScroll.value("ui").toObject().value("editor_scroll_past_end").toBool(true)
+               && !migratedScroll.value("ui").toObject().contains("editor_scroll_beyond_last_line"),
+           "v1's disabled scroll-past-end survives the rename");
+    expect(PreferenceDocument::normalizePreferencesObject(
+               withUi(legacyScroll, QStringLiteral("editor_scroll_past_end"), true))
+               .value("ui").toObject().value("editor_scroll_past_end").toBool(),
+           "the renamed scroll-past-end setting wins over v1's value");
 
     // Facade consumers must agree even when a whole-document writer changes
     // settings after the typed accessors have already been used.
