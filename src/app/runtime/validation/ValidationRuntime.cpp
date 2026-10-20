@@ -1,0 +1,310 @@
+#include "app/runtime/validation/ValidationHost.h"
+#include "app/runtime/playback/PlaybackCoordinator.h"
+#include "app/runtime/shell/ShellHost.h"
+
+#include "core/chart/parser/SimaiParser.h"
+#include "preview/runtime/PreviewRuntime.h"
+#include "core/analysis/MuriAnalyzer.h"
+#include "core/analysis/MuriPanelEntries.h"
+#include "core/analysis/MuriTypes.h"
+
+#include <QtCore>
+
+namespace {
+
+using miacode::muri::MuriPanelEntry;
+
+enum class ValidationSeverityLevel {
+    Error,
+    Warning,
+};
+
+struct ValidationMessageParts {
+    QString severityPrefix;
+    QString body;
+    ValidationSeverityLevel severity = ValidationSeverityLevel::Error;
+};
+
+ValidationMessageParts parseValidationMessage(const QString& rawMessage)
+{
+    ValidationMessageParts parts;
+    parts.body = rawMessage.trimmed();
+    const auto matchPrefix = [&](const QString& prefix, ValidationSeverityLevel severity) -> bool {
+        if (!parts.body.startsWith(prefix)) {
+            return false;
+        }
+        parts.severityPrefix = prefix;
+        parts.severity = severity;
+        parts.body = parts.body.mid(prefix.size()).trimmed();
+        return true;
+    };
+
+    if (matchPrefix(QStringLiteral("[ERROR]"), ValidationSeverityLevel::Error)) return parts;
+    if (matchPrefix(QStringLiteral("[WARNING]"), ValidationSeverityLevel::Warning)) return parts;
+    if (matchPrefix(QStringLiteral("[错误]"), ValidationSeverityLevel::Error)) return parts;
+    if (matchPrefix(QStringLiteral("[警告]"), ValidationSeverityLevel::Warning)) return parts;
+
+    parts.severityPrefix = QStringLiteral("[ERROR]");
+    parts.severity = ValidationSeverityLevel::Error;
+    return parts;
+}
+
+}  // namespace
+
+void miacode::runtime::ValidationHost::clearValidationCache()
+{
+    state_.validationCacheByDifficulty_.clear();
+    emit session_.documentValidationChanged();
+}
+
+void miacode::runtime::ValidationHost::notifyDocumentValidationChanged()
+{
+    emit session_.documentValidationChanged();
+}
+
+void miacode::runtime::ValidationHost::applyDeferredAnalysisUiUpdates()
+{
+    if (state_.playing_) {
+        return;
+    }
+
+    if (state_.pendingDeferredMuriUiRefresh_) {
+        if (state_.scene_ != nullptr) {
+            state_.scene_->setMuriRenderOptions(state_.muriRenderOptions_);
+        }
+        session_.applyAlignedMuriAnalysisReportToViews();
+        state_.pendingDeferredMuriUiRefresh_ = false;
+    }
+
+    if (state_.pendingDeferredValidationUiRefresh_) {
+        refreshValidationPanelForActiveField();
+        state_.pendingDeferredValidationUiRefresh_ = false;
+    }
+}
+
+void miacode::runtime::ValidationHost::refreshValidationPanelForActiveField()
+{
+    if (!session_.hasActiveDifficulty()) {
+        clearValidationDecorations();
+        return;
+    }
+
+    const int difficultyId = session_.activeDifficultyId();
+    const auto it = state_.validationCacheByDifficulty_.constFind(difficultyId);
+    if (it == state_.validationCacheByDifficulty_.constEnd()) {
+        clearValidationDecorations();
+        return;
+    }
+
+    const QString chartText = session_.activeChartText();
+    const SimaiValidationLocale validationLocale = miacode::uiValidationLocale();
+    const miacode::simai::SimaiTimingMetadata timingMetadata = session_.currentTimingMetadata();
+    const Session::ValidationCacheEntry& entry = it.value();
+    if (entry.chartText != chartText
+        || entry.validationLocale != validationLocale
+        || entry.timingMetadata != timingMetadata) {
+        clearValidationDecorations();
+        return;
+    }
+
+    state_.validationDecorations_.clear();
+    for (const Session::ValidationCachedIssue& issue : entry.issues) {
+        addValidationDecoration(issue.line, issue.col, issue.displayMessage, issue.endCol);
+    }
+}
+
+Session::DocumentValidationSnapshot
+miacode::runtime::ValidationHost::documentValidationSnapshot() const
+{
+    const miacode::simai::SimaiTimingMetadata timingMetadata = session_.currentTimingMetadata();
+    miacode::ui::DocumentValidationProjectionInput input;
+    input.difficultyId = session_.hasActiveDifficulty() ? session_.activeDifficultyId() : 0;
+    input.chartTextSignature = session_.activeChartText();
+    input.timingSignature = QStringLiteral("%1|%2|%3|%4")
+        .arg(timingMetadata.wholeTimeSignatureText)
+        .arg(timingMetadata.wholeTimeSignatureNumerator)
+        .arg(timingMetadata.wholeTimeSignatureDenominator)
+        .arg(timingMetadata.wholeTimeSignatureValid ? 1 : 0);
+    input.timelineRevision = state_.timeline_.timelineRevision_;
+
+    miacode::ui::DocumentValidationProjectionCache cache;
+    const auto it = state_.validationCacheByDifficulty_.constFind(input.difficultyId);
+    if (it != state_.validationCacheByDifficulty_.constEnd()
+        && it->validationLocale == miacode::uiValidationLocale()) {
+        const Session::ValidationCacheEntry& entry = it.value();
+        cache.difficultyId = input.difficultyId;
+        cache.chartTextSignature = entry.chartText;
+        cache.timingSignature = QStringLiteral("%1|%2|%3|%4")
+            .arg(entry.timingMetadata.wholeTimeSignatureText)
+            .arg(entry.timingMetadata.wholeTimeSignatureNumerator)
+            .arg(entry.timingMetadata.wholeTimeSignatureDenominator)
+            .arg(entry.timingMetadata.wholeTimeSignatureValid ? 1 : 0);
+        cache.validationRevision = entry.validationRevision;
+        cache.ok = entry.ok;
+        cache.errorCount = entry.errorCount;
+        cache.warningCount = entry.warningCount;
+        cache.parsedNoteCount = entry.strictNoteCount;
+        cache.issues.reserve(entry.issues.size());
+        for (const Session::ValidationCachedIssue& cachedIssue : entry.issues) {
+            cache.issues.append({
+                cachedIssue.line,
+                cachedIssue.col,
+                cachedIssue.endCol,
+                cachedIssue.severity == SimaiValidationSeverity::Warning
+                    ? miacode::ui::DocumentValidationIssueSeverity::Warning
+                    : miacode::ui::DocumentValidationIssueSeverity::Error,
+                cachedIssue.displayMessage,
+            });
+        }
+    }
+    return miacode::ui::projectDocumentValidation(input, cache);
+}
+
+Session::QmlAnalysisSnapshot miacode::runtime::ValidationHost::qmlAnalysisSnapshot() const
+{
+    miacode::ui::AnalysisProjectionInput input;
+    input.validation = documentValidationSnapshot();
+    input.activeDifficultyId = session_.hasActiveDifficulty() ? session_.activeDifficultyId() : 0;
+    input.muriDifficultyId = state_.muriAnalysisReportDifficultyId_;
+    input.muriRevision = state_.muriAnalysisReportTimelineRevision_;
+    input.muriSignatureAligned = state_.muriAnalysisResultAvailable_
+        && !state_.muriAnalysisReportNoteMarkerSignature_.isEmpty()
+        && state_.timeline_.latestTimelineNoteMarkerSignature_ == state_.muriAnalysisReportNoteMarkerSignature_;
+    input.muriStaticReferencesAligned = state_.muriStaticReferencesAvailable_
+        && state_.muriStaticReferencesDifficultyId_ == input.muriDifficultyId
+        && state_.muriStaticReferencesTimelineRevision_ == input.muriRevision
+        && state_.muriStaticReferencesNoteMarkerSignature_ == state_.muriAnalysisReportNoteMarkerSignature_;
+    if (input.muriSignatureAligned) {
+        const auto entries = miacode::muri::buildVisibleMuriPanelEntries(
+            state_.muriAnalysisReport_, state_.muriStaticReferences_);
+        input.muriRows.reserve(entries.size());
+        for (const MuriPanelEntry& entry : entries) {
+            miacode::ui::AnalysisRow row;
+            row.line = qMax(1, entry.line);
+            row.column = qMax(1, entry.col);
+            row.endColumn = row.column;
+            row.second = entry.second;
+            row.severity = entry.alertLevel == MuriAlertLevel::Warning
+                ? QStringLiteral("warning") : QStringLiteral("error");
+            row.alert = entry.alertLevel == MuriAlertLevel::Warning
+                ? QStringLiteral("warning") : QStringLiteral("muri");
+            row.title = muriKindText(entry.kind);
+            row.detail = renderMuriDetail(entry.detailKind, entry.detailArgs, miacode::uiValidationLocale()).trimmed();
+            if (row.detail.isEmpty()) row.detail = entry.rawDetail;
+            input.muriRows.append(row);
+        }
+    }
+    return miacode::ui::projectAnalysis(input);
+}
+
+bool miacode::runtime::ValidationHost::runValidateSimaiSilently()
+{
+    if (!session_.hasActiveDifficulty()) {
+        refreshValidationPanelForActiveField();
+        emit session_.documentValidationChanged();
+        return false;
+    }
+
+    const int difficultyId = session_.activeDifficultyId();
+    const QString chartText = session_.activeChartText();
+    const SimaiValidationLocale validationLocale = miacode::uiValidationLocale();
+    const miacode::simai::SimaiTimingMetadata timingMetadata = session_.currentTimingMetadata();
+    Session::ValidationCacheEntry entry;
+    const auto cacheIt = state_.validationCacheByDifficulty_.constFind(difficultyId);
+    if (cacheIt != state_.validationCacheByDifficulty_.constEnd()
+        && cacheIt->chartText == chartText
+        && cacheIt->validationLocale == validationLocale
+        && cacheIt->timingMetadata == timingMetadata
+        && cacheIt->validationRevision == state_.timeline_.timelineRevision_) {
+        entry = cacheIt.value();
+    } else {
+        QElapsedTimer reportTimer;
+        reportTimer.start();
+        const SimaiValidationReport report =
+            SimaiParser::buildValidationReport(chartText, validationLocale, timingMetadata);
+        entry.chartText = chartText;
+        entry.validationLocale = validationLocale;
+        entry.timingMetadata = timingMetadata;
+        entry.validationRevision = state_.timeline_.timelineRevision_;
+        entry.ok = report.ok;
+        entry.errorCount = report.errorCount;
+        entry.warningCount = report.warningCount;
+        entry.strictNoteCount = report.strictNoteCount;
+        entry.strictErrorCount = report.strictErrorCount;
+        entry.issues.clear();
+        entry.issues.reserve(report.issues.size());
+        for (const SimaiValidationIssue& issue : report.issues) {
+            Session::ValidationCachedIssue cachedIssue;
+            cachedIssue.line = issue.line;
+            cachedIssue.col = issue.col;
+            cachedIssue.endCol = issue.endCol;
+            cachedIssue.severity = issue.severity;
+            cachedIssue.rawMessage = issue.rawMessage;
+            cachedIssue.displayMessage = issue.displayMessage;
+            entry.issues.append(cachedIssue);
+        }
+        state_.validationCacheByDifficulty_.insert(difficultyId, entry);
+        if (state_.runtimeDebugOutputEnabled_) {
+            session_.shell_->appendOutput(
+                "edit/validation_perf",
+                QStringLiteral("build_report=%1ms issues=%2")
+                    .arg(reportTimer.elapsed())
+                    .arg(entry.issues.size()));
+        }
+    }
+
+    state_.validationDecorations_.clear();
+    for (const Session::ValidationCachedIssue& issue : entry.issues) {
+        addValidationDecoration(issue.line, issue.col, issue.displayMessage, issue.endCol);
+    }
+    if (state_.runtimeDebugOutputEnabled_) {
+        session_.shell_->appendOutput(
+            "edit/validation_apply_perf",
+            QStringLiteral("apply_state issues=%1")
+                .arg(entry.issues.size())
+        );
+    }
+    emit session_.documentValidationChanged();
+    return entry.ok;
+}
+
+void Session::clearValidationCache()
+{
+    validation_->clearValidationCache();
+}
+
+void Session::applyDeferredAnalysisUiUpdates()
+{
+    validation_->applyDeferredAnalysisUiUpdates();
+}
+
+void Session::refreshValidationPanelForActiveField()
+{
+    validation_->refreshValidationPanelForActiveField();
+}
+
+bool Session::runValidateSimaiSilently()
+{
+    return validation_->runValidateSimaiSilently();
+}
+
+Session::DocumentValidationSnapshot Session::documentValidationSnapshot() const
+{
+    return validation_->documentValidationSnapshot();
+}
+
+Session::QmlAnalysisSnapshot Session::qmlAnalysisSnapshot() const
+{
+    return validation_->qmlAnalysisSnapshot();
+}
+
+bool Session::validateActiveDocument()
+{
+    // UIv2's explicit recheck must not publish a validation-only generation:
+    // advance the shared slow-refresh revision first, then let its analysis
+    // worker publish matching validation, Muri report and static references.
+    // The synchronous validation below remains useful for immediate feedback
+    // while that aligned Muri result is pending.
+    playback_->scheduleTimelineRefresh();
+    return validation_->runValidateSimaiSilently();
+}

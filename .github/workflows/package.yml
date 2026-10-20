@@ -1,0 +1,224 @@
+name: Nightly
+run-name: ${{ inputs.channel || 'nightly' }} · ${{ github.ref_name }} · ${{ github.sha }}
+
+on:
+  push:
+    branches: [dev, feature/qml-ui, ci/platform-package-refactor]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      channel:
+        description: >-
+          Distribution channel embedded in the application and package name.
+          "release" omits the channel segment from the package name.
+        type: string
+        default: nightly
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: platform-packages-${{ github.ref }}-${{ inputs.channel || 'nightly' }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x64
+            runner: windows-2022
+            toolchain: msvc
+            build: build-msvc
+            qt: .qt/6.11.1/msvc2022_64
+            media: third_party/ffmpeg/windows/win64
+            version: ffmpeg7.1
+          - platform: windows-arm64
+            runner: windows-11-arm
+            toolchain: msvc-arm64
+            build: build-msvc-arm64
+            qt: .qt/6.11.1/msvc2022_arm64
+            media: third_party/ffmpeg/windows/winarm64
+            version: ffmpeg8.1.2
+          - platform: macos-arm64
+            runner: macos-14
+            toolchain: apple-clang
+            build: build-macos
+            qt: .qt/6.11.1
+            media: third_party/ffmpeg/macos
+            version: ffmpeg8.1.2
+    defaults:
+      run:
+        shell: bash
+    env:
+      CI_CHANNEL: ${{ inputs.channel || 'nightly' }}
+      MIACODE_RELEASE_CHANNEL: ${{ inputs.channel || 'nightly' }}
+      GIT_LFS_SKIP_SMUDGE: "1"
+      SCCACHE_DIR: ${{ github.workspace }}/.cache/sccache
+      CMAKE_C_COMPILER_LAUNCHER: sccache
+      CMAKE_CXX_COMPILER_LAUNCHER: sccache
+      CMAKE_OSX_ARCHITECTURES: arm64
+      CMAKE_OSX_DEPLOYMENT_TARGET: "13.0"
+      SCCACHE_IDLE_TIMEOUT: "0"
+      CI_PLATFORM: ${{ matrix.platform }}
+      CI_BUILD_DIR: ${{ matrix.build }}
+    steps:
+      - name: Start timing
+        run: echo "CI_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Package channel
+        run: |
+          # "release" means no channel segment at all: a Release asset is
+          # MiaCode_<version>_<os>_<arch>.7z, with nothing in between.
+          value="$CI_CHANNEL"
+          if [[ "$value" == "release" ]]; then
+            value=""
+          fi
+          echo "MIACODE_PACKAGE_CHANNEL=$value" >> "$GITHUB_ENV"
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          lfs: false
+
+      - name: Cache keys
+        id: keys
+        run: python scripts/build/package.py keys
+
+      # The channel is part of the key because it changes the archive name a
+      # cache hit restores, and a release must never hand out a nightly-named
+      # package built from the same source.
+      - name: Restore package
+        id: package-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: dist/*.7z
+          key: platform-v1-package-${{ matrix.platform }}-${{ env.CI_CHANNEL }}-${{ steps.keys.outputs.source }}
+
+      - name: Fetch assets
+        if: steps.package-cache.outputs.cache-hit != 'true'
+        run: |
+          git lfs pull
+          git submodule update --init --recursive
+
+      - name: Restore Qt
+        if: steps.package-cache.outputs.cache-hit != 'true'
+        id: qt-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ matrix.qt }}
+          key: platform-v1-qt-${{ matrix.platform }}-6.11.1-${{ steps.keys.outputs.recipe }}
+          restore-keys: platform-v1-qt-${{ matrix.platform }}-
+
+      - name: Restore FFmpeg
+        if: steps.package-cache.outputs.cache-hit != 'true'
+        id: media-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ matrix.media }}
+          key: platform-v1-media-${{ matrix.platform }}-${{ matrix.version }}-${{ steps.keys.outputs.recipe }}
+          restore-keys: |
+            platform-v1-media-${{ matrix.platform }}-${{ matrix.version }}-
+            platform-v1-media-${{ matrix.platform }}-
+
+      - name: Restore compiler
+        if: steps.package-cache.outputs.cache-hit != 'true'
+        id: compiler-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/sccache
+          key: platform-v1-compiler-${{ matrix.platform }}-${{ steps.keys.outputs.toolchain }}-${{ steps.keys.outputs.source }}
+          restore-keys: |
+            platform-v1-compiler-${{ matrix.platform }}-${{ steps.keys.outputs.toolchain }}-
+            platform-v1-compiler-${{ matrix.platform }}-
+
+      - name: Restore build
+        if: steps.package-cache.outputs.cache-hit != 'true'
+        id: build-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ matrix.build }}
+          key: platform-v1-build-${{ matrix.platform }}-${{ steps.keys.outputs.toolchain }}-${{ steps.keys.outputs.source }}
+          restore-keys: |
+            platform-v1-build-${{ matrix.platform }}-${{ steps.keys.outputs.toolchain }}-
+            platform-v1-build-${{ matrix.platform }}-
+
+      - name: Compiler cache
+        if: steps.package-cache.outputs.cache-hit != 'true'
+        uses: mozilla-actions/sccache-action@v0.0.9
+        with:
+          version: v0.17.0
+          disable_annotations: true
+
+      - name: Dependencies
+        if: steps.package-cache.outputs.cache-hit != 'true'
+        id: deps
+        run: python scripts/build/package.py deps
+
+      - name: Save Qt
+        if: steps.deps.outcome == 'success' && steps.qt-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ matrix.qt }}
+          key: platform-v1-qt-${{ matrix.platform }}-6.11.1-${{ steps.keys.outputs.recipe }}
+
+      - name: Save FFmpeg
+        if: steps.deps.outcome == 'success' && steps.media-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ matrix.media }}
+          key: platform-v1-media-${{ matrix.platform }}-${{ matrix.version }}-${{ steps.keys.outputs.recipe }}
+
+      - name: Build
+        if: steps.package-cache.outputs.cache-hit != 'true'
+        id: build
+        run: python scripts/build/package.py build
+
+      - name: Flush compiler
+        if: steps.build.outcome == 'success'
+        run: sccache --stop-server || true
+
+      - name: Save compiler
+        if: steps.build.outcome == 'success' && steps.compiler-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: .cache/sccache
+          key: platform-v1-compiler-${{ matrix.platform }}-${{ steps.keys.outputs.toolchain }}-${{ steps.keys.outputs.source }}
+
+      - name: Save build
+        if: steps.build.outcome == 'success' && steps.build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ matrix.build }}
+          key: platform-v1-build-${{ matrix.platform }}-${{ steps.keys.outputs.toolchain }}-${{ steps.keys.outputs.source }}
+
+      - name: Artifact name
+        id: artifact
+        run: python scripts/build/package.py artifact
+
+      - name: Save package
+        if: steps.package-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: dist/*.7z
+          key: ${{ steps.package-cache.outputs.cache-primary-key }}
+
+      - name: Upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: dist/*.7z
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Summary
+        env:
+          CI_EVENT: ${{ github.event_name }}
+          CI_TRIGGERED_AT: ${{ github.event.head_commit.timestamp }}
+        run: python scripts/build/package.py report

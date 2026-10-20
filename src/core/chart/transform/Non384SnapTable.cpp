@@ -1,4 +1,4 @@
-#include "Non384SnapTable.h"
+#include "core/chart/transform/Non384SnapTable.h"
 
 #include <QVector>
 #include <QtCore/QtGlobal>

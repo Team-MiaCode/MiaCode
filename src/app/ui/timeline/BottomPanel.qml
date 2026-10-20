@@ -1,0 +1,388 @@
+pragma ComponentBehavior: Bound
+
+import QtQuick
+import QtQuick.Controls
+import MiaCode.UI
+import MiaCode.Timeline
+
+Item {
+    id: root
+
+    required property var documentSession
+    required property var analysisSession
+    required property var preferences
+    required property var timelineSession
+    required property var previewSession
+    signal analysisRowActivated(int difficultyId, var revision, int line, int column, int endColumn, double second)
+
+    Rectangle {
+        width: parent.width
+        height: timelineItem.visible ? tabs.height : parent.height
+        color: Theme.surfaceColor(Theme.colors.background.panel)
+    }
+    clip: true
+    readonly property int contentTopMargin: 0
+    readonly property real minimumHeight: tabs.implicitHeight + timelineItem.minimumViewportHeight
+    readonly property real minimumWidth: tabs.minimumWidth
+    readonly property real analysisTextLeftInset:
+        Theme.panelPadding + Theme.chromePadding
+    readonly property real analysisListLeftInset:
+        Math.max(0, analysisTextLeftInset - Theme.rowPaddingX)
+    readonly property real analysisVerticalSpacing: Theme.chromeInsetY
+    readonly property int muriWarningCount: countMuriRows("warning")
+    readonly property int muriIssueCount: countMuriRows("muri")
+
+    Timer {
+        id: timelineThemeRefresh
+        interval: 0
+        onTriggered: timelineItem.refreshTheme()
+    }
+
+    function countMuriRows(alert) {
+        const rows = analysisSession.muriRows
+        let count = 0
+        for (let index = 0; index < rows.length; ++index) {
+            if (rows[index].alert === alert)
+                ++count
+        }
+        return count
+    }
+
+    component AnalysisIssueRow: ChromeRow {
+        id: issueRow
+
+        required property var modelData
+        required property string leadingText
+        required property string bodyText
+
+        readonly property color leadingColor: modelData.severity === "error"
+            ? Theme.colors.syntax.error
+            : Theme.colors.syntax.warning
+
+        width: ListView.view.width
+        height: implicitHeight
+        onClicked: root.analysisSession.activateRow(modelData)
+
+        contentItem: Item {
+            implicitHeight: issueContent.implicitHeight
+
+            Column {
+                id: issueContent
+
+                width: parent.width
+                y: (parent.height - implicitHeight) / 2
+                spacing: 2
+
+                Label {
+                    width: parent.width
+                    text: issueRow.leadingText
+                    color: issueRow.leadingColor
+                    wrapMode: Text.Wrap
+                    font.family: Theme.codeFont.family
+                    font.pixelSize: Theme.uiFontSize
+                }
+
+                Label {
+                    width: parent.width
+                    text: issueRow.bodyText
+                    color: Theme.colors.text.primary
+                    wrapMode: Text.Wrap
+                    font.family: Theme.uiFont
+                    font.pixelSize: Theme.uiFontSize
+                }
+            }
+        }
+    }
+
+    // Theme owns timeline surfaces; the palette's timeline group only supplies
+    // content colors. The bridge exists before TimelineQuickItem so both sets
+    // reach the C++ scene snapshot before its first frame.
+    TimelineThemeBridge {
+        id: timelineTheme
+        windowColor: Theme.surfaceColor(Theme.colors.background.surface)
+        headerColor: Theme.surfaceColor(Theme.colors.background.panel)
+        sidebarColor: Theme.surfaceColor(Theme.colors.background.panel)
+        baseColor: Theme.surfaceColor(Theme.colors.background.surface)
+        borderColor: Theme.colors.timeline.border
+        axisColor: Theme.colors.timeline.axis
+        gridMajorColor: Theme.colors.timeline.gridMajor
+        gridSubdivisionColor: Theme.colors.timeline.gridSubdivision
+        gridMinorColor: Theme.colors.timeline.gridMinor
+        laneEvenColor: Theme.contentOverlayColor(Theme.colors.timeline.laneEven)
+        laneOddColor: Theme.contentOverlayColor(Theme.colors.timeline.laneOdd)
+        labelColor: Theme.colors.timeline.label
+        textSecondaryColor: Theme.colors.timeline.textSecondary
+        waveStrokeColor: Theme.colors.timeline.waveStroke
+        onWindowColorChanged: timelineThemeRefresh.restart()
+        onHeaderColorChanged: timelineThemeRefresh.restart()
+        onSidebarColorChanged: timelineThemeRefresh.restart()
+        onBaseColorChanged: timelineThemeRefresh.restart()
+        onBorderColorChanged: timelineThemeRefresh.restart()
+        onAxisColorChanged: timelineThemeRefresh.restart()
+        onGridMajorColorChanged: timelineThemeRefresh.restart()
+        onGridSubdivisionColorChanged: timelineThemeRefresh.restart()
+        onGridMinorColorChanged: timelineThemeRefresh.restart()
+        onLaneEvenColorChanged: timelineThemeRefresh.restart()
+        onLaneOddColorChanged: timelineThemeRefresh.restart()
+        onLabelColorChanged: timelineThemeRefresh.restart()
+        onTextSecondaryColorChanged: timelineThemeRefresh.restart()
+        onWaveStrokeColorChanged: timelineThemeRefresh.restart()
+    }
+
+    BottomTabBar {
+        id: tabs
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        documentSession: root.documentSession
+        analysisSession: root.analysisSession
+        timelineSession: root.timelineSession
+    }
+
+    TimelineQuickItem {
+        id: timelineItem
+
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: tabs.bottom
+        anchors.bottom: parent.bottom
+        visible: root.timelineSession.currentTabId === "timeline"
+        enabled: visible
+        stateBridge: root.timelineSession.stateBridge
+        headerLeftLimit: zoomButton.x + zoomButton.width + 2
+        headerRightLimit: Math.max(0, brightnessButton.x - 2)
+        headerMarkerLeftLimit: zoomButton.x + zoomButton.width + 2
+        headerMarkerRightLimit: Math.max(0, brightnessButton.x - 2)
+        onHeaderNavigateRequested: second => root.timelineSession.headerNavigate(second)
+        onTimelineWheelNavigateRequested: second => root.timelineSession.wheelNavigate(second)
+        onCenterNavigateRequested: second => root.timelineSession.centerNavigate(second)
+        onTimelineDragStarted: root.timelineSession.dragStarted()
+        onTimelineDragFinished: second => root.timelineSession.dragFinished(second)
+        onTimelineUserInteractionStarted: root.timelineSession.userInteractionStarted()
+        onTimelineSurfaceReady: root.timelineSession.surfaceReady()
+        onFollowPreviewToggled: enabled => root.timelineSession.followPreviewToggled(enabled)
+    }
+
+    Tooltip {
+        id: timelineMarkerTooltip
+        parent: Overlay.overlay
+        visible: timelineItem.hoverTooltipText.length > 0
+        text: timelineItem.hoverTooltipText
+        x: {
+            const position = timelineItem.mapToItem(parent, timelineItem.hoverTooltipPosition)
+            return position.x + 12
+        }
+        y: {
+            const position = timelineItem.mapToItem(parent, timelineItem.hoverTooltipPosition)
+            return position.y + 16
+        }
+    }
+
+    // Header controls share the tab row's edge inset, measured on their chrome.
+    AppDropDownButton {
+        id: zoomButton
+
+        x: tabs.edgePadding - Theme.chromeInsetX + Theme.chromeHighlightOutset
+        y: timelineItem.y + Math.max(0, (timelineItem.timelineTop - height) / 2)
+        height: Theme.controlHighlightHeight + 2 * (Theme.chromeInsetY - Theme.chromeHighlightOutset)
+        visible: timelineItem.visible
+        text: qsTrId("qml.1").arg(Math.round(root.timelineSession.stateBridge
+            ? root.timelineSession.stateBridge.zoomScale * 100
+            : 50))
+        sizeToLabels: zoomMenu.zoomLabels
+        tooltip: qsTrId("qml.timeline_zoom")
+        expanded: zoomMenu.active
+        Accessible.description: qsTrId("qml.open_timeline_zoom_presets")
+        onClicked: {
+            if (zoomMenu.active) {
+                zoomMenu.close()
+                return
+            }
+            zoomMenu.openAt(zoomButton)
+        }
+    }
+
+    IconButton {
+        id: brightnessButton
+
+        width: implicitWidth
+        height: implicitHeight
+        x: root.width - tabs.edgePadding - width + horizontalInset
+        y: timelineItem.y + Math.max(0, (timelineItem.timelineTop - height) / 2)
+        visible: timelineItem.visible
+        iconSource: Qt.resolvedUrl("icons/sliders-horizontal.svg")
+        filledIconSource: Qt.resolvedUrl("icons/sliders-horizontal-fill.svg")
+        tooltip: qsTrId("qml.timeline_settings")
+        active: settingsMenu.active
+        Accessible.description: qsTrId("qml.open_timeline_settings")
+        onClicked: {
+            if (settingsMenu.active) {
+                settingsMenu.close()
+                return
+            }
+            settingsMenu.openAt(brightnessButton)
+        }
+    }
+
+    TimelineZoomMenu {
+        id: zoomMenu
+        stateBridge: root.timelineSession.stateBridge
+    }
+
+    TimelineSettingsMenu {
+        id: settingsMenu
+        stateBridge: root.timelineSession.stateBridge
+        timelineSession: root.timelineSession
+    }
+
+    Item {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: tabs.bottom
+        anchors.topMargin: root.contentTopMargin
+        anchors.bottom: parent.bottom
+        visible: root.timelineSession.currentTabId === "validation"
+
+        Row {
+            id: summaryRow
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.leftMargin: root.analysisTextLeftInset
+            anchors.rightMargin: Theme.panelPadding
+            anchors.topMargin: root.analysisVerticalSpacing
+
+            Label {
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.analysisSession.pending
+                    ? qsTrId("qml.analyzing")
+                    : qsTrId("qml.1_errors_2_warnings")
+                        .arg(root.documentSession.syntaxErrorCount)
+                        .arg(root.documentSession.syntaxWarningCount)
+                color: Theme.colors.text.secondary
+                font.family: Theme.uiFont
+                font.pixelSize: Theme.uiFontSize
+            }
+        }
+
+        ListView {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: summaryRow.bottom
+            anchors.bottom: parent.bottom
+            anchors.topMargin: root.analysisVerticalSpacing
+            anchors.leftMargin: root.analysisListLeftInset
+            anchors.rightMargin: Theme.panelPadding
+            clip: true
+            model: root.analysisSession.validationRows
+
+            delegate: AnalysisIssueRow {
+                id: issueDelegate
+                leadingText: modelData.code === "missing_difficulty_level"
+                    ? qsTrId("validation.difficulty_header")
+                    : "%1 · L%2:C%3".arg(modelData.severity === "error"
+                        ? qsTrId("qml.errors") : qsTrId("validation.muri.alert.warning"))
+                        .arg(modelData.line).arg(modelData.column)
+                bodyText: modelData.detail
+            }
+
+            ScrollBar.vertical: AppScrollBar {}
+        }
+
+        Label {
+            anchors.centerIn: parent
+            visible: root.analysisSession.validationRows.length === 0
+            text: root.analysisSession.pending
+                ? qsTrId("qml.analyzing")
+                : qsTrId("validation.no_syntax_errors_detected")
+            color: Theme.colors.text.secondary
+            font.family: Theme.uiFont
+            font.pixelSize: Theme.uiFontSize
+        }
+    }
+
+    Item {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: tabs.bottom
+        anchors.topMargin: root.contentTopMargin
+        anchors.bottom: parent.bottom
+        visible: root.timelineSession.currentTabId === "muri"
+
+        Row {
+            id: muriSummaryRow
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.leftMargin: root.analysisTextLeftInset
+            anchors.rightMargin: Theme.panelPadding
+            anchors.topMargin: root.analysisVerticalSpacing
+
+            Label {
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.analysisSession.pending
+                    ? qsTrId("qml.analyzing")
+                    : qsTrId("validation.muri.summary")
+                        .arg(root.muriIssueCount)
+                        .arg(root.muriWarningCount)
+                color: Theme.colors.text.secondary
+                font.family: Theme.uiFont
+                font.pixelSize: Theme.uiFontSize
+            }
+        }
+
+        ListView {
+            id: muriList
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: muriSummaryRow.bottom
+            anchors.bottom: parent.bottom
+            anchors.topMargin: root.analysisVerticalSpacing
+            anchors.leftMargin: root.analysisListLeftInset
+            anchors.rightMargin: Theme.panelPadding
+            clip: true
+            model: root.analysisSession.muriRows
+            delegate: AnalysisIssueRow {
+                id: muriDelegate
+                leadingText: "%1 · %2 · L%3:C%4".arg(modelData.alert === "warning"
+                    ? qsTrId("validation.muri.alert.warning")
+                    : qsTrId("validation.muri.alert.muri"))
+                    .arg(modelData.title)
+                    .arg(modelData.line)
+                    .arg(modelData.column)
+                bodyText: modelData.detail
+            }
+            ScrollBar.vertical: AppScrollBar {}
+        }
+        Label {
+            anchors.centerIn: parent
+            visible: root.analysisSession.muriRows.length === 0
+            text: root.analysisSession.pending
+                ? qsTrId("qml.analyzing")
+                : qsTrId("validation.no_muri_issues_detected")
+            color: Theme.colors.text.secondary
+            font.family: Theme.uiFont
+            font.pixelSize: Theme.uiFontSize
+        }
+    }
+
+    // The playback-rate HUD sits over the timeline, not over the preview stage:
+    // while editing, the timeline is where the eyes already are, and the canvas
+    // stays unobscured. Declared last so it paints above every bottom tab —
+    // QML stacking is declaration order — and anchored to the panel body rather
+    // than to timelineItem so it still shows while 语法 or 无理 is in front.
+    PreviewRateToast {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: tabs.bottom
+        anchors.bottom: parent.bottom
+        previewSession: root.previewSession
+    }
+
+    Connections {
+        target: root.analysisSession
+        function onRowActivated(difficultyId, revision, line, column, endColumn, second) {
+            root.analysisRowActivated(difficultyId, revision, line, column, endColumn, second)
+        }
+    }
+}

@@ -1,8 +1,22 @@
-#include "SimaiCompletionCatalog.h"
+#include "editor/SimaiCompletionCatalog.h"
+
+#include "core/chart/parser/SimaiParser.h"
 
 #include <QRegularExpression>
+#include <QSet>
 
 namespace miacode::editor {
+
+namespace {
+
+bool isForbiddenCompletionCharacter(QChar ch)
+{
+    return ch.isSpace() || ch.category() == QChar::Other_Control
+        || ch == QLatin1Char('[') || ch == QLatin1Char(']')
+        || ch == QLatin1Char('{') || ch == QLatin1Char('}');
+}
+
+}  // namespace
 
 bool isBracketOpening(QChar ch)
 {
@@ -24,38 +38,80 @@ QChar closingBracketFor(QChar opening)
     }
 }
 
-QStringList squareDurationCandidates()
+SimaiCompletionConfig defaultCompletionConfig()
 {
-    // Order fixed per product decision — do not sort.
-    return {
-        QStringLiteral("8:1]"),
-        QStringLiteral("4:1]"),
-        QStringLiteral("16:3]"),
-        QStringLiteral("384:1]"),
-    };
+    static const SimaiCompletionConfig defaults{
+        {QStringLiteral("8:1"), QStringLiteral("4:1"), QStringLiteral("16:3"), QStringLiteral("384:1")},
+        {QStringLiteral("16"), QStringLiteral("24"), QStringLiteral("32")}};
+    return defaults;
 }
 
-QStringList holdDurationCandidates()
+bool isValidCompletionValue(CompletionCandidateGroup group, const QString& value)
 {
-    // Derived from squareDurationCandidates() so the two stay in lock-step —
-    // typing 'h' offers the same durations, just with the leading '[' included
-    // (nothing was typed before them, unlike the '[' completion slot).
-    QStringList out;
-    for (const QString& token : squareDurationCandidates()) {
-        out.append(QLatin1Char('[') + token);
+    if (value.isEmpty()) return false;
+    for (const QChar ch : value) {
+        if (isForbiddenCompletionCharacter(ch)) return false;
     }
+    if (group == CompletionCandidateGroup::Duration)
+        return SimaiParser::isValidHoldDurationSignature(value);
+    bool ok = false;
+    const int division = value.toInt(&ok);
+    return ok && division > 0;
+}
+
+QString sanitizeCompletionInput(const QString& value)
+{
+    QString sanitized;
+    sanitized.reserve(value.size());
+    for (const QChar ch : value) {
+        if (!isForbiddenCompletionCharacter(ch)) sanitized.append(ch);
+    }
+    return sanitized;
+}
+
+QStringList normalizeCompletionValues(CompletionCandidateGroup group, const QStringList& values)
+{
+    QStringList normalized;
+    QSet<QString> seen;
+    for (const QString& raw : values) {
+        const QString value = raw.trimmed();
+        if (!isValidCompletionValue(group, value) || seen.contains(value)) continue;
+        seen.insert(value);
+        normalized.append(value);
+    }
+    if (!normalized.isEmpty()) return normalized;
+    const auto defaults = defaultCompletionConfig();
+    return group == CompletionCandidateGroup::Duration ? defaults.durations : defaults.divisions;
+}
+
+QStringList squareDurationCandidates(const SimaiCompletionConfig& config)
+{
+    QStringList out;
+    out.reserve(config.durations.size());
+    for (const QString& value : config.durations) out.append(value + QLatin1Char(']'));
     return out;
 }
 
-QStringList braceDivisionCandidates()
+QStringList holdDurationCandidates(const SimaiCompletionConfig& config)
 {
-    // Order fixed per product decision — do not sort.
-    return {
-        QStringLiteral("16}"),
-        QStringLiteral("24}"),
-        QStringLiteral("32}"),
-    };
+    QStringList out;
+    out.reserve(config.durations.size());
+    for (const QString& value : config.durations)
+        out.append(QLatin1Char('[') + value + QLatin1Char(']'));
+    return out;
 }
+
+QStringList braceDivisionCandidates(const SimaiCompletionConfig& config)
+{
+    QStringList out;
+    out.reserve(config.divisions.size());
+    for (const QString& value : config.divisions) out.append(value + QLatin1Char('}'));
+    return out;
+}
+
+QStringList squareDurationCandidates() { return squareDurationCandidates(defaultCompletionConfig()); }
+QStringList holdDurationCandidates() { return holdDurationCandidates(defaultCompletionConfig()); }
+QStringList braceDivisionCandidates() { return braceDivisionCandidates(defaultCompletionConfig()); }
 
 QString normalizeBpmToken(const QString& raw)
 {
@@ -114,9 +170,15 @@ QStringList parenBpmCandidates(const QString& wholeBpm, const QString& chartText
 
 QStringList candidatesForOpening(QChar opening, const QString& wholeBpm, const QString& chartText)
 {
+    return candidatesForOpening(opening, wholeBpm, chartText, defaultCompletionConfig());
+}
+
+QStringList candidatesForOpening(QChar opening, const QString& wholeBpm, const QString& chartText,
+                                 const SimaiCompletionConfig& config)
+{
     switch (opening.unicode()) {
-    case '[': return squareDurationCandidates();
-    case '{': return braceDivisionCandidates();
+    case '[': return squareDurationCandidates(config);
+    case '{': return braceDivisionCandidates(config);
     case '(': return parenBpmCandidates(wholeBpm, chartText);
     default: return {};
     }

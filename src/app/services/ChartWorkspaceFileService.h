@@ -1,0 +1,55 @@
+#pragma once
+
+#include <QString>
+#include <QVector>
+
+#include "app/services/ChartWorkspace.h"
+
+namespace miacode {
+
+struct ChartWorkspaceFileResult {
+    bool accepted = false;
+    quint64 revision = 0;
+    QString error;
+    QVector<ChartWorkspaceIssue> issues;
+    bool usedSystemEncoding = false;
+};
+
+// File-system boundary for ChartWorkspace.  This deliberately reports failures
+// as values so the QML/application layer decides how to present them.
+class ChartWorkspaceFileService final
+{
+public:
+    explicit ChartWorkspaceFileService(ChartWorkspace& workspace);
+
+    // The workspace this service writes for. There is exactly one per
+    // application assembly; a second workspace behind the file boundary is how
+    // "save" and "what is on screen" drift apart.
+    ChartWorkspace& workspace() const { return *workspace_; }
+
+    // Reads maidata (or a chart directory's maidata.txt) into the workspace.
+    // Chart-body validation issues are returned on `issues` and do not fail
+    // the open: an empty or invalid inote is still a loaded document.
+    ChartWorkspaceFileResult open(const QString& path, ChartDocumentOrigin origin = ChartDocumentOrigin::Local) const;
+    // Write an empty chart at `path`, creating its folder if needed. The
+    // workspace is untouched — the caller opens the file afterwards, so a new
+    // document arrives through the same door as any other and starts on a real
+    // save point rather than dirty-on-arrival.
+    ChartWorkspaceFileResult createEmptyDocument(const QString& path) const;
+    ChartWorkspaceFileResult createEmptyDocument(const QString& path,
+                                                 const SimaiDocument& document) const;
+    // Saves one section — the difficulty being worked in — leaving every other
+    // difficulty on disk exactly as it was. difficultyId 0 saves the whole
+    // document, which is what the whole-source view means by its section.
+    ChartWorkspaceFileResult save(int difficultyId) const;
+    // Cross-directory saves publish project media and settings before switching the workspace path.
+    ChartWorkspaceFileResult saveAs(const QString& path, int difficultyId) const;
+
+private:
+    static QString decodeDocumentText(const QByteArray& bytes, bool* usedSystemEncoding);
+    ChartWorkspaceFileResult writeToPath(const QString& path, int difficultyId) const;
+
+    ChartWorkspace* workspace_ = nullptr;
+};
+
+}  // namespace miacode

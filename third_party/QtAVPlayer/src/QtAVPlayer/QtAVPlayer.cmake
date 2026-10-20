@@ -217,7 +217,6 @@ if(QT_AVPLAYER_VA_DRM)
     # Check if the file was found
     if (DRM_FOURCC_H_PATH)
         message(STATUS "Found drm_fourcc.h at ${DRM_FOURCC_H_PATH}")
-
         message(STATUS "Using ${DRM_FOURCC_H_PATH}/drm_fourcc.h")
         include_directories(${DRM_FOURCC_H_PATH})
     else()

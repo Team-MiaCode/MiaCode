@@ -2,9 +2,8 @@
 // video-frame conversion, timers, and logging; this helper receives only facts
 // already computed by that host.
 
-#include "preview/runtime/PvMemoryDiagnostics.h"
+#include "preview/stage_media/PvMemoryDiagnostics.h"
 
-#include <QFile>
 #include <QTextStream>
 
 namespace {
@@ -44,28 +43,6 @@ const Record* findRecord(const QVector<Record>& records, RecordAction action, co
     return nullptr;
 }
 
-bool helperInterfaceIsScalarOnly(QTextStream& err)
-{
-    const QStringList helperFiles {
-        QStringLiteral(MIACODE_SOURCE_ROOT "/src/preview/runtime/PvMemoryDiagnostics.h"),
-        QStringLiteral(MIACODE_SOURCE_ROOT "/src/preview/runtime/PvMemoryDiagnostics.cpp"),
-    };
-    for (const QString& path : helperFiles) {
-        QFile helperFile(path);
-        if (!require(helperFile.open(QIODevice::ReadOnly), QStringLiteral("open scalar-only helper source"), err)) {
-            return false;
-        }
-        const QByteArray source = helperFile.readAll();
-        if (!require(!source.contains("QVideoFrame") && !source.contains("QImage")
-                         && !source.contains("QVideoSink") && !source.contains("QMediaPlayer")
-                         && !source.contains(".toImage("),
-                     QStringLiteral("helper sources cannot receive media objects or invoke conversion"), err)) {
-            return false;
-        }
-    }
-    return true;
-}
-
 }  // namespace
 
 int main()
@@ -74,7 +51,6 @@ int main()
     QTextStream out(stdout);
     bool ok = true;
 
-    ok &= helperInterfaceIsScalarOnly(err);
 
     // A source identifier is assigned only to active video loads and never reused.
     Diagnostics diagnostics;

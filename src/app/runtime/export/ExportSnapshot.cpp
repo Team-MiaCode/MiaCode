@@ -1,0 +1,988 @@
+#include "app/runtime/export/VideoExportHost.h"
+#include "app/runtime/Shared.h"
+
+#include "app/services/PlaybackStateAuthority.h"
+#include "app/services/ExportIntroPreferences.h"
+#include "app/services/ChartBannerData.h"
+#include "app/services/HudFontPreferences.h"
+
+#include "audio/QtPreviewSfxRuntime.h"
+#include "core/chart/parser/SimaiParser.h"
+#include "timeline/TimelineQuickModel.h"
+#include "core/analysis/TimelineSlowRefresh.h"
+#include "timeline/quick/TimelineQuickStateBridge.h"
+#include "core/chart/document/ChartClockCount.h"
+#include "core/chart/ChartAssetPaths.h"
+#include "app/runtime/ContentDurationConfig.h"
+#include "common/DebugLog.h"
+#include "common/DebugOptions.h"
+#include "preview/runtime/PreviewRuntime.h"
+#include "core/chart/model/TimelineMarkerOffset.h"
+#include "export/video_export/VideoExportController.h"
+#include "export/video_export/VideoExportSnapshot.h"
+
+#include <QtCore>
+#include <QtGui>
+
+using namespace miacode::runtime::shared;
+
+namespace {
+
+using miacode::timeline::offset::NonFiniteHandling;
+using miacode::timeline::offset::shiftedNoteMarkers;
+
+// Deliberately NOT named parsedFirstSeconds: the sections in this file are nested types of
+// Session, so an unqualified `parsedFirstSeconds` resolves to the Session member —
+// which reads the live &first widget when a difficulty is active. Export must read the
+// committed document instead, and class scope silently outranks a using-declaration here,
+// so the distinct name is what keeps the two apart.
+double parsedDocumentFirstSeconds(const QString& rawValue, bool* ok = nullptr)
+{
+    return miacode::timeline::offset::parsedFirstSeconds(rawValue, ok);
+}
+
+// Resolve the pre-roll intro banner payload from a chart. BPM uses the shared
+// clockBpmForChart fallback (&wholebpm -> first (BPM) -> 120), matching the
+// prepend-silence tool. The jacket is the still background image only (never
+// the bg video); empty means the QML uses the miacode logo fallback.
+IntroBannerSpec buildIntroBannerSpec(
+    const SimaiDocument& document,
+    int difficultyId,
+    const QString& chartPath,
+    bool addIntro,
+    bool fullRangeExport)
+{
+    IntroBannerSpec intro = miacode::chart_banner::forDifficulty(document, difficultyId);
+    intro.enabled = addIntro && fullRangeExport;
+    intro.jacketPath = chartPath.isEmpty()
+        ? QString()
+        : miacode::chart_assets::resolveDisplayBackgroundImagePath(chartPath);
+    // The PV-preview segment is chosen per song, so every export of this chart
+    // (single, batch item, any difficulty) uses the start its project stored.
+    intro.pvPreviewStartSeconds = miacode::export_intro_preferences::pvPreviewStartSeconds(chartPath);
+    return intro;
+}
+
+QString sanitizeExportFileStem(QString text, const QString& fallback = QStringLiteral("out"))
+{
+    text = text.trimmed();
+    QString sanitized;
+    sanitized.reserve(text.size());
+    for (const QChar ch : text) {
+        if (ch.isNull() || ch.isLowSurrogate() || ch.isHighSurrogate()) {
+            continue;
+        }
+        if (ch.unicode() < 0x20 || QStringLiteral("<>:\"/\\|?*").contains(ch)) {
+            sanitized.append(QLatin1Char('_'));
+            continue;
+        }
+        sanitized.append(ch);
+    }
+    sanitized = sanitized.trimmed();
+    while (!sanitized.isEmpty() && (sanitized.endsWith(QLatin1Char('.')) || sanitized.endsWith(QLatin1Char(' ')))) {
+        sanitized.chop(1);
+    }
+    return sanitized.isEmpty() ? fallback : sanitized;
+}
+
+int difficultyIdFromCliToken(const QString& rawToken)
+{
+    const QString token = rawToken.trimmed().toUpper();
+    if (token.isEmpty()) {
+        return 0;
+    }
+    bool numericOk = false;
+    const int numericId = token.toInt(&numericOk);
+    if (numericOk && SimaiDocument::isDifficultyId(numericId)) {
+        return numericId;
+    }
+    for (int id = 1; id <= 7; ++id) {
+        if (SimaiDocument::difficultyShortName(id).compare(token, Qt::CaseInsensitive) == 0) {
+            return id;
+        }
+        if (SimaiDocument::difficultyName(id).compare(token, Qt::CaseInsensitive) == 0) {
+            return id;
+        }
+    }
+    return 0;
+}
+
+QString resolveChartPathFromCliInput(const QString& inputPath)
+{
+    const QString cleaned = QDir::cleanPath(inputPath.trimmed());
+    if (cleaned.isEmpty()) {
+        return QString();
+    }
+
+    const QFileInfo info(cleaned);
+    if (info.isFile()) {
+        return info.absoluteFilePath();
+    }
+    if (!info.isDir()) {
+        return QString();
+    }
+
+    const QDir dir(info.absoluteFilePath());
+    const QStringList preferredNames{
+        QStringLiteral("majdata.txt"),
+        QStringLiteral("maidata.txt"),
+        QStringLiteral("majdata.simai"),
+        QStringLiteral("maidata.simai"),
+        QStringLiteral("chart.txt"),
+        QStringLiteral("chart.simai"),
+    };
+    for (const QString& name : preferredNames) {
+        const QString candidate = dir.filePath(name);
+        if (QFileInfo::exists(candidate)) {
+            return QDir::cleanPath(candidate);
+        }
+    }
+
+    QStringList filters;
+    filters << QStringLiteral("*.simai") << QStringLiteral("*.txt");
+    const QStringList files = dir.entryList(filters, QDir::Files | QDir::Readable, QDir::Name);
+    if (!files.isEmpty()) {
+        return QDir::cleanPath(dir.filePath(files.constFirst()));
+    }
+    return QString();
+}
+
+QString readTextFileWithFallbackEncoding(const QString& path, bool* usedSystemEncoding)
+{
+    if (usedSystemEncoding != nullptr) {
+        *usedSystemEncoding = false;
+    }
+
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return QString();
+    }
+
+    const QByteArray bytes = file.readAll();
+    if (bytes.startsWith("\xEF\xBB\xBF")) {
+        return QString::fromUtf8(bytes.mid(3));
+    }
+
+    QStringDecoder utf8Decoder(QStringConverter::Utf8);
+    const QString utf8Text = utf8Decoder.decode(bytes);
+    if (!utf8Decoder.hasError()) {
+        return utf8Text;
+    }
+
+    if (usedSystemEncoding != nullptr) {
+        *usedSystemEncoding = true;
+    }
+    QStringDecoder systemDecoder(QStringConverter::System);
+    return systemDecoder.decode(bytes);
+}
+
+QString normalizeLanguageToken(QString token)
+{
+    token = token.trimmed().toLower();
+    token.replace('-', '_');
+    return token;
+}
+
+bool systemLanguagePrefersChinese()
+{
+    static const bool prefersChinese = []() {
+        const QStringList uiLanguages = QLocale::system().uiLanguages();
+        for (const QString& language : uiLanguages) {
+            const QString token = normalizeLanguageToken(language);
+            if (token.startsWith(QStringLiteral("zh"))) {
+                return true;
+            }
+            if (token.startsWith(QStringLiteral("en"))) {
+                return false;
+            }
+        }
+        return normalizeLanguageToken(QLocale::system().name()).startsWith(QStringLiteral("zh"));
+    }();
+    return prefersChinese;
+}
+
+QString systemL10n(const QString& en, const QString& zh)
+{
+    return systemLanguagePrefersChinese() ? zh : en;
+}
+
+QString localizeExportWorkerMessageForUiLanguage(const QString& rawMessage)
+{
+    const QString trimmed = rawMessage.trimmed();
+    if (trimmed.isEmpty()) {
+        return trimmed;
+    }
+
+    static const QRegularExpression renderProgressPattern(
+        QStringLiteral("^Rendering frames and encoding\\.\\.\\.\\s+(\\d+)/(\\d+)$")
+    );
+    const QRegularExpressionMatch renderMatch = renderProgressPattern.match(trimmed);
+    if (renderMatch.hasMatch()) {
+        return qtTrId("dialog.video_export.progress.rendering_count")
+            .arg(renderMatch.captured(1), renderMatch.captured(2));
+    }
+
+    if (trimmed == QLatin1String("Preparing SFX track...")) {
+        return qtTrId("dialog.video_export.progress.preparing_audio");
+    }
+    if (trimmed == QLatin1String("Starting ffmpeg...")) {
+        return qtTrId("dialog.video_export.progress.starting_ffmpeg");
+    }
+    if (trimmed == QLatin1String("Rendering frames and encoding...")) {
+        return qtTrId("dialog.video_export.progress.rendering");
+    }
+    if (trimmed == QLatin1String("Finalizing encoded video stream...")) {
+        return qtTrId("dialog.video_export.progress.finalizing_encode");
+    }
+    if (trimmed == QLatin1String("Repacking MP4 for fast start...")) {
+        return qtTrId("dialog.video_export.progress.repacking");
+    }
+    if (trimmed == QLatin1String("Collecting export summary...")) {
+        return qtTrId("dialog.video_export.progress.finishing");
+    }
+    if (trimmed == QLatin1String("Export completed.")) {
+        return qtTrId("dialog.video_export.progress.done");
+    }
+    return rawMessage;
+}
+
+
+}  // namespace
+
+IntroBannerSpec miacode::runtime::VideoExportHost::buildIntroBannerSpecForDifficulty(int difficultyId) const
+{
+    // addIntro/fullRange are forced true so every banner field (title/artist/
+    // designer/level/difficulty/bpm/jacket) is populated regardless of whether
+    // the intro pre-roll itself is enabled — the cover export reuses the payload.
+    return buildIntroBannerSpec(
+        session_.applicationServices_.workspace().document(),
+        difficultyId,
+        session_.currentFilePath_,
+        /*addIntro=*/true,
+        /*fullRangeExport=*/true);
+}
+
+QVector<TimelineNoteMarker> miacode::runtime::VideoExportHost::parseAndPublishTimelineForDifficulty(int difficultyId)
+{
+    const SimaiDifficultyData* difficulty =
+        session_.applicationServices_.workspace().document().difficulty(difficultyId);
+    if (difficulty == nullptr) {
+        return {};
+    }
+    const miacode::simai::SimaiTimingMetadata timingMetadata =
+        miacode::simai::buildTimingMetadata(session_.applicationServices_.workspace().document());
+    const SimaiParseResult parseResult =
+        SimaiParser::parseForTimeline(difficulty->chart, timingMetadata);
+    bool firstOk = false;
+    const double firstSeconds =
+        parsedDocumentFirstSeconds(session_.applicationServices_.workspace().document().first, &firstOk);
+    const TimelinePreviewRefreshState previewState =
+        buildTimelinePreviewRefreshState(parseResult, firstOk ? firstSeconds : 0.0);
+    session_.state_.timeline_.lastTimelineParseDifficultyId_ = difficultyId;
+    session_.state_.timeline_.lastTimelineParseChartText_ = difficulty->chart;
+    session_.state_.timeline_.lastTimelineParseTimingMetadata_ = timingMetadata;
+    session_.state_.timeline_.lastTimelineParseResult_ = parseResult;
+    session_.state_.timeline_.latestTimelineNoteMarkers_ = previewState.shiftedNoteMarkers;
+    session_.state_.timeline_.latestTimelineNoteMarkerSignature_ = previewState.noteMarkerSignature;
+    session_.state_.timeline_.latestTimelinePreviewSnapshotReady_ = true;
+    return previewState.shiftedNoteMarkers;
+}
+
+void miacode::runtime::VideoExportHost::installExportPreviewAuditionScene(int difficultyId)
+{
+    // Mirrors LatencySandboxController::installSandboxScene/setupSandboxPreviewState,
+    // but the "test chart" is a real difficulty's chart. Installs it as the
+    // preview source so the normal transport (play/pause/seek) drives it on the
+    // export page even though activeDifficultyId_ == 0 (decision D4). The export
+    // WYSIWYG forcing (beginExportPreviewSession) is applied separately and stays.
+    const SimaiDifficultyData* difficulty = session_.applicationServices_.workspace().document().difficulty(difficultyId);
+    if (session_.scene_ == nullptr || difficulty == nullptr) {
+        return;
+    }
+
+    session_.ensurePreviewSfxRuntimePrepared();
+    // 清理上一难度的音效事务，目标场景使用继承的进度建立播放状态。
+    if (session_.previewSfxRuntime_ != nullptr) {
+        session_.previewSfxRuntime_->stopAll();
+        session_.previewSfxRuntime_->clearRetainedPreviewPlaybackTransaction();
+    }
+    session_.exportPreviewAuditionActive_ = true;
+
+    const miacode::simai::SimaiTimingMetadata timingMetadata =
+        miacode::simai::buildTimingMetadata(session_.applicationServices_.workspace().document());
+    bool firstOk = false;
+    const double firstSeconds = parsedDocumentFirstSeconds(session_.applicationServices_.workspace().document().first, &firstOk);
+    const double effectiveFirst = firstOk ? firstSeconds : 0.0;
+
+    TimelinePreviewRefreshState previewState;
+    if (!liveTimelineCoversDifficulty(difficultyId)) {
+        parseAndPublishTimelineForDifficulty(difficultyId);
+    }
+    previewState.shiftedNoteMarkers = session_.state_.timeline_.latestTimelineNoteMarkers_;
+    previewState.noteMarkerSignature = session_.state_.timeline_.latestTimelineNoteMarkerSignature_;
+    session_.state_.timeline_.timelineQuickModel_.rebuildFromText(difficulty->chart, effectiveFirst, timingMetadata);
+    if (session_.state_.timeline_.timelineQuickStateBridge_ != nullptr) {
+        session_.state_.timeline_.timelineQuickStateBridge_->setTimelineData(session_.state_.timeline_.timelineQuickModel_.snapshot());
+    }
+    session_.state_.timeline_.latestTimelinePreviewRevision_ = session_.state_.timeline_.timelineRevision_;
+    session_.state_.timeline_.latestTimelinePreviewSnapshotReady_ = true;
+    session_.scene_->setNoteMarkers(previewState.shiftedNoteMarkers);
+    session_.lastPreviewNoteMarkerSignature_ = previewState.noteMarkerSignature;
+
+    const double durationSeconds = session_.previewPlaybackEndSeconds();
+    if (session_.state_.timeline_.timelineQuickStateBridge_ != nullptr) {
+        session_.state_.timeline_.timelineQuickStateBridge_->setPlayheadUpperLimitSeconds(durationSeconds);
+    }
+    const auto clampToDuration = [durationSeconds](double second) {
+        return durationSeconds > 0.0 ? qBound(0.0, second, durationSeconds) : qMax(0.0, second);
+    };
+    double startSecond = clampToDuration(qMax(0.0, session_.pauseSecond_));
+    if (session_.exportPreviewEntrySeedSecond_ >= 0.0) {
+        // One-shot seed carried in on page entry / re-entry
+        // (performSwitchToExportField) so switching to the export page preserves
+        // progress like a difficulty-tab switch does.
+        startSecond = clampToDuration(session_.exportPreviewEntrySeedSecond_);
+    }
+    session_.exportPreviewEntrySeedSecond_ = -1.0;
+    session_.syncPreviewStageMediaRouteChartPath(
+        session_.currentFilePath_,
+        session_.lastTrackPath_,
+        startSecond,
+        session_.applicationServices_.workspace().document().videoPath);
+    // Non-command write: installing the audition scene at a carried-over or
+    // default position, not a seek — see PlaybackStateAuthority.h.
+    if (auto* authority = session_.applicationServices_.playbackStateAuthority(); authority != nullptr) {
+        authority->repositionSilently(startSecond, "install_export_preview_audition_scene");
+    }
+    if (session_.state_.timeline_.timelineQuickStateBridge_ != nullptr) {
+        session_.state_.timeline_.timelineQuickStateBridge_->setPlayheadSeconds(startSecond, false);
+    }
+    session_.scene_->setPlayheadSeconds(startSecond, true);
+    session_.refreshPreviewObjectStatsTotals(previewState.shiftedNoteMarkers);
+    session_.publishPreviewPlayhead();
+
+    // SFX timeline for this difficulty's notes.
+    if (session_.previewSfxRuntime_ != nullptr) {
+        session_.previewSfxRuntime_->configureTimeline(
+            previewState.shiftedNoteMarkers,
+            session_.previewPlaybackRate_ > 0.0 ? session_.previewPlaybackRate_ : 1.0,
+            session_.previewTimingSettings_);
+    }
+    // clock_count count-in is opt-in via the export dialog's "Enable clock_count"
+    // checkbox (default OFF), so the audition starts WITHOUT the count-in to match
+    // what will actually be exported (所见即所导). Toggling the checkbox re-seeds
+    // this live — see the clockCountEnabledChanged connection in
+    // createEmbeddedVideoExportPanel. The VALUE / BPM still come from the chart.
+    session_.setExportAuditionClockSchedule(
+        0,
+        miacode::chart_clock::clockBpmForChart(session_.applicationServices_.workspace().document(), difficulty->chart));
+
+    // Set up the negative-time intro region (slider range + default playhead at
+    // the intro head) when 添加片头 is on for this difficulty.
+    session_.refreshExportIntroState();
+    if (!session_.exportIntroRegionActive_) {
+        // 场景、进度条、时间轴与视频定位通过暂停 seek 流程同步。
+        session_.requestPausedPreviewSeek(startSecond, false, true);
+    }
+
+    // The scene is playable, and this is what it was built from. Comparing the
+    // chart text is a truer staleness test than the timeline revision counter
+    // this used to borrow: that counter answers a question about the difficulty
+    // being edited, which on this page is nobody.
+    const QString installedChart = difficulty->chart;
+    session_.setAuditionSceneReady(
+        [this, difficultyId, installedChart]() {
+            const SimaiDifficultyData* current = session_.applicationServices_.workspace().document().difficulty(difficultyId);
+            return current != nullptr && current->chart == installedChart;
+        },
+        [this, difficultyId]() { installExportPreviewAuditionScene(difficultyId); });
+}
+
+void miacode::runtime::VideoExportHost::clearAudition()
+{
+    if (session_.activeOutlineKey_ != QLatin1String("export")) {
+        return;
+    }
+    beginExportPreviewSession(VideoExportTask());
+    teardownExportPreviewAuditionScene();
+    if (session_.previewSfxRuntime_ != nullptr) {
+        session_.previewSfxRuntime_->clearTimeline();
+    }
+    // The export page owns this presentation; document parsing and editor
+    // analysis remain available for the destination editor page.
+    session_.lastPreviewNoteMarkerSignature_.clear();
+    if (session_.scene_ != nullptr) {
+        session_.scene_->setNoteMarkers({});
+        session_.scene_->setMuriAnalysisReport({});
+    }
+    session_.clearPreviewObjectStats();
+}
+
+void miacode::runtime::VideoExportHost::teardownExportPreviewAuditionScene()
+{
+    if (!session_.exportPreviewAuditionActive_ && !session_.exportPreviewActive_) {
+        return;
+    }
+    session_.cancelExportIntroLeadIn();    // stop any in-flight 片头 animation
+    session_.stopQtPreviewPlayback(true);  // stop the real transport if it's running
+    session_.clearExportAuditionClockSchedule();  // drop the count-in for this scene
+    session_.exportPreviewAuditionActive_ = false;
+    session_.clearAuditionSceneReady();
+    // Invalidate the snapshot so the next difficulty switch rebuilds its own
+    // preview from scratch (we deliberately don't cache/restore — leaving the
+    // page reinstalls the destination field's preview anyway).
+    session_.state_.timeline_.latestTimelinePreviewSnapshotReady_ = false;
+}
+
+bool miacode::runtime::VideoExportHost::buildVideoExportSnapshot(
+    const VideoExportTask& requestedTask,
+    VideoExportSnapshot* snapshot,
+    QString* errorMessage,
+    int difficultyId
+)
+{
+    if (snapshot == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = qtTrId("video_export.snapshot_unavailable");
+        }
+        return false;
+    }
+    const int resolvedDifficultyId = difficultyId > 0 ? difficultyId : session_.activeDifficultyId_;
+    if (!SimaiDocument::isDifficultyId(resolvedDifficultyId)
+        || session_.applicationServices_.workspace().document().difficulty(resolvedDifficultyId) == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = qtTrId("dialog.video_export.error.no_difficulty");
+        }
+        return false;
+    }
+
+    session_.refreshTimelineMetadata();
+    if (!liveTimelineCoversDifficulty(resolvedDifficultyId)) {
+        parseAndPublishTimelineForDifficulty(resolvedDifficultyId);
+    }
+
+    VideoExportSnapshot built;
+    built.hudFontSettings = miacode::hud_preferences::load();
+    built.jobId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    built.createdAtUtc = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+    built.chartTextUtf8 = session_.applicationServices_.workspace().document().toText();
+    built.difficultyId = resolvedDifficultyId;
+    built.difficultyName = SimaiDocument::difficultyShortName(resolvedDifficultyId);
+    built.originalChartPath = session_.currentFilePath_;
+    built.projectDir = session_.currentFilePath_.isEmpty()
+        ? QString()
+        : QFileInfo(session_.currentFilePath_).absolutePath();
+    built.trackPath = session_.resolveDefaultTrackPath();
+    // Phase 4c — honour `&video=` override so live preview and export
+    // render the same background. Without this, a chart with an
+    // explicit `&video=` would diverge: live preview uses QtAVPlayer
+    // on the override path, export's ffmpeg input uses
+    // the sibling file (or nothing if no sibling exists).
+    built.backgroundMediaPath = miacode::chart_assets::resolveChartVideoPath(
+        session_.currentFilePath_, session_.applicationServices_.workspace().document().videoPath);
+    if (built.backgroundMediaPath.isEmpty()) {
+        built.backgroundMediaPath = miacode::chart_assets::resolveBackgroundMediaPath(session_.currentFilePath_);
+    }
+    built.skinDirectory = session_.resolvePreviewSkinDir();
+    built.audioSettings = session_.previewAudioSettings_;
+    built.audioSettings.normalize();
+    built.timingSettings = session_.previewTimingSettings_;
+    built.timingSettings.normalize();
+    built.backgroundBrightnessOuter = requestedTask.backgroundBrightnessOuter;
+    built.backgroundBrightnessInner = requestedTask.backgroundBrightnessInner;
+    built.layoutSquareScale = requestedTask.layoutSquareScale;
+    built.smoothBrightness = requestedTask.smoothBrightness;
+    built.outlineVariant = requestedTask.outlineVariant;
+    built.outlineImagePath = session_.resolvePreviewCustomOutlinePath();
+    built.backgroundScaleMode = requestedTask.backgroundScaleMode;
+    built.tapFlowSpeed = requestedTask.tapFlowSpeed;
+    built.touchFlowSpeed = requestedTask.touchFlowSpeed;
+    built.slideEarlierSecondAndTextOnTop = requestedTask.slideEarlierSecondAndTextOnTop;
+    built.tapJudgeTextDistance = requestedTask.tapJudgeTextDistance;
+    built.judgeEffectStyle = requestedTask.judgeEffectStyle;
+    built.muriRenderOptions = requestedTask.muriRenderOptions;
+    built.staticTapOnSlideThresholdSeconds = requestedTask.staticTapOnSlideThresholdSeconds;
+    built.exportStartSeconds = requestedTask.exportStartSeconds;
+    built.contentDurationSeconds = requestedTask.contentDurationSeconds;
+    built.outputWidth = requestedTask.outputWidth;
+    built.outputHeight = requestedTask.outputHeight;
+    built.fps = requestedTask.fps;
+    built.audioBitrateKbps = requestedTask.audioBitrateKbps;
+    built.outputMode = requestedTask.outputMode;
+    built.preset = requestedTask.preset;
+    built.sizePreset = requestedTask.sizePreset;
+    built.fullRangeExport = requestedTask.fullRangeExport;
+    const QString exportStem = sanitizeExportFileStem(session_.applicationServices_.workspace().document().title, QStringLiteral("out"));
+    const QString difficultyName = SimaiDocument::difficultyShortName(resolvedDifficultyId).replace(':', '_');
+    const QString defaultOutputName = QStringLiteral("%1_%2.mp4").arg(exportStem, difficultyName);
+    built.outputPath = resolveVideoExportOutputPath(
+        requestedTask.outputPath,
+        built.projectDir,
+        defaultOutputName, built.outputMode
+    );
+    built.showTimestamp = requestedTask.showTimestamp;
+    built.showObjectStatsHud = requestedTask.showObjectStatsHud;
+    built.showChartInfoHud = requestedTask.showChartInfoHud;
+    built.centerDisplayMode = requestedTask.centerDisplayMode;
+    built.skinLoadWaitMs = requestedTask.skinLoadWaitMs;
+    // Bake the dialog's count-in on/off into the snapshot (default-true elsewhere
+    // keeps CLI / batch emitting it). The clock_count VALUE is re-derived worker-side.
+    built.clockCountEnabled = requestedTask.clockCountEnabled;
+    built.introSoundFileName = requestedTask.introSoundFileName;
+    built.intro = buildIntroBannerSpec(
+        session_.applicationServices_.workspace().document(),
+        resolvedDifficultyId,
+        session_.currentFilePath_,
+        requestedTask.intro.enabled,
+        built.fullRangeExport);
+    // The payload above is rebuilt from the live document; the "片头" tab
+    // styling (DX/SD, backdrop, blur, shadow, lv text) only exists on the
+    // dialog task — carry it over or the export silently reverts to defaults.
+    copyIntroStyling(requestedTask.intro, &built.intro);
+
+    if (built.skinDirectory.trimmed().isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = qtTrId("dialog.video_export.error.skin_missing");
+        }
+        return false;
+    }
+
+    *snapshot = built;
+    return true;
+}
+
+bool miacode::runtime::VideoExportHost::buildVideoExportSnapshotForChartDirectory(
+    const QString& chartDirectory,
+    int difficultyId,
+    const QString& difficultyToken,
+    const VideoExportTask& requestedTask,
+    const QString& outputDirectory,
+    VideoExportSnapshot* snapshot,
+    QString* errorMessage
+)
+{
+    if (snapshot != nullptr) {
+        *snapshot = VideoExportSnapshot();
+    }
+    if (errorMessage != nullptr) {
+        errorMessage->clear();
+    }
+
+    const QFileInfo directoryInfo(QDir::cleanPath(chartDirectory));
+    if (!directoryInfo.exists() || !directoryInfo.isDir()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = qtTrId("dialog.batch_export.error.invalid_folder");
+        }
+        return false;
+    }
+
+    const QString chartPath = resolveChartPathFromCliInput(directoryInfo.absoluteFilePath());
+    if (chartPath.isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = qtTrId("dialog.batch_export.error.missing_chart_file");
+        }
+        return false;
+    }
+
+    const QString trackPath = miacode::chart_assets::resolveTrackPathForDirectory(directoryInfo.absoluteFilePath());
+    if (trackPath.isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = qtTrId("dialog.batch_export.error.missing_track_file");
+        }
+        return false;
+    }
+
+    bool usedSystemEncoding = false;
+    const QString chartText = readTextFileWithFallbackEncoding(chartPath, &usedSystemEncoding);
+    if (chartText.isNull()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = qtTrId("dialog.batch_export.error.read_chart_failed").arg(QFileInfo(chartPath).fileName());
+        }
+        return false;
+    }
+
+    const SimaiDocument document = SimaiDocument::fromText(chartText);
+    const SimaiDifficultyData* difficulty = document.difficulty(difficultyId);
+    if (difficulty == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = qtTrId("dialog.batch_export.error.missing_requested_difficulty");
+        }
+        return false;
+    }
+
+    const SimaiValidationLocale validationLocale = uiValidationLocale();
+    const miacode::simai::SimaiTimingMetadata timingMetadata = miacode::simai::buildTimingMetadata(document);
+    const SimaiValidationReport report =
+        SimaiParser::buildValidationReport(difficulty->chart, validationLocale, timingMetadata);
+    if (report.errorCount > 0) {
+        QString issueSummary;
+        if (!report.issues.isEmpty()) {
+            issueSummary = report.issues.constFirst().displayMessage.trimmed();
+        }
+        if (errorMessage != nullptr) {
+            *errorMessage = issueSummary.isEmpty()
+                ? qtTrId("dialog.batch_export.error.validation_failed_count").arg(report.errorCount)
+                : qtTrId("dialog.batch_export.error.validation_failed_detail").arg(issueSummary);
+        }
+        return false;
+    }
+
+    const SimaiParseResult parsedTimeline = SimaiParser::parseForTimeline(
+        difficulty->chart,
+        timingMetadata);
+    const auto markerEndSecond = [](const TimelineNoteMarker& marker) {
+        double value = qMax(marker.second, marker.endSecond);
+        value = qMax(value, marker.slideTraceSecond);
+        value = qMax(value, marker.availableSecond);
+        for (double shootSecond : marker.slideSegmentShootSeconds) {
+            value = qMax(value, shootSecond);
+        }
+        return qMax(0.0, value);
+    };
+    bool firstOk = false;
+    const double firstSeconds = parsedDocumentFirstSeconds(document.first, &firstOk);
+    if (!firstOk) {
+        if (errorMessage != nullptr) {
+            *errorMessage = qtTrId("dialog.batch_export.error.invalid_first");
+        }
+        return false;
+    }
+    const QVector<TimelineNoteMarker> shiftedMarkers =
+        shiftedNoteMarkers(parsedTimeline.noteMarkers, firstSeconds, NonFiniteHandling::Propagate);
+    double lastMarkerEndSecond = 0.0;
+    for (const TimelineNoteMarker& marker : shiftedMarkers) {
+        lastMarkerEndSecond = qMax(lastMarkerEndSecond, markerEndSecond(marker));
+    }
+    const double trackDurationSeconds = probeAudioDurationSeconds(trackPath);
+    // Unified content-duration policy = max(chartEnd + tail, music).
+    const double contentDurationSeconds = miacode::content_duration::totalContentDurationSeconds(
+        lastMarkerEndSecond, trackDurationSeconds);
+    if (contentDurationSeconds <= 0.0) {
+        if (errorMessage != nullptr) {
+            *errorMessage = qtTrId("dialog.batch_export.error.invalid_duration");
+        }
+        return false;
+    }
+
+    if (snapshot == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = qtTrId("video_export.snapshot_unavailable");
+        }
+        return false;
+    }
+
+    const QString exportStem = sanitizeExportFileStem(document.title, directoryInfo.completeBaseName());
+    const QString difficultyName = SimaiDocument::difficultyShortName(difficultyId).replace(':', '_');
+    const QString defaultOutputName = QStringLiteral("%1_%2.mp4").arg(exportStem, difficultyName);
+
+    VideoExportSnapshot built;
+    built.hudFontSettings = miacode::hud_preferences::load();
+    built.jobId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    built.createdAtUtc = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+    built.chartTextUtf8 = chartText;
+    built.difficultyId = difficultyId;
+    built.difficultyName = difficultyToken;
+    built.originalChartPath = chartPath;
+    built.projectDir = QFileInfo(chartPath).absolutePath();
+    built.trackPath = trackPath;
+    // Phase 4c — batch export honours `&video=` like the single-chart
+    // export path so per-chart explicit overrides flow through.
+    built.backgroundMediaPath = miacode::chart_assets::resolveChartVideoPath(
+        chartPath, document.videoPath);
+    if (built.backgroundMediaPath.isEmpty()) {
+        built.backgroundMediaPath = miacode::chart_assets::resolveBackgroundMediaPath(chartPath);
+    }
+    built.skinDirectory = session_.resolvePreviewSkinDir();
+    built.audioSettings = requestedTask.audioSettings;
+    built.audioSettings.normalize();
+    built.timingSettings = requestedTask.timingSettings;
+    built.timingSettings.normalize();
+    built.backgroundBrightnessOuter = requestedTask.backgroundBrightnessOuter;
+    built.backgroundBrightnessInner = requestedTask.backgroundBrightnessInner;
+    built.layoutSquareScale = requestedTask.layoutSquareScale;
+    built.smoothBrightness = requestedTask.smoothBrightness;
+    built.outlineVariant = requestedTask.outlineVariant;
+    built.outlineImagePath = session_.resolvePreviewCustomOutlinePath();
+    built.backgroundScaleMode = requestedTask.backgroundScaleMode;
+    built.tapFlowSpeed = requestedTask.tapFlowSpeed;
+    built.touchFlowSpeed = requestedTask.touchFlowSpeed;
+    built.slideEarlierSecondAndTextOnTop = requestedTask.slideEarlierSecondAndTextOnTop;
+    built.tapJudgeTextDistance = requestedTask.tapJudgeTextDistance;
+    built.judgeEffectStyle = requestedTask.judgeEffectStyle;
+    built.muriRenderOptions = requestedTask.muriRenderOptions;
+    built.staticTapOnSlideThresholdSeconds = requestedTask.staticTapOnSlideThresholdSeconds;
+    built.exportStartSeconds = 0.0;
+    built.contentDurationSeconds = contentDurationSeconds;
+    built.outputWidth = requestedTask.outputWidth;
+    built.outputHeight = requestedTask.outputHeight;
+    built.fps = requestedTask.fps;
+    built.audioBitrateKbps = requestedTask.audioBitrateKbps;
+    built.outputMode = requestedTask.outputMode;
+    built.preset = requestedTask.preset;
+    built.sizePreset = requestedTask.sizePreset;
+    built.fullRangeExport = true;
+    built.outputPath = resolveVideoExportOutputPath(
+        QString(),
+        outputDirectory,
+        defaultOutputName, built.outputMode
+    );
+    built.showTimestamp = requestedTask.showTimestamp;
+    built.showObjectStatsHud = requestedTask.showObjectStatsHud;
+    built.showChartInfoHud = requestedTask.showChartInfoHud;
+    built.centerDisplayMode = requestedTask.centerDisplayMode;
+    built.skinLoadWaitMs = requestedTask.skinLoadWaitMs;
+    // Batch uses the same opt-in count-in setting as single export. The
+    // clock_count value itself is rebuilt from each chart in the worker.
+    built.clockCountEnabled = requestedTask.clockCountEnabled;
+    built.introSoundFileName = requestedTask.introSoundFileName;
+    built.intro = buildIntroBannerSpec(
+        document,
+        difficultyId,
+        chartPath,
+        requestedTask.intro.enabled,
+        built.fullRangeExport);  // batch is always full-range
+    // The chart contributes title/artist/designer metadata, while the shared
+    // 片头 tab owns its visual style. Preserve that style per queue item.
+    copyIntroStyling(requestedTask.intro, &built.intro);
+
+    if (built.skinDirectory.trimmed().isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = qtTrId("dialog.video_export.error.skin_missing");
+        }
+        return false;
+    }
+
+    *snapshot = built;
+    return true;
+}
+
+
+bool miacode::runtime::VideoExportHost::exportPreviewVideoFromCli(
+    const Session::CliVideoExportRequest& request,
+    QString* resolvedOutputPath,
+    QString* errorMessage,
+    QString* details
+)
+{
+    if (resolvedOutputPath != nullptr) {
+        resolvedOutputPath->clear();
+    }
+    if (errorMessage != nullptr) {
+        errorMessage->clear();
+    }
+    if (details != nullptr) {
+        details->clear();
+    }
+
+    const auto fail = [errorMessage, details](const QString& message, const QString& detail = QString()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = message;
+        }
+        if (details != nullptr) {
+            *details = detail;
+        }
+        return false;
+    };
+
+    if (request.outputWidth <= 0 || request.outputHeight <= 0 || request.fps <= 0) {
+        return fail(qtTrId("cli.export.size_invalid"));
+    }
+    if (request.outputWidth < request.outputHeight) {
+        return fail(qtTrId("cli.export.size_aspect"));
+    }
+
+    const QString chartPath = resolveChartPathFromCliInput(request.chartPathOrDirectory);
+    if (chartPath.isEmpty()) {
+        return fail(
+            qtTrId("cli.export.chart_path_invalid"),
+            request.chartPathOrDirectory
+        );
+    }
+
+    bool usedSystemEncoding = false;
+    const QString chartText = readTextFileWithFallbackEncoding(chartPath, &usedSystemEncoding);
+    if (chartText.isNull()) {
+        return fail(qtTrId("cli.export.chart_read_failed"), chartPath);
+    }
+
+    session_.setCurrentFilePath(chartPath);
+    session_.applicationServices_.workspace().openSource(chartText, chartPath);
+    session_.loadDocument();
+    session_.refreshWaveformCache();
+
+    const int difficultyId = difficultyIdFromCliToken(request.difficulty);
+    if (!SimaiDocument::isDifficultyId(difficultyId)) {
+        return fail(
+            qtTrId("cli.export.difficulty_invalid"),
+            qtTrId("cli.export.difficulty_values")
+        );
+    }
+
+    if (session_.applicationServices_.workspace().document().difficulty(difficultyId) == nullptr) {
+        QStringList available;
+        const QVector<int> ids = session_.applicationServices_.workspace().document().difficultyIds();
+        available.reserve(ids.size());
+        for (int id : ids) {
+            available.append(SimaiDocument::difficultyShortName(id));
+        }
+        return fail(
+            qtTrId("cli.export.difficulty_missing"),
+            QStringLiteral("requested=%1 available=%2")
+                .arg(SimaiDocument::difficultyShortName(difficultyId))
+                .arg(available.join(','))
+        );
+    }
+    if (!session_.switchToDifficultyField(difficultyId)) {
+        return fail(qtTrId("cli.export.difficulty_switch_failed"));
+    }
+
+    session_.refreshTimelineMetadata();
+    // Publish the requested chart synchronously, including a valid empty timeline.
+    if (!liveTimelineCoversDifficulty(difficultyId)) {
+        parseAndPublishTimelineForDifficulty(difficultyId);
+    }
+
+    const QString previewSkinDir = session_.resolvePreviewSkinDir();
+    if (previewSkinDir.trimmed().isEmpty()) {
+        return fail(qtTrId("cli.export.skin_directory_empty"));
+    }
+
+    const QFileInfo chartInfo(session_.currentFilePath_);
+    const QString exportStem = sanitizeExportFileStem(session_.applicationServices_.workspace().document().title, QStringLiteral("out"));
+    const QString difficultyName = SimaiDocument::difficultyShortName(difficultyId).replace(':', '_');
+    const QString defaultOutputName = QString("%1_%2.mp4")
+        .arg(exportStem)
+        .arg(difficultyName);
+
+    QString outputPath = resolveVideoExportOutputPath(
+        request.outputPath,
+        chartInfo.absoluteDir().absolutePath(),
+        defaultOutputName
+    );
+
+    const QFileInfo outputInfo(outputPath);
+    const QString outputDirPath = outputInfo.absolutePath();
+    if (!outputDirPath.isEmpty() && !QDir(outputDirPath).exists()) {
+        if (!QDir().mkpath(outputDirPath)) {
+            return fail(qtTrId("cli.export.output_directory_failed"), outputDirPath);
+        }
+    }
+
+    const double exportStartSeconds = qMax(0.0, request.exportStartSeconds);
+    const auto previewMarkerEndSecond = [](const TimelineNoteMarker& marker) {
+        double markerEnd = qMax(marker.second, marker.endSecond);
+        markerEnd = qMax(markerEnd, marker.slideTraceSecond);
+        markerEnd = qMax(markerEnd, marker.availableSecond);
+        for (double shootSecond : marker.slideSegmentShootSeconds) {
+            markerEnd = qMax(markerEnd, shootSecond);
+        }
+        return qMax(0.0, markerEnd);
+    };
+    double lastMarkerEndSecond = 0.0;
+    for (const TimelineNoteMarker& marker : session_.state_.timeline_.latestTimelineNoteMarkers_) {
+        lastMarkerEndSecond = qMax(lastMarkerEndSecond, previewMarkerEndSecond(marker));
+    }
+    ensureExportTrackDuration();
+    // Unified content-duration policy = max(chartEnd + tail, music).
+    const double unifiedExportEndSecond = miacode::content_duration::totalContentDurationSeconds(
+        lastMarkerEndSecond, session_.previewTrackDurationSeconds_);
+    const double maxDuration = qMax(0.0, unifiedExportEndSecond - exportStartSeconds);
+    const double contentDurationSeconds = request.contentDurationSeconds > 0.0
+        ? request.contentDurationSeconds
+        : maxDuration;
+    // Mirrors the export page's classification: any range starting at
+    // chart 0 is treated as full-range (count-down lead-in, no frozen
+    // preload / pause glyph), even when it ends before the chart does.
+    const bool fullRangeExport = exportStartSeconds <= 1e-6;
+    if (contentDurationSeconds <= 0.0) {
+        return fail(
+            qtTrId("cli.export.duration_invalid"),
+            QStringLiteral("start=%1 total=%2")
+                .arg(exportStartSeconds, 0, 'f', 3)
+                .arg(unifiedExportEndSecond, 0, 'f', 3)
+        );
+    }
+
+    VideoExportTask task;
+    task.chartPath = session_.currentFilePath_;
+    task.trackPath = session_.resolveDefaultTrackPath();
+    task.skinDirectory = previewSkinDir;
+    task.noteMarkers = session_.state_.timeline_.latestTimelineNoteMarkers_;
+    task.muriAnalysisReport = session_.muriAnalysisReport_;
+    task.muriRenderOptions = session_.muriRenderOptions_;
+    task.staticTapOnSlideThresholdSeconds = static_cast<double>(session_.staticTapOnSlideThresholdMs_) / 1000.0;
+    task.audioSettings = session_.previewAudioSettings_;
+    task.timingSettings = session_.previewTimingSettings_;
+    task.backgroundBrightnessOuter = request.backgroundBrightnessOuter;
+    task.backgroundBrightnessInner = request.backgroundBrightnessInner;
+    task.layoutSquareScale = request.layoutSquareScale;
+    task.smoothBrightness = request.smoothBrightness;
+    task.outlineVariant = request.outlineVariant;
+    task.outlineImagePath = session_.resolvePreviewCustomOutlinePath();
+    task.backgroundScaleMode = request.backgroundScaleMode;
+    task.tapFlowSpeed = request.noteFlowSpeed;
+    task.touchFlowSpeed = request.touchFlowSpeed;
+    task.slideEarlierSecondAndTextOnTop = miacode::preview_gameplay::kPreviewSlideEarlierSecondAndTextOnTop;
+    task.tapJudgeTextDistance = request.tapJudgeTextDistance;
+    task.judgeEffectStyle = request.judgeEffectStyle;
+    task.exportStartSeconds = exportStartSeconds;
+    task.contentDurationSeconds = contentDurationSeconds;
+    task.fullRangeExport = fullRangeExport;
+    task.outputWidth = request.outputWidth;
+    task.outputHeight = request.outputHeight;
+    task.fps = request.fps;
+    task.showTimestamp = request.showTimestamp;
+    task.showObjectStatsHud = request.showObjectStatsHud;
+    task.showChartInfoHud = request.showChartInfoHud;
+    task.chartTitle = session_.applicationServices_.workspace().document().title;
+    task.chartArtist = session_.applicationServices_.workspace().document().artist;
+    task.chartDesigner = session_.applicationServices_.workspace().document()
+        .effectiveDesignerForSlot(difficultyId);
+    if (const SimaiDifficultyData* difficulty = session_.applicationServices_.workspace().document().difficulty(difficultyId)) {
+        const QString diffShort = SimaiDocument::difficultyShortName(difficultyId);
+        const QString diffLevel = difficulty->level.trimmed();
+        if (!diffShort.isEmpty() || !diffLevel.isEmpty()) {
+            task.chartDifficultyLabel = QStringLiteral("%1 %2")
+                .arg(diffShort, diffLevel)
+                .trimmed();
+        }
+    }
+    task.centerDisplayMode = request.centerDisplayMode;
+    task.outputPath = outputPath;
+    task.previewMaxOutputSeconds = request.previewMaxOutputSeconds;
+    task.intro = buildIntroBannerSpec(
+        session_.applicationServices_.workspace().document(),
+        difficultyId,
+        chartPath,
+        request.addIntro,
+        fullRangeExport);
+    task.intro.cardShadow = request.introCardShadow;
+    if (request.introPvPreview) {
+        task.intro.pvPreview = true;
+        task.intro.pvPreviewStartSeconds = request.introPvStartSeconds;
+    }
+    task.clockCount = miacode::chart_clock::clockCountFromDocument(session_.applicationServices_.workspace().document());
+    if (const SimaiDifficultyData* difficulty = session_.applicationServices_.workspace().document().difficulty(difficultyId)) {
+        task.clockBpm = miacode::chart_clock::clockBpmForChart(session_.applicationServices_.workspace().document(), difficulty->chart);
+    }
+
+    const VideoExportResult exportResult = VideoExportController::exportFullPreview(task);
+    if (!exportResult.success) {
+        return fail(exportResult.message, exportResult.details);
+    }
+
+    if (resolvedOutputPath != nullptr) {
+        *resolvedOutputPath = outputPath;
+    }
+    if (details != nullptr) {
+        QStringList detailLines;
+        detailLines << QStringLiteral("chart=%1").arg(chartPath);
+        detailLines << QStringLiteral("difficulty=%1").arg(SimaiDocument::difficultyShortName(difficultyId));
+        detailLines << QStringLiteral("encoding=%1").arg(usedSystemEncoding ? QStringLiteral("system") : QStringLiteral("utf8"));
+        detailLines << QStringLiteral("noteCount=%1").arg(session_.state_.timeline_.latestTimelineNoteMarkers_.size());
+        detailLines << QStringLiteral("trackPath=%1").arg(task.trackPath.isEmpty() ? QStringLiteral("(none)") : task.trackPath);
+        detailLines << QStringLiteral("skinLoaded=%1").arg(previewSkinDir.isEmpty() ? 0 : 1);
+        *details = detailLines.join('\n');
+    }
+    return true;
+}

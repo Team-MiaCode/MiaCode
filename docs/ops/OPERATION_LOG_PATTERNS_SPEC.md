@@ -1,7 +1,5 @@
 # 操作日志形态与排障参考
 
-本文档说明 MiaCode 运行时日志的主要文件、行格式、读取顺序和崩溃排障方法。遇到用户提交的日志包时，建议先读本文档，再开始定位问题。
-
 ## 1. 日志频道
 
 | 频道 | 文件 | 用途 | 写入方式 | 保留策略 |
@@ -39,7 +37,7 @@
 4. `--debug` 时的应用目录 `logs/`
 5. 系统临时目录
 
-父进程会把日志目录传给子进程。为避免 Windows 下异步 writer 独占文件导致多进程追加失败，editor 和 worker 的 `runtime` / `fatal` 日志使用不同文件名，例如：
+父进程向子进程传递日志目录。editor 和 worker 的 `runtime` / `fatal` 日志分文件写入：
 
 | 文件 | 写入方 |
 | --- | --- |
@@ -73,7 +71,7 @@
 [op/failed] op=<class>::<method> chain=<...> reason=exception what=(unwind) at=<file>:<line> notes=[...]
 ```
 
-`what=(unwind)` 是有意设计：析构函数运行时还没进入匹配的 `catch`，真实异常文本会由 `Fatal` 频道记录。
+`what=(unwind)` 表示异常栈展开；异常文本由 `Fatal` 频道记录。
 
 ### 3.3 `Fatal` 捕获异常或死亡事件
 
@@ -162,16 +160,15 @@ bool MyClass::myMethod(const QString& arg) {
 约定：
 
 - 操作名使用 `<Class>::<Method>` 或自由函数名。
-- `note()` 只记录真正有助于排障的上下文。
-- `fail()` 用于显式失败返回，并避免析构时重复记录。
-- 不要在每帧渲染循环、纯 getter、纯计算 helper 或热路径里滥用 `MC_OP`；应记录在用户动作或业务入口层。
+- `note()` 记录操作参数与排障上下文。
+- `fail()` 记录显式失败，并完成该操作的日志记录。
+- `MC_OP` 放在用户动作或业务入口。
 
 ## 6. 已知限制
 
 - 异步 writer 队列有上限；溢出时会写入 `dropped=N reason=queue_overflow` gap marker。
 - `Fatal` 同步写盘，不走异步队列，不会被丢弃。
 - Shadow buffer 的线程槽数量固定；极端多线程 session 可能出现新线程没有 shadow 表示。
-- 旧版日志曾假设 editor / worker 可共写同一文件，当前设计已改为分文件。
 
 ## 7. 新日志包推荐阅读顺序
 

@@ -184,7 +184,7 @@ QSGTexture* PreviewTextureRepository::retainedTexture(const QString& slotName) c
     return it->texture;
 }
 
-QSGTexture* PreviewTextureRepository::retainedTextureForImage(const QString& slotName, const QImage& image)
+QSGTexture* PreviewTextureRepository::retainedTextureForImage(const QString& slotName, const QImage& image, bool mipmaps)
 {
     if (window_ == nullptr || image.isNull() || slotName.isEmpty()) {
         return nullptr;
@@ -196,7 +196,9 @@ QSGTexture* PreviewTextureRepository::retainedTextureForImage(const QString& slo
         return entry.texture;
     }
 
-    QSGTexture* replacement = createOwnedTexture(image);
+    QSGTexture* replacement = mipmaps
+        ? window_->createTextureFromImage(image, QQuickWindow::TextureHasMipmaps)
+        : createOwnedTexture(image);
     if (replacement == nullptr) {
         return entry.texture;
     }

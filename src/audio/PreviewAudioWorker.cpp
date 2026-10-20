@@ -1,4 +1,4 @@
-#include "PreviewAudioWorker.h"
+#include "audio/PreviewAudioWorker.h"
 
 #include "common/DebugLog.h"
 #include "common/DebugOptions.h"
@@ -62,7 +62,6 @@ struct PreviewAudioWorker::BackendSnapshot {
     double preparedSecond = 0.0;
     double authoritativeSecond = 0.0;
     double backgroundSecond = 0.0;
-    PlaybackClockSample playbackClock;
     RetainedPlaybackMode retainedMode = RetainedPlaybackMode::None;
     RetainedBgmState retainedBgmState = RetainedBgmState::NoneLoaded;
 };
@@ -90,7 +89,8 @@ PreviewAudioWorker::PreviewAudioWorker(
     , snapshotCallback_(std::move(snapshotCallback))
     , facadeOwningThreadId_(facadeOwningThreadId)
 {
-    thread_ = std::thread([this] { run(); });
+    thread_.reset(QThread::create([this] { run(); }));
+    thread_->start();
 }
 
 PreviewAudioWorker::~PreviewAudioWorker()
@@ -241,7 +241,7 @@ void PreviewAudioWorker::shutdownAndJoin()
     }
 
     std::unique_lock shutdownLock(shutdownMutex_);
-    if (!thread_.joinable()) {
+    if (thread_ == nullptr) {
         return;
     }
 
@@ -268,7 +268,8 @@ void PreviewAudioWorker::shutdownAndJoin()
         std::unique_lock callbackLock(callbackMutex_);
         callbackCv_.wait(callbackLock, [this] { return callbacksInFlight_ == 0; });
     }
-    thread_.join();
+    thread_->wait();
+    thread_.reset();
 }
 
 void PreviewAudioWorker::run()
@@ -830,7 +831,6 @@ PreviewAudioWorker::BackendSnapshot PreviewAudioWorker::captureBackendSnapshot(
     state.preparedSecond = backend.preparedStartSecond();
     state.authoritativeSecond = backend.authoritativePlaybackSecond();
     state.backgroundSecond = backend.backgroundPlaybackSecond();
-    state.playbackClock = backend.playbackClockSample();
     state.retainedMode = backend.retainedPlaybackMode();
     state.retainedBgmState = backend.retainedBgmState();
     return state;
@@ -846,8 +846,13 @@ void PreviewAudioWorker::sampleHealth(PreviewAudioBackend& backend, RuntimeState
     }
 
     PreviewAudioSnapshot publishedSnapshot;
+    // A1: captured before this call's sample overwrites it, so the advance-rate probe
+    // below compares against the immediately preceding sample rather than an arbitrary
+    // earlier one.
+    PreviewAudioHealthSample previousSample;
     {
         std::lock_guard lock(snapshotMutex_);
+        previousSample = snapshot_.healthSample;
         sample.sequence = nextSnapshotSequence(snapshot_.healthSample.sequence);
         snapshot_.sequence = nextSnapshotSequence(snapshot_.sequence);
         snapshot_.healthSample = sample;
@@ -861,42 +866,52 @@ void PreviewAudioWorker::sampleHealth(PreviewAudioBackend& backend, RuntimeState
         return;
     }
 
-    if (sample.sampledAtMs <= 0) {
-        state.healthStallTracker = {};
-        state.lastHealthLogSecond = -1.0;
-        return;
-    }
     const bool underrun = health::isUnderrun(sample.mixerActivity)
         || health::isUnderrun(sample.backgroundActivity);
-    const double healthNowSecond = static_cast<double>(playbackClockNowNs()) / 1.0e9;
+    // A1: substitute underrun signal for BASS_MIXER_NONSTOP, which makes `underrun` above
+    // architecturally unable to trip (see PreviewAudioHealth.h). Not comparable across a
+    // pause/seek/live-rate-change boundary -- computeAdvanceProbe reports valid=false then
+    // and this only logs the raw ratio, without asserting underrunEstimate.
+    const health::AdvanceProbe advanceProbe = health::computeAdvanceProbe(
+        previousSample.backgroundActivity,
+        previousSample.bgmRawSecond,
+        previousSample.sampledAtMs,
+        previousSample.continuityEpoch,
+        sample.backgroundActivity,
+        sample.bgmRawSecond,
+        sample.sampledAtMs,
+        sample.continuityEpoch,
+        sample.bgmPlaybackRate);
+    const double authoritativeSecond = publishedSnapshot.authoritativeSecond;
     const health::StallEdge edge = health::updateStall(
         &state.healthStallTracker,
         underrun,
-        healthNowSecond);
+        authoritativeSecond);
     if (edge != health::StallEdge::None) {
         appendAudioDebugLog(health::stallEdgePayload(
             edge,
             publishedSnapshot.identity.transactionId,
-            healthNowSecond,
+            authoritativeSecond,
             sample.mixerActivity,
             sample.backgroundActivity,
             state.healthStallTracker));
     }
-    if (!health::shouldLogHealth(healthNowSecond, state.lastHealthLogSecond)) {
+    if (!health::shouldLogHealth(authoritativeSecond, state.lastHealthLogSecond)) {
         return;
     }
-    state.lastHealthLogSecond = healthNowSecond;
+    state.lastHealthLogSecond = authoritativeSecond;
     const miacode::mmcss::LastRegistrationStatus mmcss =
         miacode::mmcss::lastRegistrationStatus();
     appendAudioDebugLog(health::healthPayload(
         publishedSnapshot.identity.transactionId,
-        healthNowSecond,
+        authoritativeSecond,
         sample.mixerActivity,
         sample.backgroundActivity,
         state.healthStallTracker,
         sample.buffer,
         /*mmcssRegisteredOnAudioThreads=*/false,
-        mmcss.everRegistered ? mmcss.lastTaskClass : QString()));
+        mmcss.everRegistered ? mmcss.lastTaskClass : QString(),
+        advanceProbe));
 }
 
 void PreviewAudioWorker::publishLifecycle(
@@ -993,7 +1008,6 @@ void PreviewAudioWorker::publishBackendLifecycle(
         snapshot_.preparedSecond = backendState.preparedSecond;
         snapshot_.authoritativeSecond = backendState.authoritativeSecond;
         snapshot_.backgroundPlaybackSecond = backendState.backgroundSecond;
-        snapshot_.playbackClock = backendState.playbackClock;
         snapshot_.retainedPlaybackMode = backendState.retainedMode;
         snapshot_.retainedBgmState = backendState.retainedBgmState;
         snapshot_.backendId = backendState.backendId;
@@ -1056,7 +1070,6 @@ bool PreviewAudioWorker::publishCompletion(
             snapshot_.preparedSecond = backendState->preparedSecond;
             snapshot_.authoritativeSecond = backendState->authoritativeSecond;
             snapshot_.backgroundPlaybackSecond = backendState->backgroundSecond;
-            snapshot_.playbackClock = backendState->playbackClock;
             snapshot_.retainedPlaybackMode = backendState->retainedMode;
             snapshot_.retainedBgmState = backendState->retainedBgmState;
         }

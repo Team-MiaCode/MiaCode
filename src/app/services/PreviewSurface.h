@@ -1,0 +1,97 @@
+#pragma once
+
+#include "app/services/PlaybackControl.h"
+#include "audio/PreviewAudioSettings.h"
+#include "core/analysis/MuriRenderOptions.h"
+#include "core/video/PreviewRenderSettings.h"
+
+#include <QObject>
+#include <QString>
+#include <QStringList>
+#include <QVariant>
+#include <QVariantMap>
+
+namespace miacode {
+
+class PreviewSurface
+{
+public:
+    virtual ~PreviewSurface() = default;
+
+    // ---- transport (read-only; commands live on PlaybackControl) ----
+    virtual bool playing() const = 0;
+    virtual PlaybackTransportState playbackTransportState() const = 0;
+    virtual double positionSeconds() const = 0;
+    virtual double durationSeconds() const = 0;
+    // Negative when 添加片头 is on: the intro occupies time before chart zero.
+    virtual double lowerBoundSeconds() const = 0;
+
+    // The numeric rate is the domain observation; the label is presentation
+    // only and must not be parsed by transport consumers.
+    virtual double playbackRate() const = 0;
+    virtual QString playbackRateLabel() const = 0;
+
+    // ---- what QML binds to ----
+    virtual QObject* previewRuntimeObject() const = 0;
+    virtual QObject* stageMediaHostObject() const = 0;
+    virtual double canvasAspectRatio() const = 0;
+    virtual QStringList statsTexts() const = 0;
+
+    // ---- 无理 overlay render mode ----
+    virtual RenderMode muriRenderMode() const = 0;
+    virtual void setMuriRenderMode(RenderMode mode) = 0;
+    virtual void toggleMuriRenderMode() = 0;
+
+    // ---- 无理 detection parameters (1080 px reference radius, milliseconds) ----
+    virtual int muriHandRadiusPx() const = 0;
+    virtual void setMuriHandRadiusPx(int radiusPx) = 0;
+    virtual int muriTapOnSlideThresholdMs() const = 0;
+    virtual void setMuriTapOnSlideThresholdMs(int thresholdMs) = 0;
+
+    // ---- skin / judge-line catalog on disk ----
+    virtual QStringList availableSkinDirectoryNames() const = 0;
+    virtual QString skinDisplayName(const QString& directoryName) const = 0;
+    virtual QString resolveSkinDir() const = 0;
+    virtual QString resolveSkinRootDir() const = 0;
+    virtual QString resolveCustomOutlineDir() const = 0;
+    virtual QStringList availableCustomOutlineFileNames() const = 0;
+    virtual QString customOutlineDisplayName(const QString& fileName) const = 0;
+    virtual QString currentCustomOutlineFileName() const = 0;
+    // Applying an outline variant is not just storing it: it may pick one
+    // automatically for the chart, and it persists. A custom PNG from the
+    // outlines directory overlays that variant until a built-in choice clears it.
+    virtual void applyOutlineVariant(PreviewOutlineVariant variant, bool useAutoSelection,
+                                     bool persistState) = 0;
+    virtual void applyCustomOutlineFileName(const QString& fileName, bool persistState) = 0;
+
+    // ---- render settings, as a value map the settings page renders ----
+    virtual QVariantMap renderSettings() const = 0;
+    virtual void setRenderSetting(const QString& key, const QVariant& value) = 0;
+    // Pushes whatever changed onto the live surfaces.
+    virtual void refreshSurfaces() = 0;
+    // File operations must release a decoder before replacing a media file;
+    // the matching refresh re-resolves the chart folder after the transaction.
+    virtual void prepareForMediaFileOperation() {}
+    virtual void refreshMediaAfterFileOperation() { refreshSurfaces(); }
+    // Pushes the current mixer levels into the live SFX runtime. A no-op until
+    // the audio engine is up, which is the guard callers used to repeat.
+    virtual void applySfxLevels() = 0;
+
+    // Quiesce the preview before the root window goes away — stop playback and
+    // release what the render thread holds. Called once, from the accepted
+    // close path.
+    virtual void prepareForShutdown() = 0;
+
+    // ---- audio mixer ----
+    virtual PreviewAudioSettings audioSettings() const = 0;
+    virtual void applyAudioSettings(const PreviewAudioSettings& settings) = 0;
+    virtual void saveAudioSettingsAsSoftwareDefault() = 0;
+    virtual void restoreAudioSettingsFromSoftwareDefault() = 0;
+
+protected:
+    PreviewSurface() = default;
+    PreviewSurface(const PreviewSurface&) = default;
+    PreviewSurface& operator=(const PreviewSurface&) = default;
+};
+
+}  // namespace miacode

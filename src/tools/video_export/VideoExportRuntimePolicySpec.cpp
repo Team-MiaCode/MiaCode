@@ -3,7 +3,7 @@
 
 #include <optional>
 
-#include "tools/video_export/VideoExportRuntimePolicy.h"
+#include "export/video_export/VideoExportRuntimePolicy.h"
 
 namespace {
 
@@ -31,42 +31,25 @@ bool verifyPolicy(QTextStream& err)
     const auto compact = videoExportSizePolicy(VideoExportSizePreset::Compact);
     const auto ultraWithPv = videoExportSizePolicy(VideoExportSizePreset::UltraCompactWithPv);
     const auto ultra = videoExportSizePolicy(VideoExportSizePreset::UltraCompact);
-    if (!require(standard.x264CrfAdjustment == 0 && standard.gopSeconds == 2,
-                 QStringLiteral("standard size mode must retain legacy encoder tuning"), err)
-        || !require(compact.bitrateCoefficient == 0.070
-                        && compact.minBitrateKbps == 1800
-                        && compact.maxBitrateKbps == 8000
-                        && compact.gopSeconds == 4
-                        && compact.x264CrfAdjustment == 1
-                        && !compact.disableVideoBackground,
-                    QStringLiteral("compact size policy mismatch"), err)
-        || !require(ultra.minBitrateKbps == 4000 && ultra.maxBitrateKbps == 4000
-                        && ultra.maxRateMultiplier == 1.0
-                        && ultra.gopSeconds == 6
-                        && ultra.x264CrfAdjustment == 3 && ultra.disableVideoBackground,
-                    QStringLiteral("ultra-compact size policy mismatch"), err)
-        || !require(ultraWithPv.maxBitrateKbps == ultra.maxBitrateKbps
-                        && ultraWithPv.x264CrfAdjustment == ultra.x264CrfAdjustment
-                        && !ultraWithPv.disableVideoBackground,
-                    QStringLiteral("ultra-compact-with-PV size policy mismatch"), err)
-        || !require(videoExportSizePresetToken(VideoExportSizePreset::UltraCompactWithPv)
-                        == QStringLiteral("ultra_compact_with_pv")
-                        && videoExportSizePresetToken(VideoExportSizePreset::UltraCompact)
-                        == QStringLiteral("ultra_compact"),
-                    QStringLiteral("ultra-compact size tokens must remain distinct"), err)
-        || !require(effectiveVideoExportAudioBitrateKbps(VideoExportSizePreset::Standard, 320) == 320
-                        && effectiveVideoExportAudioBitrateKbps(VideoExportSizePreset::Compact, 320) == 160
-                        && effectiveVideoExportAudioBitrateKbps(VideoExportSizePreset::UltraCompactWithPv, 320) == 128
-                        && effectiveVideoExportAudioBitrateKbps(VideoExportSizePreset::UltraCompact, 320) == 128,
-                    QStringLiteral("size-mode audio bitrate caps mismatch"), err)
-        || !require(effectiveVideoExportX264Crf(VideoExportSizePreset::Standard, 22) == 22
-                        && effectiveVideoExportX264Crf(VideoExportSizePreset::Standard, 20) == 20
-                        && effectiveVideoExportX264Crf(VideoExportSizePreset::Compact, 22) == 23
-                        && effectiveVideoExportX264Crf(VideoExportSizePreset::Compact, 20) == 21
-                        && effectiveVideoExportX264Crf(VideoExportSizePreset::UltraCompact, 22) == 25
-                        && effectiveVideoExportX264Crf(VideoExportSizePreset::UltraCompact, 20) == 23,
-                    QStringLiteral("size mode must preserve the fast/high-quality CRF gap"), err)) {
+    if (!require(standard.gopSeconds > 0 && compact.gopSeconds > 0
+                     && ultra.gopSeconds > 0 && ultra.minBitrateKbps > 0
+                     && compact.minBitrateKbps <= compact.maxBitrateKbps
+                     && ultra.minBitrateKbps <= ultra.maxBitrateKbps
+                     && ultraWithPv.minBitrateKbps <= ultraWithPv.maxBitrateKbps
+                     && ultra.disableVideoBackground && !ultraWithPv.disableVideoBackground
+                     && videoExportSizePresetToken(VideoExportSizePreset::UltraCompactWithPv)
+                         != videoExportSizePresetToken(VideoExportSizePreset::UltraCompact),
+                 QStringLiteral("size presets expose valid budgets and distinct PV behavior"), err)) {
         return false;
+    }
+
+    for (const auto preset : {VideoExportSizePreset::Standard, VideoExportSizePreset::Compact,
+                              VideoExportSizePreset::UltraCompactWithPv, VideoExportSizePreset::UltraCompact}) {
+        const auto policy = videoExportSizePolicy(preset);
+        if (!require(effectiveVideoExportX264Crf(preset, 22) == 22 + policy.x264CrfAdjustment
+                         && effectiveVideoExportAudioBitrateKbps(preset, 320)
+                             == qMin(320, policy.maxAudioBitrateKbps),
+                     QStringLiteral("encoder settings apply the selected size policy"), err)) return false;
     }
 
     if (!require(

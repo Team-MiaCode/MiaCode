@@ -1,6 +1,6 @@
 #pragma once
 
-#include "PreviewAudioWorkerProtocol.h"
+#include "audio/PreviewAudioWorkerProtocol.h"
 
 #include <deque>
 #include <mutex>

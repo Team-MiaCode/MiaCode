@@ -1,0 +1,527 @@
+#include "preview/stage_media/PreviewStageMediaHost.h"
+
+#include "core/chart/ChartAssetPaths.h"
+#include "common/DebugLog.h"
+#include "common/DebugOptions.h"
+#include "common/FileContentStamp.h"
+#include "common/OperationLog.h"
+#include "preview/stage_media/PreviewSharedD3D11Device.h"  // H2: single_device= log field
+
+#include <cstdio>  // G2 Diag: std::snprintf for sync rate-change beacon lines
+
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <dxgi.h>          // F1: DXGI adapter probe to auto-detect integrated GPUs
+#include <wrl/client.h>
+#pragma comment(lib, "dxgi.lib")
+#endif
+
+// Windows preview decode backend: FFmpeg via QtAVPlayer. QT_AVPLAYER_MULTIMEDIA
+// turns on the QAVVideoFrame -> QVideoFrame bridge (the conversion we feed to
+// the QML VideoOutput sink). Still need QVideoFrame/QVideoSink for delivery.
+#ifndef QT_AVPLAYER_MULTIMEDIA
+#define QT_AVPLAYER_MULTIMEDIA
+#endif
+#include <QtAVPlayer/qavplayer.h>
+#include <QtAVPlayer/qavvideoframe.h>
+#include <QVideoFrame>
+#include <QVideoSink>
+#if defined(Q_OS_WIN)
+#include <QtAVPlayer/qavd3d11sharedcontext_p.h>  // HW-decode diag counters / seek catch-up
+#endif
+
+#include <QDateTime>
+#include <QDir>
+#include <QElapsedTimer>
+#include <QFileInfo>
+#include <QTimer>
+#include <QVariant>
+#include <QtMath>
+
+#include "preview/stage_media/PreviewStageMediaHostInternal.h"
+
+using namespace miacode::preview::psmh_detail;
+
+void PreviewStageMediaHost::preparePlaybackStart(double seconds, quint64 transactionId)
+{
+    // A new playback transaction supersedes any in-flight stale-EndOfMedia recovery:
+    // its resume would otherwise fire on this transaction's seek acknowledgement.
+    staleEndOfMediaResumePending_ = false;
+    ++staleEndOfMediaResumeSerial_;
+    initializeBackendObjects();
+    const double clampedSecond = qMax(0.0, seconds);
+    observedPlayheadSecond_ = clampedSecond;
+    updateClockDelta();
+    preparedPlaybackTransaction_ = transactionId;
+    preparedPlaybackTargetSecond_ = clampedSecond;
+    preparedPlaybackTargetMs_ = -1;
+    preparedPlaybackPending_ = false;
+    preparedPlaybackReady_ = false;
+    preparedPlaybackLandingConfirmed_ = false;
+    pausedSeekCompletionPending_ = false;
+    pausedSeekTargetMs_ = -1;
+    pausedSeekTargetSecond_ = 0.0;
+    pausedSeekGeneration_ = 0;
+    appendPreviewStageMediaLog(
+        QStringLiteral("prepare_playback_start"),
+        QString("txn=%1 second=%2 rate=%3 offset=%4 has_video=%5")
+            .arg(transactionId)
+            .arg(clampedSecond, 0, 'f', 6)
+            .arg(playbackRate_, 0, 'f', 3)
+            .arg(timelineOffsetSeconds_, 0, 'f', 6)
+            .arg(mediaKind_ == MediaKind::Video && player_ != nullptr ? 1 : 0));
+    if (mediaKind_ != MediaKind::Video || player_ == nullptr) {
+        emit playbackStartPrepared(clampedSecond, transactionId);
+        emit diagnosticsChanged();
+        return;
+    }
+
+    videoPlaybackActive_ = false;
+    videoPlaybackPendingStart_ = false;
+    videoPlaybackActiveElapsed_.invalidate();
+    lastTimelineSecond_ = clampedSecond;
+    const qint64 targetMs = qMax<qint64>(0, qRound64((clampedSecond + timelineOffsetSeconds_) * 1000.0));
+    preparedPlaybackTargetMs_ = targetMs;
+    preparedPlaybackPending_ = true;
+    player_->pause();
+    const bool decodedFrameCoversTarget =
+        lastVideoFrame_.isValid()
+        && lastFramePtsSeconds_ >= 0.0
+        && qAbs(qRound64(lastFramePtsSeconds_ * 1000.0) - targetMs) <= kPausedSeekAckToleranceMs;
+    if (lastSeekMs_ >= 0
+        && qAbs(targetMs - lastSeekMs_) < kSeekCoalesceToleranceMs
+        && decodedFrameCoversTarget) {
+        // `lastSeekMs_` alone is only a requested position.  The decoded-frame
+        // proof makes this a real prepared landing, so the commit side can play
+        // it without flushing QtAV's just-settled queue a second time.
+        QMetaObject::invokeMethod(this, [this, transactionId, clampedSecond]() {
+            if (!preparedPlaybackPending_ || preparedPlaybackTransaction_ != transactionId) {
+                return;
+            }
+            preparedPlaybackPending_ = false;
+            preparedPlaybackReady_ = true;
+            preparedPlaybackLandingConfirmed_ = true;
+            appendPreviewStageMediaLog(
+                QStringLiteral("prepare_playback_ready"),
+                QString("txn=%1 second=%2 position_ms=%3 target_ms=%4 frame_pts_ms=%5 source=queued_frame")
+                    .arg(transactionId)
+                    .arg(clampedSecond, 0, 'f', 6)
+                    .arg(lastSeekMs_)
+                    .arg(preparedPlaybackTargetMs_)
+                    .arg(lastFramePtsSeconds_ >= 0.0 ? qRound64(lastFramePtsSeconds_ * 1000.0) : -1));
+            emit playbackStartPrepared(clampedSecond, transactionId);
+        }, Qt::QueuedConnection);
+        emit diagnosticsChanged();
+        return;
+    }
+    lastSeekMs_ = targetMs;
+    player_->seek(targetMs);
+    schedulePreparedPlaybackTimeout(transactionId, targetMs);
+    emit diagnosticsChanged();
+    return;
+}
+
+
+void PreviewStageMediaHost::commitPreparedPlaybackStart(double currentTimelineSecond)
+{
+    initializeBackendObjects();
+    if (mediaKind_ != MediaKind::Video || player_ == nullptr) {
+        transportPlaying_ = true;
+        return;
+    }
+
+    const double clampedSecond = qMax(0.0, currentTimelineSecond);
+    observedPlayheadSecond_ = clampedSecond;
+    lastTimelineSecond_ = clampedSecond;
+    const double rawSecond = clampedSecond + timelineOffsetSeconds_;
+    if (rawSecond < 0.0) {
+        // Timeline still ahead of the clip's in-point (negative offset): hold
+        // paused until the playhead reaches second 0 of the media.
+        player_->pause();
+        videoPlaybackPendingStart_ = true;
+        videoPlaybackActive_ = false;
+        videoPlaybackActiveElapsed_.invalidate();
+        appendPreviewStageMediaLog(
+            QStringLiteral("commit_prepared_playback_pending"),
+            QString("txn=%1 second=%2 raw_second=%3")
+                .arg(playbackTransactionId_)
+                .arg(clampedSecond, 0, 'f', 6)
+                .arg(rawSecond, 0, 'f', 6));
+        preparedPlaybackPending_ = false;
+        preparedPlaybackReady_ = false;
+        preparedPlaybackLandingConfirmed_ = false;
+        preparedPlaybackTargetMs_ = -1;
+        preparedPlaybackTargetSecond_ = 0.0;
+        preparedPlaybackTransaction_ = 0;
+        updateClockDelta();
+        emit diagnosticsChanged();
+        return;
+    }
+
+    const qint64 targetMs = qMax<qint64>(0, qRound64(rawSecond * 1000.0));
+    // Do not use `lastSeekMs_` as the proof of readiness: it records only a
+    // request.  A matching prepared-ready token, however, is produced only
+    // after a same-target decoded frame or seek acknowledgement.  Re-seeking
+    // that exact QtAV fast path flushes its newly-settled queue and can turn
+    // into a false EndOfMedia notification on first play.
+    const bool preparedLandingMatchesCommit =
+        preparedPlaybackReady_
+        && preparedPlaybackLandingConfirmed_
+        && preparedPlaybackTransaction_ == playbackTransactionId_
+        && preparedPlaybackTargetMs_ >= 0
+        && qAbs(targetMs - preparedPlaybackTargetMs_) <= kSeekCoalesceToleranceMs;
+    if (!preparedLandingMatchesCommit) {
+        lastSeekMs_ = targetMs;
+        player_->seek(targetMs);
+    }
+    if (videoFrameElapsed_.isValid()) {
+        videoFrameElapsed_.restart();
+    }
+    // Snapshot before play() can release the first queued hardware frame to
+    // the render thread, so even an immediately scheduled QSG frame belongs
+    // to this first-play trace.
+    beginFirstPlaybackRenderTrace();
+    player_->play();
+    videoPlaybackPendingStart_ = false;
+    videoPlaybackActive_ = true;
+    videoPlaybackActiveElapsed_.restart();
+    appendPreviewStageMediaLog(
+        QStringLiteral("commit_prepared_playback"),
+        // `video_prewarmed` answers the question audit §5.4 could not: had the video
+        // pipeline (VideoOutput material + the first hardware-decoded texture) already
+        // been exercised when the user pressed play, or does this commit hand the
+        // renderer a brand-new material to build on the very frame being waited on?
+        QString("txn=%1 second=%2 raw_second=%3 target_ms=%4 prepared_ready=%5 prepared_landing_confirmed=%6 "
+                "prepared_txn=%7 prepared_target_ms=%8 reseek=%9 frames_before_commit=%10 video_prewarmed=%11")
+            .arg(playbackTransactionId_)
+            .arg(clampedSecond, 0, 'f', 6)
+            .arg(rawSecond, 0, 'f', 6)
+            .arg(targetMs)
+            .arg(preparedPlaybackReady_ ? 1 : 0)
+            .arg(preparedPlaybackLandingConfirmed_ ? 1 : 0)
+            .arg(preparedPlaybackTransaction_)
+            .arg(preparedPlaybackTargetMs_)
+            .arg(preparedLandingMatchesCommit ? 0 : 1)
+            .arg(videoFrameCountTotal_)
+            .arg(videoFrameCountTotal_ > 0 ? 1 : 0));
+    preparedPlaybackPending_ = false;
+    preparedPlaybackReady_ = false;
+    preparedPlaybackLandingConfirmed_ = false;
+    preparedPlaybackTargetMs_ = -1;
+    preparedPlaybackTargetSecond_ = 0.0;
+    preparedPlaybackTransaction_ = 0;
+    updateClockDelta();
+    updateVideoFrameStallState(true);
+    emit diagnosticsChanged();
+    return;
+}
+
+
+void PreviewStageMediaHost::cancelPreparedPlaybackStart(quint64 transactionId)
+{
+    if (transactionId != 0 && preparedPlaybackTransaction_ != transactionId) {
+        return;
+    }
+    if (!preparedPlaybackPending_ && !preparedPlaybackReady_ && preparedPlaybackTransaction_ == 0) {
+        return;
+    }
+    appendPreviewStageMediaLog(
+        QStringLiteral("prepare_playback_cancel"),
+        QString("txn=%1 pending=%2 ready=%3")
+            .arg(preparedPlaybackTransaction_)
+            .arg(preparedPlaybackPending_ ? 1 : 0)
+            .arg(preparedPlaybackReady_ ? 1 : 0));
+    preparedPlaybackPending_ = false;
+    preparedPlaybackReady_ = false;
+    preparedPlaybackLandingConfirmed_ = false;
+    preparedPlaybackTargetMs_ = -1;
+    preparedPlaybackTargetSecond_ = 0.0;
+    preparedPlaybackTransaction_ = 0;
+    ++preparedPlaybackTimeoutSerial_;
+}
+
+
+bool PreviewStageMediaHost::hasPreparedPlaybackStart(quint64 transactionId) const
+{
+    return preparedPlaybackReady_ && preparedPlaybackTransaction_ == transactionId;
+}
+
+
+void PreviewStageMediaHost::setTimelineOffsetSeconds(double seconds)
+{
+    timelineOffsetSeconds_ = qIsFinite(seconds) ? seconds : 0.0;
+    updateClockDelta();
+    emit diagnosticsChanged();
+}
+
+
+void PreviewStageMediaHost::setPlayheadSeconds(double seconds)
+{
+    const double clampedSecond = qMax(0.0, seconds);
+    observedPlayheadSecond_ = clampedSecond;
+    updateClockDelta();
+
+    if (mediaKind_ != MediaKind::Video || player_ == nullptr) {
+        emit diagnosticsChanged();
+        return;
+    }
+
+    lastTimelineSecond_ = clampedSecond;
+    const qint64 targetMs = qMax<qint64>(0, qRound64((clampedSecond + timelineOffsetSeconds_) * 1000.0));
+    if (lastSeekMs_ >= 0 && qAbs(targetMs - lastSeekMs_) < kSeekCoalesceToleranceMs) {
+        emit diagnosticsChanged();
+        return;
+    }
+    lastSeekMs_ = targetMs;
+    player_->seek(targetMs);
+    emit diagnosticsChanged();
+}
+
+
+void PreviewStageMediaHost::startPlayback(double seconds)
+{
+    MC_OP("PreviewStageMediaHost::startPlayback");
+    transportPlaying_ = true;
+    recordPvMemoryBoundary(PvMemoryBoundary::Play);
+    // This start owns the transport from here; a stale-EndOfMedia recovery seek still
+    // in flight must not resume on this start's own seek acknowledgement.
+    staleEndOfMediaResumePending_ = false;
+    ++staleEndOfMediaResumeSerial_;
+    initializeBackendObjects();
+    observedPlayheadSecond_ = qMax(0.0, seconds);
+    appendPreviewStageMediaLog(
+        QStringLiteral("start_playback"),
+        QString("txn=%1 second=%2 raw_second=%3 rate=%4 offset=%5 has_video=%6")
+            .arg(playbackTransactionId_)
+            .arg(observedPlayheadSecond_, 0, 'f', 6)
+            .arg(observedPlayheadSecond_ + timelineOffsetSeconds_, 0, 'f', 6)
+            .arg(playbackRate_, 0, 'f', 3)
+            .arg(timelineOffsetSeconds_, 0, 'f', 6)
+            .arg(mediaKind_ == MediaKind::Video && player_ != nullptr ? 1 : 0));
+    if (mediaKind_ != MediaKind::Video || player_ == nullptr) {
+        videoPlaybackActiveElapsed_.invalidate();
+        updateVideoFrameStallState(true);
+        updateClockDelta();
+        emit diagnosticsChanged();
+        return;
+    }
+
+    lastTimelineSecond_ = qMax(0.0, seconds);
+    const double rawSecond = seconds + timelineOffsetSeconds_;
+    const qint64 targetMs = qMax<qint64>(0, qRound64(rawSecond * 1000.0));
+    lastSeekMs_ = targetMs;
+    player_->seek(targetMs);
+    if (rawSecond < 0.0) {
+        // Negative offset: timeline is ahead of the clip in-point — hold the
+        // first media frame paused until the playhead reaches media second 0.
+        player_->pause();
+        videoPlaybackPendingStart_ = true;
+        videoPlaybackActive_ = false;
+        videoPlaybackActiveElapsed_.invalidate();
+        appendPreviewStageMediaLog(
+            QStringLiteral("start_playback_pending"),
+            QString("txn=%1 second=%2 raw_second=%3 target_ms=%4")
+                .arg(playbackTransactionId_)
+                .arg(seconds, 0, 'f', 6)
+                .arg(rawSecond, 0, 'f', 6)
+                .arg(targetMs));
+    } else {
+        if (videoFrameElapsed_.isValid()) {
+            videoFrameElapsed_.restart();
+        }
+        player_->play();
+        videoPlaybackActive_ = true;
+        videoPlaybackPendingStart_ = false;
+        videoPlaybackActiveElapsed_.restart();
+        appendPreviewStageMediaLog(
+            QStringLiteral("start_playback_started"),
+            QString("txn=%1 second=%2 raw_second=%3 target_ms=%4")
+                .arg(playbackTransactionId_)
+                .arg(seconds, 0, 'f', 6)
+                .arg(rawSecond, 0, 'f', 6)
+                .arg(targetMs));
+    }
+    updateClockDelta();
+    updateVideoFrameStallState(true);
+    emit diagnosticsChanged();
+    return;
+}
+
+
+void PreviewStageMediaHost::submitPausedSeek(double seconds, quint64 generation)
+{
+    // Same reason as preparePlaybackStart: this seek's acknowledgement must not be
+    // mistaken for a recovery landing and resume playback while the preview is paused.
+    staleEndOfMediaResumePending_ = false;
+    ++staleEndOfMediaResumeSerial_;
+
+    const double clampedSecond = qMax(0.0, seconds);
+    observedPlayheadSecond_ = clampedSecond;
+    updateClockDelta();
+    if (mediaKind_ != MediaKind::Video || player_ == nullptr) {
+        videoPlaybackActiveElapsed_.invalidate();
+        updateVideoFrameStallState(true);
+        emit pausedSeekCompleted(clampedSecond, generation);
+        emit diagnosticsChanged();
+        return;
+    }
+
+    lastTimelineSecond_ = clampedSecond;
+    const qint64 requestedMs = qMax<qint64>(0, qRound64((clampedSecond + timelineOffsetSeconds_) * 1000.0));
+    const qint64 targetMs = player_->duration() > 0 ? qMin(requestedMs, player_->duration()) : requestedMs;
+    pausedSeekGeneration_ = generation;
+    pausedSeekTargetMs_ = targetMs;
+    pausedSeekTargetSecond_ = clampedSecond;
+    pausedSeekCompletionPending_ = true;
+    appendPreviewStageMediaLog(
+        QStringLiteral("paused_seek_media_submit"),
+        QString("generation=%1 second=%2 target_ms=%3")
+            .arg(generation)
+            .arg(clampedSecond, 0, 'f', 6)
+            .arg(targetMs));
+    // 复用条件取自显示帧的时间范围，seek 请求位置无法证明画面到达。
+    const bool displayedFrameCoversTarget = lastVideoFrame_.isValid()
+        && lastFramePtsSeconds_ >= 0.0
+        && targetMs >= qRound64(lastFramePtsSeconds_ * 1000.0)
+        && (targetMs < qRound64((lastFramePtsSeconds_ + lastFrameDurationSeconds_) * 1000.0)
+            || targetMs == qRound64(lastFramePtsSeconds_ * 1000.0));
+    if (displayedFrameCoversTarget) {
+        QMetaObject::invokeMethod(this, [this, generation, clampedSecond]() {
+            if (!pausedSeekCompletionPending_ || pausedSeekGeneration_ != generation) {
+                return;
+            }
+            pausedSeekCompletionPending_ = false;
+            appendPreviewStageMediaLog(
+                QStringLiteral("paused_seek_media_ack"),
+                QString("generation=%1 second=%2 source=queued").arg(generation).arg(clampedSecond, 0, 'f', 6));
+            emit pausedSeekCompleted(clampedSecond, generation);
+        }, Qt::QueuedConnection);
+        emit diagnosticsChanged();
+        return;
+    }
+    lastSeekMs_ = targetMs;
+    player_->seek(targetMs);
+    schedulePausedSeekTimeout(generation, targetMs);
+    emit diagnosticsChanged();
+    return;
+}
+
+
+void PreviewStageMediaHost::syncPlayback(double seconds)
+{
+    initializeBackendObjects();
+    observedPlayheadSecond_ = qMax(0.0, seconds);
+    if (mediaKind_ != MediaKind::Video || player_ == nullptr) {
+        videoPlaybackActiveElapsed_.invalidate();
+        updateVideoFrameStallState(true);
+        updateClockDelta();
+        emit diagnosticsChanged();
+        return;
+    }
+
+    lastTimelineSecond_ = qMax(0.0, seconds);
+    if (!videoPlaybackPendingStart_) {
+        if (!videoPlaybackActive_) {
+            startPlayback(seconds);
+            return;
+        }
+        const bool wasPlaying = player_->state() == QAVPlayer::PlayingState;
+        bool transitioned = false;
+        if (!wasPlaying) {
+            player_->play();
+            transitioned = true;
+        }
+        updateClockDelta();
+        const bool stallStateChanged = updateVideoFrameStallState(true);
+        // Steady-state syncPlayback runs every preview tick (~60/s); only emit
+        // diagnosticsChanged on an actual transition to keep the per-tick
+        // frameState re-push off the hot path.
+        if (transitioned || stallStateChanged) {
+            emit diagnosticsChanged();
+        }
+        return;
+    }
+
+    const double rawSecond = seconds + timelineOffsetSeconds_;
+    if (rawSecond < 0.0) {
+        videoPlaybackActiveElapsed_.invalidate();
+        updateVideoFrameStallState(true);
+        updateClockDelta();
+        emit diagnosticsChanged();
+        return;
+    }
+
+    const qint64 targetMs = qMax<qint64>(0, qRound64(rawSecond * 1000.0));
+    lastSeekMs_ = targetMs;
+    player_->seek(targetMs);
+    if (videoFrameElapsed_.isValid()) {
+        videoFrameElapsed_.restart();
+    }
+    player_->play();
+    videoPlaybackPendingStart_ = false;
+    videoPlaybackActive_ = true;
+    videoPlaybackActiveElapsed_.restart();
+    appendPreviewStageMediaLog(
+        QStringLiteral("sync_playback_started"),
+        QString("txn=%1 second=%2 raw_second=%3 target_ms=%4")
+            .arg(playbackTransactionId_)
+            .arg(seconds, 0, 'f', 6)
+            .arg(rawSecond, 0, 'f', 6)
+            .arg(targetMs));
+    updateClockDelta();
+    updateVideoFrameStallState(true);
+    emit diagnosticsChanged();
+    return;
+}
+
+
+void PreviewStageMediaHost::pausePlayback()
+{
+    if (mediaKind_ == MediaKind::Video && player_ != nullptr) {
+        observedPlayheadSecond_ = currentPlaybackSecond();
+    }
+    recordPvMemoryBoundary(PvMemoryBoundary::Pause);
+    if (mediaKind_ == MediaKind::Video && player_ != nullptr) {
+        player_->pause();
+    }
+    // 暂停保留执行中的 seek 及其超时确认，上层等待完成后提交最新目标。
+    // A stale-EndOfMedia recovery seek may still be in flight; its `seeked` handler
+    // would otherwise resume playback and undo this pause.
+    staleEndOfMediaResumePending_ = false;
+    ++staleEndOfMediaResumeSerial_;
+    videoPlaybackActive_ = false;
+    transportPlaying_ = false;
+    videoPlaybackPendingStart_ = false;
+    videoPlaybackActiveElapsed_.invalidate();
+    preparedPlaybackPending_ = false;
+    preparedPlaybackReady_ = false;
+    preparedPlaybackLandingConfirmed_ = false;
+    preparedPlaybackTargetMs_ = -1;
+    preparedPlaybackTargetSecond_ = 0.0;
+    preparedPlaybackTransaction_ = 0;
+    ++preparedPlaybackTimeoutSerial_;
+    updateClockDelta();
+    updateVideoFrameStallState(true);
+    emit diagnosticsChanged();
+}
+
+
+double PreviewStageMediaHost::currentPlaybackSecond() const
+{
+    if (mediaKind_ != MediaKind::Video || player_ == nullptr) {
+        return 0.0;
+    }
+    if (!videoPlaybackActive_) {
+        return qMax(0.0, lastTimelineSecond_);
+    }
+    return qMax(0.0, static_cast<double>(player_->position()) / 1000.0 - timelineOffsetSeconds_);
+}
+
+
+bool PreviewStageMediaHost::videoPlaybackActive() const
+{
+    return mediaKind_ == MediaKind::Video && videoPlaybackActive_;
+}

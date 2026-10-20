@@ -1,13 +1,15 @@
 #pragma once
 
 #include <QElapsedTimer>
+#include <QColor>
 #include <QMetaObject>
 #include <QMutex>
 #include <QPointer>
 #include <QQueue>
 #include <QQuickItem>
+#include <QtQml/qqmlregistration.h>
 #include <QSet>
-#include "common/PreviewGameplayConfig.h"
+#include "core/video/PreviewGameplayConfig.h"
 #include <QSize>
 #include <QString>
 #include <atomic>
@@ -40,7 +42,9 @@ struct PreviewFrameState;
 class PreviewQuickSceneRoot : public QQuickItem
 {
     Q_OBJECT
+    QML_ELEMENT
     Q_PROPERTY(QObject* runtime READ runtimeObject WRITE setRuntimeObject NOTIFY runtimeChanged)
+    Q_PROPERTY(QColor backgroundColor READ backgroundColor WRITE setBackgroundColor NOTIFY backgroundColorChanged)
 
 public:
     explicit PreviewQuickSceneRoot(QQuickItem* parent = nullptr);
@@ -51,12 +55,15 @@ public:
     void setRuntimeObject(QObject* runtimeObject);
     void setFrameState(const miacode::preview::scene::PreviewFrameState* frameState);
     void setLayerFlags(miacode::preview::scene::PreviewRenderLayerFlags layerFlags);
+    QColor backgroundColor() const { return backgroundColor_; }
+    void setBackgroundColor(const QColor& color);
 
     void invalidateTextureCache();
     PreviewTextureStats textureStats() const;
 
 signals:
     void runtimeChanged();
+    void backgroundColorChanged();
 
 protected:
     QSGNode* updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* updatePaintNodeData) override;
@@ -80,9 +87,14 @@ private:
     void noteFirstLayerDraws();
 
     QPointer<PreviewRuntime> runtime_;
+    QColor backgroundColor_{QStringLiteral("#191A1B")};
     Qt::MouseButton touchPadAuthoringPressedButton_ = Qt::NoButton;
     QMetaObject::Connection runtimeUpdateConnection_;
     QMetaObject::Connection frameSwapConnection_;
+#ifdef Q_OS_MACOS
+    QMetaObject::Connection framePresentedCaptureConnection_;
+    QMetaObject::Connection guiFrameConnection_;
+#endif
     QMetaObject::Connection fireworkPresentConnection_;
     QMetaObject::Connection windowVisibilityConnection_;
     QMetaObject::Connection renderBeforeSyncConnection_;
@@ -165,9 +177,7 @@ private:
     // everything before the pass is QRhi resource work (texture/buffer uploads,
     // resource creation, swapchain image acquire), everything inside the pass is
     // draw-call recording, which is where a first-use graphics pipeline (PSO /
-    // shader variant) gets created by the driver. §5.1 of
-    // docs/audit/PREVIEW_FIRST_PLAY_RENDER_STALL_HANDOFF_AUDIT_ZH.md could not tell
-    // those apart because render_submit_ms was one opaque bracket.
+    // shader variant) gets created by the driver.
     qint64 renderPhasePassStartNs_ = -1;
     qint64 renderPhasePassEndNs_ = -1;
     qint64 renderPhaseRenderEndNs_ = -1;

@@ -8,6 +8,7 @@ namespace miacode::preview::scene {
 struct PreviewJudgeFireworkLayerState {
     bool active = false;
     bool drawFirework = false;
+    bool warmup = false;
     bool drawColorBall = false;
     bool drawColorBallBig = false;
     bool drawFallbackColorBall = false;

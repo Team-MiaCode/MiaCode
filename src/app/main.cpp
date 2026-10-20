@@ -1,27 +1,29 @@
 #include "AppVersion.h"
-#include "quick_shell/QuickShellBootstrap.h"
-#include "mainwindow/MainWindow.h"
-#include "tools/video_export/VideoExportSnapshot.h"
-#include "UiText.h"
-#include "UiTheme.h"
-#include "UiNativeWindowTheme.h"
+#include "app/ui/Bootstrap.h"
+#include "app/services/PreferenceDocument.h"
+#include "app/runtime/settings/PreferenceDocumentProvider.h"
+#include "app/ui/preferences/LocaleService.h"
 #include "common/CrashRecovery.h"
 #include "common/DebugLog.h"
 #include "common/OperationLog.h"
 #include "common/ProcessDiagnostics.h"
 #include "common/UiHangWatchdog.h"
 #include "common/DebugOptions.h"
-#include "common/WaveformCache.h"
-#include "audio/PreviewBassDefaultDevice.h"
-#include "SimaiNativeParser.h"
+#include "audio/WaveformCache.h"
+#include "audio/bass/BassPreviewAudioBackend.h"
+#include "audio/bass/PreviewBassDefaultDevice.h"
+#include "core/chart/parser/SimaiParser.h"
 
-#include <QApplication>
+#include <QCoreApplication>
+#include <QtQml/qqmlextensionplugin.h>
 #include <QCommandLineOption>
 #include <QCommandLineParser>
 #include <QDateTime>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFont>
+#include <QFontDatabase>
+#include <QGuiApplication>
 #include <QIcon>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -31,11 +33,11 @@
 #include <QTimer>
 #include <QStringList>
 #include <QSurfaceFormat>
-#include <QStyleFactory>
 #include <QDir>
 #include <QRegularExpression>
 #include <QQuickWindow>
 #include <QQuickStyle>
+#include <QScopeGuard>
 #include <QSGRendererInterface>
 
 #include <cmath>
@@ -55,7 +57,7 @@
 #pragma comment(lib, "version.lib")
 #endif
 
-#include "MainEntrypoints.h"
+#include "app/MainEntrypoints.h"
 
 namespace {
 
@@ -89,13 +91,6 @@ bool wantsCliVideoExport(const QStringList& arguments)
 bool wantsCliVideoExportWorker(const QStringList& arguments)
 {
     return arguments.contains(QStringLiteral("--export-video-worker"));
-}
-
-// Force-show the first-run welcome / initial-config dialog even when
-// preferences already exist. Handy for debugging the onboarding flow.
-bool wantsWelcomeDialog(const QStringList& arguments)
-{
-    return arguments.contains(QStringLiteral("--welcome"));
 }
 
 QString startupOpenTargetFromArguments(const QStringList& arguments)
@@ -136,27 +131,6 @@ void appendAppShutdownRuntimeLog(const QString& action, const QString& payload =
     );
 }
 
-QString summarizeTopLevelWidgets()
-{
-    const auto widgets = QApplication::topLevelWidgets();
-    QStringList items;
-    items.reserve(widgets.size());
-    for (QWidget* widget : widgets) {
-        if (widget == nullptr) {
-            continue;
-        }
-        items.append(
-            QStringLiteral("%1(vis=%2 hidden=%3 active=%4 title=%5)")
-                .arg(widget->metaObject() != nullptr ? widget->metaObject()->className() : QStringLiteral("unknown"))
-                .arg(widget->isVisible() ? 1 : 0)
-                .arg(widget->isHidden() ? 1 : 0)
-                .arg(widget->isActiveWindow() ? 1 : 0)
-                .arg(widget->windowTitle().trimmed().isEmpty() ? QStringLiteral("(empty)") : widget->windowTitle().trimmed())
-        );
-    }
-    return items.join(QStringLiteral("; "));
-}
-
 QString summarizeTopLevelWindows()
 {
     const auto windows = QGuiApplication::topLevelWindows();
@@ -180,6 +154,12 @@ QString summarizeTopLevelWindows()
 
 using namespace miacode::app::entry;
 
+// MiaCode.Preview and MiaCode.Timeline are static QML modules linked from
+// miacode_preview_quick and miacode_timeline_quick; every engine in this
+// process (UI, preview composite, cover composer, export) resolves them here.
+Q_IMPORT_QML_PLUGIN(MiaCode_PreviewPlugin)
+Q_IMPORT_QML_PLUGIN(MiaCode_TimelinePlugin)
+
 int main(int argc, char* argv[])
 {
     // Phase 6 — startup beacon. Heap-free, pure-Win32. Lands a tiny
@@ -189,7 +169,7 @@ int main(int argc, char* argv[])
     // process died in static init / DLL load (outside our reach), which
     // is a fundamentally different debug path than a crash inside our
     // code. Written before MC_OP, before crash_recovery::install, and
-    // before QApplication construction so a crash in any of those still
+    // before QGuiApplication construction so a crash in any of those still
     // leaves the breadcrumb behind.
     miacode::oplog::writeStartupBeacon(MIACODE_DISPLAY_VERSION_STRING);
 
@@ -230,24 +210,40 @@ int main(int argc, char* argv[])
 
     MC_OP("main");
 
+    // Every role of this executable plays preview audio through BASS; install
+    // it before anything can construct a preview audio worker.
+    miacode::preview_audio::installPreviewAudioBackendProvider(
+        miacode::preview_audio::bassPreviewAudioBackendProvider());
+
     // Negative HS (`<HS*-N>`) is ON by default. The opt-out escape hatch
     // MIACODE_PREVIEW_REJECT_NEGATIVE_HS restores the strict reject-hs<=0
     // stance. Read once here so BOTH the GUI process and the CLI export-worker
     // subprocess (which inherits the environment) agree on what parses.
-    SimaiNativeParser::setAllowNegativeHsEnabled(!miacode::debug_options::previewRejectNegativeHsEnabled());
+    SimaiParser::setAllowNegativeHsEnabled(!miacode::debug_options::previewRejectNegativeHsEnabled());
 
 #ifdef Q_OS_WIN
     miacode::oplog::appendStartupBeaconLine("phase=before_crash_recovery_install");
 #endif
     // Install crash-time autosave handlers BEFORE anything else can fail.
     // This way an early-startup segfault (e.g. graphics driver bug during
-    // QApplication construction) still gets a chance to flush the
+    // QGuiApplication construction) still gets a chance to flush the
     // last-known document text — though in practice early crashes happen
     // before any document is loaded so the snapshot is empty / safe.
-    miacode::crash_recovery::install();
+    //
+    // MIACODE_SKIP_CRASH_HANDLER leaves SIGSEGV / SEH unhooked so Windows
+    // LocalDumps can capture the original 0xC0000005. MinGW's SIGSEGV
+    // handler converts that AV into a signal, which ends the process
+    // without a WER dump.
+    if (miacode::debug_options::envFlagEnabled("MIACODE_SKIP_CRASH_HANDLER")) {
 #ifdef Q_OS_WIN
-    miacode::oplog::appendStartupBeaconLine("phase=after_crash_recovery_install");
+        miacode::oplog::appendStartupBeaconLine("phase=crash_recovery_skipped");
 #endif
+    } else {
+        miacode::crash_recovery::install();
+#ifdef Q_OS_WIN
+        miacode::oplog::appendStartupBeaconLine("phase=after_crash_recovery_install");
+#endif
+    }
 
 #ifdef Q_OS_WIN
     // Force PER_MONITOR_AWARE_V2 DPI awareness for BOTH the editor and
@@ -279,47 +275,14 @@ int main(int argc, char* argv[])
     const bool cliVideoExportWorkerRequested = wantsCliVideoExportWorker(rawArgs);
     const bool forceOpenGlGraphicsApi = cliVideoExportRequested || cliVideoExportWorkerRequested;
 #if defined(Q_OS_LINUX)
-    // QQuickRenderControl adopts the export session's QOpenGLContext. Under
-    // xcb, Qt's default GLX integration produces a context that the Quick RHI
-    // cannot adopt on affected Linux/NVIDIA configurations, while xcb/EGL
-    // works. Keep an explicit user choice, and leave native Wayland export
-    // processes alone.
     const QString requestedQpaPlatform =
         qEnvironmentVariable("QT_QPA_PLATFORM").trimmed().toLower();
     const bool exportUsesXcb =
-        requestedQpaPlatform.startsWith(QStringLiteral("xcb"))
-        || (requestedQpaPlatform.isEmpty()
-            && qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY")
-            && !qEnvironmentVariableIsEmpty("DISPLAY"));
-    const bool guiUsesXcbCompatibility =
-        !forceOpenGlGraphicsApi
-        && requestedQpaPlatform.isEmpty()
-        && !qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY")
-        && !qEnvironmentVariableIsEmpty("DISPLAY");
-    if ((exportUsesXcb || guiUsesXcbCompatibility)
-        && qEnvironmentVariableIsEmpty("QT_XCB_GL_INTEGRATION")) {
+        forceOpenGlGraphicsApi
+        && (requestedQpaPlatform.startsWith(QStringLiteral("xcb"))
+            || requestedQpaPlatform.isEmpty());
+    if (exportUsesXcb && qEnvironmentVariableIsEmpty("QT_XCB_GL_INTEGRATION")) {
         qputenv("QT_XCB_GL_INTEGRATION", QByteArrayLiteral("xcb_egl"));
-    }
-
-    // QuickShell embeds native QWidget surfaces through QWindow::fromWinId(). Qt's
-    // Wayland plugin cannot import those foreign windows, while XWayland/xcb can.
-    // Keep explicit QPA choices and headless/export process modes untouched.
-    if (!cliVideoExportRequested
-        && !cliVideoExportWorkerRequested
-        && qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")
-        && !qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY")
-        && !qEnvironmentVariableIsEmpty("DISPLAY")) {
-        qputenv("QT_QPA_PLATFORM", QByteArrayLiteral("xcb"));
-
-        // KDE Wayland normally leaves the Qt IM module unset so native clients
-        // can use text-input. Once this process moves to XWayland, honour the
-        // session's XMODIFIERS choice without changing the global session.
-        const QString xModifiers = qEnvironmentVariable("XMODIFIERS").trimmed();
-        if (qEnvironmentVariableIsEmpty("QT_IM_MODULE")
-            && qEnvironmentVariableIsEmpty("QT_IM_MODULES")
-            && xModifiers.contains(QStringLiteral("@im=fcitx"), Qt::CaseInsensitive)) {
-            qputenv("QT_IM_MODULE", QByteArrayLiteral("fcitx"));
-        }
     }
 #endif
     const QString startupOpenTarget =
@@ -361,8 +324,9 @@ int main(int argc, char* argv[])
     }
 
     // (libmpv probe removed in beta20 — the "Phase 4 video source built on
-    // top of this" never landed; chart-preview video backgrounds use the
-    // QtAVPlayer + QVideoSink stack via PreviewStageMediaHost.)
+    // top of this" never landed; chart-preview video backgrounds use Qt's
+    // QtAVPlayer + QVideoSink stack via PreviewStageMediaHost. Shipping
+    // libmpv-2.dll cost ~113 MB to log a single startup version line.)
 
 #ifdef Q_OS_WIN
     miacode::oplog::appendStartupBeaconLine("phase=before_env_var_parse");
@@ -372,30 +336,13 @@ int main(int argc, char* argv[])
         || miacode::debug_options::envFlagEnabled(
             "MIACODE_PREVIEW_FORCE_BASIC_RENDER_LOOP"
         );
-    const bool disableDontCreateNativeWidgetSiblings = miacode::debug_options::envFlagEnabled(
-        "MIACODE_PREVIEW_DISABLE_DONT_CREATE_NATIVE_WIDGET_SIBLINGS"
-    );
-    const bool dontCreateNativeWidgetSiblingsEnabled = !disableDontCreateNativeWidgetSiblings;
     const QString requestedRenderLoop = qEnvironmentVariable("QSG_RENDER_LOOP").trimmed();
     if (forceBasicRenderLoop && requestedRenderLoop.isEmpty()) {
         qputenv("QSG_RENDER_LOOP", QByteArrayLiteral("basic"));
     }
-#ifdef Q_OS_WIN
-    miacode::oplog::appendStartupBeaconLine("phase=before_set_qt_attributes");
-#endif
-    if (dontCreateNativeWidgetSiblingsEnabled) {
-        QApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
-    }
-#ifdef Q_OS_WIN
-    miacode::oplog::appendStartupBeaconLine("phase=after_set_qt_attributes");
-#endif
 
-    // Diagnostic: capture Qt's scene-graph render timings into our runtime log
-    // when the user opts in. Has to happen before QApplication construction
-    // because Qt reads QSG_RENDER_TIMING / QT_LOGGING_RULES once at startup
-    // and the categories are gated on those env vars. We append our category
-    // override to whatever the user already has rather than overwriting, so
-    // existing rule overrides keep working.
+    // Enable Qt scene-graph timing before application construction.
+    // Qt writes timing and other diagnostics through its standard message handler.
     if (miacode::debug_options::previewQsgRenderTimingEnabled()) {
         qputenv("QSG_RENDER_TIMING", QByteArrayLiteral("1"));
         const QByteArray existingRules = qgetenv("QT_LOGGING_RULES");
@@ -405,29 +352,6 @@ int main(int argc, char* argv[])
         }
         nextRules.append("qt.scenegraph.time.*=true");
         qputenv("QT_LOGGING_RULES", nextRules);
-
-        // Route the resulting qt.scenegraph.time.* messages to our log so they
-        // sit alongside renderer_perf / frame_pacing in the same file with
-        // matching timestamps. Pass everything else through to the prior
-        // handler (whatever Qt had installed before us) so we don't silence
-        // ordinary Qt warnings/criticals.
-        static QtMessageHandler s_priorMessageHandler = nullptr;
-        s_priorMessageHandler = qInstallMessageHandler(
-            [](QtMsgType type, const QMessageLogContext& ctx, const QString& msg) {
-                const char* category = ctx.category != nullptr ? ctx.category : "";
-                if (qstrncmp(category, "qt.scenegraph.time.", 19) == 0) {
-                    miacode::debug_log::appendLine(
-                        miacode::debug_log::Channel::Runtime,
-                        QStringLiteral("preview/qsg_timing"),
-                        QString("category=%1 msg=%2")
-                            .arg(QString::fromLatin1(category))
-                            .arg(msg));
-                    return;
-                }
-                if (s_priorMessageHandler != nullptr) {
-                    s_priorMessageHandler(type, ctx, msg);
-                }
-            });
     }
     if (miacode::debug_options::runtimeDebugOutputEnabled()) {
 #ifdef Q_OS_WIN
@@ -437,18 +361,13 @@ int main(int argc, char* argv[])
             miacode::debug_log::Channel::Runtime,
             QStringLiteral("startup/qt_config"),
             QString(
-                "qsg_full_disable=%1 force_basic_render_loop=%2 qsg_render_loop=%3 "
-                "dont_create_native_widget_siblings_default=1 "
-                "disable_dont_create_native_widget_siblings=%4 "
-                "effective_dont_create_native_widget_siblings=%5"
+                "qsg_full_disable=%1 force_basic_render_loop=%2 qsg_render_loop=%3"
             )
                 .arg(qsgFullDisable ? 1 : 0)
                 .arg(forceBasicRenderLoop ? 1 : 0)
                 .arg(qEnvironmentVariable("QSG_RENDER_LOOP").trimmed().isEmpty()
                          ? QStringLiteral("(default)")
                          : qEnvironmentVariable("QSG_RENDER_LOOP").trimmed())
-                .arg(disableDontCreateNativeWidgetSiblings ? 1 : 0)
-                .arg(dontCreateNativeWidgetSiblingsEnabled ? 1 : 0)
         );
 #ifdef Q_OS_WIN
         miacode::oplog::appendStartupBeaconLine("phase=after_first_runtime_log_append");
@@ -506,8 +425,11 @@ int main(int argc, char* argv[])
 #ifdef Q_OS_WIN
     miacode::oplog::appendStartupBeaconLine("phase=before_qapplication_construct");
 #endif
-    QApplication app(argc, argv);
+    QGuiApplication app(argc, argv);
     miacode::hang_watchdog::installGuiHeartbeat(&app);
+    const auto shutdownGuiHeartbeat = qScopeGuard([]() {
+        miacode::hang_watchdog::shutdownGuiHeartbeat();
+    });
     miacode::diag::installPeriodicProcessResourceGauge(&app);
 #ifdef Q_OS_WIN
     miacode::oplog::appendStartupBeaconLine("phase=after_qapplication_construct");
@@ -590,9 +512,8 @@ int main(int argc, char* argv[])
         miacode::debug_log::appendLine(
             miacode::debug_log::Channel::Runtime,
             QStringLiteral("startup/qt_config"),
-            QString("graphics_api=%1 dont_create_native_widget_siblings=%2 cli_export=%3 cli_export_worker=%4")
+            QString("graphics_api=%1 cli_export=%2 cli_export_worker=%3")
                 .arg(forceOpenGlGraphicsApi ? appliedGraphicsBackend : QStringLiteral("PlatformDefault"))
-                .arg(QApplication::testAttribute(Qt::AA_DontCreateNativeWidgetSiblings) ? 1 : 0)
                 .arg(cliVideoExportRequested ? 1 : 0)
                 .arg(cliVideoExportWorkerRequested ? 1 : 0)
         );
@@ -610,67 +531,51 @@ int main(int argc, char* argv[])
 #endif
     app.setApplicationName("MiaCode");
     app.setApplicationVersion(MIACODE_DISPLAY_VERSION_STRING);
-    // First-run detection. The preferences file is auto-created the first
-    // time a UiText/UiTheme preference is read (the UiTheme::applyApplicationTheme
-    // call just below is the first such read), so we must probe its existence
-    // *here* — after the application name is set (AppConfigLocation depends on
-    // it) but before anything reads a preference. "No preferences on this
-    // machine" == show the welcome / initial-config dialog. The --welcome flag
-    // force-shows it for debugging even when preferences already exist.
-    const bool miacodePreferencesExistedAtStartup = QFile::exists(UiText::preferencesFilePath());
-    // A preferences-schema bump (UiText kPreferencesSchema) intentionally
-    // re-runs onboarding: an existing user whose stored preferences predate the
-    // current schema gets the welcome dialog once more so new first-run choices
-    // (e.g. the Chinese-input mode) are surfaced and re-saved under the new
-    // schema. Probe the RAW on-disk schema HERE — storedPreferencesSchema()
-    // does not normalize, and this must run before applyApplicationTheme() below
-    // auto-creates/rewrites the file with the current schema.
-    const bool miacodePreferencesSchemaOutdated =
-        UiText::storedPreferencesSchema() != UiText::currentPreferencesSchema();
-    const bool shouldShowWelcomeDialog =
-        !miacodePreferencesExistedAtStartup
-        || miacodePreferencesSchemaOutdated
-        || wantsWelcomeDialog(rawArgs);
     const QIcon appIcon = applicationWindowIcon();
 #ifndef Q_OS_MACOS
     app.setWindowIcon(appIcon);
 #endif
-    app.setStyle(QStyleFactory::create("Fusion"));
-    UiTheme::applyApplicationTheme(app);
-    // Keep the tooltip fade effect, but disable the slide/scroll animation (on
-    // Windows these mirror the OS tooltip fade/animate effects).
-    QApplication::setEffectEnabled(Qt::UI_FadeTooltip, true);
-    QApplication::setEffectEnabled(Qt::UI_AnimateTooltip, false);
-    logStartupStage("app_style_ready");
+    logStartupStage("gui_application_ready");
 
     {
         QStringList cjkUiFamilies;
-        const QString uiLanguageToken = UiText::resolvedLanguageToken();
+        const QString uiLanguageToken = PreferenceDocument::resolvedLanguageToken();
         if (uiLanguageToken.startsWith(QStringLiteral("zh"))) {
             cjkUiFamilies = QStringList{"Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC"};
         } else if (uiLanguageToken.startsWith(QStringLiteral("ja"))) {
             cjkUiFamilies = QStringList{"Yu Gothic UI", "Meiryo UI", "Meiryo", "Noto Sans CJK JP"};
         }
         if (!cjkUiFamilies.isEmpty()) {
+            const QStringList availableUiFamilies = QFontDatabase::families();
             QFont cjkUiFont;
+            bool matched = false;
             for (const QString& family : cjkUiFamilies) {
-                cjkUiFont.setFamily(family);
-                if (cjkUiFont.family().compare(family, Qt::CaseInsensitive) == 0) {
+                if (availableUiFamilies.contains(family, Qt::CaseInsensitive)) {
+                    cjkUiFont.setFamily(family);
+                    matched = true;
                     break;
                 }
             }
-            cjkUiFont.setStyleStrategy(QFont::PreferAntialias);
-            cjkUiFont.setHintingPreference(QFont::PreferNoHinting);
-            app.setFont(cjkUiFont);
+            if (matched) {
+                cjkUiFont.setStyleStrategy(QFont::PreferAntialias);
+                cjkUiFont.setHintingPreference(QFont::PreferNoHinting);
+                app.setFont(cjkUiFont);
+            }
         }
     }
     logStartupStage("ui_font_ready");
+
+    miacode::LocaleService::instance().applyResolvedLanguage();
+    const auto clearUiTranslator = qScopeGuard([]() {
+        miacode::LocaleService::instance().clearTranslator();
+    });
+    logStartupStage("ui_locale_ready");
 
     if (cliVideoExportWorkerRequested) {
         QString cliError;
         const int exitCode = runCliVideoExportWorker(app, &cliError);
         if (exitCode != 0 && !cliError.trimmed().isEmpty()) {
-            QTextStream(stderr) << "Worker error: " << cliError << "\n";
+            QTextStream(stderr) << qtTrId("cli.worker_error").arg(cliError) << "\n";
         }
         return exitCode;
     }
@@ -679,7 +584,7 @@ int main(int argc, char* argv[])
         QString cliError;
         const int exitCode = runCliVideoExport(app, &cliError);
         if (exitCode != 0 && !cliError.trimmed().isEmpty()) {
-            QTextStream(stderr) << "CLI argument error: " << cliError << "\n";
+            QTextStream(stderr) << qtTrId("cli.argument_error").arg(cliError) << "\n";
         }
         return exitCode;
     }
@@ -689,11 +594,8 @@ int main(int argc, char* argv[])
     // charts through the same MainWindow code paths).
     miacode::crash_recovery::setSessionMarkerEnabled(true);
 
-    // Auto-theme native title bars of every QWidget top-level (dialogs,
-    // message boxes) as they show, including tools-layer dialogs that can't
-    // reach MainWindow::WindowSection. QML root windows are themed by
-    // QuickShellBootstrap. GUI-only: CLI runs above never show windows.
-    UiNativeWindowTheme::installAutoApplyFilter();
+    // Install timeline language and encoder probe cache adapters.
+    miacode::runtime::installPreferenceDocumentProvider();
 
     QQuickStyle::setStyle(QStringLiteral("Basic"));
 
@@ -711,10 +613,8 @@ int main(int argc, char* argv[])
         postLastWindowClosedElapsed.restart();
         appendAppShutdownRuntimeLog(
             QStringLiteral("last_window_closed"),
-            QStringLiteral("quit_on_last_window_closed=%1 top_level_widgets=%2 widgets={%3} top_level_windows=%4 windows={%5}")
+            QStringLiteral("quit_on_last_window_closed=%1 top_level_windows=%2 windows={%3}")
                 .arg(app.quitOnLastWindowClosed() ? 1 : 0)
-                .arg(QApplication::topLevelWidgets().size())
-                .arg(summarizeTopLevelWidgets())
                 .arg(QGuiApplication::topLevelWindows().size())
                 .arg(summarizeTopLevelWindows())
         );
@@ -728,12 +628,10 @@ int main(int argc, char* argv[])
         const qint64 elapsedMs = postLastWindowClosedElapsed.isValid() ? postLastWindowClosedElapsed.elapsed() : -1;
         appendAppShutdownRuntimeLog(
             QStringLiteral("last_window_closed_heartbeat"),
-            QStringLiteral("count=%1 elapsed_ms=%2 closing_down=%3 top_level_widgets=%4 widgets={%5} top_level_windows=%6 windows={%7}")
+            QStringLiteral("count=%1 elapsed_ms=%2 closing_down=%3 top_level_windows=%4 windows={%5}")
                 .arg(shutdownHeartbeatCount)
                 .arg(elapsedMs)
                 .arg(QCoreApplication::closingDown() ? 1 : 0)
-                .arg(QApplication::topLevelWidgets().size())
-                .arg(summarizeTopLevelWidgets())
                 .arg(QGuiApplication::topLevelWindows().size())
                 .arg(summarizeTopLevelWindows())
         );
@@ -742,10 +640,8 @@ int main(int argc, char* argv[])
         shutdownHeartbeatTimer.stop();
         appendAppShutdownRuntimeLog(
             QStringLiteral("about_to_quit"),
-            QStringLiteral("after_last_window_closed_ms=%1 top_level_widgets=%2 widgets={%3} top_level_windows=%4 windows={%5}")
+            QStringLiteral("after_last_window_closed_ms=%1 top_level_windows=%2 windows={%3}")
                 .arg(postLastWindowClosedElapsed.isValid() ? postLastWindowClosedElapsed.elapsed() : -1)
-                .arg(QApplication::topLevelWidgets().size())
-                .arg(summarizeTopLevelWidgets())
                 .arg(QGuiApplication::topLevelWindows().size())
                 .arg(summarizeTopLevelWindows())
         );
@@ -755,32 +651,34 @@ int main(int argc, char* argv[])
     QElapsedTimer postExecObjectTeardownElapsed;
     {
 #ifdef Q_OS_WIN
-        miacode::oplog::appendStartupBeaconLine("phase=before_quick_shell_bootstrap_start");
+        miacode::oplog::appendStartupBeaconLine("phase=before_qml_ui_bootstrap_start");
 #endif
-        QuickShellBootstrap quickShellBootstrap(appIcon);
-        quickShellBootstrap.setShowWelcomeDialogOnStartup(shouldShowWelcomeDialog);
-        if (!quickShellBootstrap.start(startupOpenTarget)) {
+        // Scope the bootstrap so it is destroyed before the teardown timing below.
+        {
+            miacode::ui::Bootstrap uiBootstrap(appIcon);
+            if (!uiBootstrap.start(startupOpenTarget)) {
 #ifdef Q_OS_WIN
-            miacode::oplog::appendStartupBeaconLine("phase=quick_shell_bootstrap_failed");
+                miacode::oplog::appendStartupBeaconLine("phase=qml_ui_bootstrap_failed");
 #endif
-            QTextStream(stderr) << "Failed to start Quick Shell Beta.\n";
-            return 1;
+                QTextStream(stderr) << qtTrId("startup.qml_failed") << "\n";
+                return 1;
+            }
+            logStartupStage("qml_ui_bootstrap_started");
+#ifdef Q_OS_WIN
+            miacode::oplog::appendStartupBeaconLine("phase=qml_ui_bootstrap_started");
+#endif
+            QTimer::singleShot(0, &app, [&logStartupStage]() {
+                logStartupStage("event_loop_first_tick");
+#ifdef Q_OS_WIN
+                miacode::oplog::appendStartupBeaconLine("phase=event_loop_first_tick");
+#endif
+            });
+            appExecElapsed.start();
+#ifdef Q_OS_WIN
+            miacode::oplog::appendStartupBeaconLine("phase=entering_event_loop");
+#endif
+            exitCode = app.exec();
         }
-        logStartupStage("quick_shell_bootstrap_started");
-#ifdef Q_OS_WIN
-        miacode::oplog::appendStartupBeaconLine("phase=quick_shell_bootstrap_started");
-#endif
-        QTimer::singleShot(0, &app, [&logStartupStage]() {
-            logStartupStage("event_loop_first_tick");
-#ifdef Q_OS_WIN
-            miacode::oplog::appendStartupBeaconLine("phase=event_loop_first_tick");
-#endif
-        });
-        appExecElapsed.start();
-#ifdef Q_OS_WIN
-        miacode::oplog::appendStartupBeaconLine("phase=entering_event_loop");
-#endif
-        exitCode = app.exec();
         miacode::debug_log::appendTimingLine(
             miacode::debug_log::Channel::Runtime,
             QStringLiteral("app_shutdown"),
@@ -797,12 +695,12 @@ int main(int argc, char* argv[])
         QStringLiteral("app_shutdown"),
         QStringLiteral("post_exec_object_teardown"),
         postExecObjectTeardownElapsed.isValid() ? postExecObjectTeardownElapsed.elapsed() : -1,
-        QStringLiteral("top_level_widgets=%1 top_level_windows=%2")
-            .arg(QApplication::topLevelWidgets().size())
+        QStringLiteral("top_level_windows=%1")
             .arg(QGuiApplication::topLevelWindows().size())
     );
     // Permanently shut down the async log writer last so any teardown logs above are
     // drained to disk and the worker thread is joined before the process exits.
+    miacode::hang_watchdog::shutdownGuiHeartbeat();
     miacode::debug_log::shutdownAsyncLogWriter();
     return exitCode;
 }

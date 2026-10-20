@@ -31,7 +31,7 @@ EndOfMediaFacts facts(double duration, double decoded, double interval, double e
     return value;
 }
 
-// The 0.333 s pv.mp4 from docs/audit/PREVIEW_AUTO_PAUSE_INITIAL_DIAGNOSIS_ZH.md.
+// A 0.333 s background-video sample.
 // A legitimately tiny PV must stay NATURAL: it keeps its last frame and never
 // gets reloaded, no matter how much of the chart is left to play.
 bool testShortPvIsNatural(QTextStream& err)

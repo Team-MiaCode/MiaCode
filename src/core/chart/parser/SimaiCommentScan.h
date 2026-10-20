@@ -7,7 +7,7 @@ namespace miacode::simai {
 
 // A simai `||` comment runs from the marker to the end of ITS LINE. The chart
 // and timeline parsers express that by `break`ing out of their per-line scan
-// (SimaiNativeParser.Driver.cpp / TimelineQuickModelParser.cpp); code that
+// (SimaiParser.Driver.cpp / TimelineQuickModelParser.cpp); code that
 // walks raw chart text as one flat string has no per-line loop to break out of,
 // so it uses these helpers instead of re-deriving the rule.
 

@@ -1,0 +1,144 @@
+import QtQuick
+import MiaCode.UI
+
+Item {
+    id: root
+
+    required property var viewState
+    required property var documentSession
+    required property var preferences
+    required property var commands
+    required property var pages
+    property bool compact: false
+    readonly property bool efficientMode: preferences.efficientSidebarEnabled
+    readonly property bool primarySidebarVisible: compact || viewState.sidebarVisible
+    readonly property Item navigationItem: efficientMode ? efficientSidebar : activityBar
+    readonly property Item chartSidebarItem: efficientMode
+        ? efficientSidebar.navigationContentItem : chartSidebar.navigationContentItem
+    readonly property real activityBarWidth: activityBar.width
+    readonly property Item cornerSourceItem: efficientMode ? efficientSidebar.cornerSourceItem
+        : root.viewState.activeSidebarView === "export"
+        ? exportSidebar.cornerSourceItem : chartSidebar.cornerSourceItem
+
+    signal settingsRequested()
+    signal mediaToolRequested(string toolId)
+
+    function showMediaToolsMenu() {
+        if (root.efficientMode) {
+            root.viewState.sidebarVisible = true
+            root.preferences.sidebarVisible = true
+            Qt.callLater(efficientSidebar.showTools)
+        } else {
+            activityBar.showMediaToolsMenu()
+        }
+    }
+
+    clip: true
+
+    // Activity Bar 只负责功能域导航。再次选择当前功能时，桌面端切换
+    // Primary Sidebar；紧凑布局直接关闭当前覆盖层。
+    function activateView(viewId) {
+        const pageAlreadyActive = viewId === "export"
+            ? root.pages.activePageId === "export"
+            : !root.pages.overlayActive
+        if (viewState.activeSidebarView === viewId && pageAlreadyActive) {
+            if (compact) {
+                viewState.compactPanel = ""
+                return
+            }
+            viewState.sidebarVisible = !viewState.sidebarVisible
+            root.preferences.sidebarVisible = viewState.sidebarVisible
+            return
+        }
+
+        if (viewId === "chart" && root.pages.overlayActive)
+            root.pages.leaveOverlayPage()
+
+        viewState.activeSidebarView = viewId
+        if (!viewState.sidebarVisible) {
+            viewState.sidebarVisible = true
+            root.preferences.sidebarVisible = true
+        }
+
+        if (viewId === "export" && root.documentSession.hasDocument) {
+            root.pages.rememberEditorReturnTarget(root.viewState.activeEditorKey)
+            root.pages.openVideoExportPage()
+        }
+    }
+
+    ActivityBar {
+        netEnabled: root.pages.netEnabled
+        id: activityBar
+        visible: !root.efficientMode
+        width: root.efficientMode ? 0 : implicitWidth
+        color: root.compact ? "transparent" : Theme.chromeSurfaceColor(Theme.colors.background.activityBar)
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        activeView: root.viewState.activeSidebarView
+        documentAvailable: root.documentSession.hasDocument
+        toolsAvailable: true
+        chartEditorAvailable: root.documentSession.hasDocument
+            && root.documentSession.currentDifficultyId > 0 && !root.pages.overlayActive
+        normalizationEnabled: root.pages.activePageId !== "export"
+        onViewRequested: viewId => root.activateView(viewId)
+        onToolRequested: function(toolId) {
+            if (toolId === "net-download" || toolId === "net-upload") {
+                root.pages.openNetPage(toolId)
+                return
+            }
+            if (!root.documentSession.hasDocument)
+                return
+            if (toolId.startsWith("media."))
+                root.mediaToolRequested(toolId.substring(6))
+            else if (toolId === "normalize")
+                root.pages.openNormalizeWholeChart()
+        }
+        onSettingsRequested: root.settingsRequested()
+    }
+
+    Item {
+        id: pageHost
+        anchors.left: activityBar.right
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        visible: root.primarySidebarVisible
+
+        ChartFieldSidebar {
+            id: chartSidebar
+            color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
+            anchors.fill: parent
+            visible: !root.efficientMode && root.viewState.activeSidebarView === "chart"
+            enabled: root.documentSession.hasDocument
+            viewState: root.viewState
+            documentSession: root.documentSession
+            commands: root.commands
+            pages: root.pages
+        }
+
+        EfficientSidebar {
+            id: efficientSidebar
+            anchors.fill: parent
+            visible: root.efficientMode
+            nativeMaterialActive: !root.compact && Theme.nativeMaterialActive
+            color: root.compact ? "transparent" : Theme.chromeSurfaceColor(Theme.colors.background.panel)
+            viewState: root.viewState
+            documentSession: root.documentSession
+            commands: root.commands
+            pages: root.pages
+            toolsMenuActive: activityBar.toolsMenuActive
+            onToolsRequested: activityBar.showMediaToolsMenu(efficientSidebar.toolsItem)
+            onSettingsRequested: root.settingsRequested()
+        }
+
+        ExportSidebarPage {
+            id: exportSidebar
+            color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
+            anchors.fill: parent
+            visible: !root.efficientMode && root.viewState.activeSidebarView === "export"
+            documentAvailable: root.documentSession.hasDocument
+            pages: root.pages
+        }
+    }
+}

@@ -1,7 +1,5 @@
 # 延迟 Slide、头材质与无头 Slide 规则
 
-本文档整理当前仓库中已经落地的最终规则，用作后续 parser / timeline / preview / export / transform 的统一依据。
-
 ## 1. 延迟 Slide
 
 延迟 Slide 用于覆写 slide / wifi 默认的等待时间和滑动时长。
@@ -19,7 +17,6 @@
 - `[等待秒数##滑动秒数]`
 - `[等待秒数##指定BPM#时值:时值]`
 - `[等待秒数##时值:时值]`
-  - 这是保留兼容语法。
   - `##` 左侧显式等待秒数，右侧仍按当前 BPM 解释时值。
 
 约束:
@@ -115,7 +112,7 @@
 
 - `hasHeadStar = false` 表示前置可打头不存在。
 - `headlessImmediate = true` 表示 `!`，`false` 表示 `?`。
-- 无头 slide 会关闭头部 SFX / 头部 judge / 头部 review overlay，这一行为是当前产品约定。
+- 无头 slide 关闭头部 SFX / 头部 judge / 头部 review overlay。
 
 ## 5. 解析与渲染字段
 
@@ -153,16 +150,14 @@ quick timeline 需要同步的 flag:
 - `selectTapNoteGuideImage`
   - 根据材质切换普通 guide / slide guide。
 
-## 6. Transform 保真要求
+## 6. 谱面变换
 
-图表批处理、镜像、旋转、切换 break/ex 时，以下修饰符必须保留:
+谱面批处理、镜像、旋转、切换 break/ex 时保留以下修饰符:
 
 - tap: `$` / `$$`
 - slide-like: `@` / `?` / `!`
 
-允许批处理把修饰符重排成规范顺序，只要语义不变即可。
-
-当前实现的规范顺序:
+批处理按以下顺序排列修饰符:
 
 - tap: `lane + b + x + $/$$ + h + [duration]`
 - slide-like: `lane + head b + head x + @ + ?/! + track/body`

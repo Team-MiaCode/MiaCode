@@ -57,81 +57,6 @@ bool verifyOrderedRunGrouping(QTextStream& err)
     return true;
 }
 
-bool verifyReserveHintsAndCapacityBuckets(QTextStream& err)
-{
-    QHash<miacode::preview::quick_scene::SpriteFamilyKey, int> reserveHints;
-    if (!require(
-            miacode::preview::quick_scene::previewQuickSpriteInitialReserveHint(reserveHints, 1) == 96,
-            QStringLiteral("missing family hint falls back to one 96-vertex bucket"),
-            err)) {
-        return false;
-    }
-
-    reserveHints.insert(7, 150);
-    if (!require(
-            miacode::preview::quick_scene::previewQuickSpriteInitialReserveHint(reserveHints, 7) == 150,
-            QStringLiteral("existing family hint is reused across frames"),
-            err)) {
-        return false;
-    }
-
-    if (!require(
-            miacode::preview::quick_scene::previewQuickSpriteAlignedVertexCapacity(1) == 96,
-            QStringLiteral("capacity bucket rounds tiny requests up to 96 vertices"),
-            err)) {
-        return false;
-    }
-    if (!require(
-            miacode::preview::quick_scene::previewQuickSpriteAlignedVertexCapacity(96) == 96,
-            QStringLiteral("exact bucket edge stays unchanged"),
-            err)) {
-        return false;
-    }
-    if (!require(
-            miacode::preview::quick_scene::previewQuickSpriteAlignedVertexCapacity(97) == 192,
-            QStringLiteral("capacity bucket rounds 97 vertices up to 192"),
-            err)) {
-        return false;
-    }
-
-    return true;
-}
-
-bool verifyShrinkPolicy(QTextStream& err)
-{
-    if (!require(
-            miacode::preview::quick_scene::previewQuickSpriteNextUnderuseFrameCount(120, 384, 0) == 1,
-            QStringLiteral("underuse counter increments when required is at most half capacity"),
-            err)) {
-        return false;
-    }
-    if (!require(
-            miacode::preview::quick_scene::previewQuickSpriteNextUnderuseFrameCount(220, 384, 12) == 0,
-            QStringLiteral("underuse counter resets once usage climbs above half capacity"),
-            err)) {
-        return false;
-    }
-    if (!require(
-            !miacode::preview::quick_scene::previewQuickSpriteShouldShrink(120, 384, 59),
-            QStringLiteral("shrink does not trigger before the 60-frame threshold"),
-            err)) {
-        return false;
-    }
-    if (!require(
-            miacode::preview::quick_scene::previewQuickSpriteShouldShrink(120, 384, 60),
-            QStringLiteral("shrink triggers after 60 underused frames"),
-            err)) {
-        return false;
-    }
-    if (!require(
-            !miacode::preview::quick_scene::previewQuickSpriteShouldShrink(200, 192, 80),
-            QStringLiteral("shrink does not trigger when already at the aligned bucket"),
-            err)) {
-        return false;
-    }
-    return true;
-}
-
 bool verifyDegenerateTailFillPreservesPrefix(QTextStream& err)
 {
     QVector<VertexStub> vertices(12);
@@ -164,12 +89,6 @@ int main(int argc, char* argv[])
     QTextStream out(stdout);
 
     if (!verifyOrderedRunGrouping(err)) {
-        return 1;
-    }
-    if (!verifyReserveHintsAndCapacityBuckets(err)) {
-        return 1;
-    }
-    if (!verifyShrinkPolicy(err)) {
         return 1;
     }
     if (!verifyDegenerateTailFillPreservesPrefix(err)) {

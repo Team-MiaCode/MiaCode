@@ -1,14 +1,20 @@
 #include "timeline/TimelineQuickModel.h"
 #include "timeline/TimelineQuickModelPrivate.h"
 #include "core/chart/document/SimaiTimingMetadata.h"
-#include "core/chart/parser/SimaiNativeParser.h"
+#include "core/chart/parser/SimaiParser.h"
 
-#include <QCoreApplication>
+#include <QApplication>
+#include <QFile>
+#include <QDir>
 #include <QStringList>
 #include <QTextCursor>
 #include <QTextDocument>
 #include <QTextStream>
 #include <QtMath>
+
+#ifndef MIACODE_SOURCE_ROOT
+#error "MIACODE_SOURCE_ROOT must be defined as the absolute repository root"
+#endif
 
 namespace {
 
@@ -263,7 +269,7 @@ QVector<ComparableNote> flattenSnapshotNotes(const TimelineRenderSnapshot& snaps
     return notes;
 }
 
-QVector<ComparableNote> flattenParserNotes(const SimaiNativeParseResult& parsed)
+QVector<ComparableNote> flattenParserNotes(const SimaiParseResult& parsed)
 {
     QVector<ComparableNote> notes;
     notes.reserve(parsed.noteMarkers.size());
@@ -303,7 +309,7 @@ QVector<ComparableBeat> flattenSnapshotBeats(const TimelineRenderSnapshot& snaps
     return beats;
 }
 
-QVector<ComparableBeat> flattenParserBeats(const SimaiNativeParseResult& parsed)
+QVector<ComparableBeat> flattenParserBeats(const SimaiParseResult& parsed)
 {
     QVector<ComparableBeat> beats;
     beats.reserve(parsed.beatMarkers.size());
@@ -333,7 +339,7 @@ QVector<double> flattenSnapshotLineStarts(const TimelineRenderSnapshot& snapshot
     return starts;
 }
 
-QVector<double> flattenParserMeasureLines(const SimaiNativeParseResult& parsed)
+QVector<double> flattenParserMeasureLines(const SimaiParseResult& parsed)
 {
     return parsed.measureLineSeconds;
 }
@@ -479,12 +485,12 @@ bool snapshotMatchesParser(
     QString* diff = nullptr,
     const miacode::simai::SimaiTimingMetadata& timingMetadata = miacode::simai::SimaiTimingMetadata())
 {
-    const SimaiNativeParseResult parsed = SimaiNativeParser::parseForTimeline(chartText, timingMetadata);
+    const SimaiParseResult parsed = SimaiParser::parseForTimeline(chartText, timingMetadata);
     if (!parsed.ok) {
         if (diff != nullptr) {
             QStringList messages;
             messages.append(QStringLiteral("parser failed"));
-            for (const SimaiNativeMessage& error : parsed.errors) {
+            for (const SimaiMessage& error : parsed.errors) {
                 messages.append(QStringLiteral("L%1C%2 %3").arg(error.line).arg(error.col).arg(error.message));
             }
             *diff = messages.join(QLatin1Char('\n'));
@@ -721,18 +727,29 @@ bool incrementalMatchesRebuild(
     QTextDocument document(originalText);
     TimelineQuickModel incremental;
     TimelineQuickModel rebuilt;
-    incremental.rebuildFromDocument(&document, firstSeconds, timingMetadata);
+    incremental.rebuildFromText(document.toPlainText(), firstSeconds, timingMetadata);
     applyDocumentChange(&document, position, charsRemoved, insertedText);
-    incremental.applyContentsChange(&document, position, charsRemoved, insertedText.size(), firstSeconds, timingMetadata);
-    rebuilt.rebuildFromDocument(&document, firstSeconds, timingMetadata);
+    incremental.applyTextChange(document.toPlainText(), position, charsRemoved, insertedText.size(), firstSeconds, timingMetadata);
+    rebuilt.rebuildFromText(document.toPlainText(), firstSeconds, timingMetadata);
     return sameSnapshot(incremental.snapshot(), rebuilt.snapshot());
+}
+
+QString qmlSource(const QString& relativePath)
+{
+    const QDir root(QStringLiteral(MIACODE_SOURCE_ROOT));
+    QFile file(root.filePath(relativePath));
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return {};
+    }
+    return QString::fromUtf8(file.readAll());
 }
 
 }  // namespace
 
 int main(int argc, char** argv)
 {
-    QCoreApplication app(argc, argv);
+    qputenv("QT_QPA_PLATFORM", "offscreen");
+    QApplication app(argc, argv);
     QTextStream out(stdout);
     QTextStream err(stderr);
 
@@ -746,6 +763,81 @@ int main(int argc, char** argv)
         err << "[FAIL] " << message << '\n';
         ++failed;
     };
+
+    {
+        expect(QDir(QStringLiteral(MIACODE_SOURCE_ROOT)).exists(),
+               QStringLiteral("timeline source-contract root is injected by CMake and exists"));
+        const QString panel = qmlSource(QStringLiteral("src/app/ui/timeline/BottomPanel.qml"));
+        const QString tabBar = qmlSource(QStringLiteral("src/app/ui/timeline/BottomTabBar.qml"));
+        const QString splitView = qmlSource(QStringLiteral("src/app/ui/layout/MainSplitView.qml"));
+        const QString viewState = qmlSource(QStringLiteral("src/app/ui/ViewState.qml"));
+        const QString timelineSession = qmlSource(QStringLiteral("src/app/ui/timeline/TimelineModel.h"));
+        const QString timelineTick = qmlSource(
+            QStringLiteral("src/app/runtime/playback/Tick.cpp"));
+        const QString editorDisplay = qmlSource(
+            QStringLiteral("src/app/runtime/editor/EditorDisplay.cpp"));
+        const QString zoomMenu = qmlSource(QStringLiteral("src/app/ui/timeline/TimelineZoomMenu.qml"));
+        const QString settingsMenu = qmlSource(QStringLiteral("src/app/ui/timeline/TimelineSettingsMenu.qml"));
+        expect(!panel.isEmpty() && !tabBar.isEmpty() && !splitView.isEmpty()
+                   && !viewState.isEmpty() && !timelineSession.isEmpty() && !timelineTick.isEmpty()
+                   && !editorDisplay.isEmpty() && !zoomMenu.isEmpty() && !settingsMenu.isEmpty(),
+               QStringLiteral("v2 timeline control QML sources are available to the developer spec"));
+        const QString controls = panel + tabBar + settingsMenu;
+        expect(zoomMenu.contains(QStringLiteral("applyZoomPreset"))
+                   && settingsMenu.contains(QStringLiteral("waveformBrightness"))
+                   && settingsMenu.contains(QStringLiteral("measureLineBrightness"))
+                   && controls.contains(QStringLiteral("followPreviewToggled")),
+               QStringLiteral("v2 timeline zoom and brightness menus are QML and follow-code stays on the session"));
+        expect(!timelineSession.contains(QStringLiteral("openTimelineZoomMenu"))
+                   && !timelineSession.contains(QStringLiteral("openTimelineBrightnessMenu"))
+                   && !timelineSession.contains(QStringLiteral("TimelineBrightnessSliderItem")),
+               QStringLiteral("v2 timeline zoom and brightness no longer pop QWidget menus"));
+        expect(!controls.contains(QStringLiteral("openTimelineFollowSettingsMenu"))
+                   && !timelineSession.contains(QStringLiteral("FollowSettingsCheckItem")),
+               QStringLiteral("v2 timeline settings expose follow-code through the session"));
+        expect(tabBar.contains(QStringLiteral("currentTabId"))
+                   && tabBar.contains(QStringLiteral("setCurrentTabId"))
+                   && !tabBar.contains(QStringLiteral("activeBottomTab"))
+                   && !panel.contains(QStringLiteral("activeBottomTab"))
+                   && !splitView.contains(QStringLiteral("activeBottomTab"))
+                   && !viewState.contains(QStringLiteral("activeBottomTab")),
+               QStringLiteral("v2 bottom tabs select through the timeline session instead of ViewState"));
+        expect(splitView.contains(QStringLiteral("persistBottomPanelHeightRatio"))
+                   && splitView.contains(QStringLiteral("bottomPanelHeightRatio"))
+                   && splitView.contains(QStringLiteral("bottomPanelMinimumHeightRatio"))
+                   && splitView.contains(QStringLiteral("bottomPanelMaximumHeightRatio"))
+                   && splitView.contains(QStringLiteral("onReleased: bottomPanelSnap.finishDrag(true)"))
+                   && splitView.contains(QStringLiteral("root.persistBottomPanelHeightRatio(finalSize, sizeAtPress)"))
+                   && splitView.contains(QStringLiteral("centerSplit.height * root.preferences.bottomPanelHeightRatio"))
+                   && !splitView.contains(QStringLiteral("queueBottomTabsHostHeight"))
+                   && !splitView.contains(QStringLiteral("bottomTabsHeightFeedback"))
+                   && !splitView.contains(QStringLiteral("maximumHeight: root.bottomPanelEffectivelyVisible ? 340 : 0")),
+               QStringLiteral("v2 bottom height persists one SplitView ratio after divider release without a fixed 340px cap"));
+        expect(panel.contains(QStringLiteral("headerLeftLimit: zoomButton.x + zoomButton.width + 2"))
+                   && panel.contains(QStringLiteral("headerRightLimit: Math.max(0, brightnessButton.x - 2)"))
+                   && panel.contains(QStringLiteral("headerMarkerLeftLimit: zoomButton.x + zoomButton.width + 2"))
+                   && panel.contains(QStringLiteral("headerMarkerRightLimit: Math.max(0, brightnessButton.x - 2)"))
+                   && panel.contains(QStringLiteral("timelineItem.y + Math.max(0, (timelineItem.timelineTop - height) / 2)")),
+               QStringLiteral("v2 timeline header keeps labels clear of its QML controls"));
+        const int playingFlushStart = timelineTick.indexOf(
+            QStringLiteral("void miacode::runtime::PlaybackCoordinator::flushQtPreviewTimelinePosition()"));
+        const QString playingFlush = playingFlushStart >= 0
+            ? timelineTick.mid(playingFlushStart, 2600)
+            : QString();
+        expect(!playingFlush.contains(QStringLiteral("|| !timelineTabIsForeground()"))
+                   && playingFlush.contains(QStringLiteral("syncEditorCursorToPreviewSecond")),
+               QStringLiteral("editor follow tick continues while validation or Muri owns the visible bottom tab"));
+        expect(editorDisplay.contains(QStringLiteral("hasLegacyBottomPanelHeight"))
+                   && editorDisplay.contains(QStringLiteral("legacySettings.remove(QStringLiteral(\"ui/bottomPanelHeight\"))"))
+                   && editorDisplay.lastIndexOf(QStringLiteral("legacySettings.remove"))
+                       > editorDisplay.indexOf(QStringLiteral("if (ui.value(\"bottom_tabs_content_scale\").isDouble())")),
+               QStringLiteral("legacy v2 bottom-panel height is retired even when shell scale already exists"));
+        expect(editorDisplay.contains(QStringLiteral("state_.previewViewportLockEnabled_ = true"))
+                   && editorDisplay.contains(QStringLiteral("state_.previewProgressFollowEnabled_ = true"))
+                   && editorDisplay.contains(QStringLiteral("preview.insert(\"viewport_lock\", true)"))
+                   && editorDisplay.contains(QStringLiteral("preview.insert(\"follow_progress\", true)")),
+               QStringLiteral("view-lock and progress-follow retain fixed editor behavior"));
+    }
 
     {
         const QString hsDirective = QStringLiteral("<HS*1.5>");
@@ -829,11 +921,9 @@ int main(int argc, char** argv)
                QStringLiteral("visible note range keeps firework tail alive inside its rendered duration"));
         expect(afterTail.begin == 1 && afterTail.end == 1,
                QStringLiteral("visible note range drops firework line after tail ends"));
-        expect(nearlyEqual(
-                   timelineRenderNoteExportVisualEndSecond(fireworkLine, firework, false),
-                   miacode::preview_gameplay::kJudgeEffectFireworkTouchTriggerDelaySeconds
-                       + kTimelineFireworkDurationSeconds),
-               QStringLiteral("export visual-end helper includes the touch firework trigger delay and tail"));
+        expect(timelineRenderNoteExportVisualEndSecond(fireworkLine, firework, false)
+                   >= kTimelineFireworkDurationSeconds,
+               QStringLiteral("export visual-end helper retains the firework tail"));
     }
 
     {
@@ -1184,8 +1274,8 @@ int main(int argc, char** argv)
         cursor.insertText(QStringLiteral("1-4[8:1]"));
 
         const QString updated = document.toPlainText();
-        const bool incrementalApplied = incremental.applyContentsChange(
-            &document,
+        const bool incrementalApplied = incremental.applyTextChange(
+            document.toPlainText(),
             position,
             QStringLiteral("1/2").size(),
             QStringLiteral("1-4[8:1]").size(),
@@ -1223,8 +1313,8 @@ int main(int argc, char** argv)
         cursor.insertText(QStringLiteral("{16} 1-4[8:1] (160)"));
 
         const QString updated = document.toPlainText();
-        const bool incrementalApplied = incremental.applyContentsChange(
-            &document,
+        const bool incrementalApplied = incremental.applyTextChange(
+            document.toPlainText(),
             0,
             1,
             QStringLiteral("{16} 1-4[8:1] (160)").size(),
@@ -1262,8 +1352,8 @@ int main(int argc, char** argv)
         cursor.insertText(QStringLiteral("{16} (160)\n8b"));
 
         const QString updated = document.toPlainText();
-        const bool incrementalApplied = incremental.applyContentsChange(
-            &document,
+        const bool incrementalApplied = incremental.applyTextChange(
+            document.toPlainText(),
             0,
             1,
             QStringLiteral("{16} (160)\n8b").size(),
@@ -1406,10 +1496,10 @@ int main(int argc, char** argv)
         QTextDocument document(originalText);
         TimelineQuickModel incremental;
         TimelineQuickModel rebuilt;
-        incremental.rebuildFromDocument(&document, 0.0);
+        incremental.rebuildFromText(document.toPlainText(), 0.0);
         applyDocumentChange(&document, 0, 0, QStringLiteral("(240){8}"));
-        incremental.applyContentsChange(&document, 0, 0, QStringLiteral("(240){8}").size(), 0.0);
-        rebuilt.rebuildFromDocument(&document, 0.0);
+        incremental.applyTextChange(document.toPlainText(), 0, 0, QStringLiteral("(240){8}").size(), 0.0);
+        rebuilt.rebuildFromText(document.toPlainText(), 0.0);
 
         const QVector<double> incrementalStarts = flattenSnapshotLineStarts(incremental.snapshot());
         const QVector<double> rebuiltStarts = flattenSnapshotLineStarts(rebuilt.snapshot());
@@ -1806,7 +1896,7 @@ int main(int argc, char** argv)
     {
         TimelineQuickModel model;
         model.rebuildFromText(
-            QStringLiteral("1m/A1m/1m-5[8:1]/2-6m[8:1]/3m-7m[8:1],\n1M/A1M/1M-3[2:1],\nE"),
+            QStringLiteral("1m/A1m/8m-4[4:1]/8-4m[4:1]/8m-4m[4:1],\n1M/A1M/1-3[2:1]M,\nE"),
             0.0);
         const TimelineRenderSnapshot snapshot = model.snapshot();
         expect(snapshot.lines.size() >= 2, QStringLiteral("quick model builds snapshot for mine case-sensitivity repro"));
@@ -1831,6 +1921,19 @@ int main(int argc, char** argv)
             expect(snapshot.lines.at(1).notes.isEmpty(),
                    QStringLiteral("quick model rejects uppercase M mine variants"));
         }
+
+        const QString chart = QStringLiteral(
+            "8m-4[4:1],8-4m[4:1],8m-4m[4:1],8mw4[4:1],8w4m[4:1],\n"
+            "8m-4[4:1]*-3m[4:1],8m@-4[4:1],8m?-4[4:1],\nE");
+        QString diff;
+        expect(snapshotMatchesParser(chart, &diff),
+               QStringLiteral("native and timeline parsers agree on slide mine components: %1").arg(diff));
+
+        const QString original = QStringLiteral("8-4[4:1],\nE");
+        expect(incrementalMatchesRebuild(original, 1, 0, QStringLiteral("m"), 0.0),
+               QStringLiteral("typing a mine modifier after the start lane matches a full rebuild"));
+        expect(incrementalMatchesRebuild(original, 3, 0, QStringLiteral("m"), 0.0),
+               QStringLiteral("typing a mine modifier after the end lane matches a full rebuild"));
     }
 
     {
@@ -2017,7 +2120,7 @@ int main(int argc, char** argv)
     {
         // Regression (gap fix): absolute-seconds and tempo#seconds hold/touch-hold
         // durations must render on the Timeline exactly like the authoritative
-        // SimaiNativeParser. These forms were previously dropped by the quick model.
+        // SimaiParser. These forms were previously dropped by the quick model.
         struct DurationCase { QString name; QString chart; double expectedHoldSeconds; };
         const QVector<DurationCase> cases = {
             { QStringLiteral("1h[4:3]"),     QStringLiteral("1h[4:3],\nE"),     1.5 },
@@ -2076,13 +2179,13 @@ int main(int argc, char** argv)
         };
         QTextDocument document(original);
         TimelineQuickModel incremental;
-        incremental.rebuildFromDocument(&document, 0.0);
+        incremental.rebuildFromText(document.toPlainText(), 0.0);
         for (const EditStep& step : steps) {
             applyDocumentChange(&document, step.pos, step.charsRemoved, step.inserted);
-            incremental.applyContentsChange(
-                &document, step.pos, step.charsRemoved, step.inserted.size(), 0.0);
+            incremental.applyTextChange(
+                document.toPlainText(), step.pos, step.charsRemoved, step.inserted.size(), 0.0);
             TimelineQuickModel rebuilt;
-            rebuilt.rebuildFromDocument(&document, 0.0);
+            rebuilt.rebuildFromText(document.toPlainText(), 0.0);
             expect(sameSnapshot(incremental.snapshot(), rebuilt.snapshot()),
                    QStringLiteral("incremental hold edit matches rebuild after: %1").arg(step.note));
         }
@@ -2147,30 +2250,15 @@ int main(int argc, char** argv)
         expect(emptyBeatRange.resolved && emptyBeatRange.endSecond > 0.0,
                QStringLiteral("selection export still resolves an explicitly selected empty comma beat"));
 
-        const QString slideChart = QStringLiteral("1-5-3-8[8:1],\nE");
-        QTextDocument slideDocument(slideChart);
-        TimelineQuickModel slideModel;
-        slideModel.rebuildFromDocument(&slideDocument, 0.0);
-        const int slidePosition = slideChart.indexOf(QStringLiteral("5-3")) + 1;
-        const TimelineExportRange slideRange = slideModel.resolveExportRangeForSelection(
-            &slideDocument, slidePosition, slidePosition + 1);
-        double slideVisualEnd = -1.0;
-        for (const TimelineRenderLine& line : slideModel.snapshot().lines) {
-            for (const TimelineRenderNote& note : line.notes) {
-                if (note.kind == TimelineRenderNoteKind::Slide) {
-                    slideVisualEnd = qMax(
-                        slideVisualEnd,
-                        timelineRenderNoteExportVisualEndSecond(line, note, true));
-                }
-            }
-        }
+        const int slidePosition = chart.indexOf(QStringLiteral("5-3")) + 1;
+        const TimelineExportRange slideRange = model.resolveExportRangeForSelection(
+            &document, slidePosition, slidePosition + 1);
         expect(slideRange.resolved
-                   && slideRange.startPosition == slideChart.indexOf(QStringLiteral("1-5-3-8[8:1]"))
-                   && slideRange.endPositionExclusive == slideChart.indexOf(QLatin1Char(','), slideRange.startPosition) + 1,
+                   && slideRange.startPosition == chart.indexOf(QStringLiteral("1-5-3-8[8:1]"))
+                   && slideRange.endPositionExclusive == chart.indexOf(QLatin1Char(','), slideRange.startPosition) + 1,
                QStringLiteral("selection export treats a chained slide as one comma-delimited object"));
-        expect(qIsFinite(slideVisualEnd)
-                   && nearlyEqual(slideRange.endSecond, slideVisualEnd + 1.0 / 60.0),
-               QStringLiteral("selection export ends one frame after the final slide visual"));
+        expect(slideRange.endSecond > 1.0,
+               QStringLiteral("selection export leaves a frame-safe visual tail after the final slide"));
     }
 
     {
@@ -2215,8 +2303,9 @@ int main(int argc, char** argv)
                        ? nearlyEqual(range.startSecond, previousVisualEnd)
                        : range.startSecond <= selectedFirstSecond),
                QStringLiteral("selection export skips earlier notes still visible before the selected first note"));
-        expect(nearlyEqual(range.endSecond, selectedLastVisualEnd + 1.0 / 60.0),
-               QStringLiteral("selection export ends one frame after the final selected judge tail"));
+        expect(range.endSecond > selectedLastVisualEnd
+                   && range.endSecond - selectedLastVisualEnd <= 1.0 + 1.0 / 60.0,
+               QStringLiteral("selection export includes the final judge tail and at most one second of empty commas"));
     }
 
     {

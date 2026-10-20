@@ -5,7 +5,7 @@
 #include <QTemporaryDir>
 #include <QTextStream>
 
-#include "tools/video_export/VideoExportEstimateHistory.h"
+#include "export/video_export/VideoExportEstimateHistory.h"
 
 namespace {
 
@@ -38,6 +38,12 @@ bool verifyHistory(QTextStream& err)
         return false;
     }
 
+    ExportEstimateProfile audioOnly = standard;
+    audioOnly.outputMode = VideoExportOutputMode::Wav;
+    if (!require(predictedExportTotalMs(audioOnly, path) < 0,
+                 QStringLiteral("WAV performance is isolated from video performance"), err)) {
+        return false;
+    }
     const qint64 exactEstimate = predictedExportTotalMs(standard, path);
     ExportEstimateProfile twiceAsLong = standard;
     twiceAsLong.durationSeconds = 240.0;

@@ -1,6 +1,6 @@
 #include "core/scene/PreviewSceneGeometry.h"
 
-#include "common/PreviewVideoGeometryConfig.h"
+#include "core/video/PreviewVideoGeometryConfig.h"
 
 namespace {
 

@@ -46,17 +46,24 @@ public:
 
     TimelineQuickModel() = default;
 
-    void clear();
+    // Release backing storage when the owning document closes.
+    void clear(bool releaseStorage = false);
+    bool updateFromText(const QString& text, double firstSeconds,
+        const miacode::simai::SimaiTimingMetadata& timingMetadata);
     bool rebuildFromText(
         const QString& text,
         double firstSeconds,
         const miacode::simai::SimaiTimingMetadata& timingMetadata = miacode::simai::SimaiTimingMetadata());
+    // Convenience overload for callers (and specs) that already hold a
+    // QTextDocument, e.g. to build a model for resolveExportRangeForSelection
+    // without a separate plain-text copy. Equivalent to
+    // rebuildFromText(document->toPlainText(), ...).
     bool rebuildFromDocument(
         const QTextDocument* document,
         double firstSeconds,
         const miacode::simai::SimaiTimingMetadata& timingMetadata = miacode::simai::SimaiTimingMetadata());
-    bool applyContentsChange(
-        const QTextDocument* document,
+    bool applyTextChange(
+        const QString& text,
         int position,
         int charsRemoved,
         int charsAdded,
@@ -69,6 +76,15 @@ public:
     bool resolveTimelineSecondForCursor(int lineNumber, int col, double* second) const;
     TimelineExportRange resolveExportRangeForSelection(
         const QTextDocument* document,
+        int selectionStart,
+        int selectionEnd,
+        double tapFlowSpeed = miacode::preview_gameplay::kPreviewTimingDefaultFlowSpeed,
+        double touchFlowSpeed = miacode::preview_gameplay::kPreviewTimingDefaultFlowSpeed) const;
+    // Text-based overload for callers (e.g. runtime hosts) that already hold
+    // the current plain text and should not construct a QTextDocument just to
+    // reach this resolver. Equivalent to the QTextDocument overload above.
+    TimelineExportRange resolveExportRangeForSelection(
+        const QString& text,
         int selectionStart,
         int selectionEnd,
         double tapFlowSpeed = miacode::preview_gameplay::kPreviewTimingDefaultFlowSpeed,
@@ -146,18 +162,10 @@ private:
         double lastNoteSecond = 0.0;
     };
 
-    bool replaceDocumentTail(
-        const QTextDocument* document,
-        int startLineIndex,
-        double firstSeconds,
-        const miacode::simai::SimaiTimingMetadata& timingMetadata);
     bool rebuildFromLineTexts(
         const QVector<QString>& lines,
         double firstSeconds,
         const miacode::simai::SimaiTimingMetadata& timingMetadata);
-    QVector<QString> collectDocumentLines(const QTextDocument* document) const;
-    QVector<QString> collectDocumentLines(const QTextDocument* document, int startLineIndex, int endLineIndex) const;
-    int lineIndexForDocumentPosition(const QTextDocument* document, int position) const;
     int lineIndexForStoredPosition(int position) const;
     bool parseLine(LineState* lineState, const ParseState& startState);
     void shiftLineTiming(LineState* lineState, double deltaSeconds) const;
@@ -192,6 +200,9 @@ private:
     int nextLineId_ = 1;
     int nextEachGroupId_ = 0;
     QVector<LineState> lines_;
+    QString sourceText_;
+    double firstSeconds_ = 0.0;
+    miacode::simai::SimaiTimingMetadata timingMetadata_;
     TimelineRenderSnapshot snapshot_;
     QVector<AbsoluteCursorAnchor> cursorAnchorsBySecond_;
     QVector<PreviewFollowBinding> previewFollowBindings_;

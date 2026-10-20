@@ -1,7 +1,7 @@
-#include "ProcessDiagnostics.h"
+#include "common/ProcessDiagnostics.h"
 
-#include "DebugLog.h"
-#include "DebugOptions.h"
+#include "common/DebugLog.h"
+#include "common/DebugOptions.h"
 
 #include <QCoreApplication>
 #include <QGuiApplication>

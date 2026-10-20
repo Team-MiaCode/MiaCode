@@ -17,6 +17,24 @@
 // without a widget — see src/tools/editor/SimaiCompletionCatalogSpec.cpp.
 namespace miacode::editor {
 
+enum class CompletionCandidateGroup { Duration, Division };
+
+struct SimaiCompletionConfig {
+    QStringList durations;
+    QStringList divisions;
+    bool operator==(const SimaiCompletionConfig&) const = default;
+};
+
+SimaiCompletionConfig defaultCompletionConfig();
+bool isValidCompletionValue(CompletionCandidateGroup group, const QString& value);
+QString sanitizeCompletionInput(const QString& value);
+QStringList normalizeCompletionValues(CompletionCandidateGroup group, const QStringList& values);
+QStringList squareDurationCandidates(const SimaiCompletionConfig& config);
+QStringList holdDurationCandidates(const SimaiCompletionConfig& config);
+QStringList braceDivisionCandidates(const SimaiCompletionConfig& config);
+QStringList candidatesForOpening(QChar opening, const QString& wholeBpm,
+                                 const QString& chartText, const SimaiCompletionConfig& config);
+
 // True for the three opening glyphs we offer completion for.
 bool isBracketOpening(QChar ch);
 

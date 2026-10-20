@@ -4,7 +4,9 @@
 #include <QTextStream>
 #include <QtMath>
 
-#include "common/PreviewGameplayConfig.h"
+#include "core/video/PreviewGameplayConfig.h"
+#include "core/chart/parser/SimaiParser.h"
+#include "core/chart/model/TimelineMarkerOffset.h"
 #include "core/scene/PreviewActiveMarkerView.h"
 #include "core/scene/PreviewMarkerDrawOrder.h"
 #include "core/scene/PreviewMuriActionLayerState.h"
@@ -90,6 +92,82 @@ bool requireCircleNear(
         && requireNear(actual.radiusX, expected.radiusX, label + QStringLiteral(" radiusX"), err)
         && requireNear(actual.radiusY, expected.radiusY, label + QStringLiteral(" radiusY"), err)
         && require(actual.fillColor == expected.fillColor, label + QStringLiteral(" fillColor"), err);
+}
+
+bool verifyOpeningHeadlessSlideTracks(QTextStream& err)
+{
+    const QString chart = QStringLiteral(
+        "(152)\n"
+        "{8}3?qq5<2[6:4],,,,,,,,,,,,,,,,,,,,,,,,\n"
+        "{16},,,,,\n"
+        "{32}2b/8b,3h[384:1]/7h[384:1],\n"
+        "{16},4,6,5^2[8:1],7,4,6,5b^8[8:1],,,,,5b,,,,\n"
+        "{32}2b/1b,8h[384:1]/3h[384:1],\n"
+        "{16},4,6,5^2[8:1],7,4,6,5b^8[8:1],,,,,5b,,,,\n"
+        "2,3,4,5,8,7,6,5,1,2,3,4,1,8,7,6,\nE");
+    const SimaiParseResult parsed = SimaiParser::parseForTimeline(chart);
+    if (!require(parsed.ok && !parsed.noteMarkers.isEmpty(),
+                 QStringLiteral("screenshot chart parses"), err)) {
+        return false;
+    }
+    const TimelineNoteMarker openingSlide = parsed.noteMarkers.constFirst();
+    if (!require(openingSlide.type == QLatin1String("slide") && !openingSlide.hasHeadStar,
+                 QStringLiteral("screenshot starts with a headless slide"), err)) {
+        return false;
+    }
+    QVector<TimelineNoteMarker> openingMarkers{openingSlide};
+    for (const QString& variant : {QStringLiteral("(152){8}3!qq5<2[6:4],\nE"),
+                                   QStringLiteral("(152){8}3?w7[6:4],\nE")}) {
+        const SimaiParseResult result = SimaiParser::parseForTimeline(variant);
+        if (!require(result.ok && result.noteMarkers.size() == 1,
+                     QStringLiteral("opening headless variant parses: %1").arg(variant), err)) {
+            return false;
+        }
+        openingMarkers.append(result.noteMarkers.constFirst());
+    }
+    for (const TimelineNoteMarker& marker : openingMarkers) {
+        for (double offset : {0.0, -0.1, -0.25}) {
+            PreviewFrameState state;
+            state.sceneContentRevision = 1;
+            state.noteMarkers = miacode::timeline::offset::shiftedNoteMarkers(
+                {marker}, offset, miacode::timeline::offset::NonFiniteHandling::PassThrough);
+            state.skin.slideTrackImage = solidImage(48, 16);
+            state.skin.starImage = solidImage(32, 32);
+            state.skin.wifiImages.fill(solidImage(48, 16), 32);
+            state.muriRenderOptions.showSlideTracks = true;
+            PreviewPreparedSceneCache cache;
+            cache.sync(state);
+            for (RenderMode mode : {RenderMode::Native, RenderMode::EraseByArea, RenderMode::MaimuriDxStyle}) {
+                state.muriRenderOptions.renderMode = mode;
+                cache.sync(state);
+                PreviewLayerWindowCursor cursor;
+                for (double second : {0.0, 0.733, 0.2}) {
+                    state.playheadSeconds = second;
+                    miacode::preview::scene::syncPreviewLayerWindowCursor(cache.slideLikeLayer(), second, &cursor);
+                    const PreviewActiveMarkerView active(state.noteMarkers, cache.slideLikeLayer(), cursor);
+                    const QRectF rect(0.0, 0.0, 720.0, 720.0);
+                    if (!require(!miacode::preview::scene::buildPreviewTrackLayerState(state, active, rect).sprites.isEmpty(),
+                                 QStringLiteral("opening %1 track visible at %2 with offset %3, mode %4")
+                                     .arg(marker.type).arg(second).arg(offset).arg(static_cast<int>(mode)), err)) {
+                        return false;
+                    }
+                    if (!require(!miacode::preview::scene::buildPreviewSlideMotionLayerState(state, active, rect).sprites.isEmpty(),
+                                 QStringLiteral("opening %1 retains its moving star").arg(marker.type), err)) {
+                        return false;
+                    }
+                }
+                state.playheadSeconds = state.noteMarkers.constFirst().endSecond;
+                miacode::preview::scene::syncPreviewLayerWindowCursor(cache.slideLikeLayer(), state.playheadSeconds, &cursor);
+                const PreviewActiveMarkerView ended(state.noteMarkers, cache.slideLikeLayer(), cursor);
+                if (!require(miacode::preview::scene::buildPreviewTrackLayerState(
+                                 state, ended, QRectF(0.0, 0.0, 720.0, 720.0)).sprites.isEmpty(),
+                             QStringLiteral("opening track disappears at its end time"), err)) {
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
 }
 
 bool verifyActiveMarkerViewMatchesCollectMarkers(QTextStream& err)
@@ -537,6 +615,42 @@ bool verifySlideMotionAngleInterpolationUsesShortestArc(QTextStream& err)
     }
 
     return true;
+}
+
+bool verifySlideMotionDrawsStarOfSlideWithoutWait(QTextStream& err)
+{
+    const QRectF playfieldRect(
+        0.0,
+        0.0,
+        miacode::preview::scene::kLogicalCanvasSize,
+        miacode::preview::scene::kLogicalCanvasSize
+    );
+
+    PreviewFrameState state;
+    state.playheadSeconds = 0.5;
+    state.skin.starImage = solidImage(32, 32);
+
+    TimelineNoteMarker marker;
+    marker.type = QStringLiteral("slide");
+    marker.second = 0.0;
+    marker.slideTraceSecond = 0.0;
+    marker.endSecond = 1.0;
+    marker.lane = 1;
+    marker.endLane = 5;
+    marker.slideSegmentShootSeconds = {0.0};
+    marker.slideSegmentDurations = {1.0};
+    marker.slideSegmentPoints = {{QPointF(0.0, 0.0), QPointF(12.0, 0.0)}};
+    marker.slideSegmentAngles = {{0.0, 0.0}};
+    state.noteMarkers.append(marker);
+
+    const PreviewSlideMotionLayerState layerState =
+        miacode::preview::scene::buildPreviewSlideMotionLayerState(
+            state,
+            PreviewActiveMarkerView(state.noteMarkers),
+            playfieldRect
+        );
+    return require(layerState.sprites.size() == 1,
+                   QStringLiteral("a slide without wait still draws its moving star"), err);
 }
 
 bool verifyTrackAndSlideMotionUseTextOrderForSameSecondSlides(QTextStream& err)
@@ -1113,6 +1227,9 @@ int main(int argc, char* argv[])
     QTextStream err(stderr);
     QTextStream out(stdout);
 
+    if (!verifyOpeningHeadlessSlideTracks(err)) {
+        return 1;
+    }
     if (!verifyActiveMarkerViewMatchesCollectMarkers(err)) {
         return 1;
     }
@@ -1129,6 +1246,9 @@ int main(int argc, char* argv[])
         return 1;
     }
     if (!verifySlideMotionAngleInterpolationUsesShortestArc(err)) {
+        return 1;
+    }
+    if (!verifySlideMotionDrawsStarOfSlideWithoutWait(err)) {
         return 1;
     }
     if (!verifyTrackAndSlideMotionUseTextOrderForSameSecondSlides(err)) {

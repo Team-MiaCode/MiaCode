@@ -3,7 +3,8 @@
 #include <QPointF>
 #include <QVector>
 
-#include "timeline/TimelineData.h"
+#include "core/analysis/MuriTypes.h"
+#include "core/chart/model/TimelineData.h"
 
 namespace miacode::preview::scene {
 
@@ -62,6 +63,17 @@ struct PreviewSlideEraseByAreaData {
 
     bool isValid() const { return !segments.isEmpty() && totalArrowCount > 0; }
 };
+
+struct PreviewSlideTrackTrimStart {
+    int segmentIndex = 0;
+    int areaIndex = 0;
+    int localCut = 0;
+};
+
+// segments.size() identifies a fully trimmed track; removedArrowCount is nonnegative.
+PreviewSlideTrackTrimStart findPreviewSlideTrackTrimStart(
+    const QVector<QVector<QVector<QPointF>>>& segments,
+    int removedArrowCount);
 
 PreviewSlideEraseByAreaData buildPreviewSlideEraseByAreaData(const TimelineNoteMarker& marker);
 

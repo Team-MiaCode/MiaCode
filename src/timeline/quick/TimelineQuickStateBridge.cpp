@@ -3,16 +3,17 @@
 #include <algorithm>
 
 #include <QDir>
-#include <QFontDatabase>
 
 #include "common/DebugLog.h"
 #include "common/DebugOptions.h"
 #include "common/InputShortcutGesture.h"
-#include "SimaiNativeParser.h"
-#include "UiText.h"
-#include "common/TimelineThemeConfig.h"
+#include "core/chart/parser/SimaiParser.h"
+#include "common/PreferenceProvider.h"
+#include "timeline/TimelineThemeConfig.h"
 #include "timeline/TimelineSceneStateBuilder.h"
-#include "timeline/TimelineView.h"
+
+#include <QVariant>
+#include <QCoreApplication>
 
 namespace {
 
@@ -42,44 +43,27 @@ int zoomPresetIndexForScale(const QVector<double>& zoomPresets, double scale, in
     return closestIndex;
 }
 
-SimaiNativeValidationLocale timelineUiValidationLocale()
+SimaiValidationLocale timelineUiValidationLocale()
 {
-    const QString token = UiText::resolvedLanguageToken();
+    const QString token = miacode::preferences::resolvedLanguageToken();
     if (token.startsWith(QStringLiteral("zh"))) {
-        return SimaiNativeValidationLocale::Chinese;
+        return SimaiValidationLocale::Chinese;
     }
     if (token.startsWith(QStringLiteral("ja"))) {
-        return SimaiNativeValidationLocale::Japanese;
+        return SimaiValidationLocale::Japanese;
     }
-    return SimaiNativeValidationLocale::English;
+    return SimaiValidationLocale::English;
 }
 
 QString muriAlertLevelText(MuriAlertLevel level)
 {
     switch (level) {
     case MuriAlertLevel::Muri:
-        return UiText::text(QStringLiteral("validation.muri.alert.muri"));
+        return qtTrId("validation.muri.alert.muri");
     case MuriAlertLevel::Warning:
-        return UiText::text(QStringLiteral("validation.muri.alert.warning"));
+        return qtTrId("validation.muri.alert.warning");
     }
-    return UiText::text(QStringLiteral("validation.muri.alert.muri"));
-}
-
-QString muriKindText(MuriKind kind)
-{
-    switch (kind) {
-    case MuriKind::SlideTooFast:
-        return UiText::text(QStringLiteral("validation.muri.kind.slide_too_fast"));
-    case MuriKind::SlideHeadTap:
-        return UiText::text(QStringLiteral("validation.muri.kind.slide_head_tap"));
-    case MuriKind::TapOnSlide:
-        return UiText::text(QStringLiteral("validation.muri.kind.tap_on_slide"));
-    case MuriKind::Overlap:
-        return UiText::text(QStringLiteral("validation.muri.kind.overlap"));
-    case MuriKind::MultiTouch:
-        return UiText::text(QStringLiteral("validation.muri.kind.multi_touch"));
-    }
-    return UiText::text(QStringLiteral("validation.muri.alert.muri"));
+    return qtTrId("validation.muri.alert.muri");
 }
 
 bool usesTriggerSecondPlacement(const MuriDiagnostic& diagnostic)
@@ -123,7 +107,7 @@ QHash<quint64, QVector<miacode::timeline::TimelineMuriMarkerPlacement>> muriMark
 QHash<quint64, QString> muriMarkerTooltipsForReport(const MuriAnalysisReport& report)
 {
     QHash<quint64, QStringList> linesByLocation;
-    const SimaiNativeValidationLocale locale = timelineUiValidationLocale();
+    const SimaiValidationLocale locale = timelineUiValidationLocale();
     for (const MuriDiagnostic& diagnostic : report.diagnostics) {
         const quint64 locationId = timelineRenderLocationId(diagnostic.line, diagnostic.col);
         QString text = QStringLiteral("%1 · %2")
@@ -146,13 +130,12 @@ QHash<quint64, QString> muriMarkerTooltipsForReport(const MuriAnalysisReport& re
 
 }  // namespace
 
-TimelineQuickStateBridge::TimelineQuickStateBridge(QObject* parent)
+TimelineQuickStateBridge::TimelineQuickStateBridge(QObject* parent, const QFont& font)
     : QObject(parent)
     , zoomPresets_(makeTimelineZoomPresets())
 {
-    headerLineNumberFont_ = QFontDatabase::systemFont(QFontDatabase::FixedFont);
-    headerLineNumberFont_.setStyleHint(QFont::Monospace);
-    headerLineNumberFont_.setFixedPitch(true);
+    headerLineNumberFont_ = font;
+    headerLineNumberFont_.setPointSize(11);
 }
 
 void TimelineQuickStateBridge::bumpAllRevisions()
@@ -185,21 +168,6 @@ void TimelineQuickStateBridge::bumpOverlayDynamicRevision()
     ++overlayDynamicRevision_;
 }
 
-void TimelineQuickStateBridge::attachReferenceView(TimelineView* referenceView)
-{
-    if (referenceView_ == referenceView) {
-        return;
-    }
-    if (referenceView_ != nullptr && referenceView_->stateBridge() == this) {
-        referenceView_->setStateBridge(nullptr);
-    }
-    referenceView_ = referenceView;
-    if (referenceView_ != nullptr) {
-        referenceView_->setStateBridge(this);
-    }
-    emit renderStateChanged();
-}
-
 void TimelineQuickStateBridge::clear()
 {
     snapshot_ = TimelineRenderSnapshot();
@@ -223,6 +191,21 @@ void TimelineQuickStateBridge::setTimelineData(const TimelineRenderSnapshot& sna
     refreshLayoutMetrics();
     bumpAllRevisions();
     emit renderStateChanged();
+}
+
+void TimelineQuickStateBridge::replaceTimelineData(
+    const TimelineRenderSnapshot& snapshot, double second, double durationSeconds)
+{
+    const double restoredSecond = qBound(0.0, second, qMax(0.0, durationSeconds));
+    const bool playheadValueChanged = !qFuzzyCompare(playheadSeconds_ + 1.0, restoredSecond + 1.0);
+    playheadSeconds_ = restoredSecond;
+    cursorSeconds_ = restoredSecond;
+    playbackEntrySeconds_ = restoredSecond;
+    playheadUpperLimitSeconds_ = durationSeconds > 0.0 ? durationSeconds : -1.0;
+    setTimelineData(snapshot);
+    if (playheadValueChanged) {
+        emit playheadChanged(playheadSeconds_);
+    }
 }
 
 const TimelineRenderSnapshot& TimelineQuickStateBridge::renderSnapshot() const
@@ -275,14 +258,6 @@ QHash<quint64, QString> TimelineQuickStateBridge::muriMarkerTooltips() const
     return muriMarkerTooltips_;
 }
 
-void TimelineQuickStateBridge::setHeaderLineNumberFont(const QFont& font)
-{
-    headerLineNumberFont_ = font;
-    ++gridRevision_;
-    bumpHeaderRevision();
-    emit renderStateChanged();
-}
-
 QFont TimelineQuickStateBridge::headerLineNumberFont() const
 {
     return headerLineNumberFont_;
@@ -316,8 +291,13 @@ void TimelineQuickStateBridge::setQuickViewportSize(const QSize& viewportSize)
     }
     quickViewportSize_ = normalized;
     refreshLayoutMetrics();
-    bumpAllRevisions();
+    ++layoutRevision_;
     emit renderStateChanged();
+}
+
+int TimelineQuickStateBridge::timelineTop() const
+{
+    return layoutMetricsValid_ ? layoutMetrics_.timelineTop : 0;
 }
 
 QSize TimelineQuickStateBridge::effectiveViewportSize() const
@@ -337,12 +317,10 @@ void TimelineQuickStateBridge::refreshLayoutMetrics()
     request.skinDirectory = skinDirectory_;
     request.zoomScale = zoomScale();
     request.contentScale = contentScale_;
+    request.fitViewportHeight = true;
     request.waveformBrightness = waveformBrightness_;
     request.measureLineBrightness = measureLineBrightness_;
     request.waveformPhaseCompensationSeconds = waveformPhaseCompensationSeconds_;
-    request.playbackEntrySeconds = playbackEntrySeconds_;
-    request.playheadSeconds = playheadSeconds_;
-    request.cursorSeconds = cursorSeconds_;
     request.playheadUpperLimitSeconds = playheadUpperLimitSeconds_;
     layoutMetrics_ = miacode::timeline::TimelineSceneStateBuilder::layoutMetrics(request);
     layoutMetricsValid_ = true;
@@ -396,6 +374,21 @@ QVector<double> TimelineQuickStateBridge::zoomPresets() const
     return zoomPresets_;
 }
 
+QVariantList TimelineQuickStateBridge::zoomPresetValues() const
+{
+    QVariantList values;
+    values.reserve(zoomPresets_.size());
+    for (double scale : zoomPresets_) {
+        values.append(scale);
+    }
+    return values;
+}
+
+void TimelineQuickStateBridge::applyZoomPreset(double scale)
+{
+    setZoomScaleAnchored(scale, viewportCenterSecond());
+}
+
 QStringList TimelineQuickStateBridge::zoomInWheelShortcuts() const
 {
     return zoomInWheelShortcuts_;
@@ -435,6 +428,11 @@ double TimelineQuickStateBridge::viewportCenterSecond()
                 - static_cast<double>(layoutMetrics_.leadingCenteringPadding)
                 - static_cast<double>(layoutMetrics_.timelineLeft))
                / pixelsPerSecond));
+}
+
+QSize TimelineQuickStateBridge::viewportSize() const
+{
+    return effectiveViewportSize();
 }
 
 double TimelineQuickStateBridge::contentScale() const
@@ -635,7 +633,12 @@ void TimelineQuickStateBridge::setPlayheadUpperLimitSeconds(double second)
     if (!limitChanged && !playheadValueChanged) {
         return;
     }
-    bumpOverlayDynamicRevision();
+    if (limitChanged) {
+        refreshLayoutMetrics();
+        bumpAllRevisions();
+    } else {
+        bumpOverlayDynamicRevision();
+    }
     if (playheadValueChanged) {
         emit playheadChanged(playheadSeconds_);
     }

@@ -1,10 +1,10 @@
 #include "preview/runtime/PreviewSceneAssetLoader.h"
 
-#include "common/AssetPaths.h"
-#include "common/LayoutRingConfig.h"
+#include "core/video/AssetPaths.h"
+#include "core/video/LayoutRingConfig.h"
 #include "common/OperationLog.h"
-#include "common/PreviewGameplayConfig.h"
-#include "common/PreviewSkinConfig.h"
+#include "core/video/PreviewGameplayConfig.h"
+#include "core/video/PreviewSkinConfig.h"
 
 #include <QDir>
 #include <QFileInfo>

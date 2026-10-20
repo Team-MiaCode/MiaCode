@@ -1,6 +1,5 @@
 #include "timeline/TimelineQuickModel.h"
 
-#include <QTextBlock>
 #include <QTextDocument>
 
 #include <algorithm>
@@ -32,22 +31,18 @@ void applyInitialTimingMetadata(
         : kDefaultMeterDenominator;
 }
 
-QString lineTextForBlock(const QTextBlock& block)
-{
-    QString text = block.text();
-    if (text.endsWith(QLatin1Char('\r'))) {
-        text.chop(1);
-    }
-    return text;
-}
-
 }  // namespace
 
-void TimelineQuickModel::clear()
+void TimelineQuickModel::clear(bool releaseStorage)
 {
+    if (releaseStorage) {
+        *this = TimelineQuickModel();
+        return;
+    }
     nextLineId_ = 1;
     nextEachGroupId_ = 0;
     lines_.clear();
+    sourceText_.clear();
     snapshot_.lines.clear();
     snapshot_.measureLineSeconds.clear();
     snapshot_.measureLineMeterNumerators.clear();
@@ -67,16 +62,6 @@ void TimelineQuickModel::clear()
     linesWithNotes_.clear();
 }
 
-bool TimelineQuickModel::replaceDocumentTail(
-    const QTextDocument* document,
-    int startLineIndex,
-    double firstSeconds,
-    const miacode::simai::SimaiTimingMetadata& timingMetadata)
-{
-    Q_UNUSED(startLineIndex);
-    return rebuildFromDocument(document, firstSeconds, timingMetadata);
-}
-
 bool TimelineQuickModel::rebuildFromText(
     const QString& text,
     double firstSeconds,
@@ -86,7 +71,28 @@ bool TimelineQuickModel::rebuildFromText(
     if (lines.isEmpty()) {
         lines.append(QString());
     }
-    return rebuildFromLineTexts(lines, firstSeconds, timingMetadata);
+    const bool rebuilt = rebuildFromLineTexts(lines, firstSeconds, timingMetadata);
+    sourceText_ = text;
+    firstSeconds_ = firstSeconds;
+    timingMetadata_ = timingMetadata;
+    return rebuilt;
+}
+
+bool TimelineQuickModel::updateFromText(const QString& text, double firstSeconds,
+    const miacode::simai::SimaiTimingMetadata& timingMetadata)
+{
+    if (lines_.isEmpty() || firstSeconds_ != firstSeconds || timingMetadata_ != timingMetadata)
+        return rebuildFromText(text, firstSeconds, timingMetadata);
+    if (sourceText_ == text) return false;
+    int begin = 0;
+    const int commonLength = qMin(sourceText_.size(), text.size());
+    while (begin < commonLength && sourceText_[begin] == text[begin]) ++begin;
+    int oldEnd = sourceText_.size(), newEnd = text.size();
+    while (oldEnd > begin && newEnd > begin && sourceText_[oldEnd - 1] == text[newEnd - 1]) {
+        --oldEnd;
+        --newEnd;
+    }
+    return applyTextChange(text, begin, oldEnd - begin, newEnd - begin, firstSeconds, timingMetadata);
 }
 
 bool TimelineQuickModel::rebuildFromDocument(
@@ -94,29 +100,41 @@ bool TimelineQuickModel::rebuildFromDocument(
     double firstSeconds,
     const miacode::simai::SimaiTimingMetadata& timingMetadata)
 {
-    return rebuildFromLineTexts(collectDocumentLines(document), firstSeconds, timingMetadata);
+    if (document == nullptr) {
+        return rebuildFromText(QString(), firstSeconds, timingMetadata);
+    }
+    return rebuildFromText(document->toPlainText(), firstSeconds, timingMetadata);
 }
 
-bool TimelineQuickModel::applyContentsChange(
-    const QTextDocument* document,
+bool TimelineQuickModel::applyTextChange(
+    const QString& text,
     int position,
     int charsRemoved,
     int charsAdded,
     double firstSeconds,
     const miacode::simai::SimaiTimingMetadata& timingMetadata)
 {
-    if (document == nullptr || lines_.isEmpty()) {
-        return rebuildFromDocument(document, firstSeconds, timingMetadata);
+    if (lines_.isEmpty()) {
+        return rebuildFromText(text, firstSeconds, timingMetadata);
+    }
+
+    QVector<QString> currentLines = text.split(QLatin1Char('\n')).toVector();
+    if (currentLines.isEmpty()) {
+        currentLines.append(QString());
     }
 
     const int startLineIndex = lineIndexForStoredPosition(position);
     const int oldEndLineIndex = charsRemoved > 0
         ? lineIndexForStoredPosition(position + charsRemoved)
         : startLineIndex;
+    const int boundedNewEndPosition = qBound(0, position + charsAdded, text.size());
     const int newEndLineIndex = charsAdded > 0
-        ? lineIndexForDocumentPosition(document, position + charsAdded)
+        ? text.left(boundedNewEndPosition).count(QLatin1Char('\n'))
         : startLineIndex;
-    const QVector<QString> replacementLines = collectDocumentLines(document, startLineIndex, newEndLineIndex);
+    const int replacementStart = qBound(0, startLineIndex, currentLines.size() - 1);
+    const int replacementEnd = qBound(replacementStart, newEndLineIndex, currentLines.size() - 1);
+    const QVector<QString> replacementLines = currentLines.mid(
+        replacementStart, replacementEnd - replacementStart + 1);
 
     QVector<LineState> inserted;
     inserted.reserve(replacementLines.size());
@@ -188,6 +206,9 @@ bool TimelineQuickModel::applyContentsChange(
     rebuildAnchorLineIndices();
     rebuildFollowSelectionSpans();
     rebuildSnapshotDuration();
+    sourceText_ = text;
+    firstSeconds_ = firstSeconds;
+    timingMetadata_ = timingMetadata;
     return true;
 }
 
@@ -215,12 +236,25 @@ TimelineExportRange TimelineQuickModel::resolveExportRangeForSelection(
     double tapFlowSpeed,
     double touchFlowSpeed) const
 {
+    if (document == nullptr) {
+        return TimelineExportRange();
+    }
+    return resolveExportRangeForSelection(
+        document->toPlainText(), selectionStart, selectionEnd, tapFlowSpeed, touchFlowSpeed);
+}
+
+TimelineExportRange TimelineQuickModel::resolveExportRangeForSelection(
+    const QString& text,
+    int selectionStart,
+    int selectionEnd,
+    double tapFlowSpeed,
+    double touchFlowSpeed) const
+{
     TimelineExportRange result;
-    if (document == nullptr || selectionEnd <= selectionStart || lines_.isEmpty()) {
+    if (selectionEnd <= selectionStart || lines_.isEmpty()) {
         return result;
     }
 
-    const QString text = document->toPlainText();
     const int textLength = text.size();
     int start = qBound(0, selectionStart, textLength);
     int end = qBound(start, selectionEnd, textLength);
@@ -253,6 +287,7 @@ TimelineExportRange TimelineQuickModel::resolveExportRangeForSelection(
     bool hasSelectedBeat = false;
     double firstVisibleSecond = std::numeric_limits<double>::infinity();
     double previousVisualEndSecond = -std::numeric_limits<double>::infinity();
+    double nextVisibleNoteSecond = std::numeric_limits<double>::infinity();
     constexpr double kSelectionExportFrameGuardSeconds = 1.0 / 60.0;
     const auto approachLeadInSeconds = [](double flowSpeed, bool includeSlideTrack) {
         // Unlike the user-facing flow-speed control, effective preview speed
@@ -318,6 +353,8 @@ TimelineExportRange TimelineQuickModel::resolveExportRangeForSelection(
                     previousVisualEndSecond = qMax(
                         previousVisualEndSecond,
                         timelineRenderNoteBodyEndSecond(line.render, note, false));
+                } else {
+                    nextVisibleNoteSecond = qMin(nextVisibleNoteSecond, noteVisibleStart);
                 }
                 continue;
             }
@@ -358,6 +395,18 @@ TimelineExportRange TimelineQuickModel::resolveExportRangeForSelection(
     // render paths intentionally use an inclusive end comparison, so ending
     // exactly at the reported tail can still leave the last frame visible.
     lastSecond += kSelectionExportFrameGuardSeconds;
+    // Empty comma runs after the selected object are safe to include. They
+    // provide a little PV/effect breathing room, but stop at the next object's
+    // pre-render time and never exceed one second of additional chart time.
+    const double safeCommaTailEnd = lastSecond + 1.0;
+    if (qIsFinite(nextVisibleNoteSecond)) {
+        const double safeNextNoteEnd = nextVisibleNoteSecond - kSelectionExportFrameGuardSeconds;
+        if (safeNextNoteEnd > lastSecond) {
+            lastSecond = qMin(safeCommaTailEnd, safeNextNoteEnd);
+        }
+    } else {
+        lastSecond = safeCommaTailEnd;
+    }
     result.endSecond = qMax(result.startSecond, lastSecond);
     result.resolved = result.endSecond > result.startSecond;
     return result;
@@ -692,50 +741,6 @@ bool TimelineQuickModel::rebuildFromLineTexts(
     rebuildFollowSelectionSpans();
     rebuildSnapshotDuration();
     return true;
-}
-
-QVector<QString> TimelineQuickModel::collectDocumentLines(const QTextDocument* document) const
-{
-    if (document == nullptr) {
-        return {QString()};
-    }
-    return collectDocumentLines(document, 0, qMax(0, document->blockCount() - 1));
-}
-
-QVector<QString> TimelineQuickModel::collectDocumentLines(
-    const QTextDocument* document,
-    int startLineIndex,
-    int endLineIndex) const
-{
-    QVector<QString> lines;
-    if (document == nullptr) {
-        lines.append(QString());
-        return lines;
-    }
-
-    const int boundedStart = qMax(0, startLineIndex);
-    const int boundedEnd = qMax(boundedStart, endLineIndex);
-    QTextBlock block = document->findBlockByNumber(boundedStart);
-    int currentLine = boundedStart;
-    while (block.isValid() && currentLine <= boundedEnd) {
-        lines.append(lineTextForBlock(block));
-        block = block.next();
-        ++currentLine;
-    }
-    if (lines.isEmpty()) {
-        lines.append(QString());
-    }
-    return lines;
-}
-
-int TimelineQuickModel::lineIndexForDocumentPosition(const QTextDocument* document, int position) const
-{
-    if (document == nullptr) {
-        return 0;
-    }
-    const int boundedPosition = qBound(0, position, document->characterCount());
-    const QTextBlock block = document->findBlock(boundedPosition);
-    return block.isValid() ? qMax(0, block.blockNumber()) : qMax(0, document->blockCount() - 1);
 }
 
 int TimelineQuickModel::lineIndexForStoredPosition(int position) const

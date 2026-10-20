@@ -1,4 +1,4 @@
-#include "ExtensionManifest.h"
+#include "extensions/ExtensionManifest.h"
 
 #include <QCoreApplication>
 #include <QDir>

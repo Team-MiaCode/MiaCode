@@ -1,0 +1,103 @@
+#pragma once
+
+#include <QByteArray>
+#include <QObject>
+#include <QPointer>
+#include <QString>
+#include <QVector>
+
+#include "audio/PreviewAudioSettings.h"
+#include "app/services/LatencyEngine.h"
+#include "core/chart/model/TimelineData.h"
+#include "timeline/TimelineRenderData.h"
+
+class Session;
+
+namespace miacode::latency {
+
+// Drives the latency-detection page's "sandbox audition".
+//
+// Design (per the page's intended behavior): the latency page plays exactly
+// like a difficulty's chart page — the ONLY differences are that the chart is a
+// synthesized test chart (`(BPM){n}1,1,1,...`), it is not editable, and it is
+// not shown in an editor. To get that parity, this controller does NOT run its
+// own playback loop. Instead it:
+//   * installs the test chart as the preview source (note markers + bottom
+//     timeline + SFX timeline + "snapshot ready" flags) — the same state a
+//     slow-refresh produces for a real difficulty;
+//   * marks `latencySandboxAuditionActive_` so the playback gates treat it as a
+//     previewable chart (see TimelineSection::hasPreviewableChart);
+// The shared playback controls drive the preview, timeline, SFX and song audio.
+//   * restores the previous chart's preview state on exit.
+//
+// Lives as a member of Session (a friend), so it can reuse Session's
+// preview/timeline/transport helpers directly.
+class LatencySandboxController : public QObject, public miacode::LatencyEngine
+{
+    Q_OBJECT
+
+public:
+    explicit LatencySandboxController(Session* owner, QObject* parent = nullptr);
+    ~LatencySandboxController() override;
+
+    double documentWholeBpm() const override;
+    double documentOffsetSeconds() const override;
+    int documentClockCount() const override;
+    quint64 documentOpenGeneration() const override;
+    QString trackPath() const override;
+    void applyDetectorBpm(double bpm) override;
+    void applyDetectorOffset(double seconds) override;
+    void applyDetectorClockCount(int clockCount) override;
+    LatencySandboxController* sandbox() const override;
+    void exitSandboxIfActive() override;
+
+    // Whether the user currently has the latency page selected. Set by the
+    // page's enter/exit hooks; installs/restores the test-chart preview source.
+    bool isOnPage() const { return onPage_; }
+    void setOnPage(bool onPage);
+
+    double bpm() const { return bpm_; }
+    double offsetSeconds() const { return offsetSeconds_; }
+    int subdivision() const { return subdivision_; }
+    int sfxVolumePercent() const { return sfxVolumePercent_; }
+
+    // Parameters that drive synthesis. While on the page (and not actively
+    // playing) these rebuild the installed test chart.
+    void setBpm(double bpm);
+    void setOffsetSeconds(double seconds);
+    void setSubdivision(int subdivision);  // 4, 8 or 16; other values clamped to 4
+    void setSfxVolumePercent(int percent);
+
+    // Stop any in-progress audition playback (used on file-path change). Only
+    // acts while on the latency page; never touches normal-difficulty playback.
+    void exitIfActive();
+
+signals:
+    void parametersChanged();
+
+private:
+    void installSandboxScene();    // cache real chart, install the test chart
+    void teardownSandboxScene();   // stop playback + restore the real chart
+    void regenerateAndPushIfActive();
+    void applyPlayheadToScene(double seconds);
+    void setupSandboxPreviewState();  // build test chart → preview/timeline/SFX
+    void restoreOriginalTimeline();
+    double resolveAudioDurationSeconds() const;
+
+    QPointer<Session> owner_;
+
+    bool onPage_ = false;
+
+    double bpm_ = 120.0;
+    double offsetSeconds_ = 0.0;
+    int subdivision_ = 4;
+    int sfxVolumePercent_ = 60;
+
+    // Captured-on-enter state, restored when leaving the page.
+    bool hasCachedTimeline_ = false;
+    QVector<TimelineNoteMarker> cachedNoteMarkers_;
+    QByteArray cachedNoteMarkerSignature_;
+    TimelineRenderSnapshot cachedSnapshot_;
+};
+
+}  // namespace miacode::latency

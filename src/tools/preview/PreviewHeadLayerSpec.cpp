@@ -3,18 +3,18 @@
 #include <QRectF>
 #include <QTextStream>
 
-#include "common/PreviewGameplayConfig.h"
+#include "core/video/PreviewGameplayConfig.h"
 #include "core/scene/PreviewActiveMarkerView.h"
+#include "core/scene/PreviewChartReviewLayerState.h"
 #include "core/scene/PreviewHeadLayerState.h"
-#include "core/scene/PreviewJudgeEffectLayerState.h"
 #include "core/scene/PreviewJudgeOverlayShared.h"
+#include "core/scene/PreviewMaimuriDxJudgeLayerState.h"
 #include "core/scene/PreviewOpacityCurves.h"
 #include "core/scene/PreviewPreparedSceneCache.h"
 #include "core/scene/PreviewSceneConstants.h"
 #include "core/scene/PreviewSceneMath.h"
 #include "core/scene/PreviewSkinSelectors.h"
-#include "core/scene/PreviewTouchJudgeLayerState.h"
-#include "core/chart/parser/SimaiNativeParser.h"
+#include "core/chart/parser/SimaiParser.h"
 
 namespace {
 
@@ -163,7 +163,7 @@ QPointF expectedHeadCenterForLane(
 
 bool verifySameHeadBranchesCollapseToFastestRotation(QTextStream& err)
 {
-    const SimaiNativeParseResult parsed = SimaiNativeParser::parseForTimeline(
+    const SimaiParseResult parsed = SimaiParser::parseForTimeline(
         QStringLiteral("(120){8}1-3[8:1]*-4[8:2]*-5[8:3],\nE")
     );
     if (!require(parsed.ok, QStringLiteral("branching slide chart parses"), err)) {
@@ -716,6 +716,46 @@ bool verifyMineSkinCanFallBackToNormalArt(QTextStream& err)
                err);
 }
 
+bool verifySlideMineComponentsSelectIndependentArt(QTextStream& err)
+{
+    using namespace miacode::preview::scene;
+    const QVector<QString> tokens = {
+        QStringLiteral("8m-4[4:1]"),
+        QStringLiteral("8-4m[4:1]"),
+        QStringLiteral("8m-4m[4:1]"),
+    };
+    for (int index = 0; index < tokens.size(); ++index) {
+        const SimaiParseResult parsed = SimaiParser::parseForTimeline(tokens.at(index) + QStringLiteral(",\nE"));
+        if (!require(parsed.ok && parsed.noteMarkers.size() == 1,
+                     QStringLiteral("mine art chart parses: %1").arg(tokens.at(index)), err)) {
+            return false;
+        }
+        PreviewFrameState state;
+        state.noteMarkers = parsed.noteMarkers;
+        state.playheadSeconds = -0.1;
+        state.render.useMineSkin = true;
+        state.skin.starImage = solidImage(70, 70);
+        state.skin.starMineImage = solidImage(71, 71);
+        state.skin.slideTrackImage = solidImage(32, 32);
+        state.skin.slideTrackMineImage = solidImage(33, 33);
+
+        const TimelineNoteMarker& marker = state.noteMarkers.constFirst();
+        const QImage* headImage = index == 1 ? &state.skin.starImage : &state.skin.starMineImage;
+        const QImage* trackImage = index == 0 ? &state.skin.slideTrackImage : &state.skin.slideTrackMineImage;
+        const QImage* movingStarImage = index == 0 ? &state.skin.starImage : &state.skin.starMineImage;
+        const PreviewHeadLayerState heads = buildFallbackHeadLayerState(state);
+        if (!require(heads.sprites.size() == 1 && heads.sprites.constFirst().image == headImage,
+                     QStringLiteral("rendered star uses its own mine modifier: %1").arg(tokens.at(index)), err)
+            || !require(selectSlideTrackImage(state.skin, marker, true) == trackImage,
+                        QStringLiteral("track art uses its own mine modifier: %1").arg(tokens.at(index)), err)
+            || !require(selectSlideMovingStarImage(state.skin, marker, true) == movingStarImage,
+                        QStringLiteral("moving star follows track mine state: %1").arg(tokens.at(index)), err)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool verifyNormalMineModeRestoresExOverlay(QTextStream& err)
 {
     const auto verifyMaterial = [&](bool starMaterial, QTextStream& stream) {
@@ -757,18 +797,19 @@ bool verifyNormalMineModeRestoresExOverlay(QTextStream& err)
 
 bool verifyVerticalStraightSlideCpUsesMirroredSprite(QTextStream& err)
 {
-    const SimaiNativeParseResult parsed = SimaiNativeParser::parseForTimeline(
+    const SimaiParseResult parsed = SimaiParser::parseForTimeline(
         QStringLiteral("(120){4}8-5[4:1],4-1[4:1],\nE")
     );
     if (!require(parsed.ok, QStringLiteral("vertical straight-slide CP chart parses"), err)) {
         return false;
     }
 
-    int checkedSlides = 0;
+    QVector<const TimelineNoteMarker*> slides;
     for (const TimelineNoteMarker& marker : parsed.noteMarkers) {
         if (marker.type != QLatin1String("slide")) {
             continue;
         }
+        slides.append(&marker);
         miacode::preview::scene::PreviewJudgeOverlayPlacement placement;
         bool useRightImage = true;
         if (!require(
@@ -789,67 +830,65 @@ bool verifyVerticalStraightSlideCpUsesMirroredSprite(QTextStream& err)
                 err)) {
             return false;
         }
-        ++checkedSlides;
     }
-    return require(
-        checkedSlides == 2,
-        QStringLiteral("vertical straight-slide CP test checks both 8-5 and 4-1"),
-        err);
-}
+    if (!require(slides.size() == 2,
+                 QStringLiteral("vertical straight-slide CP test checks both 8-5 and 4-1"),
+                 err)) {
+        return false;
+    }
 
-bool verifyJudgeEffectVisibilitySwitch(QTextStream& err)
-{
+    const auto reviewEvents = miacode::preview::scene::buildPreviewChartReviewPreparedEvents(
+        parsed.noteMarkers,
+        true,
+        false,
+        false,
+        false);
+    if (!require(reviewEvents.size() == 2,
+                 QStringLiteral("chart review prepares both vertical straight slides"),
+                 err)
+        || !require(
+            reviewEvents.at(0).kind == miacode::preview::scene::PreviewChartReviewPreparedKind::StraightLeft,
+            QStringLiteral("chart review uses left sprite for 8-5"),
+            err)
+        || !require(
+            reviewEvents.at(1).kind == miacode::preview::scene::PreviewChartReviewPreparedKind::StraightRight,
+            QStringLiteral("chart review uses right sprite for 4-1"),
+            err)) {
+        return false;
+    }
+
     PreviewFrameState state;
+    state.noteMarkers = parsed.noteMarkers;
     state.playheadSeconds = 0.1;
-    state.skin.tapImage = solidImage(64, 64);
-    state.judgeEffect.tapImage = solidImage(128, 128);
+    state.muriRenderOptions.renderMode = RenderMode::MaimuriDxStyle;
+    state.judgeOverlay.fastGood.straightLeftImage = QImage(8, 8, QImage::Format_ARGB32_Premultiplied);
+    state.judgeOverlay.fastGood.straightRightImage = QImage(9, 9, QImage::Format_ARGB32_Premultiplied);
+    state.judgeOverlay.fastGood.straightLeftImage.fill(Qt::white);
+    state.judgeOverlay.fastGood.straightRightImage.fill(Qt::black);
 
-    TimelineNoteMarker marker;
-    marker.type = QStringLiteral("tap");
-    marker.lane = 1;
-    marker.second = 0.0;
-    state.noteMarkers.append(marker);
-
-    const QRectF playfieldRect(0.0, 0.0, 540.0, 540.0);
-    const auto visible = miacode::preview::scene::buildPreviewJudgeEffectLayerState(
+    QVector<MuriJudgeSpriteEvent> activeEvents;
+    for (const TimelineNoteMarker* slide : slides) {
+        MuriJudgeSpriteEvent event;
+        event.kind = MuriJudgeSpriteKind::SlideStraight;
+        event.second = 0.0;
+        event.spawnSecond = 0.0;
+        event.markerKey = makeMarkerAnalysisKey(*slide);
+        activeEvents.append(event);
+    }
+    const auto muriSprites = miacode::preview::scene::buildPreviewMaimuriDxJudgeLayerSprites(
         state,
         miacode::preview::scene::PreviewActiveMarkerView(state.noteMarkers),
-        playfieldRect);
-    if (!require(!visible.sprites.isEmpty(), QStringLiteral("enabled judge effects render sprites"), err)) {
-        return false;
-    }
-
-    PreviewFrameState touchState;
-    touchState.playheadSeconds = 0.1;
-    touchState.skin.touchPointImage = solidImage(64, 64);
-    TimelineNoteMarker touchMarker;
-    touchMarker.type = QStringLiteral("touch");
-    touchMarker.second = 0.0;
-    touchMarker.touchPoint = QPointF(270.0, 180.0);
-    touchState.noteMarkers.append(touchMarker);
-    const auto touchVisible = miacode::preview::scene::buildPreviewTouchJudgeLayerState(
-        touchState,
-        miacode::preview::scene::PreviewActiveMarkerView(touchState.noteMarkers),
-        playfieldRect);
-    if (!require(!touchVisible.sprites.isEmpty(), QStringLiteral("enabled touch judge effects render sparkle sprites"), err)) {
-        return false;
-    }
-
-    state.render.showJudgeEffects = false;
-    const auto hidden = miacode::preview::scene::buildPreviewJudgeEffectLayerState(
-        state,
-        miacode::preview::scene::PreviewActiveMarkerView(state.noteMarkers),
-        playfieldRect);
-    if (!require(hidden.sprites.isEmpty(), QStringLiteral("disabled judge effects render no sprites"), err)) {
-        return false;
-    }
-
-    touchState.render.showJudgeEffects = false;
-    const auto touchHidden = miacode::preview::scene::buildPreviewTouchJudgeLayerState(
-        touchState,
-        miacode::preview::scene::PreviewActiveMarkerView(touchState.noteMarkers),
-        playfieldRect);
-    return require(touchHidden.sprites.isEmpty(), QStringLiteral("disabled touch judge effects render no sparkle sprites"), err);
+        activeEvents,
+        QRectF(0.0, 0.0, 540.0, 540.0));
+    return require(muriSprites.size() == 2,
+                   QStringLiteral("Maimuri DX builds both vertical straight-slide sprites"),
+                   err)
+        && require(muriSprites.at(0).image == &state.judgeOverlay.fastGood.straightLeftImage,
+                   QStringLiteral("Maimuri DX uses left sprite for 8-5"),
+                   err)
+        && require(muriSprites.at(1).image == &state.judgeOverlay.fastGood.straightRightImage,
+                   QStringLiteral("Maimuri DX uses right sprite for 4-1"),
+                   err);
 }
 
 }  // namespace
@@ -890,13 +929,13 @@ int main(int argc, char* argv[])
     if (!verifyMineSkinCanFallBackToNormalArt(err)) {
         return 1;
     }
+    if (!verifySlideMineComponentsSelectIndependentArt(err)) {
+        return 1;
+    }
     if (!verifyNormalMineModeRestoresExOverlay(err)) {
         return 1;
     }
     if (!verifyVerticalStraightSlideCpUsesMirroredSprite(err)) {
-        return 1;
-    }
-    if (!verifyJudgeEffectVisibilitySwitch(err)) {
         return 1;
     }
 

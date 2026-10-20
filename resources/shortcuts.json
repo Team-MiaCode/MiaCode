@@ -4,6 +4,16 @@
     "Action and shortcut entries are read by the app.",
     "Users may copy this file next to MiaCode.exe as shortcuts.json and override action/shortcut sequences without rebuilding."
   ],
+  "editable": [
+    "transform.mirror_lr", "transform.mirror_ud", "transform.rotate_180",
+    "transform.rotate_ccw_45", "transform.rotate_cw_45", "transform.subdivision_up",
+    "transform.subdivision_down", "transform.subdivision_half_up", "transform.subdivision_half_down",
+    "transform.toggle_break", "transform.toggle_ex", "transform.toggle_firework",
+    "transform.random_rotate", "transform.clear_complete_elements", "transform.reset_tap_notes",
+    "preview.stop_or_play", "preview.play_pause_global", "preview.speed_down", "preview.speed_up",
+    "preview.pause_display_hold", "timeline.zoom_in", "timeline.zoom_out",
+    "ui.zoom_out", "ui.zoom_in", "ui.zoom_reset", "editor.overwrite_mode"
+  ],
   "actions": {
     "file.quit": {
       "label_key": "shortcut.file.quit",
@@ -121,24 +131,22 @@
       "label_key": "shortcut.transform.clear_complete_elements",
       "label_zh": "一键清空要素",
       "label_en": "Clear Complete Elements",
-      "default": "Ctrl+Q",
       "context": "application",
       "owner": "MainWindow.BootstrapAndMenus"
     },
     "transform.reset_tap_notes": {
       "label_key": "shortcut.transform.reset_tap_notes",
       "label_zh": "重置摆键",
-      "label_en": "Reset to Single Tap",
-      "default": "Ctrl+W",
-      "context": "application",
-      "owner": "MainWindow.BootstrapAndMenus"
+      "label_en": "Reset Tap Notes",
+      "context": "editor",
+      "owner": "QML SourceEditor"
     },
     "preview.stop_or_play": {
       "label_key": "shortcut.preview.stop_or_play",
       "label_zh": "停止或播放预览",
       "label_en": "Stop or Play Preview",
       "default": "Ctrl+Shift+C",
-      "context": "application",
+      "context": "window",
       "owner": "MainWindow.BootstrapAndMenus"
     },
     "preview.play_pause_global": {
@@ -146,7 +154,7 @@
       "label_zh": "播放/暂停预览",
       "label_en": "Play/Pause Preview",
       "default": "Ctrl+Shift+X",
-      "context": "application",
+      "context": "window",
       "owner": "MainWindow.BootstrapAndMenus"
     },
     "preview.speed_down": {
@@ -187,21 +195,29 @@
       "context": "timeline",
       "owner": "TimelineView / TimelineQuickItem"
     },
-    "editor.font_decrease": {
-      "label_key": "shortcut.editor.font_decrease",
-      "label_zh": "编辑器字号减小",
-      "label_en": "Decrease Editor Font",
+    "ui.zoom_out": {
+      "label_key": "shortcut.ui.zoom_out",
+      "label_zh": "缩小界面",
+      "label_en": "Zoom Out Interface",
       "default": "Ctrl+Alt+-",
       "context": "window",
-      "owner": "MainWindow.FrameBootstrapFinalize"
+      "owner": "QML UiScaleShortcuts"
     },
-    "editor.font_increase": {
-      "label_key": "shortcut.editor.font_increase",
-      "label_zh": "编辑器字号增大",
-      "label_en": "Increase Editor Font",
+    "ui.zoom_in": {
+      "label_key": "shortcut.ui.zoom_in",
+      "label_zh": "放大界面",
+      "label_en": "Zoom In Interface",
       "default": "Ctrl+Alt+=",
       "context": "window",
-      "owner": "MainWindow.FrameBootstrapFinalize"
+      "owner": "QML UiScaleShortcuts"
+    },
+    "ui.zoom_reset": {
+      "label_key": "shortcut.ui.zoom_reset",
+      "label_zh": "重置界面缩放",
+      "label_en": "Reset Interface Zoom",
+      "default": "Ctrl+Alt+0",
+      "context": "window",
+      "owner": "QML UiScaleShortcuts"
     },
     "editor.overwrite_mode": {
       "label_key": "shortcut.editor.overwrite_mode",

@@ -5,9 +5,10 @@
 #include <QtMath>
 
 #include <algorithm>
+#include <tuple>
 
-#include "common/PreviewSkinConfig.h"
-#include "common/TimelineThemeConfig.h"
+#include "core/video/PreviewSkinConfig.h"
+#include "timeline/TimelineThemeConfig.h"
 #include "timeline/TimelineNoteAssets.h"
 
 namespace {
@@ -26,15 +27,14 @@ using miacode::timeline::TimelineThemeColors;
 
 constexpr int kPlayableLaneCount = 8;
 constexpr int kLaneCount = kPlayableLaneCount + 1;
-constexpr int kHeaderHeight = 28;
+constexpr int kHeaderHeight = 36;
 constexpr int kLaneHeight = 20;
-constexpr int kTimelineLeftMargin = 40;
-constexpr int kTimelineTopMargin = 6;
+constexpr double kMinimumContentScale = 0.25;
+constexpr double kMinimumTextScale = 0.5;
+constexpr int kTimelineLeftMargin = 32;
 constexpr int kTimelineRightPadding = 24;
 constexpr int kTimelineHeaderLineLabelMinSpacingPx = 22;
 constexpr int kTimelineHeaderMultiDigitLabelSideGapPx = 2;
-constexpr qreal kTimelineHeaderSingleDigitFontScale = 0.9;
-constexpr qreal kTimelineHeaderMultiDigitBaseFontScale = 0.8;
 constexpr qreal kTimelineTopMarkerTipOffsetPx = 1.0;
 constexpr qreal kTimelinePlaybackEntryMarkerHalfWidthPx = 6.0;
 constexpr qreal kTimelinePlaybackEntryMarkerHeightPx = 8.0;
@@ -47,6 +47,7 @@ constexpr int kNoteSize = 14;
 constexpr int kTimelineMaxRenderedSubdivisionBeats = 32;
 constexpr double kTimelineDisplayLeadInSeconds = 0.5;
 constexpr double kTimelineHeaderLineAnchorToleranceSeconds = 1e-6;
+constexpr double kTimelineGridLineMergeToleranceSeconds = 1e-6;
 // Bar lines + secondary-strong subdivision lines share this thickness so
 // they read as the same hierarchy tier (color sets them apart).
 constexpr qreal kTimelineBeatLineWidth = 1.5;
@@ -95,20 +96,24 @@ const miacode::timeline::TimelineNoteAssetSet& sceneNoteAssets(const TimelineSce
     return cachedAssets.noteIcons.isEmpty() ? fallbackSceneNoteAssets() : cachedAssets;
 }
 
-QFont timelineLaneLabelFont()
+QFont timelineHeaderLabelFont(const QFont& sourceFont)
 {
-    QFont laneLabelFont(QStringLiteral("Consolas"));
-    laneLabelFont.setStyleHint(QFont::Monospace);
-    laneLabelFont.setPointSize(10);
-    laneLabelFont.setWeight(QFont::DemiBold);
-    return laneLabelFont;
+    QFont font(sourceFont);
+    font.setPixelSize(11);
+    return font;
 }
 
-// "Material" scale — caps at 100%. Drives note 素材/markers, lane-label fonts and the
-// header region, so none of them grow when the bottom tab is dragged past 100%.
+// Note assets and markers scale with the grid, up to their native size.
 double normalizedContentScale(double scale)
 {
-    return qBound(0.5, scale, 1.0);
+    return qBound(kMinimumContentScale, scale, 1.0);
+}
+
+QFont timelineLaneLabelFont(const QFont& sourceFont, double contentScale)
+{
+    QFont font(sourceFont);
+    font.setPointSizeF(11.0 * qMax(kMinimumTextScale, normalizedContentScale(contentScale)));
+    return font;
 }
 
 // Raw, uncapped scale used ONLY for the note grid (lane height / timeline height), so the
@@ -118,12 +123,12 @@ constexpr double kMaxContentScale = 4.0;
 
 double gridContentScale(double scale)
 {
-    return qBound(0.5, scale, kMaxContentScale);
+    return qBound(kMinimumContentScale, scale, kMaxContentScale);
 }
 
 double headerContentScale(double scale)
 {
-    const double contentScale = normalizedContentScale(scale);
+    const double contentScale = qMax(kMinimumTextScale, normalizedContentScale(scale));
     return 0.5 + (contentScale * 0.5);
 }
 
@@ -137,20 +142,6 @@ qreal scaledMetric(qreal value, double contentScale)
     return value * static_cast<qreal>(normalizedContentScale(contentScale));
 }
 
-QFont scaledFontForContentScale(const QFont& sourceFont, double contentScale)
-{
-    QFont scaledFont(sourceFont);
-    const qreal scale = static_cast<qreal>(normalizedContentScale(contentScale));
-    if (scaledFont.pointSizeF() > 0.0) {
-        scaledFont.setPointSizeF(qMax(1.0, scaledFont.pointSizeF() * scale));
-    } else if (scaledFont.pointSize() > 0) {
-        scaledFont.setPointSizeF(qMax(1.0, static_cast<qreal>(scaledFont.pointSize()) * scale));
-    } else if (scaledFont.pixelSize() > 0) {
-        scaledFont.setPixelSize(qMax(1, qRound(static_cast<qreal>(scaledFont.pixelSize()) * scale)));
-    }
-    return scaledFont;
-}
-
 QSizeF timelineTextLogicalSize(const QFont& font, const QString& text)
 {
     const QFontMetricsF metrics(font);
@@ -161,15 +152,8 @@ QSizeF timelineTextLogicalSize(const QFont& font, const QString& text)
 
 double maxNavigableSecond(const TimelineSceneBuildRequest& request)
 {
-    double maxSecond = qMax(
-        0.0,
-        qMax(
-            request.snapshot.maximumSecond,
-            qMax(
-                request.snapshot.durationSeconds,
-                qMax(
-                    request.playbackEntrySeconds,
-                    qMax(request.playheadSeconds, qMax(request.cursorSeconds, 0.0))))));
+    // Geometry follows the source extent; transient cursor positions belong to overlays.
+    double maxSecond = qMax(0.0, qMax(request.snapshot.maximumSecond, request.snapshot.durationSeconds));
     if (request.playheadUpperLimitSeconds > 0.0) {
         maxSecond = qMax(maxSecond, request.playheadUpperLimitSeconds);
     }
@@ -309,43 +293,6 @@ bool shouldPaintTimelineBeatMarker(const TimelineRenderBeat& beat)
     return (beat.subdivisionIndex % stride) == 0;
 }
 
-QFont scaledTimelineHeaderFont(const QFont& sourceFont, qreal scale)
-{
-    QFont scaledFont(sourceFont);
-    const qreal clampedScale = qMax(0.1, scale);
-    if (scaledFont.pointSizeF() > 0.0) {
-        scaledFont.setPointSizeF(qMax(1.0, scaledFont.pointSizeF() * clampedScale));
-    } else if (scaledFont.pointSize() > 0) {
-        scaledFont.setPointSizeF(qMax(1.0, static_cast<qreal>(scaledFont.pointSize()) * clampedScale));
-    } else if (scaledFont.pixelSize() > 0) {
-        scaledFont.setPixelSize(qMax(1, qRound(static_cast<qreal>(scaledFont.pixelSize()) * clampedScale)));
-    }
-    return scaledFont;
-}
-
-qreal timelineHeaderLabelScale(const QFont& baseFont, int digitCount)
-{
-    if (digitCount <= 1) {
-        return kTimelineHeaderSingleDigitFontScale;
-    }
-    const qreal multiDigitWidthBudget = qMax<qreal>(
-        8.0,
-        static_cast<qreal>(kTimelineHeaderLineLabelMinSpacingPx - kTimelineHeaderMultiDigitLabelSideGapPx));
-    const QString widthSample(qMax(1, digitCount), QLatin1Char('8'));
-    const qreal widthScale = multiDigitWidthBudget
-        / qMax<qreal>(1.0, static_cast<qreal>(QFontMetricsF(baseFont).horizontalAdvance(widthSample)));
-    return qMin(kTimelineHeaderMultiDigitBaseFontScale, widthScale);
-}
-
-int timelineHeaderLabelHalfWidthPx(const QFont& baseFont, const QString& labelText)
-{
-    if (labelText.isEmpty()) {
-        return 0;
-    }
-    const QFont labelFont = scaledTimelineHeaderFont(baseFont, timelineHeaderLabelScale(baseFont, labelText.size()));
-    return qCeil(QFontMetricsF(labelFont).horizontalAdvance(labelText) * 0.5) + 1;
-}
-
 void appendTrackLine(
     QVector<TimelineSceneLine>* lines,
     const QPointF& start,
@@ -403,17 +350,27 @@ void appendSprite(
 
 TimelineSceneLayoutMetrics buildLayoutMetrics(const TimelineSceneBuildRequest& request)
 {
-    const double contentScale = normalizedContentScale(request.contentScale);
-    // Lane/grid height uses the raw (uncapped) scale so the grid can grow past 100%; the
-    // header and all note 素材/markers keep using the capped contentScale above.
-    const double gridScale = gridContentScale(request.contentScale);
-    const int laneHeight = qMax(1, qRound(static_cast<qreal>(kLaneHeight) * static_cast<qreal>(gridScale)));
+    double contentScale = normalizedContentScale(request.contentScale);
+    if (request.fitViewportHeight) {
+        const double viewportScale =
+            static_cast<double>(request.viewportSize.height() - kHeaderHeight)
+                / (kLaneCount * kLaneHeight);
+        contentScale = qBound(kMinimumContentScale, viewportScale, 1.0);
+    }
     TimelineSceneLayoutMetrics metrics;
     metrics.viewportSize = request.viewportSize;
-    metrics.timelineLeft = scaledMetric(kTimelineLeftMargin, contentScale);
-    metrics.timelineTop = scaledMetric(kHeaderHeight + kTimelineTopMargin, headerContentScale(contentScale));
-    metrics.timelineHeight = kLaneCount * laneHeight;
-    metrics.laneHeight = laneHeight;
+    metrics.timelineLeft = kTimelineLeftMargin;
+    metrics.timelineTop = kHeaderHeight;
+    if (request.fitViewportHeight) {
+        metrics.timelineHeight = qMax<qreal>(
+            0.0,
+            static_cast<qreal>(request.viewportSize.height() - metrics.timelineTop));
+        metrics.laneHeight = metrics.timelineHeight / static_cast<qreal>(kLaneCount);
+    } else {
+        const double gridScale = gridContentScale(request.contentScale);
+        metrics.laneHeight = qMax<qreal>(1.0, static_cast<qreal>(kLaneHeight) * gridScale);
+        metrics.timelineHeight = kLaneCount * metrics.laneHeight;
+    }
     metrics.laneCount = kLaneCount;
     metrics.pixelsPerSecond = pixelsPerSecondForZoom(request.zoomScale);
     metrics.contentScale = contentScale;
@@ -473,6 +430,12 @@ void applyLayoutMetrics(TimelineSceneState* state, const TimelineSceneLayoutMetr
 
 namespace miacode::timeline {
 
+int TimelineSceneStateBuilder::minimumViewportHeight()
+{
+    // 轨道支持紧凑高度，轨道编号按文字所需空间决定显示状态。
+    return kHeaderHeight + qCeil(kLaneCount * kLaneHeight * kMinimumContentScale);
+}
+
 TimelineSceneLayoutMetrics TimelineSceneStateBuilder::layoutMetrics(const TimelineSceneBuildRequest& request)
 {
     return buildLayoutMetrics(request);
@@ -509,6 +472,7 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
     state.visibleEndSecond = xToSecond(state, request.viewportSize.width());
     state.waveformPhaseCompensationSeconds = qMax(0.0, request.waveformPhaseCompensationSeconds);
     state.appearanceRevision = request.appearanceRevision;
+    state.layoutRevision = request.layoutRevision;
     state.gridRevision = request.gridRevision;
     state.waveformRevision = request.waveformRevision;
     state.headerRevision = request.headerRevision;
@@ -553,48 +517,30 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
     };
 
     const TimelineThemeColors theme = timelineThemeColors();
-    const QFont laneLabelFont = scaledFontForContentScale(timelineLaneLabelFont(), state.contentScale);
+    const QFont laneLabelFont = timelineLaneLabelFont(request.headerLineNumberFont, state.contentScale);
+    const QFontMetricsF laneLabelMetrics(laneLabelFont);
+    // Shared digit ink keeps every lane label on one baseline grid.
+    const QRectF laneLabelInkRect = laneLabelMetrics.tightBoundingRect(QStringLiteral("12345678"));
+    const bool showLaneLabels = state.laneHeight >=
+        laneLabelInkRect.height() + 2.0 * kTimelineTextVerticalPadding;
+    // Surface fills cover the full viewport below the header.
+    // Content layers keep their own timeline clips.
+    const qreal backgroundHeight = request.viewportSize.height() - state.timelineTop;
     state.baseBackgroundRects.append(TimelineSceneRect{
-        QRectF(0.0, 0.0, request.viewportSize.width(), request.viewportSize.height()),
-        theme.window,
+        QRectF(0.0, 0.0, request.viewportSize.width(), state.timelineTop),
+        theme.header,
     });
-    {
-        // Phase 9d-native polish — force the header-band fill opaque
-        // so the native-rendered zoom control sits on a solid
-        // background. theme.header inherits a
-        // semi-transparent alpha from the palette which lets
-        // scrolling content leak through the text label area.
-        QColor opaqueHeader = theme.header;
-        opaqueHeader.setAlpha(255);
-        state.baseBackgroundRects.append(TimelineSceneRect{
-            QRectF(0.0, 0.0, request.viewportSize.width(), state.timelineTop),
-            opaqueHeader,
-        });
-    }
-    {
-        // Phase 9a-fix4 — opaque sidebar (matches the frameRect below).
-        QColor opaqueSidebar = theme.sidebar;
-        opaqueSidebar.setAlpha(255);
-        state.baseBackgroundRects.append(TimelineSceneRect{
-            QRectF(0.0, state.timelineTop, state.timelineLeft, state.timelineHeight),
-            opaqueSidebar,
-        });
-    }
     state.baseBackgroundRects.append(TimelineSceneRect{
-        QRectF(state.timelineLeft, state.timelineTop, request.viewportSize.width() - state.timelineLeft, state.timelineHeight),
+        QRectF(0.0, state.timelineTop, state.timelineLeft, backgroundHeight),
+        theme.sidebar,
+    });
+    state.baseBackgroundRects.append(TimelineSceneRect{
+        QRectF(state.timelineLeft, state.timelineTop, request.viewportSize.width() - state.timelineLeft, backgroundHeight),
         theme.base,
     });
-    {
-        // Phase 9a-fix4 — force the sidebar fill to fully opaque alpha
-        // so notes that scroll-translate into viewport-X < timelineLeft
-        // can't bleed through during scroll.
-        QColor opaqueSidebar = theme.sidebar;
-        opaqueSidebar.setAlpha(255);
-        const QRectF sidebarRect(
-            0.0, state.timelineTop - 1.0,
-            state.timelineLeft + 1.0, state.timelineHeight + 2.0);
-        state.frameRects.append(TimelineSceneRect{sidebarRect, opaqueSidebar});
-    }
+    // Outer 1px box (top/left/right/bottom) is omitted: the QML shell already
+    // draws pane edges (SplitHandle, StatusBar). Keeping those strokes here
+    // stacks two 1px lines at every embed seam.
     state.frameLines.append(TimelineSceneLine{
         QPointF(0.0, state.timelineTop - 1.0),
         QPointF(request.viewportSize.width(), state.timelineTop - 1.0),
@@ -607,30 +553,6 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
         theme.axis,
         1.0,
     });
-    state.frameLines.append(TimelineSceneLine{
-        QPointF(0.0, 0.0),
-        QPointF(request.viewportSize.width() - 1.0, 0.0),
-        theme.border,
-        1.0,
-    });
-    state.frameLines.append(TimelineSceneLine{
-        QPointF(0.0, 0.0),
-        QPointF(0.0, state.timelineTop + state.timelineHeight),
-        theme.border,
-        1.0,
-    });
-    state.frameLines.append(TimelineSceneLine{
-        QPointF(request.viewportSize.width() - 1.0, 0.0),
-        QPointF(request.viewportSize.width() - 1.0, state.timelineTop + state.timelineHeight),
-        theme.border,
-        1.0,
-    });
-    state.frameLines.append(TimelineSceneLine{
-        QPointF(0.0, state.timelineTop + state.timelineHeight),
-        QPointF(request.viewportSize.width() - 1.0, state.timelineTop + state.timelineHeight),
-        theme.border,
-        1.0,
-    });
 
     for (int lane = 0; lane < state.laneCount; ++lane) {
         const qreal y = state.timelineTop + lane * state.laneHeight;
@@ -640,25 +562,24 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
             QRectF(state.timelineLeft, y, request.viewportSize.width() - state.timelineLeft, state.laneHeight),
             (lane % 2 == 0) ? theme.laneEven : theme.laneOdd,
         });
+        if (!showLaneLabels) {
+            continue;
+        }
         TimelineSceneTextLabel label;
         label.text = laneLabelForIndex(lane);
+        if (label.text.isEmpty()) {
+            continue;
+        }
+        // Center by advance: digits share one advance width, while per-glyph ink
+        // centering shifts narrow or asymmetric digits such as 1 and 4.
+        const qreal advance = laneLabelMetrics.horizontalAdvance(label.text);
         label.font = laneLabelFont;
         label.color = theme.label;
         label.logicalSize = timelineTextLogicalSize(label.font, label.text);
-        const QFontMetricsF laneMetrics(label.font);
-        const qreal textLeft = scaledMetric(4.0, state.contentScale)
-            + qMax<qreal>(
-                0.0,
-                static_cast<qreal>(state.timelineLeft - scaledMetric(8, state.contentScale))
-                    - laneMetrics.horizontalAdvance(label.text));
-        const qreal textTop = y + scaledMetric(1.0, state.contentScale)
-            + qMax<qreal>(
-                0.0,
-                (static_cast<qreal>(state.laneHeight - scaledMetric(1, state.contentScale))
-                    - laneMetrics.height()) * 0.5);
         label.topLeft = QPointF(
-            textLeft - kTimelineTextHorizontalPadding,
-            textTop - kTimelineTextVerticalPadding);
+            qRound((state.timelineLeft - advance) * 0.5 - kTimelineTextHorizontalPadding),
+            qRound(y + (state.laneHeight - laneLabelInkRect.height()) * 0.5
+                   - laneLabelInkRect.top() - laneLabelMetrics.ascent() - kTimelineTextVerticalPadding));
         state.laneLabels.append(label);
     }
 
@@ -700,11 +621,7 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
                 if (qAbs(column.max - column.min) <= 1e-5f) {
                     continue;
                 }
-                // Hard waveform phase compensation: logs from multiple devices
-                // (60 Hz and 120 Hz) show the authoritative audio clock leading
-                // the timeline-rendered playhead by about one frame. The root
-                // cause is still unclear, so keep this as an explicit rendering
-                // compensation rather than folding it into waveform cache data.
+                // Shift waveform presentation by the host-provided frame interval; cache times stay in audio seconds.
                 const double columnStartSecond =
                     waveformLevel->secondsPerColumn * static_cast<double>(index) - phaseCompensationSeconds;
                 const double columnEndSecond = columnStartSecond + waveformLevel->secondsPerColumn;
@@ -743,10 +660,9 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
         gridCullMinX = scrollX + state.timelineLeft - padding - 2.0;
         gridCullMaxX = scrollX + state.viewportSize.width() + padding + 2.0;
     }
-    const auto addGridLine = [&](double absoluteSecond, const QColor& color, qreal width, bool exactPosition,
+    const auto addGridLine = [&](double absoluteSecond, const QColor& color, qreal width,
                                  qreal heightFraction) {
-        const qreal x = (exactPosition ? secondToXExact(state, absoluteSecond)
-                                       : static_cast<qreal>(secondToSceneX(state, absoluteSecond)));
+        const qreal x = secondToXExact(state, absoluteSecond);
         if (x < gridCullMinX || x > gridCullMaxX) {
             return;
         }
@@ -760,13 +676,16 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
     };
     const QColor measureLineColor = adjustedTimelineMeasureLineColor(
         theme.gridMajor,
-        request.measureLineBrightness);
+        request.measureLineBrightness,
+        theme.base);
     const QColor commaLineColor = adjustedTimelineMeasureLineColor(
         theme.gridMinor,
-        request.measureLineBrightness);
+        request.measureLineBrightness,
+        theme.base);
     const QColor beatLineColor = adjustedTimelineMeasureLineColor(
         theme.gridSubdivision,
-        request.measureLineBrightness);
+        request.measureLineBrightness,
+        theme.base);
 
     TimelineVisibleLineRange beatRange;
     beatRange.begin = 0;
@@ -776,7 +695,7 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
         const TimelineRenderLine& line = request.snapshot.lines.at(lineIndex);
         for (const TimelineRenderBeat& marker : line.beats) {
             if (shouldPaintTimelineBeatMarker(marker)) {
-                addGridLine(timelineRenderAbsoluteSecond(line, marker.secondOffset), commaLineColor, 1.0, true,
+                addGridLine(timelineRenderAbsoluteSecond(line, marker.secondOffset), commaLineColor, 1.0,
                             timelineGridLineHeightFraction(kTimelineGridHeightFractionComma));
             }
         }
@@ -816,13 +735,13 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
             if (!(beatSecond < endSecond - 1e-6)) {
                 break;
             }
-            addGridLine(beatSecond, beatLineColor, kTimelineSubdivisionLineWidth, false,
+            addGridLine(beatSecond, beatLineColor, kTimelineSubdivisionLineWidth,
                         timelineGridLineHeightFraction(kTimelineGridHeightFractionSubdivision));
         }
     };
     for (int measureIndex = 0; measureIndex < request.snapshot.measureLineSeconds.size(); ++measureIndex) {
         const double measureSecond = request.snapshot.measureLineSeconds.at(measureIndex);
-        addGridLine(measureSecond, measureLineColor, kTimelineBeatLineWidth, false,
+        addGridLine(measureSecond, measureLineColor, kTimelineBeatLineWidth,
                     timelineGridLineHeightFraction(kTimelineGridHeightFractionMeasure));
 
         double nextMeasureSecond = std::numeric_limits<double>::infinity();
@@ -862,7 +781,7 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
         const int trailingDenominator = qMax(1, request.snapshot.trailingMeasureLineMeterDenominator);
         for (; extensionSecond <= state.displayEndSeconds + 1.0 + 1e-6;
              extensionSecond += request.snapshot.trailingMeasureLineStepSeconds) {
-            addGridLine(extensionSecond, measureLineColor, kTimelineBeatLineWidth, false,
+            addGridLine(extensionSecond, measureLineColor, kTimelineBeatLineWidth,
                         timelineGridLineHeightFraction(kTimelineGridHeightFractionMeasure));
             emitSubdivisionsForSpan(
                 extensionSecond,
@@ -872,6 +791,37 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
                 request.snapshot.trailingMeasureLineStepSeconds / static_cast<double>(trailingNumerator));
         }
     }
+
+    // Coincident tiers share one stroke across its full height. Drawing a short
+    // tick over a longer line changes opacity and apparent width at the tick's end.
+    std::sort(state.gridLines.begin(), state.gridLines.end(), [](const auto& left, const auto& right) {
+        return left.start.x() < right.start.x();
+    });
+    const qreal gridLineMergeTolerance = state.pixelsPerSecond * kTimelineGridLineMergeToleranceSeconds;
+    const auto gridLineProminence = [](const TimelineSceneLine& line) {
+        return std::make_tuple(line.end.y(), line.width, line.color.alpha());
+    };
+    qsizetype gridLineCount = 0;
+    for (qsizetype index = 0; index < state.gridLines.size(); ++index) {
+        const TimelineSceneLine& line = state.gridLines.at(index);
+        if (gridLineCount > 0
+            && qAbs(line.start.x() - state.gridLines.at(gridLineCount - 1).start.x()) <= gridLineMergeTolerance) {
+            TimelineSceneLine& existing = state.gridLines[gridLineCount - 1];
+            if (gridLineProminence(line) > gridLineProminence(existing)) {
+                existing = line;
+            }
+        } else {
+            state.gridLines[gridLineCount++] = line;
+        }
+    }
+    state.gridLines.resize(gridLineCount);
+    // Keep equal colors together for the QSG grid layer's geometry batches.
+    std::sort(state.gridLines.begin(), state.gridLines.end(), [](const auto& left, const auto& right) {
+        if (left.color.rgba() != right.color.rgba()) {
+            return left.color.rgba() < right.color.rgba();
+        }
+        return left.start.x() < right.start.x();
+    });
 
     QVector<HeaderLineLabel> collapsedHeaderLabels;
     if (!request.snapshot.lines.isEmpty()) {
@@ -891,20 +841,16 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
         }
     }
 
-    const QFont oneDigitFont =
-        scaledTimelineHeaderFont(
-            request.headerLineNumberFont,
-            kTimelineHeaderSingleDigitFontScale * static_cast<qreal>(headerContentScale(state.contentScale)));
-    const QFontMetricsF oneDigitMetrics(oneDigitFont);
+    const QFont headerFont = timelineHeaderLabelFont(request.headerLineNumberFont);
+    const QFontMetricsF headerMetrics(headerFont);
     qreal singleDigitWidth = 0.0;
     for (QChar digit = QLatin1Char('0'); digit <= QLatin1Char('9'); digit = QChar(digit.unicode() + 1)) {
-        singleDigitWidth = qMax(singleDigitWidth, static_cast<qreal>(oneDigitMetrics.horizontalAdvance(digit)));
+        singleDigitWidth = qMax(singleDigitWidth, static_cast<qreal>(headerMetrics.horizontalAdvance(digit)));
     }
     const qreal markerTipY =
         static_cast<qreal>(state.timelineTop)
         - scaledMetric(kTimelineTopMarkerTipOffsetPx, headerContentScale(state.contentScale));
-    const qreal headerTextBottom = (static_cast<qreal>(state.timelineTop - oneDigitMetrics.height()) * 0.5)
-        + oneDigitMetrics.height();
+    const qreal headerTextBottom = (state.timelineTop + headerMetrics.height()) * 0.5;
     const qreal markerHeight = qMin(
         qMax(0.0, markerTipY - headerTextBottom
             - scaledMetric(
@@ -913,37 +859,35 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
         singleDigitWidth * kTimelineHeaderAnchorMarkerLegacyWidthFactor
             * kTimelineHeaderAnchorMarkerLegacyHeightFactor);
     QVector<HeaderLineLabel> headerLabels;
+    qreal lastHeaderLabelRight = 0.0;
     const qreal headerMarkerHalfWidth =
         markerHeight >= 2.0 ? markerHeight * kTimelineTopMarkerHalfWidthPerHeight : 0.0;
     bool hasLastHeaderMarker = false;
     int lastHeaderMarkerX = 0;
-    const qreal headerLabelMinSpacing =
-        scaledMetric(kTimelineHeaderLineLabelMinSpacingPx, headerContentScale(state.contentScale));
+    const qreal headerLabelMinSpacing = kTimelineHeaderLineLabelMinSpacingPx;
     // Header labels and their line-start triangles are static QSG nodes
     // within one horizontal scroll bucket. Emit one viewport of padding
     // on each side so intra-bucket paging only moves the transform; the
     // node trees rebuild at bucket boundaries, not on every scroll tick.
     for (const HeaderLineLabel& label : collapsedHeaderLabels) {
         const QString labelText = QString::number(label.lineNumber);
-        const QFont labelFont = scaledTimelineHeaderFont(
-            request.headerLineNumberFont,
-            timelineHeaderLabelScale(request.headerLineNumberFont, labelText.size())
-                * static_cast<qreal>(headerContentScale(state.contentScale)));
-        const QFontMetricsF labelMetrics(labelFont);
         const qreal labelHalfWidth =
-            (labelMetrics.horizontalAdvance(labelText) * 0.5) + kTimelineTextHorizontalPadding;
+            (headerMetrics.horizontalAdvance(labelText) * 0.5) + kTimelineTextHorizontalPadding;
         if (headerLabelEmitSpanFits(label.screenX, labelHalfWidth)
             && (headerLabels.isEmpty()
-                || label.screenX - headerLabels.constLast().screenX >= headerLabelMinSpacing)) {
+                || (label.screenX - headerLabels.constLast().screenX >= headerLabelMinSpacing
+                    && label.screenX - labelHalfWidth >= lastHeaderLabelRight
+                        + kTimelineHeaderMultiDigitLabelSideGapPx))) {
             headerLabels.append(label);
+            lastHeaderLabelRight = label.screenX + labelHalfWidth;
             state.headerLabels.append(TimelineSceneTextLabel{
                 labelText,
                 QPointF(
-                    label.screenX - (labelMetrics.horizontalAdvance(labelText) * 0.5) - kTimelineTextHorizontalPadding,
-                    headerTextBottom - labelMetrics.height() - kTimelineTextVerticalPadding),
-                labelFont,
+                    label.screenX - (headerMetrics.horizontalAdvance(labelText) * 0.5) - kTimelineTextHorizontalPadding,
+                    headerTextBottom - headerMetrics.height() - kTimelineTextVerticalPadding),
+                headerFont,
                 theme.textSecondary,
-                timelineTextLogicalSize(labelFont, labelText),
+                timelineTextLogicalSize(headerFont, labelText),
             });
         }
         if (markerHeight >= 2.0
@@ -964,8 +908,7 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
     // Phase 7 — scroll-bucket note culling. When the caller has opted
     // in via horizontalCullPaddingPx (and bumps notesRevision per
     // bucket), bisect the line range against the visible viewport
-    // expanded by padding. This mirrors what legacy TimelineView
-    // already does (TimelineView.Paint.cpp:44). When the caller
+    // expanded by padding. When the caller
     // hasn't opted in, fall back to the full chart range to preserve
     // legacy behaviour.
     TimelineVisibleLineRange visibleNoteRange{0, static_cast<int>(request.snapshot.lines.size())};
@@ -1067,7 +1010,7 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
     const auto appendNoteForRef = [&](const TimelineVisibleNoteRef& visibleRef, bool trackLayer) {
         const TimelineRenderLine& line = request.snapshot.lines.at(visibleRef.lineIndex);
         const TimelineRenderNote& note = line.notes.at(visibleRef.noteIndex);
-        if (note.lane < 1 || note.lane > kLaneCount) {
+        if (note.lane < 1 || note.lane > state.laneCount) {
             return;
         }
 
@@ -1116,10 +1059,11 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
             return;
         }
 
-        const int rowTop = state.timelineTop + (note.lane - 1) * state.laneHeight;
-        const int rowCenterY = rowTop + (state.laneHeight / 2);
+        const qreal rowTop = state.timelineTop + (note.lane - 1) * state.laneHeight;
+        const qreal rowCenterY = rowTop + (state.laneHeight / 2.0);
         const qreal baseIconScale =
-            request.zoomScale <= 0.25 ? 0.5 : static_cast<qreal>(state.contentScale);
+            request.zoomScale <= 0.25 ? qMin<qreal>(0.5, state.contentScale)
+                                      : static_cast<qreal>(state.contentScale);
         QString iconType;
         switch (note.kind) {
         case TimelineRenderNoteKind::Tap:
@@ -1225,12 +1169,13 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
                 baseTrackType = QStringLiteral("slide_track_each");
             }
             const qreal zoomTrackScale = qBound<qreal>(0.25, request.zoomScale, 1.0);
-            const qreal trackScale = request.zoomScale <= 0.25
+            const qreal zoomAdjustedTrackScale = request.zoomScale <= 0.25
                 ? 0.5
                 : qBound<qreal>(
                     0.5,
                     zoomTrackScale * static_cast<qreal>(state.contentScale),
                     1.0);
+            const qreal trackScale = qMin<qreal>(state.contentScale, zoomAdjustedTrackScale);
             const QSize trackTargetSize =
                 miacode::timeline::targetSizeForNoteType(noteAssets, baseTrackType, trackScale);
             if (!trackTargetSize.isValid()) {
@@ -1424,7 +1369,7 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
         };
     }
     if (request.dragActive) {
-        const int dragCenterX = request.viewportSize.width() / 2;
+        const qreal dragCenterX = request.viewportSize.width() / 2.0;
         if (dragCenterX > state.timelineLeft) {
             state.hasDragCenterLine = true;
             state.dragCenterLine = TimelineSceneLine{
@@ -1436,191 +1381,17 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
         }
     }
 
-    // Phase 9d-native - emit the header zoom control visual. Mirrors
-    // the invisible QML hit zones in TimelineTabSurface.qml: body opens
-    // the preset menu, right-side upper/lower zones step zoom in/out.
-    if (state.timelineTop > 4 && request.viewportSize.width() > 0) {
-        state.hasHeaderControls = true;
-        const qreal headerControlScale = static_cast<qreal>(headerContentScale(state.contentScale));
-        // Phase 9d-native polish — use the application's default UI
-        // font (matches the menu-bar font, including Chinese fallback
-        // chain) at the same pixel size and weight the QML controls use.
-        QFont controlFont;
-        controlFont.setPixelSize(qMax(1, qRound(12.0 * headerControlScale)));
-        controlFont.setWeight(QFont::DemiBold);
-        const QFontMetricsF controlMetrics(controlFont);
-        const int btnHeight = qMax(1, qRound(22.0 * headerControlScale));
-        const int btnY = qMax(0, (state.timelineTop - btnHeight) / 2);
-        const QColor cardBg = theme.window.lightnessF() < 0.5
-            ? QColor(31, 41, 55) : QColor(243, 244, 246);
-        const QColor borderColor = theme.border;
-        const QColor arrowColor = theme.label;
-        const QColor hoverBg = theme.window.lightnessF() < 0.5
-            ? QColor(44, 56, 70)
-            : QColor(238, 245, 255);
-        const QColor pressedBg = theme.window.lightnessF() < 0.5
-            ? QColor(62, 121, 208)
-            : QColor(38, 104, 185);
-        const QColor accentColor = theme.window.lightnessF() < 0.5
-            ? QColor(96, 165, 250)
-            : QColor(46, 119, 208);
-        const QColor pressedGlyphColor = QColor(255, 255, 255);
-
-        // ---- Zoom button (left) ----
-        const QString zoomText = QStringLiteral("%1%").arg(
-            qRound(request.zoomScale * 100.0));
-        const qreal zoomTextW = controlMetrics.horizontalAdvance(zoomText);
-        const int zoomBodyW = qMax(42, qRound(54.0 * headerControlScale));
-        const int zoomStepperW = qMax(14, qRound(18.0 * headerControlScale));
-        const int zoomBtnW = zoomBodyW + zoomStepperW;
-        const int zoomBtnX = qRound(4.0 * headerControlScale);
-        const bool bodyPressed = request.zoomControlPressedPart == 1;
-        const bool upPressed = request.zoomControlPressedPart == 2;
-        const bool downPressed = request.zoomControlPressedPart == -2;
-        const bool bodyHovered = request.zoomControlHoveredPart == 1;
-        const bool upHovered = request.zoomControlHoveredPart == 2;
-        const bool downHovered = request.zoomControlHoveredPart == -2;
-        const qreal pressedOffset = qMax<qreal>(1.0, qRound(headerControlScale));
-        state.zoomButtonBg = TimelineSceneRect{
-            QRectF(zoomBtnX, btnY, zoomBtnW, btnHeight),
-            cardBg,
-        };
-        const qreal separatorX = zoomBtnX + zoomBodyW;
-        const auto appendZoomPartOverlay = [&](const QRectF& rect, bool hovered, bool pressed) {
-            if (!hovered && !pressed) {
-                return;
-            }
-            state.zoomButtonOverlayRects.append(TimelineSceneRect{
-                rect,
-                pressed ? pressedBg : hoverBg,
-            });
-        };
-        appendZoomPartOverlay(
-            QRectF(zoomBtnX + 1.0, btnY + 1.0, qMax<qreal>(1.0, zoomBodyW - 1.0), qMax<qreal>(1.0, btnHeight - 2.0)),
-            bodyHovered,
-            bodyPressed);
-        appendZoomPartOverlay(
-            QRectF(separatorX + 1.0, btnY + 1.0, qMax<qreal>(1.0, zoomStepperW - 2.0), qMax<qreal>(1.0, (btnHeight * 0.5) - 1.0)),
-            upHovered,
-            upPressed);
-        appendZoomPartOverlay(
-            QRectF(separatorX + 1.0, btnY + (btnHeight * 0.5), qMax<qreal>(1.0, zoomStepperW - 2.0), qMax<qreal>(1.0, (btnHeight * 0.5) - 1.0)),
-            downHovered,
-            downPressed);
-        state.zoomButtonBorder = TimelineSceneRect{
-            // Drawn as a thin frame via 4 hairlines below; we keep one
-            // descriptor for "the border colour" so the source can pick
-            // it up. Width/height encode line thickness via
-            // a sentinel: we use the rect itself plus 1-px hairlines
-            // emitted by the source.
-            QRectF(zoomBtnX, btnY, zoomBtnW, btnHeight),
-            (bodyHovered || upHovered || downHovered || bodyPressed || upPressed || downPressed)
-                ? accentColor
-                : borderColor,
-        };
-        TimelineSceneTextLabel zoomLabel;
-        zoomLabel.text = zoomText;
-        zoomLabel.font = controlFont;
-        zoomLabel.color = bodyPressed ? pressedGlyphColor : theme.label;
-        zoomLabel.logicalSize = timelineTextLogicalSize(controlFont, zoomText);
-        zoomLabel.topLeft = QPointF(
-            zoomBtnX + ((zoomBodyW - zoomTextW) * 0.5) - kTimelineTextHorizontalPadding,
-            btnY + (btnHeight - controlMetrics.height()) * 0.5
-                - kTimelineTextVerticalPadding
-                + (bodyPressed ? pressedOffset : 0.0));
-        state.zoomButtonLabel = zoomLabel;
-
-        state.zoomButtonInteriorLines.append(TimelineSceneLine{
-            QPointF(separatorX, btnY),
-            QPointF(separatorX, btnY + btnHeight),
-            (bodyHovered || upHovered || downHovered || bodyPressed || upPressed || downPressed)
-                ? accentColor
-                : borderColor,
-            1.0,
-        });
-        const qreal arrowCx = separatorX + (zoomStepperW * 0.5);
-        QFont arrowFont = controlFont;
-        arrowFont.setPixelSize(qMax(7, qRound(9.0 * headerControlScale)));
-        arrowFont.setWeight(QFont::DemiBold);
-        arrowFont.setStretch(QFont::Expanded);
-        const QFontMetricsF arrowMetrics(arrowFont);
-        const qreal arrowHalfWidth =
-            arrowMetrics.horizontalAdvance(QStringLiteral("\u25B2")) * 0.3;
-        const qreal arrowTriangleHeight = qMax<qreal>(1.0, arrowMetrics.height() * 0.3);
-        const qreal arrowInnerGap = qMax<qreal>(2.0, qRound(4.0 * headerControlScale));
-        const qreal arrowStackCenterY = btnY + (btnHeight * 0.5);
-        const qreal upBaseY =
-            arrowStackCenterY - (arrowInnerGap * 0.5) + (upPressed ? pressedOffset : 0.0);
-        const qreal downBaseY =
-            arrowStackCenterY + (arrowInnerGap * 0.5) + (downPressed ? pressedOffset : 0.0);
-        const qreal upTipY = upBaseY - arrowTriangleHeight;
-        const qreal downTipY = downBaseY + arrowTriangleHeight;
-        state.zoomButtonGlyphTriangles.append(TimelineSceneTriangle{
-            QPointF(arrowCx, upTipY),
-            QPointF(arrowCx - arrowHalfWidth, upBaseY),
-            QPointF(arrowCx + arrowHalfWidth, upBaseY),
-            upPressed ? pressedGlyphColor : arrowColor,
-        });
-        state.zoomButtonGlyphTriangles.append(TimelineSceneTriangle{
-            QPointF(arrowCx, downTipY),
-            QPointF(arrowCx + arrowHalfWidth, downBaseY),
-            QPointF(arrowCx - arrowHalfWidth, downBaseY),
-            downPressed ? pressedGlyphColor : arrowColor,
-        });
-
-        // ---- Brightness/settings button (right) ----
-        const int settingsBtnW = qMax(1, qRound(28.0 * headerControlScale));
-        const int settingsBtnX = qMax(
-            zoomBtnX + zoomBtnW + qRound(8.0 * headerControlScale),
-            request.viewportSize.width() - qRound(8.0 * headerControlScale) - settingsBtnW);
-        const qreal settingsPressedOffset = request.settingsControlPressed ? pressedOffset : 0.0;
-        const QColor settingsButtonBg = request.settingsControlPressed
-            ? pressedBg
-            : (request.settingsControlHovered ? hoverBg : cardBg);
-        const QColor settingsButtonStroke = (request.settingsControlHovered || request.settingsControlPressed)
-            ? accentColor
-            : borderColor;
-        const QColor settingsGlyphColor = request.settingsControlPressed ? pressedGlyphColor : arrowColor;
-        state.settingsButtonBg = TimelineSceneRect{
-            QRectF(settingsBtnX, btnY, settingsBtnW, btnHeight),
-            settingsButtonBg,
-        };
-        state.settingsButtonBorder = TimelineSceneRect{
-            QRectF(settingsBtnX, btnY, settingsBtnW, btnHeight),
-            settingsButtonStroke,
-        };
-        const qreal iconLeft = settingsBtnX + qRound(7.0 * headerControlScale);
-        const qreal iconRight = settingsBtnX + settingsBtnW - qRound(7.0 * headerControlScale);
-        const qreal knobSize = qMax<qreal>(2.0, qRound(3.0 * headerControlScale));
-        const auto appendSliderGlyphLine = [&](qreal y, qreal knobCenterX) {
-            const qreal shiftedY = y + settingsPressedOffset;
-            state.settingsButtonInteriorLines.append(TimelineSceneLine{
-                QPointF(iconLeft, shiftedY),
-                QPointF(iconRight, shiftedY),
-                settingsGlyphColor,
-                qMax<qreal>(1.0, headerControlScale),
-            });
-            state.settingsButtonGlyphRects.append(TimelineSceneRect{
-                QRectF(knobCenterX - knobSize * 0.5, shiftedY - knobSize * 0.5, knobSize, knobSize),
-                settingsGlyphColor,
-            });
-        };
-        appendSliderGlyphLine(btnY + qRound(6.0 * headerControlScale), settingsBtnX + qRound(12.0 * headerControlScale));
-        appendSliderGlyphLine(btnY + qRound(11.0 * headerControlScale), settingsBtnX + qRound(18.0 * headerControlScale));
-        appendSliderGlyphLine(btnY + qRound(16.0 * headerControlScale), settingsBtnX + qRound(14.0 * headerControlScale));
-
-        // Follow controls are no longer drawn in the timeline header.
-        // Code Follow lives in BottomTabsQuickHost.qml, while View Lock
-        // and Progress Follow keep fixed default behavior and are not
-        // materialised as scene-state visuals.
-    }
-
     return state;
 }
 
 int TimelineSceneStateBuilder::secondToSceneX(const TimelineSceneState& state, double second)
 {
     return ::secondToX(state, second);
+}
+
+qreal TimelineSceneStateBuilder::secondToSceneXExact(const TimelineSceneState& state, double second)
+{
+    return ::secondToXExact(state, second);
 }
 
 double TimelineSceneStateBuilder::sceneXToSecond(const TimelineSceneState& state, qreal x)

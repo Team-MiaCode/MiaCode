@@ -5,11 +5,14 @@
 #include "common/DebugLog.h"
 #include "common/DebugOptions.h"
 #include "common/Mmcss.h"
-#include "common/PreviewGameplayConfig.h"
-#include "common/PreviewVideoGeometryConfig.h"
+#include "core/video/PreviewGameplayConfig.h"
+#include "core/video/PreviewVideoGeometryConfig.h"
 #include "preview/quick_scene/PreviewTextureRepository.h"
 
 #include <QDateTime>
+#ifdef HAVE_QT_MULTIMEDIA
+#include <QVideoFrame>
+#endif
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -271,6 +274,37 @@ void PreviewRuntime::setVisibleHostWindow(QQuickWindow* window)
     }
 }
 
+void PreviewRuntime::noteV2UiSceneRootBound(quint64 instanceId, bool visible)
+{
+    v2UiSceneRootVisibility_.insert(instanceId, visible);
+}
+
+void PreviewRuntime::noteV2UiSceneRootUnbound(quint64 instanceId)
+{
+    v2UiSceneRootVisibility_.remove(instanceId);
+}
+
+void PreviewRuntime::noteV2UiSceneRootVisibility(quint64 instanceId, bool visible)
+{
+    if (!v2UiSceneRootVisibility_.contains(instanceId)) {
+        return;
+    }
+    v2UiSceneRootVisibility_.insert(instanceId, visible);
+}
+
+void PreviewRuntime::noteV2UiSceneRootFrameStateDispatch(bool visible)
+{
+    if (!activePlaybackProfiling_) {
+        return;
+    }
+    ++v2UiSceneRootDispatchCount_;
+    if (visible) {
+        ++v2UiSceneRootVisibleDispatchCount_;
+    } else {
+        ++v2UiSceneRootHiddenDispatchCount_;
+    }
+}
+
 void PreviewRuntime::clearVisibleHostWindow(QQuickWindow* window)
 {
     if (visibleHostWindow_ != window) {
@@ -388,7 +422,8 @@ void PreviewRuntime::setExternalStageMediaProfileSummary(
     double videoFrameRate,
     double videoFrameIntervalAvgMs,
     double videoFrameIntervalMaxMs,
-    qint64 videoFrameStallCount)
+    qint64 videoFrameStallCount,
+    const QString& videoDecodeDesc)
 {
     externalStageMediaSeparateSurfaceActive_ = separateSurfaceActive;
     externalStageMediaHasResolvedMedia_ = hasResolvedMedia;
@@ -401,6 +436,7 @@ void PreviewRuntime::setExternalStageMediaProfileSummary(
     frameState_.media.externalVideoFrameIntervalAvgMs = qMax(0.0, videoFrameIntervalAvgMs);
     frameState_.media.externalVideoFrameIntervalMaxMs = qMax(0.0, videoFrameIntervalMaxMs);
     frameState_.media.externalVideoFrameStallCount = qMax<qint64>(0, videoFrameStallCount);
+    frameState_.media.externalVideoDecodeDesc = videoDecodeDesc;
     publishFrameStateSnapshot();
 }
 
@@ -484,11 +520,30 @@ void PreviewRuntime::setIntroOverlayFrame(int authoringFrame, bool active, bool 
     }
 }
 
+void PreviewRuntime::setIntroHidesChart(bool hides)
+{
+    if (introHidesChart_ == hides) {
+        return;
+    }
+    introHidesChart_ = hides;
+    emit introOverlayStateChanged();
+}
+
+void PreviewRuntime::setIntroStillFrame(bool still)
+{
+    if (introStillFrame_ == still) {
+        return;
+    }
+    introStillFrame_ = still;
+    emit introOverlayStateChanged();
+}
+
 void PreviewRuntime::clearIntroOverlay(bool requestUpdate)
 {
-    const bool changed = introOverlayActive_ || introOverlayFrame_ != 0;
+    const bool changed = introOverlayActive_ || introOverlayFrame_ != 0 || introHidesChart_;
     introOverlayActive_ = false;
     introOverlayFrame_ = 0;
+    introHidesChart_ = false;
     if (changed) {
         emit introOverlayStateChanged();
     }
@@ -504,17 +559,33 @@ void PreviewRuntime::setMediaFrame(const QImage& frame)
     frameState_.media.stageMediaSerial = 0;
     frameState_.media.resolvedStageImageCacheable = false;
     frameState_.media.resolvedStageImageToImageMs = 0.0;
-#ifdef HAVE_QT_MULTIMEDIA
-    frameState_.media.videoFrame = QVideoFrame();
-#endif
+    frameState_.media.videoFrame = {};
     frameState_.media.retainedVideoFallbackFrame = QImage();
     setStageMediaAvailable(!frame.isNull());
 }
 
+namespace {
+
+// Wraps a valid frame into the scene's opaque handle; an invalid frame clears it.
+miacode::preview::scene::PreviewVideoFrameHandle videoFrameHandle(const QVideoFrame& frame)
+{
+#ifdef HAVE_QT_MULTIMEDIA
+    if (frame.isValid()) {
+        return miacode::preview::scene::PreviewVideoFrameHandle(
+            std::make_shared<const QVideoFrame>(frame));
+    }
+#else
+    Q_UNUSED(frame);
+#endif
+    return {};
+}
+
+}  // namespace
+
 void PreviewRuntime::setVideoFrame(const QVideoFrame& frame)
 {
 #ifdef HAVE_QT_MULTIMEDIA
-    frameState_.media.videoFrame = frame;
+    frameState_.media.videoFrame = videoFrameHandle(frame);
     if (!frame.isValid()) {
         frameState_.media.resolvedStageImage = QImage();
         frameState_.media.resolvedStageImageCacheable = false;
@@ -534,11 +605,7 @@ void PreviewRuntime::setResolvedStageVideoFrame(
     double toImageMs
 )
 {
-#ifdef HAVE_QT_MULTIMEDIA
-    frameState_.media.videoFrame = frame;
-#else
-    Q_UNUSED(frame);
-#endif
+    frameState_.media.videoFrame = videoFrameHandle(frame);
     frameState_.media.resolvedStageImage = resolvedImage;
     frameState_.media.resolvedStageImageCacheable = !resolvedImage.isNull() && cacheable;
     frameState_.media.stageMediaSerial = serial;
@@ -813,6 +880,13 @@ void PreviewRuntime::setSuppressDebugInfo(bool suppress)
     update();
 }
 
+void PreviewRuntime::setHudFontSettings(const miacode::preview::scene::PreviewHudFontSettings& settings)
+{
+    if (frameState_.hudFontSettings == settings) return;
+    frameState_.hudFontSettings = settings;
+    update();
+}
+
 void PreviewRuntime::setShowTimestamp(bool show)
 {
     const bool oldShow = frameState_.render.showTimestamp;
@@ -843,15 +917,6 @@ void PreviewRuntime::setShowObjectStatsHud(bool show)
             .arg(suppressObjectStatsHud_ ? 1 : 0)
             .arg(oldEffective ? 1 : 0)
             .arg(frameState_.render.showObjectStatsHud ? 1 : 0));
-    update();
-}
-
-void PreviewRuntime::setFixHudTextLayout(bool enabled)
-{
-    if (frameState_.render.fixHudTextLayout == enabled) {
-        return;
-    }
-    frameState_.render.fixHudTextLayout = enabled;
     update();
 }
 
@@ -957,20 +1022,6 @@ bool PreviewRuntime::showChartInfoHud() const
     return frameState_.render.showChartInfoHud;
 }
 
-void PreviewRuntime::setShowJudgeEffects(bool enabled)
-{
-    if (frameState_.render.showJudgeEffects == enabled) {
-        return;
-    }
-    frameState_.render.showJudgeEffects = enabled;
-    update();
-}
-
-bool PreviewRuntime::showJudgeEffects() const
-{
-    return frameState_.render.showJudgeEffects;
-}
-
 void PreviewRuntime::setUseMineSkin(bool enabled)
 {
     if (frameState_.render.useMineSkin == enabled) {
@@ -990,7 +1041,7 @@ miacode::preview_gameplay::CenterDisplayMode PreviewRuntime::centerDisplayMode()
     return frameState_.render.centerDisplayMode;
 }
 
-void PreviewRuntime::reset()
+void PreviewRuntime::reset(bool releaseStorage)
 {
     appendHudStateDiagLine(
         QStringLiteral("reset"),
@@ -1001,7 +1052,12 @@ void PreviewRuntime::reset()
             .arg(frameState_.chartTitle.size())
             .arg(frameState_.render.showChartInfoHud ? 1 : 0));
     const auto presentationMode = frameState_.media.presentationMode;
-    frameState_.noteMarkers.clear();
+    if (releaseStorage) {
+        frameState_.noteMarkers = QVector<TimelineNoteMarker>();
+        ++frameState_.sceneStorageGeneration;
+    } else {
+        frameState_.noteMarkers.clear();
+    }
     frameState_.progressStatsCache.reset();
     frameState_.muriAnalysisReport = MuriAnalysisReport();
     frameState_.playheadSeconds = 0.0;
@@ -1086,14 +1142,21 @@ QString PreviewRuntime::resourceGaugePayload() const
     // cachedTextureCreateTotal_, and handlePresentedFrame() is what disarms it. A
     // chart switch runs reset() and samples immediately, so before this flag existed
     // it printed a confident `cached_tex=0 cached_tex_creates=0` that a reader could
-    // not distinguish from a genuinely empty repository — the exact misread called
-    // out in docs/audit/CHART_SWITCH_RESOURCE_RELEASE_AUDIT_ZH.md section 7.4.
+    // not distinguish from a genuinely empty repository.
     //
     // tex_fresh=0 means "no present has refreshed these since the last reset/resize;
     // ignore them". It does NOT mean the repository is empty.
+    int v2UiSceneRootVisibleCount = 0;
+    for (auto it = v2UiSceneRootVisibility_.cbegin(); it != v2UiSceneRootVisibility_.cend(); ++it) {
+        if (it.value()) {
+            ++v2UiSceneRootVisibleCount;
+        }
+    }
     return QStringLiteral(
                "scene_revision=%1 tex_fresh=%2 cached_tex=%3 cached_tex_kb=%4 transient_tex=%5 "
-               "cached_tex_creates=%6 transient_tex_creates=%7 sprite_max=%8 present_total=%9")
+               "cached_tex_creates=%6 transient_tex_creates=%7 sprite_max=%8 present_total=%9 "
+               "v2ui_roots=%10 v2ui_roots_visible=%11 v2ui_root_dispatch=%12 "
+               "v2ui_root_dispatch_visible=%13 v2ui_root_dispatch_hidden=%14")
         .arg(static_cast<qulonglong>(frameState_.sceneContentRevision))
         .arg(pendingPresentedStatsRefresh_ ? 0 : 1)
         .arg(latestCachedTextureCount_)
@@ -1102,7 +1165,12 @@ QString PreviewRuntime::resourceGaugePayload() const
         .arg(cachedTextureCreateTotal_)
         .arg(transientTextureCreateTotal_)
         .arg(spriteCountMax_)
-        .arg(presentedFrameCountTotal_);
+        .arg(presentedFrameCountTotal_)
+        .arg(v2UiSceneRootVisibility_.size())
+        .arg(v2UiSceneRootVisibleCount)
+        .arg(v2UiSceneRootDispatchCount_)
+        .arg(v2UiSceneRootVisibleDispatchCount_)
+        .arg(v2UiSceneRootHiddenDispatchCount_);
 }
 
 void PreviewRuntime::notePresentedTextureStats(const PreviewTextureStats& stats)
@@ -1415,6 +1483,9 @@ void PreviewRuntime::setActivePlaybackProfilingEnabled(bool enabled)
         playbackTickIntervalSumMs_ = 0.0;
         playbackTickIntervalMaxMs_ = 0.0;
         playbackTickIntervalSampleCount_ = 0;
+        v2UiSceneRootDispatchCount_ = 0;
+        v2UiSceneRootVisibleDispatchCount_ = 0;
+        v2UiSceneRootHiddenDispatchCount_ = 0;
     }
     if (miacode::debug_options::previewProfileOutputEnabled()) {
         profilingSummaryDirty_ = true;
@@ -1995,14 +2066,10 @@ void PreviewRuntime::armFireworkPsoWarmupIfReady()
 
 void PreviewRuntime::appendFireworkWarmupMarker()
 {
-    // Synthetic off-screen firework. type=="touch" + isFirework so the
-    // firework layer-state builder accepts it; touchPoint far off-canvas
-    // (non-zero, which the builder requires) so the GPU clips every triangle
-    // — the PSO still compiles and the colour-ball texture still uploads, but
-    // no pixels are visible. `second` places the trigger ~0.15 s into the
-    // ~1.33 s curve (recomputed against the live playhead on every
-    // re-append) so the textured colour-ball branch is active, exercising
-    // both the material pipeline and the texture sampler.
+    // This marker uses an off-canvas touchPoint as its identity. The layer
+    // builder places its transparent warm-up quad at the playfield centre so
+    // the renderer submits the firework pipeline and texture bindings.
+    // `second` places the trigger inside the active colour-ball interval.
     TimelineNoteMarker synth;
     synth.type = QStringLiteral("touch");
     synth.isFirework = true;

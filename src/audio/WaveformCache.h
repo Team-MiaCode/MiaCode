@@ -1,0 +1,124 @@
+#pragma once
+
+#include <functional>
+#include <memory>
+
+#include <QHash>
+#include <QObject>
+#include <QPair>
+#include <QString>
+#include <QVector>
+
+class QThreadPool;
+
+namespace miacode::audio_decode {
+class AudioFileDecoder;
+}
+
+namespace miacode::waveform {
+
+// The density change keeps schema 3 because the serialized pyramid layout is
+// identical. New readers rebuild sparse v3 caches; old readers accept dense v3 caches.
+inline constexpr quint32 kWaveformCacheSchemaVersion = 3;
+inline constexpr int kWaveformMinTopLevelColumns = 2048;
+// Mixxx stores its detailed waveform near 441 visual frames per second. Keep a
+// power-of-two-friendly target above that rate so editor zoom does not stretch
+// one cached extrema pair across several screen pixels.
+inline constexpr double kWaveformTopLevelColumnsPerSecond = 512.0;
+inline constexpr int kWaveformDecodeSampleRate = 24000;
+
+struct WaveformColumn {
+    float min = 0.0f;
+    float max = 0.0f;
+};
+
+struct WaveformLevel {
+    double secondsPerColumn = 0.0;
+    QVector<WaveformColumn> columns;
+
+    double columnsPerSecond() const;
+};
+
+struct WaveformData {
+    QString normalizedTrackPath;
+    qint64 fileSize = -1;
+    qint64 lastModifiedMs = -1;
+    double durationSeconds = 0.0;
+    QVector<WaveformLevel> levels;
+
+    bool isEmpty() const;
+};
+
+using WaveformDataPtr = std::shared_ptr<const WaveformData>;
+
+QString normalizeTrackPath(const QString& trackPath);
+QString projectDataDirectoryPathForFile(const QString& filePath);
+QString waveformCacheDirectoryPath(const QString& projectDataDirectoryPath);
+QString waveformCacheFilePath(const QString& normalizedTrackPath, const QString& cacheDirectoryPath);
+QString waveformTrackDebugId(const QString& normalizedTrackPath);
+QString waveformDataDebugSummary(const WaveformData& data);
+int recommendedTopLevelColumnCount(double durationSeconds);
+WaveformDataPtr makeWaveformPlaceholder(double durationSeconds);
+WaveformDataPtr buildWaveformDataFromSamples(
+    const QString& trackPath,
+    qint64 fileSize,
+    qint64 lastModifiedMs,
+    const QVector<float>& samples,
+    double durationSeconds);
+// Decodes through `decoder`; without one the result carries no samples.
+WaveformDataPtr buildWaveformDataFromFile(
+    const QString& trackPath,
+    qint64 fileSize,
+    qint64 lastModifiedMs,
+    const miacode::audio_decode::AudioFileDecoder* decoder);
+WaveformDataPtr readWaveformDataCache(
+    const QString& cacheFilePath,
+    const QString& normalizedTrackPath,
+    qint64 expectedFileSize,
+    qint64 expectedLastModifiedMs);
+bool writeWaveformDataCache(const QString& cacheFilePath, const WaveformData& data);
+const WaveformLevel* selectWaveformLevelForVisibleRange(
+    const WaveformData& data,
+    double visibleDurationSeconds,
+    int targetPixelWidth);
+QPair<int, int> visibleWaveformColumnRange(
+    const WaveformLevel& level,
+    double visibleStartSecond,
+    double visibleEndSecond);
+
+class WaveformCacheService : public QObject {
+public:
+    using RequestCallback = std::function<void(WaveformDataPtr)>;
+
+    explicit WaveformCacheService(QObject* parent = nullptr);
+
+    void setThreadPool(QThreadPool* threadPool);
+    // Decoder for cache misses, supplied by the host's audio backend.
+    void setDecoder(std::shared_ptr<const miacode::audio_decode::AudioFileDecoder> decoder);
+    void requestWaveform(
+        const QString& trackPath,
+        const QString& cacheDirectoryPath,
+        RequestCallback callback);
+    void clear();
+
+private:
+    struct PendingRequest {
+        QString cacheKey;
+        QString trackPath;
+        QString normalizedTrackPath;
+        QString cacheFilePath;
+        qint64 fileSize = -1;
+        qint64 lastModifiedMs = -1;
+        QVector<RequestCallback> callbacks;
+    };
+
+    QString cacheKeyForTrack(const QString& trackPath, qint64 fileSize, qint64 lastModifiedMs) const;
+    void finishPendingRequest(const std::shared_ptr<PendingRequest>& request, WaveformDataPtr data);
+
+    QThreadPool* threadPool_ = nullptr;
+    std::shared_ptr<const miacode::audio_decode::AudioFileDecoder> decoder_;
+    QHash<QString, WaveformDataPtr> memoryCache_;
+    QHash<QString, std::shared_ptr<PendingRequest>> pendingRequests_;
+};
+
+}  // namespace miacode::waveform

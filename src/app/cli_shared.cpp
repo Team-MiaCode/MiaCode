@@ -1,7 +1,8 @@
-#include "MainEntrypoints.h"
+#include "app/MainEntrypoints.h"
 
 #include <QCommandLineOption>
 #include <QCommandLineParser>
+#include <QCoreApplication>
 #include <QString>
 
 #include <exception>
@@ -15,19 +16,19 @@ void addSharedCliDebugOption(QCommandLineParser& parser)
     // this option here so subcommand parsers accept forwarded "--debug".
     parser.addOption(QCommandLineOption(
         QStringLiteral("debug"),
-        QStringLiteral("Enable debug mode and debug-only log output.")
+        qtTrId("cli.debug")
     ));
     // P3 — hidden internal GPU device-policy overrides. Declared so the CLI
     // export / export-worker parsers accept them without erroring; the values
     // are consumed by miacode::gpu (raw-arg scan), not read back off the parser.
     parser.addOption(QCommandLineOption(
         QStringLiteral("gpu-policy"),
-        QStringLiteral("Internal GPU device policy (auto_high_performance|platform_default|software)."),
+        qtTrId("cli.gpu_policy"),
         QStringLiteral("policy")
     ));
     parser.addOption(QCommandLineOption(
         QStringLiteral("gpu-adapter-luid"),
-        QStringLiteral("Internal GPU adapter override, <high>:<low>."),
+        qtTrId("cli.gpu_adapter"),
         QStringLiteral("luid")
     ));
 }
@@ -42,7 +43,7 @@ QString currentExceptionDetail()
         const QString what = QString::fromUtf8(ex.what()).trimmed();
         return what.isEmpty() ? QStringLiteral("std::exception") : what;
     } catch (...) {
-        return QStringLiteral("unknown non-std exception");
+        return qtTrId("cli.exception_unknown");
     }
 }
 

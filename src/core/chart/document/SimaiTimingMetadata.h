@@ -3,7 +3,7 @@
 #include <QString>
 #include <QVector>
 
-#include "SimaiDocument.h"
+#include "core/chart/document/SimaiDocument.h"
 
 namespace miacode::simai {
 

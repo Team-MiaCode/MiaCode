@@ -251,8 +251,9 @@ PreviewTrackLayerState buildPreviewTrackLayerState(
                 continue;
             }
             const PreviewSlideTrackTiming trackTiming = markerTrackTiming(marker.hsMultiplier);
-            if (marker.availableSecond < 0.0
-                || marker.slideTrackAreaPoints.isEmpty()
+            // A track can start before chart time zero. Its geometry and
+            // visibility window determine whether it can be rendered.
+            if (marker.slideTrackAreaPoints.isEmpty()
                 || state.playheadSeconds < marker.second - trackTiming.appearLeadInSeconds
                 || (marker.endSecond > marker.slideTraceSecond && state.playheadSeconds >= marker.endSecond)) {
                 continue;
@@ -466,33 +467,11 @@ PreviewTrackLayerState buildPreviewTrackLayerState(
                     }
                 }
             } else {
-                int trimSegment = marker.slideTrackAreaPoints.size();
-                int trimArea = 0;
-                int trimLocalCut = 0;
-                int remainingToRemove = removedArrowCount;
-                for (int segmentIndex = 0; segmentIndex < marker.slideTrackAreaPoints.size(); ++segmentIndex) {
-                    const QVector<QVector<QPointF>>& areas = marker.slideTrackAreaPoints[segmentIndex];
-                    int segmentArrowCount = 0;
-                    for (const QVector<QPointF>& areaPoints : areas) {
-                        segmentArrowCount += areaPoints.size();
-                    }
-                    if (remainingToRemove >= segmentArrowCount) {
-                        remainingToRemove -= segmentArrowCount;
-                        continue;
-                    }
-                    trimSegment = segmentIndex;
-                    for (int areaIndex = 0; areaIndex < areas.size(); ++areaIndex) {
-                        const int areaArrowCount = areas[areaIndex].size();
-                        if (remainingToRemove < areaArrowCount) {
-                            trimArea = areaIndex;
-                            trimLocalCut = qBound(0, remainingToRemove, areaArrowCount);
-                            remainingToRemove = 0;
-                            break;
-                        }
-                        remainingToRemove -= areaArrowCount;
-                    }
-                    break;
-                }
+                const auto trimStart = findPreviewSlideTrackTrimStart(
+                    marker.slideTrackAreaPoints, removedArrowCount);
+                const int trimSegment = trimStart.segmentIndex;
+                const int trimArea = trimStart.areaIndex;
+                const int trimLocalCut = trimStart.localCut;
 
                 for (int segmentIndex = marker.slideTrackAreaPoints.size() - 1; segmentIndex > trimSegment; --segmentIndex) {
                     const QVector<QVector<QPointF>>& areas = marker.slideTrackAreaPoints[segmentIndex];
@@ -538,8 +517,7 @@ PreviewTrackLayerState buildPreviewTrackLayerState(
             continue;
         }
         const PreviewSlideTrackTiming trackTiming = markerTrackTiming(marker.hsMultiplier);
-        if (marker.availableSecond < 0.0
-            || marker.wifiTrackAreaPoints.isEmpty()
+        if (marker.wifiTrackAreaPoints.isEmpty()
             || state.playheadSeconds < marker.second - trackTiming.appearLeadInSeconds
             || (marker.endSecond > marker.slideTraceSecond && state.playheadSeconds >= marker.endSecond)) {
             continue;

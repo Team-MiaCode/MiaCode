@@ -1,7 +1,7 @@
 #pragma once
 
-#include "PreviewAudioDeviceChangePolicy.h"
-#include "PreviewAudioWorkerProtocol.h"
+#include "audio/PreviewAudioDeviceChangePolicy.h"
+#include "audio/PreviewAudioWorkerProtocol.h"
 
 #include <QMetaType>
 

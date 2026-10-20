@@ -1,7 +1,6 @@
-#include "ChartBatchTransform.h"
-#include "ChartBatchTransform.Internal.h"
+#include "core/chart/transform/ChartBatchTransform.h"
+#include "core/chart/transform/ChartBatchTransform.Internal.h"
 
-#include <QHash>
 #include <QRandomGenerator>
 #include <QStringList>
 
@@ -64,8 +63,7 @@ void scanSelectionTokens(const QString& input, const std::function<void(const QS
     }
 }
 
-QString rewriteSelectionTokens(const QString& input, const std::function<QString(const QString&)>& rewriteToken,
-                               const std::function<void()>& endBeat = {})
+QString rewriteSelectionTokens(const QString& input, const std::function<QString(const QString&)>& rewriteToken)
 {
     QString transformed;
     transformed.reserve(input.size() + 32);
@@ -91,9 +89,6 @@ QString rewriteSelectionTokens(const QString& input, const std::function<QString
             if (ch.isSpace() || ch == QChar('/') || ch == QChar('`') || ch == QChar(',')) {
                 flushToken();
                 transformed.append(ch);
-                if (ch == QChar(',') && endBeat) {
-                    endBeat();
-                }
                 continue;
             }
             if (ch == QChar('(')) {
@@ -339,18 +334,16 @@ QString toggleFireworkToken(const QString& token, bool enable, int* changedCount
     return token;
 }
 
-QString rotateRandomToken(const QString& token,
-                          const std::function<int(QChar, QChar)>& rotationForLane,
-                          int* changedCount)
+QString rotateRandomToken(const QString& token, const std::function<int()>& nextStep, int* changedCount)
 {
-    if (!rotationForLane) {
+    if (!nextStep) {
         return token;
     }
 
     if (isSimpleDigitCluster(token)) {
         QString rotated = token;
         for (int i = 0; i < rotated.size(); ++i) {
-            rotated[i] = rotateLaneChar(rotated.at(i), rotationForLane(QChar(), token.at(i)));
+            rotated[i] = rotateLaneChar(rotated.at(i), nextStep());
         }
         if (rotated != token && changedCount != nullptr) {
             int delta = 0;
@@ -366,10 +359,9 @@ QString rotateRandomToken(const QString& token,
 
     TouchTokenParts touch;
     if (parseTouchTokenParts(token, &touch) && touch.valid) {
+        const int step = nextStep();
         QString rebuilt = buildTouchToken(touch, touch.hasBreak, touch.hasEx, touch.hasFirework);
-        if (touch.prefix.at(0).toUpper() != QChar('C')
-            && touch.prefix.size() >= 2 && isDigitLane(touch.prefix.at(1))) {
-            const int step = rotationForLane(touch.prefix.at(0).toUpper(), touch.prefix.at(1));
+        if (touch.prefix.size() >= 2 && isDigitLane(touch.prefix.at(1))) {
             rebuilt[1] = rotateLaneChar(rebuilt.at(1), step);
         }
         if (rebuilt != token && changedCount != nullptr) {
@@ -380,12 +372,14 @@ QString rotateRandomToken(const QString& token,
 
     SlideTokenParts slide;
     if (parseSlideTokenParts(token, &slide) && slide.valid) {
-        const int step = rotationForLane(QChar(), slide.lane);
-        slide.lane = rotateLaneChar(slide.lane, step);
-        for (auto& seg : slide.segments) {
-            seg.text = rotateSlideCoreOutsideBrackets(seg.text, step);
+        // The whole slide turns as one piece: its head moves with its path,
+        // and `<`/`>` are picked again for the new head so that each arc keeps
+        // its turning direction. The 45 degree transform already does both.
+        const int step = ((nextStep() % 8) + 8) % 8;
+        QString rebuilt = token;
+        for (int i = 0; i < step; ++i) {
+            rebuilt = transformChartText(rebuilt, ChartTransformOp::Rotate45Clockwise);
         }
-        const QString rebuilt = buildSlideToken(slide);
         if (rebuilt != token && changedCount != nullptr) {
             *changedCount += 1;
         }
@@ -394,7 +388,7 @@ QString rotateRandomToken(const QString& token,
 
     NoteTokenParts note;
     if (parseNoteTokenParts(token, &note) && note.valid) {
-        const int step = rotationForLane(QChar(), note.lane);
+        const int step = nextStep();
         QString rebuilt = buildNoteToken(note, note.hasBreak, note.hasEx);
         rebuilt[0] = rotateLaneChar(rebuilt.at(0), step);
         if (rebuilt != token && changedCount != nullptr) {
@@ -406,11 +400,264 @@ QString rotateRandomToken(const QString& token,
     return token;
 }
 
+QString transformCompleteElementsInSelection(
+    const QString& text,
+    int selectionStart,
+    int selectionEnd,
+    bool resetToTap,
+    int* changedCount)
+{
+    if (changedCount != nullptr) {
+        *changedCount = 0;
+    }
+    if (text.isEmpty()) {
+        return text;
+    }
+
+    const int boundedStart = qBound(0, selectionStart, text.size());
+    const int boundedEnd = qBound(boundedStart, selectionEnd, text.size());
+    if (boundedStart >= boundedEnd) {
+        return text;
+    }
+
+    QString output;
+    output.reserve(text.size());
+    output.append(text.left(boundedStart));
+
+    int segmentStart = boundedStart;
+    const auto commentStartInLine = [&text](int start, int endExclusive) {
+        const int index = text.indexOf(QStringLiteral("||"), start);
+        return (index >= 0 && index < endExclusive) ? index : -1;
+    };
+    const int newlineBeforeSelection =
+        boundedStart > 0 ? text.lastIndexOf(QLatin1Char('\n'), boundedStart - 1) : -1;
+    int lineStart = newlineBeforeSelection + 1;
+    int nextLineStart = text.indexOf(QLatin1Char('\n'), lineStart);
+    if (nextLineStart < 0) {
+        nextLineStart = text.size();
+    } else {
+        ++nextLineStart;
+    }
+    int commentStart = commentStartInLine(lineStart, nextLineStart);
+    int squareDepth = 0;
+    int braceDepth = 0;
+    int parenDepth = 0;
+    int changed = 0;
+
+    const auto isTopLevel = [&]() {
+        return squareDepth == 0 && braceDepth == 0 && parenDepth == 0;
+    };
+    const auto leadingPrefixEnd = [&](int start, int end) {
+        int pos = start;
+        while (pos < end) {
+            const QChar opening = text.at(pos);
+            QChar closing;
+            if (opening == QLatin1Char('{')) {
+                closing = QLatin1Char('}');
+            } else if (opening == QLatin1Char('(')) {
+                closing = QLatin1Char(')');
+            } else {
+                break;
+            }
+            const int closeIndex = text.indexOf(closing, pos + 1);
+            if (closeIndex < 0 || closeIndex >= end) {
+                break;
+            }
+            pos = closeIndex + 1;
+        }
+        return pos;
+    };
+    const auto isBoundaryBefore = [&](int pos) {
+        if (pos <= 0) {
+            return true;
+        }
+        const QChar previous = text.at(pos - 1);
+        return previous == QLatin1Char(',')
+            || previous == QLatin1Char('\n')
+            || previous == QChar::ParagraphSeparator
+            || previous == QChar::LineSeparator;
+    };
+    const auto partialLeadingPrefixEnd = [&](int start, int end) {
+        const int openBrace = text.lastIndexOf(QLatin1Char('{'), start);
+        const int openParen = text.lastIndexOf(QLatin1Char('('), start);
+        const int openIndex = qMax(openBrace, openParen);
+        if (openIndex < 0 || openIndex >= start || !isBoundaryBefore(openIndex)) {
+            return start;
+        }
+        const QChar closing = text.at(openIndex) == QLatin1Char('{')
+            ? QLatin1Char('}')
+            : QLatin1Char(')');
+        const int closeIndex = text.indexOf(closing, openIndex + 1);
+        if (closeIndex < start || closeIndex >= end) {
+            return start;
+        }
+        return closeIndex + 1;
+    };
+    const auto appendRawThrough = [&](int endExclusive) {
+        output.append(text.mid(segmentStart, endExclusive - segmentStart));
+        segmentStart = endExclusive;
+    };
+    const auto isElementBoundary = [&](int pos) {
+        if (pos <= 0) {
+            return true;
+        }
+        const QChar previous = text.at(pos - 1);
+        if (previous == QLatin1Char(',')
+            || previous == QLatin1Char('\n')
+            || previous == QChar::ParagraphSeparator
+            || previous == QChar::LineSeparator) {
+            return true;
+        }
+        if (previous != QLatin1Char('}') && previous != QLatin1Char(')')) {
+            return false;
+        }
+        const QChar opening = previous == QLatin1Char('}')
+            ? QLatin1Char('{')
+            : QLatin1Char('(');
+        const int openIndex = text.lastIndexOf(opening, pos - 2);
+        if (openIndex < 0) {
+            return false;
+        }
+        if (openIndex == 0) {
+            return true;
+        }
+        const QChar beforePrefix = text.at(openIndex - 1);
+        return beforePrefix == QLatin1Char(',')
+            || beforePrefix == QLatin1Char('\n')
+            || beforePrefix == QChar::ParagraphSeparator
+            || beforePrefix == QChar::LineSeparator;
+    };
+    // Emit [spanStart, spanEnd) with the note tokens removed or reduced to a
+    // single lane-1 tap, but every {…}/(…)
+    // directive AND all whitespace/newlines kept verbatim. This preserves the
+    // "{} ," timing skeleton (subdivisions, BPM marks, line breaks) even when a
+    // directive sits behind a newline/space instead of tight against the prior
+    // comma — clearing a passage that spans several {} subdivisions must NOT
+    // collapse them into one. Returns true if a note token was actually dropped.
+    const auto appendTransformedNoteSpan = [&](int spanStart, int spanEnd) {
+        bool droppedNote = false;
+        QString noteText;
+        int pos = spanStart;
+        while (pos < spanEnd) {
+            const QChar ch = text.at(pos);
+            if (ch == QLatin1Char('{') || ch == QLatin1Char('(')) {
+                const QChar closing = ch == QLatin1Char('{')
+                    ? QLatin1Char('}')
+                    : QLatin1Char(')');
+                const int closeIndex = text.indexOf(closing, pos + 1);
+                if (closeIndex < 0 || closeIndex >= spanEnd) {
+                    // Unterminated directive — preserve the remainder verbatim
+                    // rather than risk dropping structural text.
+                    output.append(text.mid(pos, spanEnd - pos));
+                    return droppedNote;
+                }
+                output.append(text.mid(pos, closeIndex - pos + 1));
+                pos = closeIndex + 1;
+            } else if (ch.isSpace()) {
+                output.append(ch);
+                ++pos;
+            } else {
+                if (resetToTap && noteText.isEmpty()) {
+                    output.append(QLatin1Char('1'));
+                }
+                noteText.append(ch);
+                droppedNote = true;
+                ++pos;
+            }
+        }
+        return droppedNote && (!resetToTap || noteText != QLatin1String("1"));
+    };
+    const auto appendClearedSegment = [&](int commaIndex) {
+        const int fullPrefixEnd = leadingPrefixEnd(segmentStart, commaIndex);
+        const int partialPrefixEnd = partialLeadingPrefixEnd(segmentStart, commaIndex);
+        const int prefixEnd = qMax(fullPrefixEnd, partialPrefixEnd);
+        const bool canClear = commaIndex > prefixEnd
+            && (isElementBoundary(segmentStart) || partialPrefixEnd > segmentStart);
+        output.append(text.mid(segmentStart, prefixEnd - segmentStart));
+        if (canClear) {
+            if (appendTransformedNoteSpan(prefixEnd, commaIndex)) {
+                ++changed;
+            }
+            output.append(QLatin1Char(','));
+        } else {
+            output.append(text.mid(prefixEnd, commaIndex - prefixEnd + 1));
+        }
+        segmentStart = commaIndex + 1;
+    };
+
+    for (int i = boundedStart; i < boundedEnd; ++i) {
+        while (i >= nextLineStart) {
+            lineStart = nextLineStart;
+            nextLineStart = text.indexOf(QLatin1Char('\n'), lineStart);
+            if (nextLineStart < 0) {
+                nextLineStart = text.size();
+            } else {
+                ++nextLineStart;
+            }
+            commentStart = commentStartInLine(lineStart, nextLineStart);
+            squareDepth = 0;
+            braceDepth = 0;
+            parenDepth = 0;
+        }
+        if (commentStart >= lineStart && i >= commentStart) {
+            appendRawThrough(qMin(nextLineStart, boundedEnd));
+            i = segmentStart - 1;
+            continue;
+        }
+        const QChar ch = text.at(i);
+        switch (ch.unicode()) {
+        case '[':
+            ++squareDepth;
+            break;
+        case ']':
+            squareDepth = qMax(0, squareDepth - 1);
+            break;
+        case '{':
+            ++braceDepth;
+            break;
+        case '}':
+            braceDepth = qMax(0, braceDepth - 1);
+            break;
+        case '(':
+            ++parenDepth;
+            break;
+        case ')':
+            parenDepth = qMax(0, parenDepth - 1);
+            break;
+        case ',':
+            if (isTopLevel()) {
+                appendClearedSegment(i);
+            }
+            break;
+        default:
+            break;
+        }
+    }
+
+    output.append(text.mid(segmentStart, boundedEnd - segmentStart));
+    output.append(text.mid(boundedEnd));
+
+    if (changedCount != nullptr) {
+        *changedCount = changed;
+    }
+    return output;
+}
+
 }  // namespace miacode::chart_transform::detail
 
 namespace miacode::chart_transform {
 
 using namespace detail;
+
+QString resetTapNotesInSelection(
+    const QString& text,
+    int selectionStart,
+    int selectionEnd,
+    int* changedCount)
+{
+    return detail::transformCompleteElementsInSelection(
+        text, selectionStart, selectionEnd, true, changedCount);
+}
 
 QString toggleBreakForSelection(const QString& input, int* changedCount)
 {
@@ -477,31 +724,248 @@ QString randomRotateForSelection(const QString& input, int* changedCount)
 QString randomRotateForSelection(const QString& input, const std::function<int()>& nextStep, int* changedCount)
 {
     int changed = 0;
-    if (!nextStep) {
-        if (changedCount != nullptr) {
-            *changedCount = 0;
-        }
-        return input;
-    }
-    // A one-to-one mapping per beat keeps distinct presses distinct. Touch
-    // rings have separate pad identities; repeated source pads share a mapping.
-    QHash<QChar, QHash<QChar, QChar>> laneMaps;
-    const auto rotationForLane = [&](QChar ring, QChar lane) {
-        auto& laneMap = laneMaps[ring];
-        if (!laneMap.contains(lane)) {
-            QChar target = rotateLaneChar(lane, nextStep());
-            while (laneMap.values().contains(target)) {
-                target = rotateLaneChar(target, 1);
-            }
-            laneMap.insert(lane, target);
-        }
-        return (laneMap.value(lane).digitValue() - lane.digitValue() + 8) % 8;
-    };
     const QString output = rewriteSelectionCore(input, [&](const QString& core) {
         return rewriteSelectionTokens(core, [&](const QString& token) {
-            return rotateRandomToken(token, rotationForLane, &changed);
-        }, [&]() { laneMaps.clear(); });
+            return rotateRandomToken(token, nextStep, &changed);
+        });
     });
+    if (changedCount != nullptr) {
+        *changedCount = changed;
+    }
+    return output;
+}
+
+QString clearCompleteElementsInSelection(
+    const QString& text,
+    int selectionStart,
+    int selectionEnd,
+    int* changedCount)
+{
+    if (changedCount != nullptr) {
+        *changedCount = 0;
+    }
+    if (text.isEmpty()) {
+        return text;
+    }
+
+    const int boundedStart = qBound(0, selectionStart, text.size());
+    const int boundedEnd = qBound(boundedStart, selectionEnd, text.size());
+    if (boundedStart >= boundedEnd) {
+        return text;
+    }
+
+    QString output;
+    output.reserve(text.size());
+    output.append(text.left(boundedStart));
+
+    int segmentStart = boundedStart;
+    const auto commentStartInLine = [&text](int start, int endExclusive) {
+        const int index = text.indexOf(QStringLiteral("||"), start);
+        return (index >= 0 && index < endExclusive) ? index : -1;
+    };
+    const int newlineBeforeSelection =
+        boundedStart > 0 ? text.lastIndexOf(QLatin1Char('\n'), boundedStart - 1) : -1;
+    int lineStart = newlineBeforeSelection + 1;
+    int nextLineStart = text.indexOf(QLatin1Char('\n'), lineStart);
+    if (nextLineStart < 0) {
+        nextLineStart = text.size();
+    } else {
+        ++nextLineStart;
+    }
+    int commentStart = commentStartInLine(lineStart, nextLineStart);
+    int squareDepth = 0;
+    int braceDepth = 0;
+    int parenDepth = 0;
+    int changed = 0;
+
+    const auto isTopLevel = [&]() {
+        return squareDepth == 0 && braceDepth == 0 && parenDepth == 0;
+    };
+    const auto leadingPrefixEnd = [&](int start, int end) {
+        int pos = start;
+        while (pos < end) {
+            const QChar opening = text.at(pos);
+            QChar closing;
+            if (opening == QLatin1Char('{')) {
+                closing = QLatin1Char('}');
+            } else if (opening == QLatin1Char('(')) {
+                closing = QLatin1Char(')');
+            } else {
+                break;
+            }
+            const int closeIndex = text.indexOf(closing, pos + 1);
+            if (closeIndex < 0 || closeIndex >= end) {
+                break;
+            }
+            pos = closeIndex + 1;
+        }
+        return pos;
+    };
+    const auto isBoundaryBefore = [&](int pos) {
+        if (pos <= 0) {
+            return true;
+        }
+        const QChar previous = text.at(pos - 1);
+        return previous == QLatin1Char(',')
+            || previous == QLatin1Char('\n')
+            || previous == QChar::ParagraphSeparator
+            || previous == QChar::LineSeparator;
+    };
+    const auto partialLeadingPrefixEnd = [&](int start, int end) {
+        const int openBrace = text.lastIndexOf(QLatin1Char('{'), start);
+        const int openParen = text.lastIndexOf(QLatin1Char('('), start);
+        const int openIndex = qMax(openBrace, openParen);
+        if (openIndex < 0 || openIndex >= start || !isBoundaryBefore(openIndex)) {
+            return start;
+        }
+        const QChar closing = text.at(openIndex) == QLatin1Char('{')
+            ? QLatin1Char('}')
+            : QLatin1Char(')');
+        const int closeIndex = text.indexOf(closing, openIndex + 1);
+        if (closeIndex < start || closeIndex >= end) {
+            return start;
+        }
+        return closeIndex + 1;
+    };
+    const auto appendRawThrough = [&](int endExclusive) {
+        output.append(text.mid(segmentStart, endExclusive - segmentStart));
+        segmentStart = endExclusive;
+    };
+    const auto isElementBoundary = [&](int pos) {
+        if (pos <= 0) {
+            return true;
+        }
+        const QChar previous = text.at(pos - 1);
+        if (previous == QLatin1Char(',')
+            || previous == QLatin1Char('\n')
+            || previous == QChar::ParagraphSeparator
+            || previous == QChar::LineSeparator) {
+            return true;
+        }
+        if (previous != QLatin1Char('}') && previous != QLatin1Char(')')) {
+            return false;
+        }
+        const QChar opening = previous == QLatin1Char('}')
+            ? QLatin1Char('{')
+            : QLatin1Char('(');
+        const int openIndex = text.lastIndexOf(opening, pos - 2);
+        if (openIndex < 0) {
+            return false;
+        }
+        if (openIndex == 0) {
+            return true;
+        }
+        const QChar beforePrefix = text.at(openIndex - 1);
+        return beforePrefix == QLatin1Char(',')
+            || beforePrefix == QLatin1Char('\n')
+            || beforePrefix == QChar::ParagraphSeparator
+            || beforePrefix == QChar::LineSeparator;
+    };
+    // Emit [spanStart, spanEnd) with the note tokens removed but every {…}/(…)
+    // directive AND all whitespace/newlines kept verbatim. This preserves the
+    // "{} ," timing skeleton (subdivisions, BPM marks, line breaks) even when a
+    // directive sits behind a newline/space instead of tight against the prior
+    // comma — clearing a passage that spans several {} subdivisions must NOT
+    // collapse them into one. Returns true if a note token was actually dropped.
+    const auto appendClearedNoteSpan = [&](int spanStart, int spanEnd) {
+        bool droppedNote = false;
+        int pos = spanStart;
+        while (pos < spanEnd) {
+            const QChar ch = text.at(pos);
+            if (ch == QLatin1Char('{') || ch == QLatin1Char('(')) {
+                const QChar closing = ch == QLatin1Char('{')
+                    ? QLatin1Char('}')
+                    : QLatin1Char(')');
+                const int closeIndex = text.indexOf(closing, pos + 1);
+                if (closeIndex < 0 || closeIndex >= spanEnd) {
+                    // Unterminated directive — preserve the remainder verbatim
+                    // rather than risk dropping structural text.
+                    output.append(text.mid(pos, spanEnd - pos));
+                    return droppedNote;
+                }
+                output.append(text.mid(pos, closeIndex - pos + 1));
+                pos = closeIndex + 1;
+            } else if (ch.isSpace()) {
+                output.append(ch);
+                ++pos;
+            } else {
+                // Note token — cleared.
+                droppedNote = true;
+                ++pos;
+            }
+        }
+        return droppedNote;
+    };
+    const auto appendClearedSegment = [&](int commaIndex) {
+        const int fullPrefixEnd = leadingPrefixEnd(segmentStart, commaIndex);
+        const int partialPrefixEnd = partialLeadingPrefixEnd(segmentStart, commaIndex);
+        const int prefixEnd = qMax(fullPrefixEnd, partialPrefixEnd);
+        const bool canClear = commaIndex > prefixEnd
+            && (isElementBoundary(segmentStart) || partialPrefixEnd > segmentStart);
+        output.append(text.mid(segmentStart, prefixEnd - segmentStart));
+        if (canClear) {
+            if (appendClearedNoteSpan(prefixEnd, commaIndex)) {
+                ++changed;
+            }
+            output.append(QLatin1Char(','));
+        } else {
+            output.append(text.mid(prefixEnd, commaIndex - prefixEnd + 1));
+        }
+        segmentStart = commaIndex + 1;
+    };
+
+    for (int i = boundedStart; i < boundedEnd; ++i) {
+        while (i >= nextLineStart) {
+            lineStart = nextLineStart;
+            nextLineStart = text.indexOf(QLatin1Char('\n'), lineStart);
+            if (nextLineStart < 0) {
+                nextLineStart = text.size();
+            } else {
+                ++nextLineStart;
+            }
+            commentStart = commentStartInLine(lineStart, nextLineStart);
+            squareDepth = 0;
+            braceDepth = 0;
+            parenDepth = 0;
+        }
+        if (commentStart >= lineStart && i >= commentStart) {
+            appendRawThrough(qMin(nextLineStart, boundedEnd));
+            i = segmentStart - 1;
+            continue;
+        }
+        const QChar ch = text.at(i);
+        switch (ch.unicode()) {
+        case '[':
+            ++squareDepth;
+            break;
+        case ']':
+            squareDepth = qMax(0, squareDepth - 1);
+            break;
+        case '{':
+            ++braceDepth;
+            break;
+        case '}':
+            braceDepth = qMax(0, braceDepth - 1);
+            break;
+        case '(':
+            ++parenDepth;
+            break;
+        case ')':
+            parenDepth = qMax(0, parenDepth - 1);
+            break;
+        case ',':
+            if (isTopLevel()) {
+                appendClearedSegment(i);
+            }
+            break;
+        default:
+            break;
+        }
+    }
+
+    output.append(text.mid(segmentStart, boundedEnd - segmentStart));
+    output.append(text.mid(boundedEnd));
+
     if (changedCount != nullptr) {
         *changedCount = changed;
     }

@@ -520,8 +520,7 @@ PreviewJudgeEffectLayerState buildPreviewJudgeEffectLayerState(
 )
 {
     PreviewJudgeEffectLayerState layerState;
-    if (!state.render.showJudgeEffects
-        || (state.judgeEffect.tapImage.isNull() && state.judgeEffect.tapBreakImage.isNull())) {
+    if (state.judgeEffect.tapImage.isNull() && state.judgeEffect.tapBreakImage.isNull()) {
         return layerState;
     }
 

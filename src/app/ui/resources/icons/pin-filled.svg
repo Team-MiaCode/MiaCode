@@ -1,0 +1,7 @@
+<!-- MiaCode: selected counterpart of the toolbar pin. -->
+<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g transform="rotate(45 10 10)" stroke="#212121" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7.5 3.5H12.5V8.25L14.5 10.5V12H5.5V10.5L7.5 8.25V3.5Z" fill="#212121" stroke-width="0.5"/>
+    <path d="M6.5 3.5H13.5M10 12V17" stroke-width="1.5"/>
+  </g>
+</svg>

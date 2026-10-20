@@ -12,7 +12,7 @@
 #include <QRectF>
 #include <QTextStream>
 
-#include "core/chart/parser/SimaiNativeParser.h"
+#include "core/chart/parser/SimaiParser.h"
 #include "core/scene/PreviewActiveMarkerView.h"
 #include "core/scene/PreviewGuideLayerState.h"
 #include "core/scene/PreviewOpacityCurves.h"
@@ -72,7 +72,7 @@ struct GuideOutcome {
 // before the first note, and reports which each-connector art came out.
 bool buildGuideOutcome(const QString& chart, GuideOutcome* outcome, QTextStream& err)
 {
-    const SimaiNativeParseResult parsed = SimaiNativeParser::parseForTimeline(chart);
+    const SimaiParseResult parsed = SimaiParser::parseForTimeline(chart);
     if (!require(parsed.ok, QStringLiteral("chart parses: %1").arg(chart), err)) {
         return false;
     }

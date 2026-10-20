@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QElapsedTimer>
+#include <QHash>
 #include <QPointer>
 #include <QSize>
 #include <QUrl>
@@ -11,13 +12,14 @@
 #include <atomic>
 #include <memory>
 
-#include "common/MuriRenderOptions.h"
-#include "common/MuriTypes.h"
+#include "core/analysis/MuriRenderOptions.h"
+#include "core/analysis/MuriTypes.h"
 #include "preview/quick_scene/PreviewTextureRepository.h"
 #include "core/scene/PreviewFrameState.h"
 #include "preview/runtime/PreviewSceneAssetRepository.h"
 
 class QQuickWindow;
+class QVideoFrame;
 
 struct PreviewRuntimeLayerProfileAggregate {
     QString name;
@@ -69,6 +71,13 @@ class PreviewRuntime : public QObject
     Q_OBJECT
     Q_PROPERTY(bool introOverlayActive READ introOverlayActive NOTIFY introOverlayStateChanged)
     Q_PROPERTY(int introOverlayFrame READ introOverlayFrame NOTIFY introOverlayStateChanged)
+    // The PV-preview hold leaves the overlay transparent around the card so the
+    // stage PV shows; the chart scene and HUD drop out (opacity, not visibility —
+    // see PreviewSurface.qml) for that phase.
+    Q_PROPERTY(bool introHidesChart READ introHidesChart NOTIFY introOverlayStateChanged)
+    // The intro is paused / scrubbed rather than playing: the overlay draws the
+    // frame as a still (no black fade-in cover, the card already formed).
+    Q_PROPERTY(bool introStillFrame READ introStillFrame NOTIFY introOverlayStateChanged)
     Q_PROPERTY(QVariantMap introBannerTrack READ introBannerTrack NOTIFY introOverlayDataChanged)
     Q_PROPERTY(QVariantMap introBannerTemplate READ introBannerTemplate NOTIFY introOverlayDataChanged)
     Q_PROPERTY(QUrl introBackgroundImage READ introBackgroundImage NOTIFY introOverlayDataChanged)
@@ -113,7 +122,8 @@ public:
         double videoFrameRate,
         double videoFrameIntervalAvgMs,
         double videoFrameIntervalMaxMs,
-        qint64 videoFrameStallCount);
+        qint64 videoFrameStallCount,
+        const QString& videoDecodeDesc = QString());
     void setFramePacingDebugState(
         bool usesDisplayRefreshPacing,
         double targetFps,
@@ -129,6 +139,10 @@ public:
         const QVariantMap& bannerStyle = {});
     void setIntroOverlayFrame(int authoringFrame, bool active, bool requestUpdate = true);
     void clearIntroOverlay(bool requestUpdate = true);
+    void setIntroHidesChart(bool hides);
+    bool introHidesChart() const { return introHidesChart_; }
+    void setIntroStillFrame(bool still);
+    bool introStillFrame() const { return introStillFrame_; }
     bool introOverlayActive() const { return introOverlayActive_; }
     int introOverlayFrame() const { return introOverlayFrame_; }
     QVariantMap introBannerTrack() const { return introBannerTrack_; }
@@ -182,13 +196,12 @@ public:
     void setTouchPadAuthoringEnabled(bool enabled);
     void setShowDebugInfo(bool show);
     void setSuppressDebugInfo(bool suppress);
+    void setHudFontSettings(const miacode::preview::scene::PreviewHudFontSettings& settings);
     void setShowTimestamp(bool show);
     void setShowObjectStatsHud(bool show);
-    void setFixHudTextLayout(bool enabled);
     void setCenterDisplayMode(miacode::preview_gameplay::CenterDisplayMode mode);
     void setSuppressObjectStatsHud(bool suppress);
     void setShowChartInfoHud(bool show);
-    void setShowJudgeEffects(bool enabled);
     void setUseMineSkin(bool enabled);
     void setChartInfo(const QString& title,
                       const QString& artist,
@@ -197,11 +210,11 @@ public:
     bool showTimestamp() const;
     bool showObjectStatsHud() const;
     bool showChartInfoHud() const;
-    bool showJudgeEffects() const;
     bool useMineSkin() const;
     miacode::preview_gameplay::CenterDisplayMode centerDisplayMode() const;
 
-    void reset();
+    // Release marker storage when the owning document closes.
+    void reset(bool releaseStorage = false);
     void noteTickForProfiling();
     void notePresentedTextureStats(const PreviewTextureStats& stats);
     void noteFixedTimerPacingMetrics(
@@ -219,6 +232,13 @@ public:
     void noteFixedGatePresentWithoutTick(qint64 gateWaitNs);
     void noteFixedGateWatchdogKick();
     void noteFixedGateMissedTargetSlots(qint64 count);
+    // --debug-only v2 UI probe. PreviewQuickSceneRoot reports its live binding
+    // and each frame-state fan-out here; payload is emitted only in the
+    // existing pause resource gauge, never per frame.
+    void noteV2UiSceneRootBound(quint64 instanceId, bool visible);
+    void noteV2UiSceneRootUnbound(quint64 instanceId);
+    void noteV2UiSceneRootVisibility(quint64 instanceId, bool visible);
+    void noteV2UiSceneRootFrameStateDispatch(bool visible);
     void setActivePlaybackProfilingEnabled(bool enabled);
     void notePreviewClockMetrics(
         double audioDeltaSeconds,
@@ -274,6 +294,8 @@ private:
     std::shared_ptr<const miacode::preview::scene::PreviewFrameState> publishedFrameState_;
     bool introOverlayActive_ = false;
     int introOverlayFrame_ = 0;
+    bool introHidesChart_ = false;
+    bool introStillFrame_ = false;
     QVariantMap introBannerTrack_;
     QVariantMap introBannerTemplate_;
     QUrl introBackgroundImage_;
@@ -337,9 +359,7 @@ private:
     // emitted during updatePaintNode, one whole render+swap before the pixels exist,
     // while the GUI-thread completion check runs off a QUEUED frameSwapped hop that
     // can lag a frame. That combination could retire the warm-up on a frame whose
-    // pipeline build had not actually happened yet — the "warm-up done means the
-    // marker was drawn, not that a render/present completed" gap called out in
-    // docs/audit/PREVIEW_FIRST_PLAY_RENDER_STALL_HANDOFF_AUDIT_ZH.md §6D-2.
+    // pipeline build had not actually happened yet.
     std::atomic<quint64> fireworkLayerDrawSignal_{0};
     quint64 fireworkWarmupArmDrawSignal_ = 0;
     bool requestedShowObjectStatsHud_ = false;
@@ -440,6 +460,13 @@ private:
     double playbackTickIntervalSumMs_ = 0.0;
     double playbackTickIntervalMaxMs_ = 0.0;
     qint64 playbackTickIntervalSampleCount_ = 0;
+    // v2 UI probe state. All access is on the GUI thread. The map is retained
+    // across play transactions so the pause gauge can report current roots;
+    // dispatch counters reset on each explicit Play.
+    QHash<quint64, bool> v2UiSceneRootVisibility_;
+    qint64 v2UiSceneRootDispatchCount_ = 0;
+    qint64 v2UiSceneRootVisibleDispatchCount_ = 0;
+    qint64 v2UiSceneRootHiddenDispatchCount_ = 0;
     // Fixed-gate metrics (doc section 5.1): emitted by the present-driven fixed FPS gate path.
     qint64 fixedGateVisualTickCount_ = 0;
     qint64 fixedGatePresentWithoutTickCount_ = 0;

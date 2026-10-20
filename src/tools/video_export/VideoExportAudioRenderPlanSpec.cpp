@@ -2,10 +2,10 @@
 #include <QTemporaryDir>
 #include <QFile>
 
-#include "VideoExportAudioRenderPlan.h"
-#include "VideoExportController.h"
-#include "common/ChartClockCount.h"
-#include "common/PreviewAudioMixConfig.h"
+#include "export/video_export/VideoExportAudioRenderPlan.h"
+#include "export/video_export/VideoExportController.h"
+#include "core/chart/document/ChartClockCount.h"
+#include "audio/PreviewAudioMixConfig.h"
 
 namespace {
 
@@ -196,6 +196,83 @@ bool verifyPartialExportDropsTouchholdSpanEntirelyInPreRange(QTextStream& err)
         plan.touchholdSpanPlaybacks.isEmpty(),
         QStringLiteral("touchhold span fully inside the partial pre-range should be dropped"),
         err);
+}
+
+// The PV-preview intro front-pads hold + cycle 2 and schedules its music
+// segment at output 0 with fades; the chart BGM still lands at chart 0.
+bool verifyPvPreviewIntroPlan(QTextStream& err)
+{
+    QTemporaryDir tempDir;
+    QFile trackFile(tempDir.filePath(QStringLiteral("track.mp3")));
+    if (!trackFile.open(QIODevice::WriteOnly)) {
+        err << "failed to create temp track" << Qt::endl;
+        return false;
+    }
+    trackFile.close();
+
+    VideoExportTask task;
+    task.trackPath = trackFile.fileName();
+    task.noteMarkers = {makeTap(1.0), makeTap(2.0)};
+    task.exportStartSeconds = 0.0;
+    task.contentDurationSeconds = 4.0;
+    task.fullRangeExport = true;
+    task.fps = 60;
+    task.intro.enabled = true;
+    task.intro.pvPreview = true;
+    task.intro.pvPreviewStartSeconds = 54.0;
+
+    VideoExportAudioRenderPlan plan;
+    QString errorMessage;
+    if (!miacode::video_export::buildVideoExportAudioRenderPlan(task, &plan, &errorMessage)) {
+        err << errorMessage << Qt::endl;
+        return false;
+    }
+
+    const double expectedIntroSeconds =
+        (390.0 + miacode::intro::kCycle2SpanFrames) / miacode::intro::kAuthoringFps;
+    if (!require(qAbs(plan.introLeadSeconds - expectedIntroSeconds) <= 1e-6,
+                 QStringLiteral("PV preview intro should pad hold + cycle 2"), err)) {
+        return false;
+    }
+    if (!require(qAbs(plan.timelineOriginSecond + 2.0 + expectedIntroSeconds) <= 1e-6,
+                 QStringLiteral("PV preview intro should sit in front of the lead-in"), err)) {
+        return false;
+    }
+    if (!require(qAbs(plan.backgroundTrack.mixStartSecond - 2.0 - expectedIntroSeconds) <= 1e-6,
+                 QStringLiteral("chart BGM should still start at chart 0"), err)) {
+        return false;
+    }
+    const auto& intro = plan.introPreviewTrack;
+    if (!require(intro.enabled && intro.path == plan.backgroundTrack.path,
+                 QStringLiteral("PV preview intro should schedule the chart track"), err)) {
+        return false;
+    }
+    if (!require(qAbs(intro.mixStartSecond) <= 1e-6 && qAbs(intro.sourceStartSecond - 54.0) <= 1e-6
+                     && qAbs(intro.durationSeconds - 6.5 - miacode::intro::kPvPreviewAudioTailSeconds) <= 1e-6,
+                 QStringLiteral("PV preview music should play the segment from output 0 into the wipe"), err)) {
+        return false;
+    }
+    if (!require(intro.fadeOutSeconds > miacode::intro::kPvPreviewAudioTailSeconds,
+                 QStringLiteral("PV preview fade-out should straddle the hard cut"), err)) {
+        return false;
+    }
+    if (!require(intro.fadeInSeconds > 0.0 && intro.fadeOutSeconds > 0.0
+                     && qAbs(intro.gain - plan.backgroundTrack.gain) <= 1e-6,
+                 QStringLiteral("PV preview music should fade and share the BGM gain"), err)) {
+        return false;
+    }
+
+    task.intro.pvPreview = false;
+    if (!miacode::video_export::buildVideoExportAudioRenderPlan(task, &plan, &errorMessage)) {
+        err << errorMessage << Qt::endl;
+        return false;
+    }
+    if (!require(qAbs(plan.introLeadSeconds - miacode::intro::kDurationSeconds) <= 1e-6
+                     && !plan.introPreviewTrack.enabled,
+                 QStringLiteral("classic intro should keep its fixed window and no music segment"), err)) {
+        return false;
+    }
+    return true;
 }
 
 bool verifyPartialExportKeepsBackgroundTrackInPreRange(QTextStream& err)
@@ -567,6 +644,9 @@ int main(int argc, char* argv[])
         return 1;
     }
     if (!verifyPartialExportKeepsBackgroundTrackInPreRange(err)) {
+        return 1;
+    }
+    if (!verifyPvPreviewIntroPlan(err)) {
         return 1;
     }
     if (!verifyLatestWinsScheduling(err)) {

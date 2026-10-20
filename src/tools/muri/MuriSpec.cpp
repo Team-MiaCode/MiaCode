@@ -1,15 +1,18 @@
-#include "SimaiNativeParser.h"
+#include "core/chart/parser/SimaiParser.h"
 
 #include <QCoreApplication>
 #include <QTextStream>
 #include <QtMath>
 
-#include "common/MuriConfig.h"
-#include "common/MuriTypes.h"
-#include "timeline/TimelineMarkerOffset.h"
-#include "tools/muri/MuriAnalyzer.h"
-#include "tools/muri/MuriPanelEntries.h"
-#include "tools/muri/MuriStaticChecker.h"
+#include "core/analysis/MuriConfig.h"
+#include "core/analysis/MuriRenderOptions.h"
+#include "core/analysis/MuriTypes.h"
+#include "core/chart/model/TimelineMarkerOffset.h"
+#include "core/analysis/MuriAnalyzer.h"
+#include "core/analysis/MuriAnalyzerInternal.h"
+#include "core/analysis/MuriRuntimeModelBuilder.h"
+#include "core/analysis/MuriPanelEntries.h"
+#include "core/analysis/MuriStaticChecker.h"
 
 namespace {
 
@@ -17,7 +20,7 @@ using miacode::timeline::offset::NonFiniteHandling;
 using miacode::timeline::offset::shiftedNoteMarkers;
 
 struct AnalyzedChart {
-    SimaiNativeParseResult parsed;
+    SimaiParseResult parsed;
     MuriAnalysisReport report;
     QVector<MuriStaticReference> staticReferences;
     QVector<miacode::muri::MuriPanelEntry> visibleEntries;
@@ -31,7 +34,7 @@ bool nearlyEqual(double a, double b, double epsilon = 1e-6)
 AnalyzedChart analyzeChart(const QString& chartText, double firstSeconds = 0.0)
 {
     AnalyzedChart result;
-    result.parsed = SimaiNativeParser::parseForTimeline(chartText);
+    result.parsed = SimaiParser::parseForTimeline(chartText);
     const QVector<TimelineNoteMarker> shiftedMarkers =
         shiftedNoteMarkers(result.parsed.noteMarkers, firstSeconds, NonFiniteHandling::PassThrough);
     result.report = MuriAnalyzer::analyze(shiftedMarkers);
@@ -166,6 +169,50 @@ int main(int argc, char** argv)
         err << "[FAIL] " << message << '\n';
         ++failed;
     };
+
+    {
+        // 手部半径 is set in the 1080 px reference playfield the pad geometry is written in.
+        // The default keeps the established hand; a configured radius is the footprint both
+        // the runtime judge and the overlay hand trails use.
+        MuriRenderOptions options;
+        expect(options.handRadiusPx == miacode::muri::kHandRadiusDefaultPx
+                   && nearlyEqual(miacode::muri::handRadiusForOptions(options), miacode::muri::kHandRadiusNormal),
+               QStringLiteral("the default hand radius is the established reference hand"));
+
+        const SimaiParseResult parsed = SimaiParser::parseForTimeline(
+            QStringLiteral("(120){4}1,1h[4:1],B1,1-5[4:1],\nE\n"));
+        expect(parsed.ok, QStringLiteral("hand radius chart parses"));
+        options.handRadiusPx = 60;
+        const double configuredRadius = miacode::muri::handRadiusForOptions(options);
+        expect(nearlyEqual(configuredRadius, miacode::muri::kLogicalCanvasSize * 60.0 / 1080.0),
+               QStringLiteral("a configured hand radius converts from the 1080 px reference"));
+
+        const miacode::muri::detail::MuriRuntimeModel model =
+            miacode::muri::detail::MuriRuntimeModelBuilder::build(parsed.noteMarkers);
+        const auto actions = miacode::muri::detail::buildRuntimeHandActions(
+            parsed.noteMarkers, model.notes, model.touchGroups, model.touchGroupByChildNoteIndex,
+            configuredRadius, true);
+        bool actionsUseRadius = !actions.isEmpty();
+        for (const auto& action : actions) {
+            actionsUseRadius = actionsUseRadius && nearlyEqual(action.radius, configuredRadius);
+        }
+        expect(actionsUseRadius, QStringLiteral("the runtime judge's hands use the configured radius"));
+
+        const MuriAnalysisReport report = MuriAnalyzer::analyze(parsed.noteMarkers, options);
+        bool trailsUseRadius = !report.actionTrails.isEmpty();
+        for (const MuriActionTrail& trail : report.actionTrails) {
+            trailsUseRadius = trailsUseRadius && nearlyEqual(trail.radius, configuredRadius);
+        }
+        expect(trailsUseRadius, QStringLiteral("the overlay hand trails use the configured radius"));
+
+        expect(miacode::muri::kHandRadiusMinPx == 0 && miacode::muri::kHandRadiusMaxPx == 60
+                   && miacode::muri::kHandRadiusMaxPx == 2 * miacode::muri::kHandRadiusDefaultPx
+                   && miacode::muri::normalizedHandRadiusPx(0) == 0,
+               QStringLiteral("the hand radius spans 0%-200% of the default hand"));
+        expect(miacode::muri::normalizedHandRadiusPx(100000) == miacode::muri::kHandRadiusMaxPx
+                   && miacode::muri::normalizedHandRadiusPx(-3) == miacode::muri::kHandRadiusMinPx,
+               QStringLiteral("an out-of-range hand radius is clamped"));
+    }
 
     {
         const AnalyzedChart analyzed = analyzeChart(
@@ -972,6 +1019,48 @@ int main(int argc, char** argv)
             QStringLiteral("staggered slide-hold non-issue repro keeps static references empty"));
         expect(analyzed.visibleEntries.isEmpty(),
             QStringLiteral("staggered slide-hold non-issue repro keeps the Muri panel empty"));
+    }
+
+    {
+        const AnalyzedChart analyzed = analyzeChart(
+            QStringLiteral("(160){4}4-8[4:7],,3h,,2h,,1h,,8h\nE\n"));
+        expect(analyzed.parsed.ok, QStringLiteral("slow slide end occupancy repro chart parses"));
+        expect(countDiagnostics(analyzed.report.diagnostics, MuriKind::TapOnSlide) == 0,
+            QStringLiteral("slow slide end occupancy repro has no runtime tap-on-slide"));
+        expect(countStaticReferences(analyzed.staticReferences, MuriKind::TapOnSlide) == 0,
+            QStringLiteral("slow slide end occupancy repro has no static tap-on-slide"));
+        expect(countDiagnostics(analyzed.report.diagnostics, MuriKind::Overlap) == 0,
+            QStringLiteral("slow slide end occupancy repro keeps runtime overlap empty"));
+        expect(countStaticReferences(analyzed.staticReferences, MuriKind::Overlap) == 1,
+            QStringLiteral("slow slide end occupancy repro emits one static overlap"));
+        expect(countVisibleEntries(analyzed.visibleEntries, MuriKind::Overlap) == 1,
+            QStringLiteral("slow slide end occupancy repro keeps one overlap visible"));
+        expect(countVisibleEntries(analyzed.visibleEntries, MuriKind::TapOnSlide) == 0,
+            QStringLiteral("slow slide end occupancy repro hides tap-on-slide from the panel"));
+
+        if (const MuriStaticReference* reference =
+                firstStaticReference(analyzed.staticReferences, MuriKind::Overlap)) {
+            expect(reference->affected.markerType == QStringLiteral("hold"),
+                QStringLiteral("slow slide end occupancy repro static affected is hold"));
+            expect(reference->affected.lane == 8,
+                QStringLiteral("slow slide end occupancy repro static affected lane is 8"));
+            expect(reference->cause.markerType == QStringLiteral("slide"),
+                QStringLiteral("slow slide end occupancy repro static cause is slide"));
+            expect(reference->cause.endLane == 8,
+                QStringLiteral("slow slide end occupancy repro static cause ends on lane 8"));
+        }
+
+        if (!analyzed.visibleEntries.isEmpty()) {
+            const miacode::muri::MuriPanelEntry& entry = analyzed.visibleEntries.constFirst();
+            expect(entry.kind == MuriKind::Overlap,
+                QStringLiteral("slow slide end occupancy repro visible entry is overlap"));
+            expect(entry.rawDetail.contains(QStringLiteral("hold 8h")),
+                QStringLiteral("slow slide end occupancy repro detail names hold 8h"));
+            expect(entry.rawDetail.contains(QStringLiteral("slide")),
+                QStringLiteral("slow slide end occupancy repro detail names the slide"));
+            expect(!entry.rawDetail.contains(QStringLiteral("hold 8 ")),
+                QStringLiteral("slow slide end occupancy repro detail does not use bare hold 8"));
+        }
     }
 
     {

@@ -3,11 +3,10 @@
 #include <QString>
 #include <QVector>
 
-#include "common/PreviewSfxTimeline.h"
-#include "common/PreviewTimingSettings.h"
-#include "PreviewAudioSettings.h"
-#include "PreviewAudioHealth.h"
-#include "PreviewAudioClock.h"
+#include "core/scene/PreviewSfxTimeline.h"
+#include "core/video/PreviewTimingSettings.h"
+#include "audio/PreviewAudioSettings.h"
+#include "audio/PreviewAudioHealth.h"
 
 namespace miacode::preview_audio {
 
@@ -40,6 +39,15 @@ struct PreviewAudioHealthSample {
     double bgmRawSecond = -1.0;
     qint64 sampledAtMs = 0;
     quint64 sequence = 0;
+    // A1 (PREVIEW_AUDIO_MASTER_MIXER_STALL_REVIEW_ZH.md): identifies the continuous BGM
+    // playback segment this sample was taken during. The backend bumps this whenever the
+    // BGM cursor is discontinuously repositioned (seek, live rate change) so two samples'
+    // bgmRawSecond are only compared for an advance-rate probe when both carry the same
+    // epoch -- otherwise a deliberate jump reads as a false underrun (or hides a real one).
+    quint64 continuityEpoch = 0;
+    // BGM tempo rate in effect when bgmRawSecond was sampled. bgmRawSecond is a content
+    // second and advances at this rate per wall-clock second, not 1:1 with sampledAtMs.
+    double bgmPlaybackRate = 1.0;
 };
 
 class PreviewAudioBackend
@@ -102,7 +110,7 @@ public:
     // alone. Only the audio-device auto-pause calls this. A manual pause deliberately
     // lets one-shots ring out (see suspendPlaybackTransport), but on a device change
     // that tail outlives the route switch and is heard as a stray note AFTER the
-    // preview has visibly stopped. Default no-op, so the miniaudio backend is unchanged.
+    // preview has visibly stopped. Default no-op keeps alternate test backends lightweight.
     virtual void stopSfxVoices() {}
     // A physical output-route change invalidates the old transport. Backends that own
     // a concrete endpoint release it here; the next explicit play rebuilds on the
@@ -127,7 +135,6 @@ public:
         stopAll();
     }
     virtual PreviewAudioHealthSample sampleHealth() { return {}; }
-    virtual PlaybackClockSample playbackClockSample() const { return {}; }
 };
 
 }  // namespace miacode::preview_audio

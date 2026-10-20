@@ -22,4 +22,7 @@ public:
         QQuickWindow* window,
         PreviewTextureRepository* textures
     ) const;
+private:
+    mutable qint64 colorBallSourceKey_ = 0;
+    mutable QImage colorBallImage_;
 };

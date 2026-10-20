@@ -1,4 +1,4 @@
-#include "SimaiDocument.h"
+#include "core/chart/document/SimaiDocument.h"
 
 #include <algorithm>
 
@@ -54,7 +54,8 @@ QString serializeField(const QString& key, const QString& value)
 // line alongside the model-owned one.
 bool isReservedMetadataKey(const QString& key)
 {
-    if (key == QLatin1String("title") || key == QLatin1String("artist")
+    if (key.compare(QLatin1String("clock_count"), Qt::CaseInsensitive) == 0
+        || key == QLatin1String("title") || key == QLatin1String("artist")
         || key == QLatin1String("first") || key == QLatin1String("des")
         || key == QLatin1String("video") || key == kBookmarksFieldKey) {
         return true;
@@ -148,17 +149,16 @@ SimaiDocument SimaiDocument::fromText(const QString& text)
         QString prefix;
         int id = 0;
         if (parseDifficultySuffix(field.key, &prefix, &id)) {
-            SimaiDifficultyData& difficultyData = doc.ensureDifficulty(id);
             if (prefix == "lv") {
-                difficultyData.level = field.value;
+                doc.ensureDifficulty(id).level = field.value;
                 continue;
             }
             if (prefix == "des") {
-                difficultyData.designer = field.value;
+                doc.setDesignerForSlot(id, field.value);
                 continue;
             }
             if (prefix == "inote") {
-                difficultyData.chart = field.value;
+                doc.ensureDifficulty(id).chart = field.value;
                 continue;
             }
         }
@@ -166,24 +166,6 @@ SimaiDocument SimaiDocument::fromText(const QString& text)
         doc.extraFields.append(field);
     }
     ensureDefaultClockCount(&doc.extraFields);
-
-    // A `&des_N` with no accompanying `&lv_N` / `&inote_N` is a chart-less
-    // designer name, not a difficulty. Move those out of the difficulty map so
-    // they never surface as a phantom empty difficulty (sidebar entry / empty
-    // lv+inote on save). A genuinely all-empty difficulty (no name either) is
-    // left in place so a freshly-added blank difficulty still round-trips.
-    const QVector<int> parsedIds = doc.difficultyIds();
-    for (int id : parsedIds) {
-        const SimaiDifficultyData* difficultyData = doc.difficulty(id);
-        if (difficultyData == nullptr) {
-            continue;
-        }
-        if (difficultyData->level.isEmpty() && difficultyData->chart.isEmpty()
-            && !difficultyData->designer.isEmpty()) {
-            doc.standaloneDesigners_[id] = difficultyData->designer;
-            doc.difficulties_.remove(id);
-        }
-    }
 
     return doc;
 }
@@ -231,19 +213,36 @@ QVector<SimaiRawField> SimaiDocument::parseRawFields(const QString& text, bool p
     return fields;
 }
 
-QVector<int> SimaiDocument::invalidPropertyLineNumbers(const QString& text)
+QVector<SimaiPropertyIssue> SimaiDocument::invalidPropertyLineNumbers(const QString& text)
 {
-    QVector<int> invalidLines;
-    const QStringList lines = text.split(QChar('\n'));
-    for (int i = 0; i < lines.size(); ++i) {
-        QString line = lines.at(i);
-        if (line.endsWith(QChar('\r'))) line.chop(1);
-        const QString trimmed = line.trimmed();
-        if (!trimmed.startsWith(QChar('&'))) continue;
-        const int equals = trimmed.indexOf(QChar('='), 1);
-        if (equals <= 1 || trimmed.mid(1, equals - 1).trimmed().isEmpty()) invalidLines.append(i + 1);
+    QVector<SimaiPropertyIssue> issues;
+    const QStringList lines = text.split(QLatin1Char('\n'));
+    for (int lineIndex = 0; lineIndex < lines.size(); ++lineIndex) {
+        QString line = lines.at(lineIndex);
+        if (line.endsWith(QLatin1Char('\r'))) {
+            line.chop(1);
+        }
+        const int firstNonSpace = line.indexOf(QRegularExpression(QStringLiteral("\\S")));
+        if (firstNonSpace < 0) {
+            continue;
+        }
+        if (line.at(firstNonSpace) != QLatin1Char('&')) {
+            issues.append({lineIndex + 1, firstNonSpace + 1,
+                           qMax(firstNonSpace + 1, static_cast<int>(line.size())),
+                           QStringLiteral("invalid_property")});
+            continue;
+        }
+        const int equals = line.indexOf(QLatin1Char('='), firstNonSpace + 1);
+        const QString key = equals >= 0
+            ? line.mid(firstNonSpace + 1, equals - firstNonSpace - 1).trimmed()
+            : QString();
+        if (equals <= firstNonSpace + 1 || key.isEmpty()) {
+            issues.append({lineIndex + 1, firstNonSpace + 1,
+                           qMax(firstNonSpace + 1, static_cast<int>(line.size())),
+                           QStringLiteral("invalid_property")});
+        }
     }
-    return invalidLines;
+    return issues;
 }
 
 QVector<SimaiRawField> SimaiDocument::parseUnmanagedFields(const QString& text, bool prefixDummyIfNeeded)
@@ -446,6 +445,11 @@ SimaiDifficultyData& SimaiDocument::ensureDifficulty(int id)
 {
     SimaiDifficultyData& difficultyData = difficulties_[id];
     difficultyData.id = id;
+    // Materializing a slot transfers its designer, including when &des_N
+    // precedes an explicitly empty &lv_N / &inote_N during parsing.
+    if (standaloneDesigners_.contains(id)) {
+        difficultyData.designer = standaloneDesigners_.take(id);
+    }
     return difficultyData;
 }
 
@@ -460,6 +464,12 @@ QString SimaiDocument::designerForSlot(int id) const
         return difficultyData->designer;
     }
     return standaloneDesigners_.value(id);
+}
+
+QString SimaiDocument::effectiveDesignerForSlot(int id) const
+{
+    const QString slotDesigner = designerForSlot(id);
+    return slotDesigner.trimmed().isEmpty() ? designer : slotDesigner;
 }
 
 void SimaiDocument::setDesignerForSlot(int id, const QString& name)
@@ -538,10 +548,9 @@ bool SimaiDocument::isUnifiedDesignerTriviallySafe() const
     //   &des="",  &des_5="X"                            → false (5 disagrees)
     //   &des="X", &des_5="X", &des_6="Y"                → false (6 disagrees)
     //
-    // Currently unused by the load-time default (see
-    // inferUnifiedDesignerDefault). Preserved for a future
-    // suggestion-style UI that might prompt the user "this project
-    // looks unified, enable the option?".
+    // Currently not wired to document loading. Preserved for a future
+    // suggestion-style UI that might prompt the user "this project looks
+    // unified, enable the option?" after the v1 behavior is understood.
     for (auto it = difficulties_.cbegin(); it != difficulties_.cend(); ++it) {
         if (it.value().designer != designer) {
             return false;

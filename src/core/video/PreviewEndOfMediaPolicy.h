@@ -3,29 +3,10 @@
 #include <cmath>
 
 // Background-video EndOfMedia classification.
-//
-// Two independent field reports converge on this file:
-//
-//   * docs/audit/PREVIEW_AUTO_PAUSE_INITIAL_DIAGNOSIS_ZH.md — a legitimately
-//     0.333 s `pv.mp4` reaches its real end almost immediately. That is a
-//     NATURAL end: the PV is subordinate visual media, so it simply stops on
-//     its last frame while BGM / chart / timeline keep running.
-//   * docs/audit/PREVIEW_FIRST_PLAY_RENDER_STALL_HANDOFF_AUDIT_ZH.md §5.2 — a
-//     121 s PV reported EndOfMedia after 1.446 s of playback with its last
-//     decoded pts at 1.267 s. That is a STALE end: nothing about the media
-//     actually ended, so freezing the PV on frame 38 for the remaining two
-//     minutes is a defect, not subordinate-media behaviour.
-//
-// Both arrive as the same `EndOfMedia` enum, so the enum alone can never be the
-// decision. What separates them is the decoded progress measured against the
-// media's OWN duration — not against the chart, the song, or a wall clock, and
-// not against a "videos shorter than N seconds are suspicious" threshold (that
-// would mis-handle any legitimately short PV, which is exactly the trap the
-// auto-pause audit warns about).
-//
-// Kept as a pure header so the decision is covered by
-// preview_end_of_media_policy_spec on every platform, including the ones that
-// cannot run the Windows QtAVPlayer backend where the stale event was observed.
+// A natural end keeps the final video frame while BGM, chart and timeline
+// continue. An early event is classified using decoded progress and the
+// video's own duration, with recovery limited to remaining visual content.
+// The pure policy is covered by preview_end_of_media_policy_spec.
 
 namespace miacode::preview::video {
 

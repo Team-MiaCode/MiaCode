@@ -8,10 +8,7 @@ set "MIACODE_LOG_DIR=%APP_DIR%\logs"
 
 if not exist "%MIACODE_LOG_DIR%" mkdir "%MIACODE_LOG_DIR%"
 
-REM Beta34+ default: embedded QSG-only legacy pipeline. Adding --debug
-REM activates the full runtime/audio/startup-timing log channels under
-REM .\logs\ . Pass extra CLI flags as %1..%9 (e.g. a chart path).
-echo MiaCode debug mode (default embedded QSG legacy pipeline)
+echo MiaCode debug mode
 echo   App : %APP_DIR%\MiaCode.exe
 echo   Logs: %MIACODE_LOG_DIR%
 echo.

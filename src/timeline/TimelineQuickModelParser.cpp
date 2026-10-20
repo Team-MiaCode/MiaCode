@@ -260,7 +260,7 @@ double parseHoldDurationSignature(const QString& signature, double bpm, bool* ok
         return 0.0;
     }
 
-    // Mirror the authoritative SimaiNativeParser hold-duration grammar so the Timeline
+    // Mirror the authoritative SimaiParser hold-duration grammar so the Timeline
     // shows the same hold length the renderer uses:
     //   [beats:num]       beat fraction at the current BPM
     //   [#seconds]        absolute seconds

@@ -1,7 +1,7 @@
 #include <QCoreApplication>
 #include <QTextStream>
 
-#include "audio/BassPreviewDebugLogRouting.h"
+#include "audio/bass/BassPreviewDebugLogRouting.h"
 
 namespace {
 

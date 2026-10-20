@@ -1,7 +1,7 @@
 #include <QCoreApplication>
 #include <QTextStream>
 
-#include "common/PreviewSfxAssets.h"
+#include "core/scene/PreviewSfxAssets.h"
 #include "audio/PreviewAudioSettings.h"
 
 namespace {
@@ -145,10 +145,32 @@ bool verifyDirectBucketGain(QTextStream& err)
     if (!requireNear(previewSfxVolumeForKind(settings, QStringLiteral("firework")), 0.50, 1e-9, QStringLiteral("firework should use direct Firework bucket gain"), err)) {
         return false;
     }
-    miacode::preview_sfx::setSelectedIntroSoundVolume(1.75);
-    const double introVolume = previewSfxVolumeForKind(settings, QStringLiteral("track_start"));
-    miacode::preview_sfx::setSelectedIntroSoundVolume(1.0);
-    if (!requireNear(introVolume, 1.75, 1e-9, QStringLiteral("track_start should use its independent volume without global/answer attenuation"), err)) {
+    settings.globalVolume = 0.5;
+    settings.introVolume = 0.6;
+    if (!requireNear(previewSfxVolumeForKind(settings, QStringLiteral("track_start")), 0.30, 1e-9, QStringLiteral("track_start should be the intro bucket under the global volume"), err)) {
+        return false;
+    }
+    settings.globalVolume = 0.0;
+    if (!requireNear(previewSfxVolumeForKind(settings, QStringLiteral("track_start")), 0.0, 1e-9, QStringLiteral("a muted global volume should silence track_start"), err)) {
+        return false;
+    }
+    settings.globalVolume = 0.5;
+    const PreviewAudioSettings reloaded = PreviewAudioSettings::fromJson(settings.toJson());
+    if (!requireNear(reloaded.introVolume, 0.6, 1e-9, QStringLiteral("intro volume should round-trip through JSON"), err)) {
+        return false;
+    }
+    if (!requireNear(PreviewAudioSettings::fromJson(QJsonObject{}).introVolume, 1.0, 1e-9, QStringLiteral("a document without intro_volume should read the default"), err)) {
+        return false;
+    }
+    PreviewAudioSettings toggled;
+    toggled.setIntroPercent(40);
+    toggled.toggleIntroMuted();
+    if (!toggled.introMuted()) {
+        err << "FAIL: toggling the intro channel should mute it" << Qt::endl;
+        return false;
+    }
+    toggled.toggleIntroMuted();
+    if (!requireNear(toggled.introVolume, 0.4, 1e-9, QStringLiteral("unmuting the intro channel should restore its previous level"), err)) {
         return false;
     }
     return true;
@@ -293,6 +315,57 @@ bool verifyApplicationCheerPreference(QTextStream& err)
                    QStringLiteral("applying a local preset should not revert canonical cheer preference"), err);
 }
 
+bool verifyLatencyAuditionLevels(QTextStream& err)
+{
+    PreviewAudioSettings mix;
+    mix.globalVolume = 0.5;
+    mix.trackVolume = 0.8;
+    mix.answerVolume = 0.1;
+    mix.normalize();
+    bool ok = true;
+    for (int percent : {0, 35, 100}) {
+        const PreviewAudioSettings levels = makePreviewLatencyAuditionLevels(mix, percent);
+        ok &= requireNear(previewTrackVolume(levels), previewTrackVolume(mix), 1e-9,
+                          QStringLiteral("latency audition keeps the song level"), err);
+        ok &= requireNear(previewSfxVolumeForKind(levels, QStringLiteral("answer")),
+                          percent / 100.0, 1e-9,
+                          QStringLiteral("latency answer follows the audition slider"), err);
+        for (const QString& kind : {QStringLiteral("judge"), QStringLiteral("break"),
+                                    QStringLiteral("break_slide"), QStringLiteral("slide"),
+                                    QStringLiteral("ex"), QStringLiteral("touch"),
+                                    QStringLiteral("touchhold"), QStringLiteral("firework"),
+                                    QStringLiteral("track_start")}) {
+            ok &= require(previewSfxVolumeForKind(levels, kind) == 0.0,
+                          QStringLiteral("latency audition silences %1").arg(kind), err);
+        }
+    }
+    return ok;
+}
+
+// The PV-preview intro audition plays the song through the normal transport:
+// every note SFX kind is silent and only the song follows the fade gain.
+bool verifyIntroSegmentLevels(QTextStream& err)
+{
+    PreviewAudioSettings mix;
+    mix.globalVolume = 0.5;
+    mix.trackVolume = 0.8;
+    mix.normalize();
+    const PreviewAudioSettings levels = makePreviewIntroSegmentLevels(mix, 0.25);
+    bool ok = requireNear(previewTrackVolume(levels), previewTrackVolume(mix) * 0.25, 1e-9,
+                          QStringLiteral("intro segment scales the song by the fade gain"), err);
+    for (const QString& kind : {QStringLiteral("answer"), QStringLiteral("judge"), QStringLiteral("break"),
+                                QStringLiteral("break_slide"), QStringLiteral("slide"), QStringLiteral("ex"),
+                                QStringLiteral("touch"), QStringLiteral("touchhold"), QStringLiteral("firework"),
+                                QStringLiteral("clock"), QStringLiteral("track_start")}) {
+        ok &= require(previewSfxVolumeForKind(levels, kind) == 0.0,
+                      QStringLiteral("intro segment silences %1").arg(kind), err);
+    }
+    ok &= require(!levels.mineSfxEnabled, QStringLiteral("intro segment silences mine SFX"), err);
+    ok &= requireNear(previewTrackVolume(makePreviewIntroSegmentLevels(mix, 1.0)), previewTrackVolume(mix), 1e-9,
+                      QStringLiteral("full fade gain keeps the user's song level"), err);
+    return ok;
+}
+
 }  // namespace
 
 int main(int argc, char* argv[])
@@ -317,6 +390,12 @@ int main(int argc, char* argv[])
         return 1;
     }
     if (!verifyApplicationCheerPreference(err)) {
+        return 1;
+    }
+    if (!verifyLatencyAuditionLevels(err)) {
+        return 1;
+    }
+    if (!verifyIntroSegmentLevels(err)) {
         return 1;
     }
 

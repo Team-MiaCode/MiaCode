@@ -1,5 +1,9 @@
 # MiaCode Extensions / MiaCode 扩展
 
+> **归档说明（2026-09-01）**：扩展宿主、嵌入式运行时、Open Bridge、watcher、偏好设置页、
+> 事件/手势接线以及 bundled deployment 已从产品运行时移除。本目录与本文档保留为 v1
+> manifest / schema / SDK / 示例及离线校验的归档契约，不表示当前应用仍会加载或部署扩展。
+
 MiaCode extensions are local folders that add commands, editor tools, UI panels, preview helpers, diagnostics, timeline controls, and optional experimental host access.
 
 MiaCode 扩展是放在本地的功能文件夹，可以为 MiaCode 增加命令、编辑器工具、界面面板、预览辅助、诊断、时间轴控制，以及可选的实验性宿主访问能力。
@@ -116,7 +120,6 @@ module.exports = { activate, deactivate };
 
 | Area / 范围 | APIs / API |
 | --- | --- |
-| App / 应用 | `miacode.app.getInfo`, `openPreferences`, `openAboutDialog`, `openWelcomeDialog`, `reloadExtensions` |
 | Commands / 命令 | `miacode.commands.registerCommand`, `executeCommand`, `setChecked`, `getCommands`, `getInternalCommands`, `executeInternal` |
 | Window / 窗口 | `showInformationMessage`, `showWarningMessage`, `showErrorMessage`, `showInputBox`, `showQuickPick`, `createStatusBarItem` |
 | Workspace / 工作区 | `getActiveDocument`, `applyDocumentEdit`, `getChartMetadata`, `updateChartMetadata`, `save`, `saveAs` |
@@ -124,7 +127,7 @@ module.exports = { activate, deactivate };
 | Editor / 编辑器 | `getText`, `getSelection`, `getVisibleRange`, `revealRange`, `getParsedSnapshot`, `getCurrentToken`, `insertText`, `replaceSelection`, `replaceRange`, `undo`, `redo`, `showHover`, `showCompletions`, `showCodeActions` |
 | Providers / 提供器 | `miacode.providers.registerHoverProvider`, `registerCompletionProvider`, `registerCodeActionProvider`, `collectHover`, `collectCompletions`, `collectCodeActions`, `showHover`, `showCompletions`, `showCodeActions` |
 | Timeline / 时间轴 | `getSnapshot`, `getZoomState`, `getVisibleRange`, `getMarkersAtSecond`, `seek`, `zoomIn`, `zoomOut`, `stepZoomPreset`, `setZoomScale`, `scrollToSecond`, `setFollowPreview`, `setFollowProgress` |
-| Preview / 预览 | `getState`, `getRenderState`, `play`, `pause`, `stop`, `seek`, `setSpeed`, `setMineSkinEnabled`, `setMineSfxEnabled`, `setJudgeEffectsEnabled`, `addOverlay`, `clearOverlays` |
+| Preview / 预览 | `getState`, `getRenderState`, `play`, `pause`, `stop`, `seek`, `setSpeed`, `setMineSkinEnabled`, `addOverlay`, `clearOverlays` |
 | Input / 输入 | `miacode.input.registerWheelGesture`, `registerKeyGesture`, `registerMouseGesture`, `getGestures` |
 | Shortcuts / 快捷键 | `getEditableShortcuts`, `getKeybinding`, `registerShortcut`, `registerCommandShortcut` |
 | UI / 界面 | `registerToolbarButton`, `registerBottomTabView`, `registerSidebarView`, `registerPreferencesPage`, `registerFloatingPanel`, `registerPetOverlay`, `registerSceneOverlay`, `renderWebView`, `renderCanvasView`, `getViews` |

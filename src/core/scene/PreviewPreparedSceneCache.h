@@ -3,7 +3,7 @@
 #include <QBitArray>
 #include <QVector>
 
-#include "common/MuriTypes.h"
+#include "core/analysis/MuriTypes.h"
 #include "core/scene/PreviewChartReviewLayerState.h"
 #include "core/scene/PreviewFrameState.h"
 
@@ -13,6 +13,7 @@ namespace miacode::preview::scene {
 
 struct PreviewPreparedSceneCacheKey {
     quint64 sceneContentRevision = 0;
+    quint64 storageGeneration = 0;
     double tapFlowSpeed = 0.0;
     double touchFlowSpeed = 0.0;
     RenderMode renderMode = RenderMode::Native;
@@ -27,6 +28,7 @@ struct PreviewPreparedSceneCacheKey {
     bool operator==(const PreviewPreparedSceneCacheKey& other) const
     {
         return sceneContentRevision == other.sceneContentRevision
+            && storageGeneration == other.storageGeneration
             && qFuzzyCompare(tapFlowSpeed + 1.0, other.tapFlowSpeed + 1.0)
             && qFuzzyCompare(touchFlowSpeed + 1.0, other.touchFlowSpeed + 1.0)
             && renderMode == other.renderMode
@@ -86,8 +88,12 @@ struct PreviewLayerWindowCursor {
     QVector<int> activePreparedIndices;
     QBitArray activePreparedMembership;
 
-    void reset()
+    void reset(bool releaseStorage = false)
     {
+        if (releaseStorage) {
+            *this = PreviewLayerWindowCursor();
+            return;
+        }
         valid = false;
         lastPlayhead = 0.0;
         nextActivationIndex = 0;

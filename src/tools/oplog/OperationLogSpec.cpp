@@ -380,7 +380,7 @@ void runRealisticScenarioDemos(const QString& logPath, const QString& fatalPath)
     // Scenario 3: parser exception — chain captured, what= placeholder
     // (real what() shows up via the Fatal-channel path below).
     auto parseFile = [] {
-        MC_OP("SimaiNativeParser::parse");
+        MC_OP("SimaiParser::parse");
         _mc_op_.note(QStringLiteral("line=42"));
         throw std::runtime_error("unexpected token '&' at line 42");
     };
@@ -446,7 +446,7 @@ void runRealisticScenarioDemos(const QString& logPath, const QString& fatalPath)
     mainSim();
 
     // Scenario 5: Phase-3 audio init chain (area H). Mirrors the
-    // actual MC_OP stack in src/audio/BassPreviewAudioBackend.cpp:
+    // actual MC_OP stack in src/audio/bass/BassPreviewAudioBackend.cpp:
     //   reloadAssets → initializeAudioEngine → ensureBassFxLoaded
     // when bass_fx.dll is missing from the runtime install. Each
     // layer emits its own fail() with the underlying error code so

@@ -346,21 +346,28 @@ public:
     #if QT_VERSION < QT_VERSION_CHECK(6, 8, 2)
         quint64 textureHandle(QRhi *, int plane) const override
     #else
-        quint64 textureHandle(QRhi &, int plane) override
+        quint64 textureHandle(QRhi &rhi, int plane) override
     #endif // QT_VERSION < QT_VERSION_CHECK(6, 8, 2)
 #endif // #if QT_VERSION < QT_VERSION_CHECK(6, 7, 2)
     {
         // Don't use video buffer if already mapped
         if (m_frame.isMapped())
             return 0;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 2)
+        // A retained frame can be consumed by different Quick windows/devices.
+        // Resolve against the caller rather than caching the first window's handle.
+        const QVariant handles = m_frame.handle(&rhi);
+#else
         if (m_textures.isNull())
             const_cast<PlanarVideoBuffer *>(this)->m_textures = m_frame.handle(m_rhi);
-        if (m_textures.canConvert<QList<QVariant>>()) {
-            auto textures = m_textures.toList();
+        const QVariant &handles = m_textures;
+#endif
+        if (handles.canConvert<QList<QVariant>>()) {
+            auto textures = handles.toList();
             auto r = plane < textures.size() ? textures[plane].toULongLong() : 0;
             return r;
         }
-        return m_textures.toULongLong();
+        return handles.toULongLong();
     }
 
     MapData map(QVideoFrame::MapMode mode) override
@@ -405,11 +412,9 @@ public:
             return nullptr;
         }
     #else
-        QVideoFrameTexturesUPtr mapTextures(QRhi &rhi, QVideoFrameTexturesUPtr &/*oldTextures*/) override
+        QVideoFrameTexturesUPtr mapTextures(QRhi &/*rhi*/, QVideoFrameTexturesUPtr &/*oldTextures*/) override
         {
-            m_rhi = &rhi;
-            if (m_textures.isNull())
-                m_textures = m_frame.handle(m_rhi);
+            // Qt calls textureHandle with the consuming QRhi for each plane.
             return nullptr;
         }
     #endif // QT_VERSION < QT_VERSION_CHECK(6, 8, 2)
@@ -507,8 +512,10 @@ private:
     QVideoFrameFormat::PixelFormat m_pixelFormat = QVideoFrameFormat::Format_Invalid;
     QVideoFrameFormat m_videoFormat;
     QVideoFrame::MapMode m_mode = QVideoFrame::NotMapped;
+#if QT_VERSION < QT_VERSION_CHECK(6, 8, 2)
     QVariant m_textures;
     QRhi *m_rhi = nullptr;
+#endif
 };
 
 #endif // #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
@@ -549,9 +556,6 @@ QAVVideoFrame::operator QVideoFrame() const
         case AV_PIX_FMT_VAAPI:
 #if defined(Q_OS_LINUX) && QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
             format = vaapiTexturePixelFormat(frame());
-            break;
-#else
-            format = VideoFrame::Format_NV12;
             break;
 #endif
         case AV_PIX_FMT_VDPAU:

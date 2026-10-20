@@ -2,7 +2,7 @@
 
 #include "common/DebugLog.h"
 #include "common/DebugOptions.h"
-#include "common/PreviewGameplayConfig.h"
+#include "core/video/PreviewGameplayConfig.h"
 #include "core/scene/PreviewJudgeOverlayShared.h"
 #include "core/scene/PreviewMarkerDrawOrder.h"
 #include "core/scene/PreviewMaimuriDxJudgeLayerState.h"
@@ -124,6 +124,8 @@ bool PreviewPreparedSceneCache::sync(const PreviewFrameState& state)
 {
     PreviewPreparedSceneCacheKey nextKey;
     nextKey.sceneContentRevision = state.sceneContentRevision;
+    nextKey.storageGeneration = state.sceneStorageGeneration;
+    if (key_.storageGeneration != nextKey.storageGeneration) reset();
     nextKey.tapFlowSpeed = state.render.tapFlowSpeed;
     nextKey.touchFlowSpeed = state.render.touchFlowSpeed;
     nextKey.renderMode = state.muriRenderOptions.renderMode;
@@ -146,17 +148,7 @@ bool PreviewPreparedSceneCache::sync(const PreviewFrameState& state)
 
 void PreviewPreparedSceneCache::reset()
 {
-    key_ = PreviewPreparedSceneCacheKey();
-    guideLayer_.clear();
-    headLayer_.clear();
-    slideLikeLayer_.clear();
-    judgeEffectLayer_.clear();
-    judgeFireworkLayer_.clear();
-    touchLayer_.clear();
-    touchJudgeLayer_.clear();
-    touchHoldLayer_.clear();
-    chartReviewLayer_.clear();
-    maimuriDxJudgeLayer_.clear();
+    *this = PreviewPreparedSceneCache();
 }
 
 void PreviewPreparedSceneCache::rebuild(const PreviewFrameState& state)

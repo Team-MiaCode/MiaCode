@@ -9,81 +9,80 @@
 
 namespace {
 
-constexpr qreal kJudgeEffectFireworkFallbackTouchPixels = 96.0;
-constexpr qreal kJudgeEffectFireworkMinUnitPixels = 6.0;
-constexpr qreal kJudgeEffectFireworkClipInsetPixels = 1.0;
-constexpr qreal kJudgeEffectFireworkHoleMinFeatherPixels = 2.0;
-constexpr qreal kJudgeEffectTouchUnitRelativeToTouch = 3.125;
 constexpr qreal kJudgeEffectFireworkMinSpriteWidthPixels = 1.0;
 constexpr qreal kJudgeEffectFireworkTouchTriggerDelaySeconds =
-    static_cast<qreal>(miacode::preview_gameplay::kJudgeEffectFireworkTouchTriggerDelaySeconds);
+    miacode::preview_gameplay::kJudgeEffectFireworkTouchTriggerDelaySeconds;
 constexpr qreal kJudgeEffectFireworkDurationSeconds =
-    static_cast<qreal>(miacode::preview_gameplay::kJudgeEffectFireworkDurationSeconds);
-constexpr qreal kJudgeEffectFireworkBaseWidthUnits = 10.8;
-constexpr qreal kJudgeEffectFireworkColorBallBaseWidthUnits = 5.12;
-// Hold through the frame-9 full spread, then fade over the remaining visible frames.
-constexpr qreal kJudgeEffectFireworkStripeAlphaPeak = 0.8;
-constexpr qreal kJudgeEffectFireworkStripeAlphaHoldSeconds = 0.3;
-constexpr qreal kJudgeEffectFireworkStripeFadePivotSeconds = 0.5;
-constexpr qreal kJudgeEffectFireworkStripeFadePivotAlpha = 0.5;
-constexpr qreal kFireworkInnerLB = 0.018;
-constexpr qreal kFireworkInnerUB = 0.054;
-constexpr qreal kFireworkOuterLB = 0.36;
-constexpr qreal kFireworkOuterUB = 0.429;
-constexpr qreal kJudgeEffectFireworkHoleStartRadiusRatio = kFireworkInnerUB;
-constexpr qreal kJudgeEffectFireworkHoleEndRadiusRatio = 1.0;
-constexpr qreal kJudgeEffectFireworkHoleBandRatio =
-    (kFireworkInnerUB - kFireworkInnerLB) + (kFireworkOuterUB - kFireworkOuterLB);
+    miacode::preview_gameplay::kJudgeEffectFireworkDurationSeconds;
+constexpr qreal kFireworkRotationDegreesPerSecond = 35.0;
 
 struct ScalarCurveKey {
     qreal time = 0.0;
     qreal value = 0.0;
 };
 
-const std::array<ScalarCurveKey, 5> kJudgeEffectFireworkScaleKeys = {{
-    {0.0, 0.02},
-    {0.13333334, 0.45},
-    {0.16666667, 0.6},
-    {0.3, 5.0},
-    {kJudgeEffectFireworkDurationSeconds, 5.0},
+const std::array<ScalarCurveKey, 7> kJudgeEffectFireworkScaleKeys = {{
+    {0, 0.02},
+    {0.133, 0.36},
+    {0.167, 0.72},
+    {0.2, 0.93},
+    {0.233, 1},
+    {0.3, 1.06},
+    {1.2, 1.06},
 }};
 
-const std::array<ScalarCurveKey, 3> kJudgeEffectFireworkRotationKeys = {{
-    {0.0, 0.0},
-    {0.3, -8.0},
-    {kJudgeEffectFireworkDurationSeconds, -24.0},
+const std::array<ScalarCurveKey, 13> kJudgeEffectFireworkAlphaKeys = {{
+    {0, 0},
+    {0.133, 0.12},
+    {0.167, 0.48},
+    {0.2, 0.76},
+    {0.233, 0.88},
+    {0.3, 0.9},
+    {0.867, 0.88},
+    {0.9, 0.84},
+    {0.967, 0.68},
+    {1, 0.47},
+    {1.033, 0.25},
+    {1.067, 0.1},
+    {1.1, 0},
 }};
 
-// fire.anim ColorBall (small) scale: 0.2 -> 0.5 by 0.16667 s, then hold. (Overrides the
-// earlier PreviewCanvas 0.1 s ramp in favor of MajdataPlay fire.anim.)
-const std::array<ScalarCurveKey, 3> kJudgeEffectFireworkColorBallScaleKeys = {{
-    {0.0, 0.2},
-    {0.16666667, 0.5},
-    {kJudgeEffectFireworkDurationSeconds, 0.5},
+const std::array<ScalarCurveKey, 9> kJudgeEffectFireworkColorBallBigScaleKeys = {{
+    {0, 0.44},
+    {0.1, 0.429},
+    {0.233, 0.457},
+    {0.3, 0.48},
+    {0.4, 0.48},
+    {0.6, 0.5},
+    {0.733, 0.51},
+    {0.867, 0.518},
+    {0.95, 0.52},
 }};
 
-const std::array<ScalarCurveKey, 3> kJudgeEffectFireworkColorBallBigScaleKeys = {{
-    {0.0, 1.0},
-    {0.3, 1.15},
-    {kJudgeEffectFireworkDurationSeconds, 1.15},
-}};
-
-// The compact center flash leads the spokes in the reference and is gone by 0.3 s.
-const std::array<ScalarCurveKey, 5> kJudgeEffectFireworkColorBallAlphaKeys = {{
-    {0.0, 0.9},
+const std::array<ScalarCurveKey, 11> kJudgeEffectFireworkColorBallBigAlphaKeys = {{
+    {0, 0},
+    {0.033, 0.95},
     {0.1, 0.9},
-    {0.2, 0.1},
-    {0.3, 0.0},
-    {kJudgeEffectFireworkDurationSeconds, 0.0},
+    {0.133, 0.8},
+    {0.167, 0.60},
+    {0.2, 0.52},
+    {0.233, 0.50},
+    {0.3, 0.50},
+    {0.4, 0.50},
+    {0.6, 0.46},
+    {1.2, 0.46},
 }};
 
-// The larger rainbow ball lingers behind the initial flash but still clears before the tail.
-const std::array<ScalarCurveKey, 5> kJudgeEffectFireworkColorBallBigAlphaKeys = {{
-    {0.0, 0.9},
-    {0.06666667, 0.9},
-    {0.2, 0.3},
-    {0.5, 0.0},
-    {kJudgeEffectFireworkDurationSeconds, 0.0},
+const std::array<ScalarCurveKey, 9> kJudgeEffectFireworkHoleKeys = {{
+    {0, -0.5},
+    {0.833, -0.5},
+    {0.866, -0.24},
+    {0.9, 0.06},
+    {0.933, 0.26},
+    {0.966, 0.5},
+    {1, 0.72},
+    {1.033, 0.98},
+    {1.066, 1.1},
 }};
 
 template <std::size_t N>
@@ -112,12 +111,6 @@ qreal sampleScalarCurve(const std::array<ScalarCurveKey, N>& keys, qreal time)
         return prev.value + (next.value - prev.value) * t;
     }
     return keys.back().value;
-}
-
-qreal smoothStep01(qreal t)
-{
-    const qreal x = qBound<qreal>(0.0, t, 1.0);
-    return x * x * (3.0 - 2.0 * x);
 }
 
 }  // namespace
@@ -150,9 +143,8 @@ PreviewJudgeFireworkLayerState buildPreviewJudgeFireworkLayerState(
             ? static_cast<qreal>(marker.second + kJudgeEffectFireworkTouchTriggerDelaySeconds)
             : static_cast<qreal>(marker.endSecond);
         // At chart start the warm-up is centred at playhead 0, so its deliberate
-        // 0.15 s lead makes the synthetic trigger negative. Keep rejecting real
-        // negative-time notes, but allow the uniquely identified off-screen
-        // synthetic to draw while the preview is still paused at zero.
+        // lead makes the synthetic trigger negative. Keep rejecting real
+        // negative-time notes while allowing the unique off-screen synthetic.
         if (triggerSecond < 0.0 && !isFireworkWarmupMarker(marker)) {
             continue;
         }
@@ -170,65 +162,35 @@ PreviewJudgeFireworkLayerState buildPreviewJudgeFireworkLayerState(
         return layerState;
     }
 
-    const qreal canvasScale = playfieldRect.width() / kLogicalCanvasSize;
-    const qreal fallbackTouchPixels = kJudgeEffectFireworkFallbackTouchPixels * kTouchAssetScale * canvasScale;
-    const qreal touchBasePixels = (!state.skin.touchPointImage.isNull())
-        ? (state.skin.touchPointImage.width() * kTouchAssetScale * canvasScale)
-        : fallbackTouchPixels;
-    const qreal worldToPixels =
-        qMax<qreal>(kJudgeEffectFireworkMinUnitPixels, touchBasePixels * kJudgeEffectTouchUnitRelativeToTouch);
-
     layerState.clipCenter = mapLogicalPointToRect(QPointF(kLogicalCanvasCenter, kLogicalCanvasCenter), playfieldRect);
-    const qreal outlineRadius = qMax<qreal>(1.0, mapLogicalLengthToRect(kLogicalDistanceEdge, playfieldRect));
-    const qreal clipRadius = qMax<qreal>(1.0, outlineRadius - kJudgeEffectFireworkClipInsetPixels);
+    const qreal clipRadius = qMax<qreal>(1.0, mapLogicalLengthToRect(kLogicalCanvasCenter, playfieldRect));
 
     const qreal elapsedSeconds = static_cast<qreal>(state.playheadSeconds) - latestTriggerSecond;
     const qreal clipTime = qBound<qreal>(0.0, elapsedSeconds, kJudgeEffectFireworkDurationSeconds);
     const qreal life01 = qBound<qreal>(0.0, clipTime / kJudgeEffectFireworkDurationSeconds, 1.0);
-    const qreal fireworkScale = qMax<qreal>(0.0, sampleScalarCurve(kJudgeEffectFireworkScaleKeys, clipTime));
-    // Keep the requested 0.5 s opacity while extending only the visible fade tail to 1.0 s.
-    qreal fireworkAlpha = kJudgeEffectFireworkStripeAlphaPeak;
-    if (clipTime > kJudgeEffectFireworkStripeFadePivotSeconds) {
-        const qreal fadeSpan = kJudgeEffectFireworkDurationSeconds - kJudgeEffectFireworkStripeFadePivotSeconds;
-        const qreal fadeU = (clipTime - kJudgeEffectFireworkStripeFadePivotSeconds) / fadeSpan;
-        fireworkAlpha = kJudgeEffectFireworkStripeFadePivotAlpha * (1.0 - smoothStep01(fadeU));
-    } else if (clipTime > kJudgeEffectFireworkStripeAlphaHoldSeconds) {
-        const qreal fadeSpan = kJudgeEffectFireworkStripeFadePivotSeconds
-            - kJudgeEffectFireworkStripeAlphaHoldSeconds;
-        const qreal fadeU = (clipTime - kJudgeEffectFireworkStripeAlphaHoldSeconds) / fadeSpan;
-        fireworkAlpha = kJudgeEffectFireworkStripeAlphaPeak
-            + (kJudgeEffectFireworkStripeFadePivotAlpha - kJudgeEffectFireworkStripeAlphaPeak)
-                * smoothStep01(fadeU);
-    }
-    const qreal fireworkRotationDegrees = sampleScalarCurve(kJudgeEffectFireworkRotationKeys, clipTime);
-    const qreal colorBallScale = qMax<qreal>(0.0, sampleScalarCurve(kJudgeEffectFireworkColorBallScaleKeys, clipTime));
-    const qreal colorBallBigScale =
-        qMax<qreal>(0.0, sampleScalarCurve(kJudgeEffectFireworkColorBallBigScaleKeys, clipTime));
-    const qreal colorBallAlpha = qBound<qreal>(
-        0.0,
-        sampleScalarCurve(kJudgeEffectFireworkColorBallAlphaKeys, clipTime),
-        1.0
-    );
-    const qreal colorBallBigAlpha = qBound<qreal>(
-        0.0,
-        sampleScalarCurve(kJudgeEffectFireworkColorBallBigAlphaKeys, clipTime),
-        1.0
-    );
-    const qreal holeRadius = clipRadius * (
-        kJudgeEffectFireworkHoleStartRadiusRatio
-        + (kJudgeEffectFireworkHoleEndRadiusRatio - kJudgeEffectFireworkHoleStartRadiusRatio) * smoothStep01(life01)
-    );
-    const qreal holeFeather = qMax<qreal>(
-        kJudgeEffectFireworkHoleMinFeatherPixels,
-        holeRadius * kJudgeEffectFireworkHoleBandRatio
-    );
-    const qreal holeMaskRadius = holeRadius + holeFeather;
-    const qreal outerRadius =
-        qMax<qreal>(1.0, (kJudgeEffectFireworkBaseWidthUnits * fireworkScale * worldToPixels) * 0.5);
-    const qreal colorBallWidth = kJudgeEffectFireworkColorBallBaseWidthUnits * colorBallScale * worldToPixels;
-    const qreal colorBallBigWidth = kJudgeEffectFireworkColorBallBaseWidthUnits * colorBallBigScale * worldToPixels;
-    const qreal colorBallRadius = qMax<qreal>(0.0, colorBallWidth * 0.5);
-    const qreal colorBallBigRadius = qMax<qreal>(0.0, colorBallBigWidth * 0.5);
+    const qreal animationTime = miacode::preview_gameplay::judgeEffectFireworkAnimationTime(clipTime);
+    const qreal fireworkScale = sampleScalarCurve(kJudgeEffectFireworkScaleKeys, clipTime);
+    const qreal fireworkAlpha = sampleScalarCurve(kJudgeEffectFireworkAlphaKeys, clipTime);
+    const qreal fireworkRotationDegrees = animationTime * kFireworkRotationDegreesPerSecond;
+    const qreal smallGrowth = qBound<qreal>(0.0, (clipTime - 1.0 / 30.0) / (0.333 - 1.0 / 30.0), 1.0);
+    const qreal smallRetirement = qBound<qreal>(0.0, clipTime / 0.150, 1.0);
+    const qreal bigRetirement = qBound<qreal>(0.0, (clipTime - 0.700) / 0.350, 1.0);
+    const qreal colorBallScale = 0.200 + 0.040 * smallGrowth;
+    const qreal colorBallBigScale = 1.12 * sampleScalarCurve(kJudgeEffectFireworkColorBallBigScaleKeys, clipTime);
+    const qreal colorBallAlpha = 0.90 * (1.0 - smallRetirement * smallRetirement);
+    const qreal colorBallBigAlpha = sampleScalarCurve(kJudgeEffectFireworkColorBallBigAlphaKeys, clipTime)
+        * (1.0 - bigRetirement * bigRetirement);
+    const qreal holeRadius = clipRadius * sampleScalarCurve(kJudgeEffectFireworkHoleKeys, clipTime);
+    const qreal holeMaskRadius = holeRadius + clipRadius * 0.50;
+    const bool warmup = isFireworkWarmupMarker(*latestTriggerMarker);
+    const QPointF center = warmup ? layerState.clipCenter
+        : mapLogicalPointToRect(latestTriggerMarker->touchPoint, playfieldRect);
+    // Each burst expands in a fixed circle around its touch position.
+    const qreal outerRadius = clipRadius * fireworkScale;
+    const qreal colorBallRadius = clipRadius * colorBallScale;
+    const qreal colorBallBigRadius = clipRadius * colorBallBigScale;
+    const qreal colorBallWidth = colorBallRadius * 2.0;
+    const qreal colorBallBigWidth = colorBallBigRadius * 2.0;
     const bool hasColorBallSprite = !state.judgeEffect.fireworkColorBallImage.isNull();
     const bool drawFirework =
         fireworkScale > kRenderDurationEpsilon && fireworkAlpha > kRenderDurationEpsilon;
@@ -243,7 +205,7 @@ PreviewJudgeFireworkLayerState buildPreviewJudgeFireworkLayerState(
     const qreal fallbackColorBallScale = qMax(colorBallScale, colorBallBigScale);
     const qreal fallbackColorBallAlpha = qMax(colorBallAlpha, colorBallBigAlpha);
     const qreal fallbackColorBallRadius =
-        qMax<qreal>(1.0, (kJudgeEffectFireworkColorBallBaseWidthUnits * fallbackColorBallScale * worldToPixels) * 0.5);
+        clipRadius * fallbackColorBallScale;
     const bool drawFallbackColorBall = !hasColorBallSprite
         && (colorBallScale > kRenderDurationEpsilon || colorBallBigScale > kRenderDurationEpsilon);
 
@@ -256,10 +218,11 @@ PreviewJudgeFireworkLayerState buildPreviewJudgeFireworkLayerState(
     }
 
     layerState.drawFirework = drawFirework;
+    layerState.warmup = warmup;
     layerState.drawColorBall = drawColorBall;
     layerState.drawColorBallBig = drawColorBallBig;
     layerState.drawFallbackColorBall = drawFallbackColorBall;
-    layerState.center = mapLogicalPointToRect(latestTriggerMarker->touchPoint, playfieldRect);
+    layerState.center = center;
     layerState.clipRadius = clipRadius;
     layerState.triggerSecond = latestTriggerSecond;
     layerState.clipTimeSeconds = clipTime;

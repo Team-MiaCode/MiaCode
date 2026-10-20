@@ -1,0 +1,846 @@
+import QtQuick
+import QtQuick.Dialogs
+import MiaCode.UI
+
+Item {
+    id: root
+
+    required property var hostWindow
+    required property Item backgroundSource
+    required property var applicationContext
+    readonly property var documentSession: applicationContext.document
+    readonly property var analysisSession: applicationContext.analysis
+    readonly property var preferences: applicationContext.preferences
+    readonly property var appBackground: applicationContext.appBackground
+    readonly property var previewSession: applicationContext.preview
+    readonly property var commands: applicationContext.commands
+    readonly property var timelineSession: applicationContext.timeline
+    readonly property var pages: applicationContext.pages
+    readonly property var editorController: applicationContext.editor
+    readonly property var editorSync: applicationContext.editorSync
+    readonly property var platform: applicationContext.platform
+    readonly property var uiRequests: applicationContext.uiRequests
+    readonly property var jobProgress: applicationContext.jobProgress
+    readonly property var imageResources: applicationContext.imageResources
+    readonly property var mediaTools: applicationContext.mediaTools
+    readonly property var preferencesModel: applicationContext.preferencesModel
+    readonly property var latency: applicationContext.latency
+    readonly property var shortcutModel: applicationContext.shortcuts
+    readonly property var updates: applicationContext.update
+    readonly property string documentTitle: {
+        if (!documentSession.hasDocument)
+            return ""
+        const metadataTitle = documentSession.metadataTitle.trim()
+        const baseTitle = metadataTitle.length > 0
+            ? metadataTitle : documentSession.currentFileName
+        return state.difficultyEditorActive
+            ? baseTitle + " — " + documentSession.currentDifficultyLabel
+            : baseTitle
+    }
+    readonly property bool beginnerGuideActive: beginnerGuide.visible || setupWizard.visible
+    readonly property bool editorActive: state.hasActiveEditor && !pages.overlayActive
+        && !beginnerGuideActive
+    readonly property bool currentEditorSaveEnabled: editorActive
+        && documentSession.dirtyEditorKeys.indexOf(state.activeEditorKey) >= 0
+    readonly property bool wholeDocumentSaveEnabled: documentSession.hasDocument
+        && documentSession.dirty
+    readonly property bool editorCommandsAvailable: state.difficultyEditorActive
+        && !pages.overlayActive && !beginnerGuideActive
+    readonly property bool chartEditorActive: documentSession.hasDocument
+        && documentSession.currentDifficultyId > 0 && !pages.overlayActive && !beginnerGuideActive
+    readonly property alias mainMenuCommands: menuCommands
+    readonly property string windowTitle: titleBar.titleText
+    readonly property real minimumWidth: Math.max(splitView.minimumWorkspaceWidth,
+        mainToolBar.minimumWidth, titleBar.minimumLeftMargin + titleBar.minimumRightMargin)
+    readonly property real minimumHeight: chromeHost.height + statusBar.height
+        + splitView.minimumHeight
+    readonly property bool compact: width < splitView.minimumWorkspaceWidth
+        + splitView.expandedSidebarWidth
+
+    ViewState {
+        id: state
+        netEnabled: root.pages.netEnabled
+    }
+
+    Binding {
+        target: root.applicationContext.windowChrome
+        property: "materialRegions"
+        when: (Qt.platform.os === "osx" || Qt.platform.os === "windows") && target !== null
+        value: {
+            const scale = Theme.uiScale
+            if (!Theme.blurMaterialsEnabled || Theme.backgroundActive || !root.visible)
+                return []
+            if (Qt.platform.os === "windows")
+                return [{ rect: Qt.rect(0, 0, root.width * scale, root.height * scale) }]
+            const top = root.mapToItem(null, 0, 0)
+            const regions = [{
+                rect: Qt.rect(top.x, top.y, root.width * scale, chromeHost.height * scale)
+            }]
+            const strip = splitView.activityBarMaterialRect
+            if (strip.width > 0 && strip.height > 0) {
+                // Column positions its children after their sizes change.
+                // Read those positions as binding dependencies before mapping
+                // to the window scene, rather than snapshotting mapToItem().
+                const origin = root.mapToItem(null,
+                    mainViewHost.x + splitView.x + strip.x,
+                    mainViewHost.y + splitView.y + strip.y)
+                regions.push({
+                    rect: Qt.rect(origin.x, origin.y,
+                        strip.width * scale, strip.height * scale)
+                })
+                if (!root.preferences.efficientSidebarEnabled) {
+                    regions.push({
+                        rect: Qt.rect(origin.x + strip.width * scale, origin.y,
+                            Theme.workspaceRadius * scale, Theme.workspaceRadius * scale)
+                    })
+                }
+            }
+            return regions
+        }
+        restoreMode: Binding.RestoreNone
+    }
+
+    // 保存 means "save what I am working in", so the document model has to know
+    // whether the view in front is one difficulty or the whole source.
+    Binding {
+        target: root.documentSession
+        property: "wholeSourceEditorActive"
+        value: state.metadataEditorActive
+        restoreMode: Binding.RestoreNone
+    }
+
+    MainMenuCommands {
+        id: menuCommands
+        netEnabled: root.pages.netEnabled
+        commandsEnabled: !root.beginnerGuideActive
+        canUndo: root.editorCommandsAvailable && splitView.canUndo
+        canRedo: root.editorCommandsAvailable && splitView.canRedo
+        canCut: root.editorCommandsAvailable && splitView.canCut
+        canCopy: root.editorCommandsAvailable && splitView.canCopy
+        canPaste: root.editorCommandsAvailable && splitView.canPaste
+        canTransform: root.editorCommandsAvailable && splitView.canTransform
+        canNormalize: root.editorCommandsAvailable && splitView.normalizationAvailable
+        onExitRequested: root.requestClose()
+        onUndoRequested: root.undo()
+        onRedoRequested: root.redo()
+        onCutRequested: splitView.cut()
+        onCopyRequested: splitView.copy()
+        onPasteRequested: splitView.paste()
+        onSelectAllRequested: root.selectAll()
+        onFindRequested: splitView.showFindReplace()
+        onSelectCurrentLineRequested: splitView.selectCurrentLine()
+        onMetadataRequested: {
+            if (root.documentSession.hasDocument)
+                state.openMetadataEditor()
+        }
+        onLatencyCalibrationRequested: {
+            if (root.documentSession.hasDocument)
+                root.pages.openLatencyPage()
+        }
+        onNetRequested: root.pages.openNetPage()
+        onNetUploadRequested: root.pages.openNetPage("net-upload")
+        onMediaToolRequested: toolId => root.runMediaTool(toolId)
+        onUnavailableFeatureRequested: featureName => root.showUnavailableFeature(featureName)
+        onOpenRequested: openFileDialog.open()
+        onSaveRequested: root.saveDocument()
+        onSaveWholeDocumentRequested: root.saveWholeDocument()
+        onSaveAsRequested: {
+            if (root.documentSession.hasDocument)
+                saveFileDialog.open()
+        }
+        onChartTransformRequested: opId => {
+            if (root.chartEditorActive)
+                root.applyChartTransform(opId)
+        }
+        onNormalizeChartRequested: {
+            if (root.chartEditorActive)
+                root.pages.openNormalizeWholeChart()
+        }
+        onAboutRequested: preferencesDialog.openPage("about")
+        onSetupWizardRequested: setupWizard.open()
+        onPreferencesRequested: preferencesDialog.open()
+        onNewDocumentRequested: root.commands.newDocument()
+        onOpenRecentRequested: path => root.commands.openRecentDocument(path)
+        onRestoreBackupRequested: path => root.commands.restoreBackupDocument(path)
+        onCloseDocumentRequested: {
+            if (root.documentSession.hasDocument)
+                root.commands.closeDocument()
+        }
+        onAudioSettingsRequested: audioSettingsDialog.open()
+        onPreviewSettingsRequested: previewSettingsDialog.open()
+        onPreviewRateStepRequested: direction => {
+            if (root.chartEditorActive)
+                root.previewSession.adjustRate(direction)
+        }
+    }
+
+    function toggleSidebar() {
+        if (root.compact) {
+            if (!state.sidebarVisible) {
+                state.sidebarVisible = true
+                root.preferences.sidebarVisible = true
+            }
+            state.compactPanel = state.compactPanel === "sidebar" ? "" : "sidebar"
+            return
+        }
+        state.sidebarVisible = !state.sidebarVisible
+        root.preferences.sidebarVisible = state.sidebarVisible
+    }
+
+    function showMediaToolsMenu() {
+        if (root.compact)
+            compactPanelLayer.showMediaToolsMenu()
+        else
+            splitView.showMediaToolsMenu()
+    }
+
+    function runMediaTool(toolId) {
+        if (!root.documentSession.hasDocument)
+            return
+        switch (toolId) {
+        case "convertTrack":
+            root.mediaTools.convertTrackTo44100Hz()
+            break
+        case "prependTrack":
+        case "prependPv": {
+            const context = root.mediaTools.prependContext(toolId === "prependTrack")
+            if (context.available) {
+                prependBlankDialog.loadContext(context)
+                prependBlankDialog.open()
+            }
+            break
+        }
+        case "compressVideo":
+            root.mediaTools.compressBackgroundVideo()
+            break
+        case "alignPvToAudio":
+            root.mediaTools.alignBackgroundVideoToTrack()
+            break
+        case "batchCompress":
+            batchCompressionDialog.open()
+            break
+        }
+    }
+
+    // PageHost is the authority for overlay navigation. Keep the activity bar
+    // projection in step with it even when a page is opened by a runtime signal
+    // (for example, exporting a selection from the source editor).
+    function syncSidebarViewToPage() {
+        state.activeSidebarView = root.pages.activePageId === "export" ? "export" : "chart"
+    }
+
+    function undo() {
+        splitView.undo()
+    }
+
+    function redo() {
+        splitView.redo()
+    }
+
+    function selectAll() {
+        splitView.selectAll()
+    }
+
+    function applyChartTransform(opId) {
+        if (!root.chartEditorActive)
+            return false
+        return splitView.applyChartTransform(opId)
+    }
+
+    function showUnavailableFeature(featureName) {
+        unavailableFeatureDialog.featureName = featureName
+        unavailableFeatureDialog.open()
+    }
+
+    function saveDocument() {
+        if (!root.editorActive)
+            return
+        if (root.documentSession.currentFilePath.length === 0) {
+            saveFileDialog.open()
+            return
+        }
+        root.commands.saveDocument()
+    }
+
+    function saveWholeDocument() {
+        if (!root.documentSession.hasDocument)
+            return
+        if (root.documentSession.currentFilePath.length === 0) {
+            saveFileDialog.open()
+            return
+        }
+        root.commands.saveWholeDocument()
+    }
+
+    // The unsaved-changes question is not asked here any more. It is asked by
+    // commands.openDocument itself, along with every other action that would
+    // discard the document — there used to be two three-way prompts written
+    // twice, and only one of them covered anything but 打开.
+    function requestOpenFile(fileUrl) {
+        root.commands.openDocument(fileUrl)
+    }
+
+    function requestClose() {
+        root.hostWindow.close()
+    }
+
+    Component.onCompleted: {
+        state.sidebarVisible = root.preferences.sidebarVisible
+        state.bottomPanelVisible = root.preferences.bottomPanelVisible
+        state.resetEditorTabs(root.documentSession.currentDifficultyId)
+        if (!root.preferences.setupCompleted)
+            Qt.callLater(setupWizard.open)
+    }
+
+    onCompactChanged: state.compactPanel = ""
+
+    Column {
+        anchors.fill: parent
+        spacing: 0
+
+        Rectangle {
+            id: chromeHost
+            readonly property bool sharedNativeMaterial: Qt.platform.os === "windows"
+                && Theme.nativeMaterialActive
+            color: sharedNativeMaterial
+                ? Theme.chromeSurfaceColor(Theme.colors.background.activityBar) : "transparent"
+            width: parent.width
+            height: titleBar.height
+                    + (root.platform.nativeMenuBar ? 0 : mainToolBar.height)
+
+            WindowTitleBar {
+                id: titleBar
+                color: chromeHost.sharedNativeMaterial ? "transparent"
+                    : Theme.chromeSurfaceColor(Theme.colors.background.titleBar)
+                width: parent.width
+                height: visible ? implicitHeight : 0
+                hostWindow: root.hostWindow
+                windowChrome: root.applicationContext.windowChrome
+                platform: root.platform
+                nativeHeight: root.platform.nativeMenuBar
+                    && root.applicationContext.windowChrome
+                    ? root.applicationContext.windowChrome.titleBarHeight / Theme.uiScale
+                    : 0
+                menuCommands: menuCommands
+                shortcuts: root.applicationContext.shortcuts
+                documentSession: root.documentSession
+                pet: root.applicationContext.pet
+                saveEnabled: root.currentEditorSaveEnabled
+                wholeDocumentSaveEnabled: root.wholeDocumentSaveEnabled
+                documentAvailable: root.documentSession.hasDocument
+                editorCommandsEnabled: root.editorCommandsAvailable
+                chartCommandsEnabled: root.chartEditorActive
+                toolCommandsEnabled: root.documentSession.hasDocument
+                leadingInset: root.applicationContext.windowChrome
+                    ? root.applicationContext.windowChrome.titleBarLeadingInset / Theme.uiScale
+                    : 0
+                leadingToolAreaWidth: root.platform.nativeMenuBar
+                    ? mainToolBar.leadingActionsRight : 0
+                trailingToolAreaWidth: root.platform.nativeMenuBar
+                    ? mainToolBar.trailingActionsWidth : 0
+                documentTitle: root.documentTitle
+                normalizationEnabled: root.pages.activePageId !== "export"
+            }
+
+            MainToolBar {
+                id: mainToolBar
+                color: chromeHost.sharedNativeMaterial || integratedInTitleBar ? "transparent"
+                    : Theme.chromeSurfaceColor(Theme.colors.background.activityBar)
+                y: root.platform.nativeMenuBar
+                   ? 0
+                   : titleBar.height
+                z: root.platform.nativeMenuBar ? 2 : 0
+                width: parent.width
+                height: root.platform.nativeMenuBar ? titleBar.height : implicitHeight
+                hostWindow: root.hostWindow
+                windowChrome: root.applicationContext.windowChrome
+                integratedInTitleBar: root.platform.nativeMenuBar
+                titleBarLeadingInset: titleBar.leadingInset
+                previewSettingsVisible: !splitView.previewDetached
+                sidebarActive: root.compact
+                               ? state.compactPanel === "sidebar"
+                               : state.sidebarVisible
+                bottomActive: (state.difficultyEditorActive || state.latencyEditorActive)
+                              && state.bottomPanelVisible && root.timelineSession.panelVisible
+                bottomPanelEnabled: state.difficultyEditorActive || state.latencyEditorActive
+                saveEnabled: root.currentEditorSaveEnabled
+                wholeDocumentSaveEnabled: root.wholeDocumentSaveEnabled && !root.beginnerGuideActive
+                currentFolderAvailable: root.documentSession.hasDocument
+                    && root.documentSession.currentFilePath.length > 0 && !root.beginnerGuideActive
+                canUndo: menuCommands.canUndo
+                canRedo: menuCommands.canRedo
+                onToggleSidebarRequested: root.toggleSidebar()
+                onToggleBottomRequested: {
+                    state.bottomPanelVisible = !state.bottomPanelVisible
+                    root.preferences.bottomPanelVisible = state.bottomPanelVisible
+                }
+                onUndoRequested: root.undo()
+                onRedoRequested: root.redo()
+                onOpenRequested: openFileDialog.open()
+                onOpenCurrentFolderRequested: root.commands.openCurrentFolder()
+                onSaveRequested: root.saveDocument()
+                onSaveWholeDocumentRequested: root.saveWholeDocument()
+                onAudioSettingsRequested: audioSettingsDialog.open()
+                onPreviewSettingsRequested: previewSettingsDialog.open()
+                onUnavailableFeatureRequested: featureName => root.showUnavailableFeature(featureName)
+            }
+        }
+
+        Item {
+            id: mainViewHost
+            width: parent.width
+            height: parent.height - chromeHost.height - statusBar.height
+
+            MainSplitView {
+                id: splitView
+                anchors.fill: parent
+                backgroundSource: root.backgroundSource
+                backgroundOffset: root.mapToItem(root.backgroundSource,
+                                                 mainViewHost.x, mainViewHost.y)
+                viewState: state
+                documentSession: root.documentSession
+                analysisSession: root.analysisSession
+                preferences: root.preferences
+                previewSession: root.previewSession
+                previewSettings: root.applicationContext.previewSettings
+                commands: root.commands
+                timelineSession: root.timelineSession
+                preferencesModel: root.preferencesModel
+                pages: root.pages
+                editorController: root.editorController
+                editorSync: root.editorSync
+                latency: root.latency
+                net: root.applicationContext.net
+                netUpload: root.applicationContext.netUpload
+                compact: root.compact
+                documentTitle: root.documentTitle
+                onOpenRequested: openFileDialog.open()
+                onSettingsRequested: preferencesDialog.open()
+                onCompletionSettingsRequested: function(group) { preferencesDialog.openCompletionSettings(group) }
+                onAudioSettingsRequested: audioSettingsDialog.open()
+                onPreviewSettingsRequested: previewSettingsDialog.open()
+                onMediaToolRequested: toolId => root.runMediaTool(toolId)
+            }
+
+            CompactPanelLayer {
+                id: compactPanelLayer
+                anchors.fill: parent
+                viewState: state
+                documentSession: root.documentSession
+                preferences: root.preferences
+                commands: root.commands
+                pages: root.pages
+                compact: root.compact
+                onSettingsRequested: preferencesDialog.open()
+                onMediaToolRequested: toolId => root.runMediaTool(toolId)
+            }
+        }
+
+        StatusBar {
+            id: statusBar
+            width: parent.width
+            height: 23
+            documentName: root.documentSession.hasDocument
+                ? root.documentSession.currentFilePath : ""
+            cursorLine: state.editorCursorLine
+            cursorColumn: state.editorCursorColumn
+            selectionBeatText: splitView.selectionBeatStatusText
+            selectionBeatTooltip: splitView.selectionBeatTooltipText
+            metadataActive: state.metadataEditorActive && !root.pages.overlayActive
+            difficultyActive: state.difficultyEditorActive && !root.pages.overlayActive
+            updateAvailable: root.updates ? root.updates.updateAvailable : false
+            updateVersion: root.updates ? root.updates.availableVersion : ""
+            onUpdateActivated: updatePrompt.present()
+        }
+    }
+
+    Shortcut {
+        sequences: [StandardKey.Close]
+        enabled: root.editorActive && !root.platform.nativeMenuBar
+        onActivated: splitView.requestCloseActiveEditor()
+    }
+
+    FileDialog {
+        id: openFileDialog
+        title: qsTrId("qml.open_simai_file")
+        fileMode: FileDialog.OpenFile
+        nameFilters: [qsTrId("qml.simai_files_txt_simai"), qsTrId("qml.all_files_2")]
+        onAccepted: root.requestOpenFile(selectedFile)
+    }
+
+    FileDialog {
+        id: saveFileDialog
+        title: qsTrId("qml.save_simai_file")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "txt"
+        nameFilters: [qsTrId("qml.simai_files_txt_simai"), qsTrId("qml.all_files_2")]
+        onAccepted: root.commands.saveDocumentAs(selectedFile)
+    }
+
+    // These actions remain discoverable while their dedicated QML pages and
+    // business APIs are pending. Keeping the explanation in the visible root
+    // window gives keyboard and pointer users the same immediate feedback.
+    ChoiceDialog {
+        id: unavailableFeatureDialog
+        objectName: "shellUnavailableFeatureDialog"
+        property string featureName: ""
+        title: qsTrId("qml.not_yet_available_in_qml")
+        message: qsTrId("qml.1_has_not_yet_been_migrated_to_the_qml_interface").arg(featureName)
+        details: qsTrId("qml.this_entry_will_remain_here_and_become_available_when_the_featur")
+        choices: [{ id: "ok", label: qsTrId("action.ok"), role: "accept" }]
+        dismissChoiceId: "ok"
+    }
+
+    // The only passive signal for an available update is the status bar badge;
+    // this dialog opens only when the reader asks for it (badge click or the
+    // Preferences' About page hint), never on its own.
+    ChoiceDialog {
+        id: updatePrompt
+        objectName: "shellUpdateAvailableDialog"
+
+        readonly property var detail: root.updates ? root.updates.availableDetails : ({})
+        title: qsTrId("dialog.update.title")
+        message: qsTrId("dialog.update.message").arg(detail.version || "")
+        details: {
+            const lines = []
+            if (detail.releasedAt)
+                lines.push(qsTrId("dialog.update.released").arg(detail.releasedAt))
+            if (detail.sizeText)
+                lines.push(qsTrId("dialog.update.size").arg(detail.sizeText))
+            if (detail.notes)
+                lines.push(detail.notes)
+            return lines.join("\n")
+        }
+        choices: [
+            { id: "download", label: qsTrId("dialog.update.download"), role: "accept",
+              enabled: !!detail.downloadUrl },
+            { id: "later", label: qsTrId("action.later"), role: "reject" },
+            { id: "skip", label: qsTrId("dialog.update.skip"), role: "reject" }
+        ]
+        dismissChoiceId: "later"
+
+        function present() {
+            if (!root.updates || !root.updates.updateAvailable)
+                return
+            open()
+        }
+
+        onChosen: choiceId => {
+            if (choiceId === "download")
+                root.updates.openDownloadPage()
+            else if (choiceId === "skip")
+                root.updates.skipAvailableVersion()
+        }
+    }
+
+    Connections {
+        target: root.documentSession
+
+        function onDocumentReplaced() {
+            if (!root.documentSession.hasDocument)
+                state.activeSidebarView = "chart"
+            state.resetEditorTabs(root.documentSession.currentDifficultyId)
+            // The projection is queued, so this can run while the incoming
+            // document's active difficulty is not set yet. Healing here means a
+            // replacement never leaves the editor with no tab at all.
+            state.syncDifficultyEditors(root.documentSession.difficulties,
+                                        root.documentSession.currentDifficultyId)
+        }
+
+        function onDifficultiesChanged() {
+            state.syncDifficultyEditors(root.documentSession.difficulties,
+                                        root.documentSession.currentDifficultyId)
+        }
+
+        function onCurrentDifficultyChanged() {
+            if (root.documentSession.currentDifficultyId <= 0)
+                normalizeDialog.close()
+            state.syncDifficultyEditors(root.documentSession.difficulties,
+                                        root.documentSession.currentDifficultyId)
+        }
+
+    }
+
+    Connections {
+        target: state
+
+        function onApplicationEditorActivationRequested(key) {
+            if (root.pages.activePageId !== key)
+                root.pages.openNetPage(key)
+        }
+
+        function onActiveEditorKeyChanged() {
+            if (state.latencyEditorActive && root.pages.activePageId !== "latency")
+                root.pages.openLatencyPage()
+            else if (state.metadataEditorActive && !root.pages.overlayActive)
+                root.pages.activateMetadataPage()
+        }
+
+        function onDifficultyEditorActivationRequested(difficultyId) {
+            if (root.pages.overlayActive) {
+                // Overlay exit may need an asynchronous unsaved-field answer.
+                // Keep the requested difficulty until the page host confirms
+                // the exit; selecting it here would bypass a cancellation.
+                pendingDifficultyActivation = difficultyId
+                if (!root.pages.leaveOverlayPage())
+                    pendingDifficultyActivation = 0
+                return
+            }
+            root.commands.selectDifficulty(difficultyId)
+            root.pages.ensureDifficultyPageActive(difficultyId)
+            state.activeSidebarView = "chart"
+        }
+
+        function onEditorPresentationCleared() {
+            root.pages.clearEditorPresentation()
+        }
+    }
+
+    property int pendingDifficultyActivation: 0
+
+    Connections {
+        target: root.pages
+
+        function onLatencyPageActivated() {
+            root.latency.refreshFromDocument()
+            state.openLatencyEditor()
+        }
+
+        function onNetPageActivated(page) {
+            state.openEditor(page)
+        }
+
+        function onActivePageIdChanged() {
+            root.syncSidebarViewToPage()
+        }
+
+        function onOverlayPageLeft() {
+            if (root.pendingDifficultyActivation <= 0)
+                return
+            const difficultyId = root.pendingDifficultyActivation
+            root.pendingDifficultyActivation = 0
+            root.commands.selectDifficulty(difficultyId)
+            root.pages.ensureDifficultyPageActive(difficultyId)
+            state.activeSidebarView = "chart"
+        }
+
+        function onNavigationRejected() {
+            root.pendingDifficultyActivation = 0
+            root.syncSidebarViewToPage()
+        }
+    }
+
+    // One host for the whole shell. Every Widgets-free flow — export, pack as
+    // ZIP, the tool pages — routes its file picks and messages here, so a page
+    // never owns dialog code and two pages can never open competing pickers.
+    UiRequestHost {
+        objectName: "shellUiRequestHost"
+        requests: root.uiRequests
+    }
+
+    JobProgressOverlay {
+        objectName: "shellJobProgress"
+        anchors.fill: parent
+        progress: root.jobProgress
+        imageResources: root.imageResources
+    }
+
+    SetupWizard {
+        id: setupWizard
+        objectName: "setupWizard"
+        preferences: root.preferences
+        preferencesModel: root.preferencesModel
+        onFinished: beginnerGuide.open()
+    }
+
+    BeginnerGuideOverlay {
+        id: beginnerGuide
+        objectName: "beginnerGuideOverlay"
+        sections: [
+            {
+                id: "document-actions",
+                target: mainToolBar.documentActionsItem,
+                title: qsTrId("guide.document_actions.title"),
+                features: [
+                    { icon: Qt.resolvedUrl("icons/folder-open.svg"), label: qsTrId("action.open") },
+                    { icon: Qt.resolvedUrl("icons/save.svg"), label: qsTrId("action.save") },
+                    { icon: Qt.resolvedUrl("icons/undo.svg"), label: qsTrId("qml.undo") },
+                    { icon: Qt.resolvedUrl("icons/redo.svg"), label: qsTrId("action.redo") }
+                ],
+                placement: "below",
+                alignment: "start"
+            },
+            {
+                id: "navigation",
+                target: splitView.navigationItem,
+                fallbackTarget: mainToolBar.workspaceActionsItem,
+                hint: root.preferences.efficientSidebarEnabled
+                    ? qsTrId("guide.navigation.classic.hint") : qsTrId("guide.navigation.hint"),
+                title: root.preferences.efficientSidebarEnabled
+                    ? qsTrId("guide.navigation.classic.title") : qsTrId("guide.navigation.title"),
+                columns: 1,
+                icons: root.preferences.efficientSidebarEnabled ? [
+                    Qt.resolvedUrl("icons/metadata.svg"),
+                    Qt.resolvedUrl("icons/metronome.svg"),
+                    Qt.resolvedUrl("icons/file.svg"),
+                    Qt.resolvedUrl("icons/video.svg"),
+                    Qt.resolvedUrl("icons/image.svg"),
+                    Qt.resolvedUrl("icons/folder-zip.svg"),
+                    Qt.resolvedUrl("icons/tools.svg"),
+                    Qt.resolvedUrl("icons/settings.svg")
+                ] : [],
+                features: root.preferences.efficientSidebarEnabled ? [
+                    { label: qsTrId("guide.navigation.classic.chart") }
+                ] : [
+                    { icon: Qt.resolvedUrl("icons/file.svg"), label: qsTrId("guide.navigation.chart") },
+                    { icon: Qt.resolvedUrl("icons/export.svg"), label: qsTrId("guide.navigation.export") },
+                    { icon: Qt.resolvedUrl("icons/tools.svg"), label: qsTrId("guide.navigation.tools") },
+                    { icon: Qt.resolvedUrl("icons/settings.svg"), label: qsTrId("guide.navigation.preferences") }
+                ],
+                placement: "right",
+                alignment: "start"
+            }
+        ].concat(root.preferences.efficientSidebarEnabled ? [] : [
+            {
+                id: "chart-sidebar",
+                target: splitView.chartSidebarItem,
+                fallbackTarget: mainToolBar.workspaceActionsItem,
+                hint: qsTrId("guide.sidebar.hint"),
+                title: qsTrId("guide.sidebar.title"),
+                features: [
+                    { icon: Qt.resolvedUrl("icons/metadata.svg"), label: qsTrId("dialog.unsaved_field_changes.field.metadata") },
+                    { icon: Qt.resolvedUrl("icons/metronome.svg"), label: qsTrId("qml.latency_calibration") },
+                    { icon: Qt.resolvedUrl("icons/add.svg"), label: qsTrId("sidebar.add_difficulty") },
+                    { icon: Qt.resolvedUrl("icons/remove.svg"), label: qsTrId("qml.delete_current_difficulty") }
+                ],
+                placement: "right",
+                alignment: "start"
+            }
+        ]).concat([
+            {
+                id: "workspace-actions",
+                target: mainToolBar.workspaceActionsItem,
+                secondaryTarget: splitView.renderModeItem,
+                title: qsTrId("guide.workspace_actions.title"),
+                features: [
+                    { icon: Qt.resolvedUrl("icons/audio-settings.svg"), label: qsTrId("action.audio_settings") },
+                    { icon: Qt.resolvedUrl("icons/preview-settings.svg"), label: qsTrId("action.video_settings") },
+                    {
+                        icons: [Qt.resolvedUrl("icons/panel-left.svg"), Qt.resolvedUrl("icons/panel-bottom.svg")],
+                        label: qsTrId("guide.panel_toggle")
+                    },
+                    {
+                        icons: [Qt.resolvedUrl("icons/circle.svg"), Qt.resolvedUrl("icons/important.svg")],
+                        label: qsTrId("guide.render_mode")
+                    }
+                ],
+                placement: "below",
+                alignment: "end"
+            },
+            {
+                id: "source-editor",
+                target: splitView.sourceEditorItem,
+                secondaryTarget: splitView.difficultyFieldsItem,
+                fallbackTarget: mainToolBar.documentActionsItem,
+                hint: qsTrId("guide.editor.hint"),
+                title: qsTrId("guide.editor.title"),
+                columns: 1,
+                features: [
+                    { icon: Qt.resolvedUrl("icons/metadata.svg"), label: qsTrId("guide.editor.metadata_save") },
+                    { kind: "code", sample: "|| 3/4", label: qsTrId("guide.editor.measure") },
+                    { kind: "code", sample: "|||", label: qsTrId("guide.editor.comment") },
+                    { kind: "code", sample: "|| [A]", label: qsTrId("guide.editor.bookmark") }
+                ],
+                placement: "right",
+                alignment: "start",
+                focusHeight: Theme.controlMinHeight * 5
+            },
+            {
+                id: "preview-transport",
+                target: splitView.transportItem,
+                fallbackTarget: mainToolBar.workspaceActionsItem,
+                hint: qsTrId("guide.transport.hint"),
+                title: qsTrId("guide.transport.title"),
+                columns: 1,
+                features: [
+                    { sample: "1×", label: qsTrId("guide.transport.rate") },
+                    { icon: Qt.resolvedUrl("icons/preview-settings.svg"), label: qsTrId("guide.transport.canvas") },
+                    { icon: Qt.resolvedUrl("icons/preview-detach.svg"), label: qsTrId("guide.transport.detach") }
+                ],
+                placement: "above",
+                alignment: "end"
+            }
+        ])
+    }
+
+    // Input-heavy media tools keep their own dialogs; the launcher is a submenu.
+    PvBatchCompressionDialog {
+        id: batchCompressionDialog
+        objectName: "pvBatchCompressionDialog"
+        mediaTools: root.mediaTools
+    }
+
+    PrependBlankDialog {
+        id: prependBlankDialog
+        objectName: "shellPrependBlankDialog"
+        mediaTools: root.mediaTools
+    }
+
+    NormalizeOptionsDialog {
+        id: normalizeDialog
+        objectName: "shellNormalizeOptionsDialog"
+        documentSession: root.documentSession
+
+        onAccepted: {
+            const options = {
+                reduceTo384Grid: normalizeDialog.reduceTo384Grid,
+                sectionMeasureCount: normalizeDialog.sectionMeasureCount,
+                syntax: normalizeDialog.syntax
+            }
+            root.documentSession.setNormalizeOptions(options)
+            splitView.applyNormalization(options)
+        }
+    }
+
+    AudioSettingsDialog {
+        id: audioSettingsDialog
+        objectName: "shellAudioSettingsDialog"
+        parent: splitView.settingsDialogParent
+        audioSettings: root.applicationContext.audioSettings
+    }
+
+    PreviewSettingsDialog {
+        id: previewSettingsDialog
+        objectName: "shellPreviewSettingsDialog"
+        parent: splitView.settingsDialogParent
+        previewSettings: root.applicationContext.previewSettings
+    }
+
+    PreferencesDialog {
+        id: preferencesDialog
+        objectName: "shellPreferencesDialog"
+        onCompletionSettingsClosed: splitView.sourceEditorItem.focusEditor()
+        preferencesModel: root.preferencesModel
+        shortcuts: root.shortcutModel
+        preferences: root.preferences
+        appBackground: root.appBackground
+        updateService: root.updates
+        onUpdateRequested: updatePrompt.present()
+    }
+
+    Connections {
+        target: root.pages
+        function onMediaToolsRequested() { root.showMediaToolsMenu() }
+        function onNormalizeWholeChartRequested() {
+            if (root.pages.activePageId === "export" || !splitView.canNormalizeChart())
+                return
+            const stored = root.documentSession.normalizeOptions()
+            normalizeDialog.reduceTo384Grid = stored.reduceTo384Grid
+            normalizeDialog.sectionMeasureCount = stored.sectionMeasureCount
+            normalizeDialog.syntax = stored.syntax
+            normalizeDialog.selectionDescription = splitView.normalizationSelectionDescription()
+            normalizeDialog.open()
+        }
+        function onPreferencesRequested() { preferencesDialog.open() }
+    }
+}

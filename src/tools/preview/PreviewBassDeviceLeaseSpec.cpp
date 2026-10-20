@@ -11,7 +11,7 @@
 #include <QCoreApplication>
 #include <QTextStream>
 
-#include "audio/PreviewBassDeviceLease.h"
+#include "audio/bass/PreviewBassDeviceLease.h"
 
 namespace {
 

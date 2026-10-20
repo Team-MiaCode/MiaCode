@@ -1,4 +1,4 @@
-#include "SimaiCompletionCatalog.h"
+#include "editor/SimaiCompletionCatalog.h"
 
 #include <QCoreApplication>
 #include <QTextStream>

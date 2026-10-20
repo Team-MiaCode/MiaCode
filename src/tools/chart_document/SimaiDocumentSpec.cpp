@@ -5,7 +5,7 @@
 //
 // Run via CTest (registered as simai_document_spec) or standalone.
 
-#include "SimaiDocument.h"
+#include "core/chart/document/SimaiDocument.h"
 
 #include <QCoreApplication>
 #include <QString>
@@ -97,6 +97,19 @@ void runSpecs(QTextStream& out, int* failed)
         expectTrue(reparsed.difficulty(5) != nullptr, "reparsed keeps the real difficulty 5", failed, out);
     }
 
+    {
+        SimaiDocument doc = SimaiDocument::fromText("&des=Shared\n&lv_5=12\n&inote_5=(120){1}1,\n");
+        expectEqual(doc.effectiveDesignerForSlot(5), "Shared", "empty difficulty designer uses document designer", failed, out);
+        doc.setDesignerForSlot(5, "  ");
+        expectEqual(doc.effectiveDesignerForSlot(5), "Shared", "whitespace difficulty designer uses document designer", failed, out);
+        expectEqual(doc.designerForSlot(5), "  ", "raw slot designer retains whitespace", failed, out);
+        doc.setDesignerForSlot(5, " Alice ");
+        expectEqual(doc.effectiveDesignerForSlot(5), " Alice ", "difficulty designer preserves its original value", failed, out);
+        expectEqual(doc.effectiveDesignerForSlot(3), "Shared", "empty uncharted slot uses document designer", failed, out);
+        doc.setDesignerForSlot(3, "Bob");
+        expectEqual(doc.effectiveDesignerForSlot(3), "Bob", "standalone slot uses its own designer", failed, out);
+    }
+
     // --- setDesignerForSlot: existing diff vs chart-less slot. ---
     {
         SimaiDocument doc = SimaiDocument::fromText("&lv_5=12\n&inote_5=(120){1}1,\n");
@@ -126,6 +139,33 @@ void runSpecs(QTextStream& out, int* failed)
         expectEqual(rendered.join(','), "2:Two,4:Four,6:", "perDifficultyDesigners merges & sorts", failed, out);
     }
 
+    // --- isUnifiedDesignerTriviallySafe: the load-time judgement. ---
+    //
+    // Opening a chart asks this whether the project's stored "all difficulties
+    // share one designer" preference still matches the file. True restores the
+    // mode; false silently lowers the PREFERENCE and leaves the document
+    // untouched, which is why a freshly opened chart is never dirty. Every
+    // designer-bearing slot counts, chart-less `&des_N` included.
+    {
+        const auto verdict = [](const char* text) {
+            return SimaiDocument::fromText(QString::fromUtf8(text)).isUnifiedDesignerTriviallySafe();
+        };
+        expectTrue(verdict("&des=X\n&lv_5=12\n&des_5=X\n&inote_5=(120){1}1,\n"
+                           "&lv_6=13\n&des_6=X\n&inote_6=(120){1}2,\n"),
+                   "every &des_N matching &des satisfies the shared-designer mode", failed, out);
+        expectTrue(verdict("&des=X\n&title=Song\n"),
+                   "a chart with no difficulties satisfies it", failed, out);
+        expectTrue(verdict("&title=Song\n&lv_5=12\n&des_5=\n&inote_5=(120){1}1,\n"),
+                   "an all-blank project satisfies it", failed, out);
+        expectTrue(!verdict("&des=X\n&lv_5=12\n&des_5=\n&inote_5=(120){1}1,\n"),
+                   "a difficulty with no name of its own does not satisfy it", failed, out);
+        expectTrue(!verdict("&des=X\n&lv_5=12\n&des_5=X\n&inote_5=(120){1}1,\n"
+                            "&lv_6=13\n&des_6=Y\n&inote_6=(120){1}2,\n"),
+                   "a second distinct name does not satisfy it", failed, out);
+        expectTrue(!verdict("&des=X\n&des_3=Y\n&lv_5=12\n&des_5=X\n&inote_5=(120){1}1,\n"),
+                   "a chart-less &des_N that disagrees does not satisfy it either", failed, out);
+    }
+
     // --- A fully-empty difficulty (no name) is NOT swept into standalone. ---
     {
         // An empty &inote_7 with no name is a freshly-added blank difficulty;
@@ -134,6 +174,39 @@ void runSpecs(QTextStream& out, int* failed)
         const SimaiDocument doc = SimaiDocument::fromText(src);
         expectTrue(doc.difficulty(7) != nullptr, "blank difficulty 7 stays a difficulty", failed, out);
         expectTrue(doc.standaloneDesignerIds().isEmpty(), "blank difficulty is not a standalone", failed, out);
+    }
+
+    // Explicit lv/inote headers define a difficulty even when both values are
+    // empty and its designer is named. Header order must not change ownership.
+    for (const QString& source : {
+             QStringLiteral("&lv_7=\n&des_7=Alice\n&inote_7=\n"),
+             QStringLiteral("&des_7=Alice\n&lv_7=\n&inote_7=\n"),
+             QStringLiteral("&inote_7=\n&des_7=Alice\n"),
+             QStringLiteral("&des_7=Alice\n&lv_7=\n")}) {
+        const SimaiDocument doc = SimaiDocument::fromText(source);
+        const SimaiDocument round = SimaiDocument::fromText(doc.toText());
+        expectTrue(doc.difficulty(7) != nullptr && round.difficulty(7) != nullptr,
+                   "named empty difficulty survives every header order", failed, out);
+        expectTrue(doc.standaloneDesignerIds().isEmpty(),
+                   "named empty difficulty exclusively owns its designer", failed, out);
+        expectEqual(round.designerForSlot(7), "Alice", "named empty designer round-trips", failed, out);
+    }
+    {
+        const SimaiDocument doc = SimaiDocument::fromText(
+            "&custom_3=kept\n&other_7=also kept\n&des_2=Bob\n&lv_5=12\n&inote_5=E\n");
+        expectTrue(doc.difficultyIds() == QVector<int>{5},
+                   "unknown suffixed fields never materialize difficulties", failed, out);
+        expectTrue(hasLine(doc.toText(), "&custom_3=kept") && hasLine(doc.toText(), "&other_7=also kept"),
+                   "unknown suffixed fields remain extra fields", failed, out);
+    }
+    {
+        SimaiDocument doc = SimaiDocument::fromText("&des_3=old name\n");
+        expectEqual(doc.ensureDifficulty(3).designer, "old name", "materializing adopts designer", failed, out);
+        expectTrue(doc.standaloneDesignerIds().isEmpty(), "materializing transfers designer ownership", failed, out);
+        doc.setDesignerForSlot(3, "new name");
+        doc.removeDifficulty(3);
+        expectTrue(doc.designerForSlot(3).isEmpty() && !hasKeyLine(doc.toText(), "des_3"),
+                   "removing an adopted difficulty never resurrects an old designer", failed, out);
     }
 
     // --- &clock_count default is materialized exactly once and never stacks. ---
@@ -239,16 +312,6 @@ void runSpecs(QTextStream& out, int* failed)
         expectTrue(hasLine(out3, "&pvstart=3.5"), "populated &pvstart is preserved", failed, out);
     }
 
-    // --- Property assignment validation. ---
-    {
-        const QVector<int> invalid = SimaiDocument::invalidPropertyLineNumbers(
-            "&clock_count=4\n&missing_equals\n  &also_bad  \n&=empty_key\nplain text\n");
-        expectTrue(invalid == QVector<int>({2, 3, 4}),
-                   "property validation rejects malformed assignments", failed, out);
-        expectTrue(SimaiDocument::invalidPropertyLineNumbers("&clock_count=4\n&dummy=\n").isEmpty(),
-                   "property validation accepts complete assignments", failed, out);
-    }
-
     // --- Obsolete &miacode_bookmarks= field: reserved, ignored, not persisted. ---
     {
         const QString src =
@@ -275,6 +338,44 @@ void runSpecs(QTextStream& out, int* failed)
             inUnmanaged = inUnmanaged || field.key == QLatin1String("miacode_bookmarks");
         }
         expectTrue(!inUnmanaged, "parseUnmanagedFields hides miacode_bookmarks", failed, out);
+    }
+
+    // --- Dedicated &clock_count is not shown again in "Other &xx Fields". ---
+    {
+        const QVector<SimaiRawField> unmanaged = SimaiDocument::parseUnmanagedFields(
+            "&title=Song\n&first=0\n&clock_count=6\n&custom=value\n");
+        bool hasClockCount = false;
+        bool hasCustom = false;
+        for (const SimaiRawField& field : unmanaged) {
+            hasClockCount = hasClockCount || field.key == QLatin1String("clock_count");
+            hasCustom = hasCustom || field.key == QLatin1String("custom");
+        }
+        expectTrue(!hasClockCount, "parseUnmanagedFields hides dedicated clock_count", failed, out);
+        expectTrue(hasCustom, "parseUnmanagedFields keeps unrelated extra fields", failed, out);
+    }
+
+    // --- Extra-field validation reports the exact property-looking line. ---
+    {
+        const QVector<SimaiPropertyIssue> issues =
+            SimaiDocument::invalidPropertyLineNumbers(
+                "  &missing_equals\r\n&=empty_key\r\n&dummy=value\r\n");
+        expectTrue(issues.size() == 2, "invalid extra fields are reported without rejecting valid fields",
+                   failed, out);
+        if (issues.size() == 2) {
+            expectTrue(issues.at(0).line == 1 && issues.at(0).column == 3
+                           && issues.at(0).endColumn == 17
+                           && issues.at(0).code == QLatin1String("invalid_property"),
+                       "indented missing-equals field reports its line and ampersand column",
+                       failed, out);
+            expectTrue(issues.at(1).line == 2 && issues.at(1).column == 1
+                           && issues.at(1).endColumn == 11,
+                       "empty-key field reports the full property span", failed, out);
+        }
+        expectTrue(SimaiDocument::invalidPropertyLineNumbers(
+                       "  &dummy=value\r\n  &empty=\r\n").isEmpty(),
+                   "indented fields with empty values remain valid", failed, out);
+        expectTrue(SimaiDocument::invalidPropertyLineNumbers("plain text").size() == 1,
+                   "non-property text is rejected instead of being silently discarded", failed, out);
     }
 
     // --- Bad/empty obsolete bookmark payload never blocks parsing and is never emitted. ---

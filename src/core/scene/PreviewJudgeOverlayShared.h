@@ -1,7 +1,7 @@
 #pragma once
 
-#include "common/MuriConfig.h"
-#include "common/MuriTypes.h"
+#include "core/analysis/MuriConfig.h"
+#include "core/analysis/MuriTypes.h"
 #include "core/video/PreviewRenderSettings.h"
 #include "core/scene/PreviewSceneConstants.h"
 #include "core/scene/PreviewSpriteDescriptor.h"

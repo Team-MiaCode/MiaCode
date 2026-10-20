@@ -9,6 +9,9 @@
 #include "qavd3d11sharedcontext_p.h"  // MiaCode H2: shared render device + preview diag
 #include "qavvideobuffer_gpu_p.h"
 #include <QDebug>
+#include <QHash>
+#include <QMutex>
+#include <QMutexLocker>
 #include <QOpenGLFunctions>  // GLuint
 #include <atomic>
 #include <chrono>
@@ -1004,7 +1007,17 @@ public:
         if (!rhi || rhi->backend() != QRhi::D3D11)
             return {};
 
-        if (!m_texture) {
+        const auto* handles = static_cast<const QRhiD3D11NativeHandles*>(rhi->nativeHandles());
+        auto* consumerDevice = handles ? static_cast<ID3D11Device*>(handles->dev) : nullptr;
+        if (!consumerDevice)
+            return {};
+
+        // Each Quick window owns its D3D11 device. Keep the frame's copied
+        // textures per device, including while old/new render threads overlap.
+        // The texture retains its device, so the key stays valid for this frame.
+        QMutexLocker locker(&m_textureMutex);
+        auto& consumerTexture = m_textures[consumerDevice];
+        if (!consumerTexture) {
             if (!frame())
                 return {};
 
@@ -1034,7 +1047,7 @@ public:
 
             auto shared = shareTexture(dev, texture);
             if (shared)
-                const_cast<VideoBuffer_D3D11*>(this)->m_texture = copyTexture(dev, shared.Get(), texture_index);
+                consumerTexture = copyTexture(dev, shared.Get(), texture_index);
 #else
             auto devRHI = D3D11Device(rhi);
             if (!devRHI) {
@@ -1094,17 +1107,18 @@ public:
             }
 
             // Keep alive texture while the frame is alive
-            const_cast<VideoBuffer_D3D11*>(this)->m_texture = outputTex;
+            consumerTexture = outputTex;
 #endif // #if QT_VERSION < QT_VERSION_CHECK(6, 6, 2)
         }
 
         // Return both planes of the same multi-plane D3D11 texture. Qt selects
         // the matching plane views from QVideoFrameFormat (NV12, P010, or P016).
-        QList<quint64> textures = {quint64(m_texture.Get()), quint64(m_texture.Get())};
+        QList<quint64> textures = {quint64(consumerTexture.Get()), quint64(consumerTexture.Get())};
         return QVariant::fromValue(textures);
     }
 
-    ComPtr<ID3D11Texture2D> m_texture;
+    mutable QMutex m_textureMutex;
+    mutable QHash<ID3D11Device*, ComPtr<ID3D11Texture2D>> m_textures;
 };
 
 QAVVideoBuffer *QAVHWDevice_D3D11::videoBuffer(const QAVVideoFrame &frame) const

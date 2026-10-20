@@ -1,6 +1,4 @@
-#include "QtPreviewSfxRuntime.h"
-
-#include "PreviewBassEmergencyPause.h"
+#include "audio/QtPreviewSfxRuntime.h"
 
 #include <QMetaObject>
 
@@ -367,8 +365,7 @@ miacode::preview_audio::PreviewAudioDeviceCutoff QtPreviewSfxRuntime::requestDev
     // the new endpoint instead of retaining a stream bound to the previous device.
     deviceCutoffActive_.store(true, std::memory_order_release);
     if (playbackWasArmed) {
-        const BassEmergencyPauseResult emergencyPause =
-            PreviewBassEmergencyPause::pauseActiveOutput();
+        const BassEmergencyPauseResult emergencyPause = pauseActivePreviewAudioOutput();
         cutoff.emergencyPauseStartedNs = emergencyPause.startedMonotonicNs;
         cutoff.emergencyPauseFinishedNs = emergencyPause.finishedMonotonicNs;
         cutoff.emergencyPauseDeviceIndex = emergencyPause.outputDeviceIndex;
@@ -486,22 +483,6 @@ quint64 QtPreviewSfxRuntime::assetGeneration() const noexcept
 double QtPreviewSfxRuntime::authoritativePlaybackSecond() const
 {
     return lastSnapshot().authoritativeSecond;
-}
-
-double QtPreviewSfxRuntime::playbackClockSecond(double fallbackSecond, double rate) const
-{
-    const PreviewAudioSnapshot snapshot = lastSnapshot();
-    const auto& clock = snapshot.playbackClock;
-    if (!snapshot.backendReady || !clock.valid
-        || snapshot.identity.generation != playbackGeneration()
-        || snapshot.identity.assetGeneration != assetGeneration()
-        || snapshot.identity.transactionId != transactionId_.load(std::memory_order_acquire)
-        || deviceCutoffActive_.load(std::memory_order_acquire)
-        || qAbs(clock.rate - rate) > 0.000001) {
-        playbackClockFollower_.reset();
-        return fallbackSecond;
-    }
-    return playbackClockFollower_.follow(clock, snapshot.identity.generation, playbackClockNowNs());
 }
 
 void QtPreviewSfxRuntime::stopSfxVoices()

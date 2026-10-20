@@ -174,7 +174,6 @@ export interface MiaCodeApi {
     getInfo(): ApiResult<Record<string, unknown>>;
     openPreferences(): ApiResult;
     openAboutDialog(): ApiResult;
-    openWelcomeDialog(): ApiResult;
     reloadExtensions(): ApiResult;
   };
   commands: {
@@ -305,9 +304,6 @@ export interface MiaCodeApi {
     getState(): ApiResult<Record<string, unknown>>;
     getRenderState(): ApiResult<Record<string, unknown>>;
     setSpeed(value: number): ApiResult;
-    setMineSkinEnabled(enabled: boolean): ApiResult;
-    setJudgeEffectsEnabled(enabled: boolean): ApiResult;
-    setMineSfxEnabled(enabled: boolean): ApiResult;
     addOverlay(overlay: Record<string, unknown>): ApiResult;
     updateOverlay(id: string, patch: Record<string, unknown>): ApiResult;
     removeOverlay(id?: string, ownerId?: string): ApiResult<{ removed: number }>;

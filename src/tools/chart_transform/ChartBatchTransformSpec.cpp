@@ -1,4 +1,4 @@
-#include "ChartBatchTransform.h"
+#include "core/chart/transform/ChartBatchTransform.h"
 
 #include <functional>
 
@@ -13,15 +13,14 @@
 #include <QList>
 #include <QPointF>
 #include <QRegularExpression>
-#include <QRandomGenerator>
-#include <QSet>
 #include <QStringList>
 #include <QTextStream>
 #include <QtMath>
 
-#include "SimaiDocument.h"
-#include "SimaiNativeParser.h"
+#include "core/chart/document/SimaiDocument.h"
+#include "core/chart/parser/SimaiParser.h"
 #include "core/chart/transform/ChartNormalization.h"
+#include "app/services/ChartNormalizationPreferences.h"
 #include "core/chart/transform/Non384SnapTable.h"
 
 namespace {
@@ -202,7 +201,7 @@ QJsonArray dumpPadEntryMatrix(const QVector<QVector<MuriPadTimeEntry>>& values)
     return array;
 }
 
-QJsonObject dumpMessage(const SimaiNativeMessage& message)
+QJsonObject dumpMessage(const SimaiMessage& message)
 {
     QJsonObject object;
     object.insert(QStringLiteral("source_line"), message.line);
@@ -222,10 +221,10 @@ QJsonObject dumpBeatMarker(const TimelineBeatMarker& marker)
     return object;
 }
 
-QJsonArray dumpMessages(const QVector<SimaiNativeMessage>& messages)
+QJsonArray dumpMessages(const QVector<SimaiMessage>& messages)
 {
     QJsonArray array;
-    for (const SimaiNativeMessage& message : messages) {
+    for (const SimaiMessage& message : messages) {
         array.append(dumpMessage(message));
     }
     return array;
@@ -464,7 +463,7 @@ QJsonArray dumpNoteMarkers(const QVector<TimelineNoteMarker>& markers)
     return array;
 }
 
-QJsonObject dumpParseResult(const SimaiNativeParseResult& result)
+QJsonObject dumpParseResult(const SimaiParseResult& result)
 {
     QJsonObject object;
     object.insert(QStringLiteral("ok"), result.ok);
@@ -510,7 +509,7 @@ QJsonObject dumpDocumentSemantics(const SimaiDocument& document)
         item.insert(QStringLiteral("designer"), difficulty->designer);
         item.insert(
             QStringLiteral("chart_parse"),
-            dumpParseResult(SimaiNativeParser::parseForTimeline(
+            dumpParseResult(SimaiParser::parseForTimeline(
                 difficulty->chart,
                 miacode::simai::buildTimingMetadata(document))));
         difficulties.append(item);
@@ -711,10 +710,10 @@ bool runFolderMatchSpec(const QString& inputPath, QTextStream& out, QTextStream&
             } else {
                 const SimaiDifficultyData* actualDifficulty = actualDocument.difficulty(actualIds.constFirst());
                 if (actualDifficulty != nullptr) {
-                    const QJsonObject actualParseDump = dumpParseResult(SimaiNativeParser::parseForTimeline(
+                    const QJsonObject actualParseDump = dumpParseResult(SimaiParser::parseForTimeline(
                         actualDifficulty->chart,
                         miacode::simai::buildTimingMetadata(actualDocument)));
-                    const QJsonObject expectedParseDump = dumpParseResult(SimaiNativeParser::parseForTimeline(expectedText));
+                    const QJsonObject expectedParseDump = dumpParseResult(SimaiParser::parseForTimeline(expectedText));
                     same = compareJsonValues(actualParseDump, expectedParseDump, QStringLiteral("$.chart"), &diff);
                     if (!same) {
                         diff = enrichChartOnlyDiff(diff, actualParseDump, sourceText, actualDifficulty->id);
@@ -738,12 +737,86 @@ bool runFolderMatchSpec(const QString& inputPath, QTextStream& out, QTextStream&
     return allPassed;
 }
 
+void expectClearCompleteElements(
+    const QString& input,
+    int selectionStart,
+    int selectionEnd,
+    const QString& expected,
+    int expectedChanged,
+    const QString& message,
+    int* failed,
+    QTextStream& err)
+{
+    int changed = -1;
+    const QString actual = miacode::chart_transform::clearCompleteElementsInSelection(
+        input,
+        selectionStart,
+        selectionEnd,
+        &changed);
+    expectTrue(
+        actual == expected && changed == expectedChanged,
+        QStringLiteral("%1 (actual='%2', changed=%3)")
+            .arg(message, actual)
+            .arg(changed),
+        failed,
+        err);
+}
+
+void expectClearCompleteElementsReplacement(
+    const QString& input,
+    int selectionStart,
+    int selectionEnd,
+    const QString& expectedReplacement,
+    const QString& message,
+    int* failed,
+    QTextStream& err)
+{
+    int changed = -1;
+    const QString transformedFull = miacode::chart_transform::clearCompleteElementsInSelection(
+        input,
+        selectionStart,
+        selectionEnd,
+        &changed);
+    const int unchangedSuffixLength = input.size() - selectionEnd;
+    const int transformedSelectionEnd = transformedFull.size() - unchangedSuffixLength;
+    const QString replacement = transformedFull.mid(selectionStart, transformedSelectionEnd - selectionStart);
+    expectTrue(
+        replacement == expectedReplacement,
+        QStringLiteral("%1 (replacement='%2', changed=%3)")
+            .arg(message, replacement)
+            .arg(changed),
+        failed,
+        err);
+}
+
+void expectResetTapNotes(
+    const QString& input,
+    int selectionStart,
+    int selectionEnd,
+    const QString& expected,
+    int expectedChanged,
+    const QString& message,
+    int* failed,
+    QTextStream& err)
+{
+    int changed = -1;
+    const QString actual = miacode::chart_transform::resetTapNotesInSelection(
+        input, selectionStart, selectionEnd, &changed);
+    expectTrue(
+        actual == expected && changed == expectedChanged,
+        QStringLiteral("%1 (actual='%2', changed=%3)")
+            .arg(message, actual)
+            .arg(changed),
+        failed,
+        err);
+}
+
 // A subdivision step re-grids a passage; it must never re-time it. Reading each
 // note's second back out of the parser turns a missing or wrong {N} into moved
 // notes, not into a string that merely looks plausible.
 QString noteSecondsText(const QString& chart)
 {
-    const SimaiNativeParseResult result = SimaiNativeParser::parseForTimeline(chart);
+    const SimaiParseResult result = SimaiParser::parseForTimeline(chart);
     QStringList seconds;
     for (const TimelineNoteMarker& marker : result.noteMarkers) {
         seconds.append(QString::number(marker.second, 'f', 6));
@@ -798,6 +871,22 @@ void runInlineSpecs(QTextStream& err, int* failed)
         expectEqual(miacode::chart_transform::randomRotateForSelection(input, []() { return 1; }),
                     QStringLiteral("B1h"),
                     QStringLiteral("random rotation recognizes bare touch hold"), failed, err);
+        expectEqual(miacode::chart_transform::randomRotateForSelection(QStringLiteral("1-5[4:1]"),
+                                                                       []() { return 2; }),
+                    QStringLiteral("3-7[4:1]"),
+                    QStringLiteral("random rotation moves the slide head with its path"), failed, err);
+        expectEqual(miacode::chart_transform::randomRotateForSelection(QStringLiteral("1-3-5-7[4:1]"),
+                                                                       []() { return 2; }),
+                    QStringLiteral("3-5-7-1[4:1]"),
+                    QStringLiteral("random rotation moves every endpoint of a multi-segment slide"), failed, err);
+        expectEqual(miacode::chart_transform::randomRotateForSelection(QStringLiteral("1V35[4:1]"),
+                                                                       []() { return 2; }),
+                    QStringLiteral("3V57[4:1]"),
+                    QStringLiteral("random rotation moves both V-slide endpoints with its head"), failed, err);
+        expectEqual(miacode::chart_transform::randomRotateForSelection(QStringLiteral("1>3[4:1]"),
+                                                                       []() { return 2; }),
+                    QStringLiteral("3<5[4:1]"),
+                    QStringLiteral("random rotation keeps the turning direction of an arc"), failed, err);
         expectEqual(miacode::chart_transform::toggleBreakForSelection(QStringLiteral("B8h[8:1")),
                     QStringLiteral("B8bh[8:1"),
                     QStringLiteral("selection ending inside duration preserves its partial suffix"), failed, err);
@@ -819,45 +908,154 @@ void runInlineSpecs(QTextStream& err, int* failed)
                     QStringLiteral("1b/B6bh[8:1]"),
                     QStringLiteral("unflagged touch hold makes mixed selection enable break"), failed, err);
     }
+    // 一键清空 (moved here with clearCompleteElementsInSelection when it left
+    // the Widgets editor's header — it is a selection transform like the rest).
+    const QString measure = QStringLiteral("{16}1,1,1,1-3[9:1],");
+    expectClearCompleteElements(
+        measure,
+        0,
+        measure.size(),
+        QStringLiteral("{16},,,,"),
+        4,
+        QStringLiteral("Ctrl+Q clears every complete selected element and keeps subdivision prefix"),
+        failed,
+        err);
+    expectResetTapNotes(
+        QStringLiteral("{16}7,7,E1,A1,,8/2,,3,3^6[8:1]*^8[8:1],4,C,,3b,,,,"),
+        0,
+        QStringLiteral("{16}7,7,E1,A1,,8/2,,3,3^6[8:1]*^8[8:1],4,C,,3b,,,,").size(),
+        QStringLiteral("{16}1,1,1,1,,1,,1,1,1,1,,1,,,,"),
+        10,
+        QStringLiteral("reset tap notes reduces each occupied beat to one lane-1 tap"),
+        failed,
+        err);
+    expectResetTapNotes(
+        QStringLiteral("(120){8}1, 2,|| keep 3,4,\n{16}A1,,"),
+        0,
+        QStringLiteral("(120){8}1, 2,|| keep 3,4,\n{16}A1,,").size(),
+        QStringLiteral("(120){8}1, 1,|| keep 3,4,\n{16}1,,"),
+        2,
+        QStringLiteral("reset tap notes preserves timing, whitespace, and comments"),
+        failed,
+        err);
+    expectClearCompleteElements(
+        measure,
+        0,
+        QStringLiteral("{16}1,1,1").size(),
+        QStringLiteral("{16},,1,1-3[9:1],"),
+        2,
+        QStringLiteral("Ctrl+Q leaves an incomplete selected trailing element unchanged"),
+        failed,
+        err);
+    expectClearCompleteElements(
+        measure,
+        0,
+        QStringLiteral("{16}1,1,1,1-3[9:").size(),
+        QStringLiteral("{16},,,1-3[9:1],"),
+        3,
+        QStringLiteral("Ctrl+Q does not clear an incomplete bracketed selected element"),
+        failed,
+        err);
+    expectClearCompleteElements(
+        QStringLiteral("1,1"),
+        0,
+        QStringLiteral("1,1").size(),
+        QStringLiteral(",1"),
+        1,
+        QStringLiteral("Ctrl+Q requires element plus comma, so final unterminated element stays"),
+        failed,
+        err);
+    expectClearCompleteElements(
+        QStringLiteral("1,|| 2,3,\n4,"),
+        0,
+        QStringLiteral("1,|| 2,3,\n4,").size(),
+        QStringLiteral(",|| 2,3,\n,"),
+        2,
+        QStringLiteral("Ctrl+Q skips comment text for now"),
+        failed,
+        err);
     {
-        const QVector<int> steps{7, 6, 5, 4, 7, 6, 7, 6, 7, 6};
-        int index = 0;
-        int changed = 0;
-        const QString output = miacode::chart_transform::randomRotateForSelection(
-            QStringLiteral("12/3h[8:1]/4-6[8:1],A1/A2/B1/B2/C1h[8:1],A1/\n|| comment,\nA2,"),
-            [&]() { return steps.at(index++); }, &changed);
-        expectEqual(output,
-                    QStringLiteral("81/2h[8:1]/3-5[8:1],A8/A1/B8/B1/C1h[8:1],A8/\n|| comment,\nA1,"),
-                    QStringLiteral("random avoids collisions across each, touch rings, and commented lines"),
-                    failed, err);
-        expectTrue(index == steps.size() && changed == 10,
-                   QStringLiteral("random rotates slide head and track together and leaves center fixed"), failed, err);
+        const QString compound = QStringLiteral("4^6[8:1],,,3h[16:3],");
+        const int start = compound.indexOf(QStringLiteral("6[8:1]"));
+        expectClearCompleteElements(
+            compound,
+            start,
+            compound.size(),
+            QStringLiteral("4^6[8:1],,,,"),
+            1,
+            QStringLiteral("Ctrl+Q does not clear from the middle of a compound element"),
+            failed,
+            err);
+        expectClearCompleteElementsReplacement(
+            compound,
+            start,
+            compound.size(),
+            QStringLiteral("6[8:1],,,,"),
+            QStringLiteral("Ctrl+Q document-aware replacement keeps the unselected compound prefix"),
+            failed,
+            err);
     }
     {
-        int calls = 0;
-        const QString output = miacode::chart_transform::randomRotateForSelection(
-            QStringLiteral("1/1-5[8:1]`2,A1/A1f/B1/A2,"), [&]() { ++calls; return 7; });
-        expectEqual(output, QStringLiteral("8/8-4[8:1]`1,A8/A8f/B8/A1,"),
-                    QStringLiteral("random preserves shared slide heads and repeated source pads"), failed, err);
-        expectTrue(calls == 5, QStringLiteral("random reuses mappings for repeated source lanes"), failed, err);
+        const QString prefixed = QStringLiteral("{16}3,4,3,5h[16:5],");
+        const int start = prefixed.indexOf(QStringLiteral("6}3"));
+        expectClearCompleteElements(
+            prefixed,
+            start,
+            prefixed.size(),
+            QStringLiteral("{16},,,,"),
+            4,
+            QStringLiteral("Ctrl+Q preserves a partially-selected subdivision prefix"),
+            failed,
+            err);
+        expectClearCompleteElementsReplacement(
+            prefixed,
+            start,
+            prefixed.size(),
+            QStringLiteral("6},,,,"),
+            QStringLiteral("Ctrl+Q document-aware replacement keeps the unselected subdivision prefix"),
+            failed,
+            err);
     }
     {
-        for (quint32 seed = 0; seed < 256; ++seed) {
-            QRandomGenerator random(seed);
-            const QString output = miacode::chart_transform::randomRotateForSelection(
-                QStringLiteral("12345678,A1/A2/A3/A4/A5/A6/A7/A8/B1/B2/B3/B4/B5/B6/B7/B8/D1/D2/D3/D4/D5/D6/D7/D8/E1/E2/E3/E4/E5/E6/E7/E8,"),
-                [&]() { return random.bounded(8); });
-            const QStringList beats = output.split(QChar(','));
-            QSet<QChar> lanes;
-            for (QChar lane : beats.at(0)) lanes.insert(lane);
-            QSet<QString> pads;
-            const QStringList touches = beats.at(1).split(QChar('/'));
-            for (const QString& pad : touches) pads.insert(pad);
-            expectTrue(beats.at(0).size() == 8 && lanes.size() == 8
-                           && touches.size() == 32 && pads.size() == 32,
-                       QStringLiteral("random keeps full each and touch groups distinct, seed %1").arg(seed),
-                       failed, err);
-        }
+        // A passage spanning several {} subdivisions must keep every directive
+        // and line break — clearing must NOT collapse it into one {} (the bug).
+        const QString multi = QStringLiteral("{8}1,2,\n{16}3,4,");
+        expectClearCompleteElements(
+            multi,
+            0,
+            multi.size(),
+            QStringLiteral("{8},,\n{16},,"),
+            4,
+            QStringLiteral("Ctrl+Q keeps every subdivision across line breaks"),
+            failed,
+            err);
+    }
+    {
+        // A subdivision directive after whitespace (not tight against the prior
+        // comma) must still survive the clear.
+        const QString spaced = QStringLiteral("{8}1, {16}2,");
+        expectClearCompleteElements(
+            spaced,
+            0,
+            spaced.size(),
+            QStringLiteral("{8}, {16},"),
+            2,
+            QStringLiteral("Ctrl+Q keeps a space-preceded subdivision prefix"),
+            failed,
+            err);
+    }
+    {
+        // BPM marks and subdivisions both survive across a line break.
+        const QString bpm = QStringLiteral("(120){8}1,\n(140){4}2,");
+        expectClearCompleteElements(
+            bpm,
+            0,
+            bpm.size(),
+            QStringLiteral("(120){8},\n(140){4},"),
+            2,
+            QStringLiteral("Ctrl+Q keeps BPM marks and subdivisions across line breaks"),
+            failed,
+            err);
     }
 
     {
@@ -1758,6 +1956,14 @@ void runInlineSpecs(QTextStream& err, int* failed)
             QStringLiteral("[4:1]{8},,3,,{4}"),
             QStringLiteral("subdivision +1 places the governing subdivision after a note the selection starts inside"),
             failed, err);
+        // Nor can it go into the comment the selection starts inside: there it
+        // would be text, and the commas after it would keep the old grid.
+        expectSubdivisionInContext(
+            &transform::raiseSubdivisionForSelection,
+            QStringLiteral("(120){4}1,2,|| intro "), QStringLiteral("notes\n3,4,"), QStringLiteral("5,"),
+            QStringLiteral("notes\n{8}3,,4,,{4}"),
+            QStringLiteral("subdivision +1 places the governing subdivision after a comment the selection starts inside"),
+            failed, err);
         // A leading run that cannot step down losslessly keeps its grid and
         // gains no signature; the chunk after it still steps down.
         expectSubdivisionInContext(
@@ -2119,7 +2325,7 @@ void runInlineSpecs(QTextStream& err, int* failed)
     {
         const miacode::chart_transform::ChartNormalizationOptions defaults;
         const miacode::chart_transform::ChartNormalizationOptions loaded =
-            miacode::chart_transform::chartNormalizationOptionsFromPreferences(QJsonObject(), defaults);
+            miacode::app_preferences::chartNormalizationOptionsFromPreferences(QJsonObject(), defaults);
         expectTrue(
             loaded.startAtNewMeasure && loaded.reduceTo384Grid && loaded.splitEveryFourMeasures,
             QStringLiteral("chart normalization preferences default core options to enabled"),
@@ -2128,11 +2334,11 @@ void runInlineSpecs(QTextStream& err, int* failed)
         );
 
         QJsonObject preview;
-        miacode::chart_transform::saveChartNormalizationOptionsToPreferences(
+        miacode::app_preferences::saveChartNormalizationOptionsToPreferences(
             &preview,
             miacode::chart_transform::ChartNormalizationOptions{false, false, false});
         const miacode::chart_transform::ChartNormalizationOptions restored =
-            miacode::chart_transform::chartNormalizationOptionsFromPreferences(preview, defaults);
+            miacode::app_preferences::chartNormalizationOptionsFromPreferences(preview, defaults);
         expectTrue(
             !restored.startAtNewMeasure
                 && !restored.reduceTo384Grid
@@ -2141,6 +2347,56 @@ void runInlineSpecs(QTextStream& err, int* failed)
             failed,
             err
         );
+
+        QJsonObject legacyFpd;
+        legacyFpd.insert(QStringLiteral("chart_normalize_syntax"), QStringLiteral("fpd"));
+        QJsonObject canonicalSegment;
+        canonicalSegment.insert(
+            QStringLiteral("chart_normalize_syntax"), QStringLiteral("segment_preserving"));
+        QJsonObject legacyHinata;
+        legacyHinata.insert(QStringLiteral("chart_normalize_syntax"), QStringLiteral("hinata"));
+        QJsonObject canonicalCompact;
+        canonicalCompact.insert(
+            QStringLiteral("chart_normalize_syntax"), QStringLiteral("compact_single_line"));
+        const QString normalizationFixture = QStringLiteral("{4}1,2,3,4,\nE");
+        const auto legacySegmentResult = miacode::chart_transform::normalizeChartText(
+            normalizationFixture,
+            miacode::simai::SimaiTimingMetadata(),
+            miacode::app_preferences::chartNormalizationOptionsFromPreferences(legacyFpd, defaults));
+        const auto canonicalSegmentResult = miacode::chart_transform::normalizeChartText(
+            normalizationFixture,
+            miacode::simai::SimaiTimingMetadata(),
+            miacode::app_preferences::chartNormalizationOptionsFromPreferences(canonicalSegment, defaults));
+        const auto legacyCompactResult = miacode::chart_transform::normalizeChartText(
+            normalizationFixture,
+            miacode::simai::SimaiTimingMetadata(),
+            miacode::app_preferences::chartNormalizationOptionsFromPreferences(legacyHinata, defaults));
+        const auto canonicalCompactResult = miacode::chart_transform::normalizeChartText(
+            normalizationFixture,
+            miacode::simai::SimaiTimingMetadata(),
+            miacode::app_preferences::chartNormalizationOptionsFromPreferences(canonicalCompact, defaults));
+        expectTrue(
+            legacySegmentResult.ok && canonicalSegmentResult.ok
+                && legacySegmentResult.text == canonicalSegmentResult.text,
+            QStringLiteral("legacy fpd and canonical segment-preserving preferences normalize identically"),
+            failed,
+            err);
+        expectTrue(
+            legacyCompactResult.ok && canonicalCompactResult.ok
+                && legacyCompactResult.text == canonicalCompactResult.text,
+            QStringLiteral("legacy hinata and canonical compact-single-line preferences normalize identically"),
+            failed,
+            err);
+        QJsonObject saved;
+        miacode::app_preferences::saveChartNormalizationOptionsToPreferences(
+            &saved, miacode::chart_transform::ChartNormalizationOptions{
+                true, true, true, miacode::chart_transform::ChartNormalizationSyntax::CompactSingleLine, 4});
+        expectTrue(
+            saved.value(QStringLiteral("chart_normalize_syntax")).toString()
+                == QStringLiteral("compact_single_line"),
+            QStringLiteral("normalization writes the canonical compact-single-line token"),
+            failed,
+            err);
     }
 
     {
@@ -2616,7 +2872,7 @@ int main(int argc, char** argv)
         // subdivisions naturally shift) and warnings (which can change
         // count after normalize). Keep ok / errors / note_markers — those
         // are the user-visible chart semantics.
-        const auto buildSemanticView = [&](const SimaiNativeParseResult& parse) {
+        const auto buildSemanticView = [&](const SimaiParseResult& parse) {
             QJsonObject obj;
             obj.insert(QStringLiteral("ok"), parse.ok);
             obj.insert(QStringLiteral("errors"), strip(dumpMessages(parse.errors)));
@@ -2624,7 +2880,7 @@ int main(int argc, char** argv)
             return obj;
         };
 
-        const auto origParse = SimaiNativeParser::parseForTimeline(origChart, timingMd);
+        const auto origParse = SimaiParser::parseForTimeline(origChart, timingMd);
         const QJsonObject origSemantic = buildSemanticView(origParse);
 
         miacode::chart_transform::ChartNormalizationOptions opts;
@@ -2637,7 +2893,7 @@ int main(int argc, char** argv)
             if (!result.ok) {
                 out << "  WHOLE: normalize FAIL: " << result.errorMessage << '\n';
             } else {
-                const auto newParse = SimaiNativeParser::parseForTimeline(result.text, timingMd);
+                const auto newParse = SimaiParser::parseForTimeline(result.text, timingMd);
                 const QJsonObject newSemantic = buildSemanticView(newParse);
                 QString diff;
                 const bool same = compareJsonValues(origSemantic, newSemantic, QStringLiteral("$"), &diff);
@@ -2675,7 +2931,7 @@ int main(int argc, char** argv)
                     continue;
                 }
                 const QString spliced = origChart.left(startOffset) + result.text + origChart.mid(endOffset);
-                const auto newParse = SimaiNativeParser::parseForTimeline(spliced, timingMd);
+                const auto newParse = SimaiParser::parseForTimeline(spliced, timingMd);
                 const QJsonObject newSemantic = buildSemanticView(newParse);
                 QString diff;
                 const bool same = compareJsonValues(origSemantic, newSemantic, QStringLiteral("$"), &diff);

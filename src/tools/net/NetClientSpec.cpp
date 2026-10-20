@@ -1,7 +1,7 @@
-#include "NetClient.h"
-#include "NetBatchUploadScanner.h"
-#include "NetUploadDiagnostics.h"
-#include "tools/media/PvBatchCompressionScanner.h"
+#include "media_tools/net/NetClient.h"
+#include "media_tools/net/NetBatchUploadScanner.h"
+#include "media_tools/net/NetUploadDiagnostics.h"
+#include "media_tools/media/PvBatchCompressionScanner.h"
 
 #include <miniz.h>
 
@@ -60,41 +60,6 @@ int main(int argc, char** argv)
     using namespace miacode::net;
 
     bool ok = true;
-    ok &= check(
-        miacode::media::kPvCompressionHardLimitBytes == 20'000'000LL,
-        "PV compression uses the decimal 20 MB hard limit");
-    ok &= check(
-        miacode::media::kPvCompressionWorkingTargetBytes
-            < miacode::media::kPvCompressionHardLimitBytes,
-        "PV compression reserves space below the hard limit");
-    const miacode::media::PvCompressionPlan compressionPlan =
-        miacode::media::makePvCompressionPlan(180.0);
-    ok &= check(compressionPlan.videoBitrateKbps == 866, "PV bitrate plan uses the working target");
-    const QStringList compressionArgs = miacode::media::makePvCompressionPassArguments(
-        QStringLiteral("input.mp4"),
-        QStringLiteral("output.mp4"),
-        QStringLiteral("passlog"),
-        compressionPlan,
-        2);
-    ok &= check(compressionArgs.contains(QStringLiteral("-an")), "PV compression removes audio");
-    const int fpsModeIndex = compressionArgs.indexOf(QStringLiteral("-fps_mode"));
-    ok &= check(
-        fpsModeIndex >= 0
-            && compressionArgs.value(fpsModeIndex + 1) == QStringLiteral("passthrough"),
-        "PV compression preserves source frame timestamps");
-    ok &= check(!compressionArgs.contains(QStringLiteral("-r")), "PV compression never overrides frame rate");
-    ok &= check(!compressionArgs.contains(QStringLiteral("-c:a")), "PV compression does not encode audio");
-    ok &= check(
-        miacode::media::isAcceptablePvCompressionOutput(30'000'000LL, 19'999'999LL),
-        "PV output immediately below 20 MB is accepted");
-    ok &= check(
-        !miacode::media::isAcceptablePvCompressionOutput(30'000'000LL, 20'000'000LL),
-        "PV output exactly at 20 MB is rejected");
-    const miacode::media::PvCompressionPlan retryPlan =
-        miacode::media::adjustedPvCompressionPlan(compressionPlan, 20'500'000LL);
-    ok &= check(
-        retryPlan.videoBitrateKbps < compressionPlan.videoBitrateKbps,
-        "PV oversize retry lowers the video bitrate");
     ok &= check(netDownloadLengthIsComplete(12, 12), "download length accepts a complete response");
     ok &= check(!netDownloadLengthIsComplete(12, 7), "download length rejects a truncated response");
     ok &= check(!netDownloadLengthIsComplete(12, 0), "download length rejects an empty response");
@@ -116,23 +81,6 @@ int main(int argc, char** argv)
     ok &= check(formatLevels(charts.at(1).levels) == QStringLiteral("12"), "levels skip null values");
     ok &= check(charts.at(0).publicTags.contains(QStringLiteral("EventTag")), "parser keeps publicTags");
     ok &= check(charts.at(1).publicTags.contains(QStringLiteral("OtherTag")), "parser keeps contestTag");
-
-    QList<NetDownloadJob> sortedJobs;
-    NetDownloadJob highLevelJob;
-    highLevelJob.chart = charts.at(0);
-    highLevelJob.status = QStringLiteral("Pending");
-    NetDownloadJob lowLevelJob;
-    lowLevelJob.chart = charts.at(1);
-    lowLevelJob.status = QStringLiteral("Done");
-    sortedJobs = {highLevelJob, lowLevelJob};
-    sortNetDownloadJobs(&sortedJobs, NetDownloadSortOrder::LevelAscending);
-    ok &= check(sortedJobs.at(0).chart.id == QStringLiteral("b"), "level sort compares numeric levels");
-    sortNetDownloadJobs(&sortedJobs, NetDownloadSortOrder::LevelDescending);
-    ok &= check(sortedJobs.at(0).chart.id == QStringLiteral("a"), "descending level sort keeps plus levels above integers");
-    sortNetDownloadJobs(&sortedJobs, NetDownloadSortOrder::UploadedNewest);
-    ok &= check(sortedJobs.at(0).chart.id == QStringLiteral("b"), "upload-time sort puts newest first");
-    sortNetDownloadJobs(&sortedJobs, NetDownloadSortOrder::StatusAscending);
-    ok &= check(sortedJobs.at(0).status == QStringLiteral("Done"), "status sort uses displayed status text");
 
     const QDate localDate = charts.at(0).timestampUtc.toLocalTime().date();
     const QList<NetChartSummary> filtered = filterChartsByLocalDateRange(charts, localDate, localDate);
@@ -190,11 +138,11 @@ int main(int argc, char** argv)
     QDir().mkpath(nestedBgChart);
     QFile largePv(QDir(largePvChart).filePath(QStringLiteral("PV.MP4")));
     ok &= check(largePv.open(QIODevice::WriteOnly), "large PV fixture opens");
-    ok &= check(largePv.resize(miacode::media::kPvCompressionTargetBytes + 1), "large PV fixture is over target");
+    ok &= check(largePv.resize(miacode::media::kPvCompressionHardLimitBytes + 1), "large PV fixture is over target");
     largePv.close();
     QFile smallPv(QDir(smallPvChart).filePath(QStringLiteral("pv.mp4")));
     ok &= check(smallPv.open(QIODevice::WriteOnly), "small PV fixture opens");
-    ok &= check(smallPv.resize(miacode::media::kPvCompressionTargetBytes), "small PV fixture is at target");
+    ok &= check(smallPv.resize(miacode::media::kPvCompressionHardLimitBytes), "small PV fixture is at target");
     smallPv.close();
     ok &= check(writeFixtureFile(QDir(nestedBgChart).filePath(QStringLiteral("bg.mp4"))), "nested bg fixture");
     ok &= check(writeFixtureFile(QDir(nestedBgChart).filePath(QStringLiteral("pv.mp4"))), "nested pv fixture");

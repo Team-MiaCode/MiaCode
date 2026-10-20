@@ -1,15 +1,20 @@
-param(
+﻿param(
     [ValidateSet("Release", "Debug")]
     [string]$Config = "Release",
+    [ValidateSet("x64", "arm64")]
+    [string]$Arch = "x64",
     [string]$QtRoot = "",
     [string]$BuildDir = "build",
     [string]$DistDir = "",
     [switch]$IncludeDevTools,
-    [ValidateRange(1, 4)]
-    [int]$BuildJobs = 4
+    [int]$BuildJobs = [Environment]::ProcessorCount
 )
 
 $ErrorActionPreference = "Stop"
+
+# Qt version, toolchains and the package contents contract live in one data
+# file so the build chain and the packaging chain cannot drift apart.
+$toolchainData = Import-PowerShellDataFile -Path (Join-Path $PSScriptRoot "windows-toolchain.psd1")
 
 function Resolve-RepoPath {
     param(
@@ -78,10 +83,6 @@ function Read-VersionInfoFromCMake {
     if (![string]::IsNullOrWhiteSpace($prerelease)) {
         $version = "$version-$prerelease"
     }
-    # Beta20+ unifies version display: package filename and About-dialog
-    # version are always identical (CMakeLists used to keep them split via
-    # MIACODE_DISPLAY_PRERELEASE; they drifted in practice and beta20
-    # collapsed them).
     return [PSCustomObject]@{
         PackageVersion = $version
         DisplayVersion = $version
@@ -107,6 +108,26 @@ function Read-VersionInfoFromGeneratedHeader {
     }
 }
 
+function Invoke-NativeCommand {
+    param(
+        [string]$FilePath,
+        [string[]]$Arguments
+    )
+
+    # PowerShell 5.1 maps native stderr to errors; command success follows its exit code.
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & $FilePath @Arguments
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -ne 0) {
+            throw "$FilePath failed with exit code $exitCode"
+        }
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+}
+
 function Invoke-MiaCodeBuild {
     param(
         [string]$BuildDir,
@@ -115,15 +136,13 @@ function Invoke-MiaCodeBuild {
     )
 
     Write-Host "Precheck: building MiaCode ($Config) in $BuildDir with --parallel $BuildJobs ..."
-    & cmake --build $BuildDir --target MiaCode --config $Config --parallel $BuildJobs | Out-Host
-    if ($LASTEXITCODE -ne 0) {
-        throw "cmake --build failed with exit code $LASTEXITCODE"
-    }
+    Invoke-NativeCommand -FilePath "cmake" -Arguments @(
+        "--build", $BuildDir, "--target", "MiaCode", "--config", $Config, "--parallel", $BuildJobs
+    ) | Out-Host
     Write-Host "Precheck: building MiaCodeLauncher ($Config) ..."
-    & cmake --build $BuildDir --target MiaCodeLauncher --config $Config --parallel $BuildJobs | Out-Host
-    if ($LASTEXITCODE -ne 0) {
-        throw "cmake --build MiaCodeLauncher failed with exit code $LASTEXITCODE"
-    }
+    Invoke-NativeCommand -FilePath "cmake" -Arguments @(
+        "--build", $BuildDir, "--target", "MiaCodeLauncher", "--config", $Config, "--parallel", $BuildJobs
+    ) | Out-Host
 }
 
 function Invoke-MiaCodeConfigure {
@@ -133,21 +152,7 @@ function Invoke-MiaCodeConfigure {
     )
 
     Write-Host "Precheck: reconfiguring CMake in $BuildDir ..."
-    # CMake prints qsb shader-compile diagnostics to stderr even on
-    # success; PS 5.1's `$ErrorActionPreference = Stop` (set at the top
-    # of this script) treats those as terminating errors and aborts the
-    # configure with NativeCommandError. Relax around the call and gate
-    # success on the exit code instead. Mirrors the windeployqt block.
-    $prevErrorActionPreference = $ErrorActionPreference
-    $ErrorActionPreference = "Continue"
-    try {
-        & cmake -S $RepoRoot -B $BuildDir | Out-Host
-        if ($LASTEXITCODE -ne 0) {
-            throw "cmake configure failed with exit code $LASTEXITCODE"
-        }
-    } finally {
-        $ErrorActionPreference = $prevErrorActionPreference
-    }
+    Invoke-NativeCommand -FilePath "cmake" -Arguments @("-S", $RepoRoot, "-B", $BuildDir) | Out-Host
 }
 
 function Ensure-PackageBuildReady {
@@ -163,8 +168,9 @@ function Ensure-PackageBuildReady {
     $appVersionTemplatePath = Join-Path $RepoRoot "src\\app\\AppVersion.h.in"
     $cachePath = Join-Path $BuildDir "CMakeCache.txt"
     $generatedHeaderPath = Join-Path $BuildDir "generated\\AppVersion.h"
-    $exePath = Join-Path $BuildDir "$Config\\MiaCode.exe"
-    $launcherExePath = Join-Path $BuildDir "$Config\\MiaCodeLauncher.exe"
+    $buildOutputDir = Resolve-BuildOutputDir -BuildDir $BuildDir -Config $Config
+    $exePath = Join-Path $buildOutputDir "MiaCode.exe"
+    $launcherExePath = Join-Path $buildOutputDir "MiaCodeLauncher.exe"
 
     if (!(Test-Path $cachePath)) {
         throw "Build directory is not configured: $BuildDir. Configure/build it first."
@@ -233,6 +239,22 @@ function Ensure-PackageBuildReady {
     return $exePath
 }
 
+function Resolve-BuildOutputDir {
+    param(
+        [string]$BuildDir,
+        [string]$Config
+    )
+
+    # Multi-config generators (Visual Studio, Xcode) write the binaries into a
+    # per-configuration subdirectory; single-config generators (Ninja, Make)
+    # write them straight into the build directory.
+    $configDir = Join-Path $BuildDir $Config
+    if (Test-Path (Join-Path $configDir "MiaCode.exe")) {
+        return $configDir
+    }
+    return $BuildDir
+}
+
 function Get-QtRuntimeDllName {
     param(
         [string]$BaseName,
@@ -243,6 +265,29 @@ function Get-QtRuntimeDllName {
         return "$($BaseName)d.dll"
     }
     return "$BaseName.dll"
+}
+
+function Remove-FileWithRetry {
+    param(
+        [string]$Path,
+        [int]$MaxAttempts = 5
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        if (!(Test-Path -LiteralPath $Path)) {
+            return
+        }
+        try {
+            Remove-Item -LiteralPath $Path -Force -ErrorAction Stop
+            return
+        } catch {
+            if ($attempt -ge $MaxAttempts) {
+                throw
+            }
+            # Indexer / antivirus can hold a freshly written archive briefly.
+            Start-Sleep -Seconds (2 * $attempt)
+        }
+    }
 }
 
 function Copy-QtRuntimeDllSet {
@@ -275,28 +320,6 @@ function Remove-PackagedDllIfPresent {
     }
 }
 
-function Assert-PackageEntries {
-    param(
-        [string]$DistDir,
-        [string[]]$RequiredRelativePaths,
-        [string[]]$UnexpectedRelativePaths
-    )
-
-    foreach ($relativePath in $RequiredRelativePaths) {
-        $fullPath = Join-Path $DistDir $relativePath
-        if (!(Test-Path $fullPath)) {
-            throw "Packaged artifact is missing required path: $fullPath"
-        }
-    }
-
-    foreach ($relativePath in $UnexpectedRelativePaths) {
-        $fullPath = Join-Path $DistDir $relativePath
-        if (Test-Path $fullPath) {
-            throw "Packaged artifact still contains deprecated path: $fullPath"
-        }
-    }
-}
-
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $BuildDir = Resolve-RepoPath -RepoRoot $repoRoot -PathValue $BuildDir
 if (![string]::IsNullOrWhiteSpace($QtRoot)) {
@@ -304,8 +327,31 @@ if (![string]::IsNullOrWhiteSpace($QtRoot)) {
 }
 $versionInfo = Read-VersionInfoFromCMake -CMakeFilePath (Join-Path $repoRoot "CMakeLists.txt")
 $version = $versionInfo.PackageVersion
+$versionHeader = Join-Path $BuildDir "generated\AppVersion.h"
+$headerContent = Get-Content $versionHeader -Raw
+$releaseChannel = [regex]::Match($headerContent, '#define MIACODE_RELEASE_CHANNEL "([^"]+)"').Groups[1].Value
+if ($releaseChannel -notin @("nightly", "release")) {
+    throw "Configure the build with MIACODE_RELEASE_CHANNEL=nightly or release before packaging."
+}
+$packageChannel = if ($releaseChannel -eq "release") { "" } else { $releaseChannel }
+if (![string]::IsNullOrWhiteSpace($env:MIACODE_PACKAGE_CHANNEL)) {
+    $packageChannel = $env:MIACODE_PACKAGE_CHANNEL
+}
+if ($packageChannel -and $packageChannel -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
+    throw "MIACODE_PACKAGE_CHANNEL must start with an alphanumeric character and contain only letters, digits, dots, underscores, or hyphens (got: $packageChannel)"
+}
+$archName = $toolchainData.Package.DistArchName.$Arch
+if ([string]::IsNullOrWhiteSpace($archName)) {
+    throw "No DistArchName entry for architecture '$Arch' in windows-toolchain.psd1."
+}
+$distNamePattern = $toolchainData.Package.DistNamePattern
+if ([string]::IsNullOrWhiteSpace($distNamePattern)) {
+    throw "Package.DistNamePattern is missing from windows-toolchain.psd1."
+}
 if ([string]::IsNullOrWhiteSpace($DistDir)) {
-    $DistDir = Join-Path (Join-Path $repoRoot "dist") "MiaCode-v$version-win64"
+    $channelSegment = if ($packageChannel) { "_$packageChannel" } else { "" }
+    $distName = $distNamePattern.Replace("{version}", $version).Replace("{channel}", $channelSegment).Replace("{arch}", $archName)
+    $DistDir = Join-Path (Join-Path $repoRoot "dist") $distName
 } else {
     $DistDir = Resolve-RepoPath -RepoRoot $repoRoot -PathValue $DistDir
 }
@@ -332,6 +378,28 @@ if ([string]::IsNullOrWhiteSpace($deployTool) -or !(Test-Path $deployTool)) {
 }
 $qtBinDir = Split-Path -Parent $deployTool
 
+# Windows release packages use the matching MSVC toolchain for their target architecture.
+$cmakeCachePath = Join-Path $BuildDir "CMakeCache.txt"
+$cacheBuildType = ""
+$cacheIsMultiConfig = $false
+if (Test-Path $cmakeCachePath) {
+    foreach ($cacheLine in Get-Content $cmakeCachePath) {
+        if ($cacheLine -match '^CMAKE_BUILD_TYPE:') { $cacheBuildType = ($cacheLine -split "=", 2)[1].Trim() }
+        if ($cacheLine -match '^CMAKE_CONFIGURATION_TYPES:') { $cacheIsMultiConfig = $true }
+    }
+}
+# Single-config generators (Ninja, Make) ignore --config, so a mismatched
+# -Config would silently package whatever the cache was built with.
+if (!$cacheIsMultiConfig -and ![string]::IsNullOrWhiteSpace($cacheBuildType) -and $cacheBuildType -ne $Config) {
+    throw "Build directory '$BuildDir' was configured with CMAKE_BUILD_TYPE=$cacheBuildType, but -Config $Config was requested. Reconfigure the build directory or pass -Config $cacheBuildType."
+}
+$toolchainKey = if ($Arch -eq "arm64") { "msvc-arm64" } else { "msvc" }
+$toolchainSpec = $toolchainData.Toolchains.$toolchainKey
+if ($null -eq $toolchainSpec) {
+    throw "Unknown toolchain '$toolchainKey' in windows-toolchain.psd1."
+}
+$toolchainRuntimeDlls = $toolchainSpec.RuntimeDlls
+
 if (Test-Path $DistDir) {
     Remove-Item -Recurse -Force $DistDir
 }
@@ -347,7 +415,7 @@ New-Item -ItemType Directory -Path $appDir | Out-Null
 # MiaCode.exe and forwards execution to it.
 Copy-Item $exePath (Join-Path $appDir "MiaCode.exe") -Force
 
-$buildOutputDir = Join-Path $BuildDir $Config
+$buildOutputDir = Resolve-BuildOutputDir -BuildDir $BuildDir -Config $Config
 $launcherExe = Join-Path $buildOutputDir "MiaCodeLauncher.exe"
 if (!(Test-Path $launcherExe)) {
     throw "MiaCodeLauncher.exe not found after build: $launcherExe"
@@ -374,89 +442,92 @@ if ($Config -eq "Debug") {
     $deployMode = "--release"
 }
 
-# windeployqt routinely warns to stderr (e.g. "Cannot find any version of
-# the dxcompiler.dll and dxil.dll" — we handle those ourselves below from
-# the build output dir). PS 5.1 treats native-command stderr as a
-# terminating error under `$ErrorActionPreference = Stop`, which would
-# abort the package right after windeployqt with no real failure. Drop
-# to Continue around the call and verify success via $LASTEXITCODE.
-$prevErrorActionPreference = $ErrorActionPreference
-$ErrorActionPreference = "Continue"
-try {
-    & $deployTool `
-        --dir $appDir `
-        $deployMode `
-        --compiler-runtime `
-        --no-translations `
-        --qmldir (Join-Path $repoRoot "src") `
-        (Join-Path $appDir "MiaCode.exe")
-    if ($LASTEXITCODE -ne 0) {
-        throw "windeployqt failed with exit code $LASTEXITCODE"
-    }
-} finally {
-    $ErrorActionPreference = $prevErrorActionPreference
-}
+Invoke-NativeCommand -FilePath $deployTool -Arguments @(
+    "--dir", $appDir,
+    $deployMode,
+    "--compiler-runtime",
+    "--no-translations",
+    "--qmldir", (Join-Path $repoRoot "src"),
+    (Join-Path $appDir "MiaCode.exe")
+) | Out-Host
 
-$requiredQtRuntimeDllBaseNames = @(
-    "Qt6Core",
-    "Qt6Gui",
-    "Qt6Widgets",
-    "Qt6Multimedia",
-    "Qt6Network",
-    "Qt6OpenGL",
-    "Qt6Quick",
-    "Qt6Qml",
-    "Qt6QmlMeta",
-    "Qt6QmlModels",
-    "Qt6QmlWorkerScript",
-    # QuickShell needs QtQuick.Controls (toolbar / sidebar / dialog
-    # components throughout src/app/quick_shell/qml/). MiaCode.exe
-    # imports Qt6QuickControls2 directly (verified via dumpbin).
-    "Qt6QuickControls2",
-    "Qt6Svg"
-)
+$requiredQtRuntimeDllBaseNames = $toolchainData.Package.QtRuntimeDllBaseNames
+if ($IncludeDevTools) {
+    # windeployqt only stages what the product binary imports, and the dev tools
+    # are separate executables, so copy Qt6Widgets explicitly for them.
+    $requiredQtRuntimeDllBaseNames += "Qt6Widgets"
+}
 Copy-QtRuntimeDllSet -QtBinDir $qtBinDir -DistDir $appDir -BaseNames $requiredQtRuntimeDllBaseNames -Config $Config
-foreach ($deprecatedBaseName in @("Qt6OpenGLWidgets", "Qt6Concurrent")) {
+foreach ($deprecatedBaseName in $toolchainData.Package.DeprecatedQtRuntimeDllBaseNames) {
     $deprecatedDll = Get-QtRuntimeDllName -BaseName $deprecatedBaseName -Config $Config
     Remove-PackagedDllIfPresent -DistDir $appDir -DllName $deprecatedDll
 }
-Remove-PackagedDllIfPresent -DistDir $appDir -DllName "opengl32sw.dll"
+foreach ($removedAppFile in $toolchainData.Package.RemovedAppFiles) {
+    Remove-PackagedDllIfPresent -DistDir $appDir -DllName $removedAppFile
+}
 
-foreach ($runtimeDll in @("dxcompiler.dll", "dxil.dll")) {
-    $srcDll = Join-Path $buildOutputDir $runtimeDll
-    if (Test-Path $srcDll) {
-        Copy-Item $srcDll (Join-Path $appDir $runtimeDll) -Force
+# The app pins QQuickStyle::setStyle("Basic") (src/app/main.cpp) and its QML
+# imports only QtQuick.Controls / QtQuick.Controls.impl, so every other
+# Controls style is dead weight. The exact list lives in the toolchain data
+# file together with the required-path contract that asserts they stay out.
+$unusedQtStyleBaseNames = $toolchainData.Package.UnusedQtRuntimeDllBaseNames
+if ($IncludeDevTools) {
+    # The dev tools (miacode_simai_dump, miacode_audio_probe) link Qt6::Widgets, so a
+    # package that ships them must keep it.
+    $unusedQtStyleBaseNames = @($unusedQtStyleBaseNames | Where-Object { $_ -ne "Qt6Widgets" })
+}
+foreach ($unusedBaseName in $unusedQtStyleBaseNames) {
+    Remove-PackagedDllIfPresent -DistDir $appDir -DllName (Get-QtRuntimeDllName -BaseName $unusedBaseName -Config $Config)
+}
+$unusedQmlRelativePaths = $toolchainData.Package.UnusedQmlRelativePaths
+foreach ($unusedRelativePath in $unusedQmlRelativePaths) {
+    $unusedPath = Join-Path $appDir $unusedRelativePath
+    if (Test-Path $unusedPath) {
+        Remove-Item -Recurse -Force $unusedPath
     }
 }
 
-# Beta49: app-local VC++ runtime to bypass user-system MSVCP140/VCRUNTIME140
-# version mismatch. Confirmed root cause for the Win10-22H2 AMD Renoir
-# silent-crash report — fault at MSVCP140.dll+0x12EB0 in 4 independent code
-# paths, all from the first std::mutex lock of the process. Loader pulls
-# the system32 copy if no app-local copy exists; bundling our build-machine
-# version next to MiaCode.exe makes the loader find app/ first (default
-# DLL search order: directory of the EXE → System32 → ...).
+# The Windows DLL search order loads the app-local CRT before the system copy.
 $vcRuntimeSrc = $null
-# Probe candidate Visual Studio 2022 redist layouts. We can't rely on
-# $env:VCToolsRedistDir because package-win.ps1 is normally invoked from
-# a plain PowerShell session, not VsDevCmd. Walk the well-known install
-# roots and pick the highest-versioned Microsoft.VC14X.CRT folder under
-# x64. Tested against BuildTools, Community, Professional, Enterprise.
-$vsCandidateRoots = @(
-    'C:\BuildTools\VC\Redist\MSVC',
-    'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Redist\MSVC',
-    'C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Redist\MSVC',
-    'C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Redist\MSVC',
-    'C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Redist\MSVC',
-    'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC'
-)
-foreach ($root in $vsCandidateRoots) {
+# VCToolsRedistDir names the exact toolset; plain PowerShell sessions discover VS roots.
+$vsRedistRoots = New-Object System.Collections.Generic.List[string]
+if (![string]::IsNullOrWhiteSpace($env:VCToolsRedistDir)) {
+    $vsRedistRoots.Add($env:VCToolsRedistDir.TrimEnd('\'))
+}
+$vsWhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+if (Test-Path $vsWhere) {
+    $installPaths = Invoke-NativeCommand -FilePath $vsWhere -Arguments @(
+        "-all", "-products", "*", "-property", "installationPath"
+    )
+    foreach ($installPath in @($installPaths)) {
+        if (![string]::IsNullOrWhiteSpace($installPath)) {
+            $vsRedistRoots.Add((Join-Path $installPath.Trim() 'VC\Redist\MSVC'))
+        }
+    }
+}
+foreach ($installRoot in @(
+    'C:\BuildTools',
+    "$env:ProgramFiles\Microsoft Visual Studio",
+    "${env:ProgramFiles(x86)}\Microsoft Visual Studio"
+)) {
+    if ([string]::IsNullOrWhiteSpace($installRoot) -or !(Test-Path $installRoot)) { continue }
+    # Covers every Visual Studio year and edition without enumerating them.
+    foreach ($redistRoot in (Get-ChildItem -Path (Join-Path $installRoot '*\*\VC\Redist\MSVC') -Directory -ErrorAction SilentlyContinue)) {
+        $vsRedistRoots.Add($redistRoot.FullName)
+    }
+    $directRoot = Join-Path $installRoot 'VC\Redist\MSVC'
+    if (Test-Path $directRoot) { $vsRedistRoots.Add($directRoot) }
+}
+
+foreach ($root in ($vsRedistRoots | Select-Object -Unique)) {
     if (!(Test-Path $root)) { continue }
-    $crtDirs = Get-ChildItem -Path (Join-Path $root '*\x64\Microsoft.VC*.CRT') -Directory -ErrorAction SilentlyContinue
+    $redistArch = if ([string]::IsNullOrWhiteSpace($toolchainSpec.MsvcRedistArch)) { "x64" } else { $toolchainSpec.MsvcRedistArch }
+    $crtDirs = Get-ChildItem -Path (Join-Path $root "*\$redistArch\Microsoft.VC*.CRT") -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Parent.Parent.Name -match '^\d+\.\d+\.\d+$' }
     if ($crtDirs) {
-        # Prefer numeric version dirs (14.x.y) over symlink-style (v143).
-        # Sort by parent's parent name descending so the highest version wins.
-        $vcRuntimeSrc = ($crtDirs | Sort-Object { $_.Parent.Parent.Name } -Descending | Select-Object -First 1).FullName
+        # Highest numeric version dir wins, so the bundled CRT matches the
+        # newest toolset available on this machine.
+        $vcRuntimeSrc = ($crtDirs | Sort-Object { [version]$_.Parent.Parent.Name } -Descending | Select-Object -First 1).FullName
         break
     }
 }
@@ -481,17 +552,12 @@ if (![string]::IsNullOrWhiteSpace($vcRuntimeSrc) -and (Test-Path $vcRuntimeSrc))
     }
 } else {
     Write-Warning "VC++ runtime redist directory not found; app-local CRT bundling skipped."
-    Write-Warning "Expected: `$env:VCToolsRedistDir/x64/Microsoft.VC143.CRT/"
+    Write-Warning "Expected: <VS install>\VC\Redist\MSVC\<version>\$redistArch\Microsoft.VC14X.CRT/"
+    Write-Warning "Set `$env:VCToolsRedistDir to the versioned redist root as a fallback."
 }
 
-$bassRuntimeDir = Join-Path $repoRoot "third_party\\bass\\bin\\win64"
-$requiredBassRuntimeDlls = @(
-    "bass.dll",
-    "bassmix.dll",
-    "bass_fx.dll",
-    "bass_aac.dll",
-    "bassopus.dll"
-)
+$bassRuntimeDir = Join-Path $repoRoot $toolchainData.Bass.RuntimeDirByArch.$Arch
+$requiredBassRuntimeDlls = $toolchainData.Bass.RuntimeDllsByArch.$Arch
 foreach ($runtimeDll in $requiredBassRuntimeDlls) {
     $srcDll = Join-Path $bassRuntimeDir $runtimeDll
     if (!(Test-Path $srcDll)) {
@@ -500,23 +566,9 @@ foreach ($runtimeDll in $requiredBassRuntimeDlls) {
     Copy-Item $srcDll (Join-Path $appDir $runtimeDll) -Force
 }
 
-# FFmpeg shared runtime for the QtAVPlayer preview decode backend.
-# PreviewStageMediaHost decodes PV/BG via QtAVPlayer (FFmpeg n7.1 LGPL); these
-# av*.dll must sit next to MiaCode.exe. avfilter-10 is NET-NEW vs the previous
-# package (Qt never shipped it; avdevice is dropped — capture-device only); the
-# other five overlap with what windeployqt stages for Qt
-# Multimedia's ffmpeg plugin, so we copy our own build AFTER windeployqt
-# (-Force overwrite) to keep the runtime matched to the import libs MiaCode
-# linked against.
-$ffmpegDevBin = Join-Path $repoRoot "third_party\\ffmpeg\\windows\\dev\\bin"
-$requiredFfmpegRuntimeDlls = @(
-    "avcodec-61.dll",
-    "avformat-61.dll",
-    "avutil-59.dll",
-    "swresample-5.dll",
-    "swscale-8.dll",
-    "avfilter-10.dll"
-)
+# Copy the FFmpeg runtime after windeployqt so DLLs match MiaCode's import libraries.
+$ffmpegDevBin = Join-Path $repoRoot (Join-Path $toolchainData.FFmpeg.DevDirByArch.$Arch "bin")
+$requiredFfmpegRuntimeDlls = $toolchainData.FFmpeg.RuntimeDllsByArch.$Arch
 foreach ($runtimeDll in $requiredFfmpegRuntimeDlls) {
     $srcDll = Join-Path $ffmpegDevBin $runtimeDll
     if (!(Test-Path $srcDll)) {
@@ -526,13 +578,8 @@ foreach ($runtimeDll in $requiredFfmpegRuntimeDlls) {
     Copy-Item $srcDll (Join-Path $appDir $runtimeDll) -Force
 }
 
-# (libmpv removed in beta20 — chart-preview video backgrounds decode via
-# QtAVPlayer (FFmpeg) on Windows through PreviewStageMediaHost, not the planned
-# MpvVideoSource that never landed. libmpv-2.dll was 113 MB of dead weight just
-# to log a startup probe version line.)
-
 if ($IncludeDevTools) {
-    foreach ($toolName in @("simai_native_dump.exe")) {
+    foreach ($toolName in @("miacode_simai_dump.exe")) {
         $toolPath = Join-Path $buildOutputDir $toolName
         if (Test-Path $toolPath) {
             Copy-Item $toolPath (Join-Path $appDir $toolName) -Force
@@ -543,21 +590,7 @@ if ($IncludeDevTools) {
 $assetsSrc = Join-Path $repoRoot "assets"
 if (Test-Path $assetsSrc) {
     $requiredSfxDir = Join-Path $assetsSrc "SFX"
-    $requiredSfxFiles = @(
-        "answer.wav",
-        "break_tap.wav",
-        "slide.wav",
-        "break.wav",
-        "break_slide.wav",
-        "slide_break_start.wav",
-        "slide_break_slide.wav",
-        "tap_ex.wav",
-        "tap_perfect.wav",
-        "touch_hanabi.wav",
-        "touch.wav",
-        "touch_Hold_riser.wav",
-        "clock.wav"
-    )
+    $requiredSfxFiles = $toolchainData.Package.RequiredSfxFiles
     foreach ($sfxFile in $requiredSfxFiles) {
         $sfxPath = Join-Path $requiredSfxDir $sfxFile
         if (!(Test-Path $sfxPath)) {
@@ -569,7 +602,7 @@ if (Test-Path $assetsSrc) {
     # slide_data.json + the bundled fonts are embedded in MiaCode.exe via qrc
     # (:/data/slide_data.json, :/fonts/*); the loose copies under assets/ are
     # never read at runtime. Drop them so the package does not ship ~17 MB twice.
-    foreach ($redundant in @("reference", "fonts")) {
+    foreach ($redundant in $toolchainData.Package.RedundantAssetPaths) {
         $redundantPath = Join-Path $DistDir "assets\$redundant"
         if (Test-Path $redundantPath) {
             Remove-Item $redundantPath -Recurse -Force
@@ -587,11 +620,7 @@ if (Test-Path $licensesSrc) {
     throw "Missing licenses dir: $licensesSrc"
 }
 
-$releaseDocs = @(
-    "LICENSE",
-    "LICENSE_SCOPE.md",
-    "THIRD_PARTY_NOTICES.md"
-)
+$releaseDocs = $toolchainData.Package.ReleaseDocs
 foreach ($releaseDoc in $releaseDocs) {
     $releaseDocSrc = Join-Path $repoRoot $releaseDoc
     if (!(Test-Path $releaseDocSrc)) {
@@ -600,145 +629,84 @@ foreach ($releaseDoc in $releaseDocs) {
     Copy-Item $releaseDocSrc (Join-Path $DistDir $releaseDoc) -Force
 }
 
-$ffmpegSrc = Join-Path $repoRoot "third_party\\ffmpeg\\windows\\ffmpeg.exe"
+$ffmpegExportDir = Join-Path $repoRoot $toolchainData.FFmpeg.ExportDirByArch.$Arch
+$ffmpegSrc = Join-Path $ffmpegExportDir $toolchainData.FFmpeg.ExportBinary
 if (Test-Path $ffmpegSrc) {
     $ffmpegSize = (Get-Item $ffmpegSrc).Length
-    if ($ffmpegSize -lt 1MB) {
+    if ($ffmpegSize -lt 128KB) {
         throw "Invalid ffmpeg binary (too small): $ffmpegSrc ($ffmpegSize bytes)"
     }
-    # ffmpeg lives under app/ alongside the real exe so that
-    # resolveFfmpegExecutable() finds it via the appDir/ffmpeg/
-    # candidate (the real exe's applicationDirPath = app/).
     $ffmpegDstDir = Join-Path $appDir "ffmpeg"
     New-Item -ItemType Directory -Path $ffmpegDstDir -Force | Out-Null
     Copy-Item $ffmpegSrc (Join-Path $ffmpegDstDir "ffmpeg.exe") -Force
 } else {
-    Write-Host "Run .\scripts\ffmpeg\ensure-windows-ffmpeg.ps1 to download the pinned Windows ffmpeg binary."
     throw "Missing required ffmpeg binary: $ffmpegSrc"
 }
 
-$extensionGuideSrc = Join-Path $repoRoot "resources\\extensions\\README.md"
-$bundledExtensionsSrc = Join-Path $repoRoot "resources\\extensions\\bundled"
-Remove-Item (Join-Path $appDir "extensions") -Recurse -Force -ErrorAction SilentlyContinue
-
-$extensionsDistDir = Join-Path $DistDir "extensions"
-New-Item -ItemType Directory -Path $extensionsDistDir -Force | Out-Null
-if (!(Test-Path $extensionGuideSrc)) {
-    throw "Missing extension guide: $extensionGuideSrc"
+# Required package contents come from the toolchain data file.
+$archiveFormats = $toolchainData.Package.ArchiveFormats
+if (!$archiveFormats -or $archiveFormats.Count -eq 0) {
+    $archiveFormats = @("7z")
 }
-Copy-Item $extensionGuideSrc (Join-Path $extensionsDistDir "README.md") -Force
-if (Test-Path $bundledExtensionsSrc) {
-    foreach ($extensionDir in Get-ChildItem -Path $bundledExtensionsSrc -Directory) {
-        Copy-Item $extensionDir.FullName (Join-Path $extensionsDistDir $extensionDir.Name) -Recurse -Force
+$archiveParentDir = Split-Path -Parent $DistDir
+$archiveFolderName = Split-Path -Leaf $DistDir
+foreach ($archiveFormat in $archiveFormats) {
+    $archivePath = "$DistDir.$archiveFormat"
+    if (Test-Path $archivePath) {
+        Remove-FileWithRetry -Path $archivePath
     }
-}
-
-$requiredPackagePaths = @(
-    # Root: user-facing entry points + content + log dirs only.
-    "MiaCode.exe",
-    "Start_MiaCode_Debug.bat",
-    "logs",
-    "logs\\worker-hwnd",
-    "assets\\SFX",
-    "extensions\\README.md",
-    "licenses\\Resource-Han-Rounded-OFL.txt",
-    "LICENSE",
-    "LICENSE_SCOPE.md",
-    "THIRD_PARTY_NOTICES.md",
-    # app/: the real exe and its DLL/plugin/QML retinue.
-    "app\\MiaCode.exe",
-    "app\\ffmpeg\\ffmpeg.exe",
-    (Join-Path "app" (Get-QtRuntimeDllName -BaseName "Qt6Core" -Config $Config)),
-    (Join-Path "app" (Get-QtRuntimeDllName -BaseName "Qt6Gui" -Config $Config)),
-    (Join-Path "app" (Get-QtRuntimeDllName -BaseName "Qt6Widgets" -Config $Config)),
-    (Join-Path "app" (Get-QtRuntimeDllName -BaseName "Qt6Multimedia" -Config $Config)),
-    (Join-Path "app" (Get-QtRuntimeDllName -BaseName "Qt6Network" -Config $Config)),
-    (Join-Path "app" (Get-QtRuntimeDllName -BaseName "Qt6OpenGL" -Config $Config)),
-    (Join-Path "app" (Get-QtRuntimeDllName -BaseName "Qt6Quick" -Config $Config)),
-    (Join-Path "app" (Get-QtRuntimeDllName -BaseName "Qt6Qml" -Config $Config)),
-    (Join-Path "app" (Get-QtRuntimeDllName -BaseName "Qt6QmlMeta" -Config $Config)),
-    (Join-Path "app" (Get-QtRuntimeDllName -BaseName "Qt6QmlModels" -Config $Config)),
-    (Join-Path "app" (Get-QtRuntimeDllName -BaseName "Qt6QmlWorkerScript" -Config $Config)),
-    (Join-Path "app" (Get-QtRuntimeDllName -BaseName "Qt6QuickControls2" -Config $Config)),
-    (Join-Path "app" (Get-QtRuntimeDllName -BaseName "Qt6Svg" -Config $Config)),
-    "app\\D3Dcompiler_47.dll",
-    "app\\dxcompiler.dll",
-    "app\\dxil.dll",
-    "app\\bass.dll",
-    "app\\bassmix.dll",
-    "app\\bass_fx.dll",
-    "app\\bass_aac.dll",
-    "app\\bassopus.dll",
-    # FFmpeg shared runtime for the QtAVPlayer preview decode backend.
-    # avfilter-10 is net-new vs the previous package (avdevice intentionally dropped).
-    "app\\avcodec-61.dll",
-    "app\\avformat-61.dll",
-    "app\\avutil-59.dll",
-    "app\\swresample-5.dll",
-    "app\\swscale-8.dll",
-    "app\\avfilter-10.dll",
-    "app\\platforms\\qwindows.dll",
-    "app\\qml\\QtQuick\\qtquick2plugin.dll",
-    "app\\qml\\QtQuick\\Controls\\qtquickcontrols2plugin.dll",
-    "app\\qml\\QtQuick\\Layouts\\qquicklayoutsplugin.dll",
-    "app\\qml\\QtQml\\Models\\modelsplugin.dll",
-    "app\\qml\\QtQml\\WorkerScript\\workerscriptplugin.dll"
-)
-$unexpectedPackagePaths = @(
-    # docs/, developer READMEs, and RELEASE_README.txt intentionally removed.
-    "docs",
-    "README.md",
-    "README_EN.md",
-    "RELEASE_README.txt",
-    "Start_MiaCode_Debug_CompareDump.bat",
-    "Start_MiaCode_Debug_View.bat",
-    "Start_MiaCode_Debug_Widget.bat",
-    "Start_MiaCode_QuickShell_Debug.bat",
-    "app\\extensions",
-    # Start_MiaCode_Debug.bat is the only launcher shipped. Assert old
-    # local/A-B diagnostic launchers don't accidentally come back via a stray
-    # build step or leftover output dir.
-    "Start_MiaCode_Legacy_QML.bat",
-    "Start_MiaCode_SkipDiagD3D11.bat",
-    "Start_MiaCode_DiagBypass.bat",
-    "Start_MiaCode_SkipBoth.bat",
-    "Start_MiaCode_QtPluginDiag.bat",
-    # Extra local/A-B diagnostic launchers stay out of the release package.
-    "Start_MiaCode_DisablePerPixelAlpha.bat",
-    "Start_MiaCode_ExportNoPboReadback.bat",
-    "Start_MiaCode_WaveformAlignment_Test7.bat",
-    "test_charts",
-    "test_charts\\7",
-    "logs\\quick-shell-beta",
-    # No DLLs at root anymore — everything moved to app/.
-    (Get-QtRuntimeDllName -BaseName "Qt6Core" -Config $Config),
-    (Get-QtRuntimeDllName -BaseName "Qt6Gui" -Config $Config),
-    (Get-QtRuntimeDllName -BaseName "Qt6Widgets" -Config $Config),
-    "bass.dll",
-    "bassmix.dll",
-    "D3Dcompiler_47.dll",
-    "dxcompiler.dll",
-    "ffmpeg\\ffmpeg.exe",
-    "libmpv-2.dll",
-    "soundtouch_probe.exe",
-    (Join-Path "app" (Get-QtRuntimeDllName -BaseName "Qt6OpenGLWidgets" -Config $Config)),
-    (Join-Path "app" (Get-QtRuntimeDllName -BaseName "Qt6Concurrent" -Config $Config)),
-    "app\\opengl32sw.dll"
-)
-Assert-PackageEntries -DistDir $DistDir -RequiredRelativePaths $requiredPackagePaths -UnexpectedRelativePaths $unexpectedPackagePaths
-
-$zipPath = "$DistDir.zip"
-if (Test-Path $zipPath) {
-    Remove-Item -Force $zipPath
-}
-$zipParentDir = Split-Path -Parent $DistDir
-$zipFolderName = Split-Path -Leaf $DistDir
-Push-Location $zipParentDir
-try {
-    Compress-ArchiveWithRetry -SourcePath $zipFolderName -DestinationPath $zipPath
-} finally {
-    Pop-Location
+    switch ($archiveFormat) {
+        "zip" {
+            Push-Location $archiveParentDir
+            try {
+                Compress-ArchiveWithRetry -SourcePath $archiveFolderName -DestinationPath $archivePath
+            } finally {
+                Pop-Location
+            }
+        }
+        "7z" {
+            $sevenZip = Get-Command 7z.exe -ErrorAction SilentlyContinue
+            if ($null -eq $sevenZip) {
+                $sevenZip = Get-Command 7za.exe -ErrorAction SilentlyContinue
+            }
+            if ($null -ne $sevenZip) {
+                Push-Location $archiveParentDir
+                try {
+                    Invoke-NativeCommand -FilePath $sevenZip.Source -Arguments @(
+                        "a", "-t7z", "-mx=9", "-mmt=on", "-bso0", "-bsp0", $archivePath, $archiveFolderName
+                    ) | Out-Host
+                } finally {
+                    Pop-Location
+                }
+            } else {
+                # py7zr is installed with the build chain's Python deps and
+                # writes the same format when 7z.exe is not on PATH.
+                $pythonCommand = Get-Command python.exe -ErrorAction SilentlyContinue
+                if ($null -eq $pythonCommand) {
+                    $pythonCommand = Get-Command py.exe -ErrorAction SilentlyContinue
+                }
+                if ($null -eq $pythonCommand) {
+                    throw "7z.exe not found and Python is unavailable for the py7zr fallback."
+                }
+                # py7zr stores member names as given, so an absolute source
+                # would embed the build machine's path; archive the folder by
+                # its relative name, as the 7z branch does.
+                Push-Location $archiveParentDir
+                try {
+                    Invoke-NativeCommand -FilePath $pythonCommand.Source -Arguments @(
+                        "-m", "py7zr", "c", $archivePath, $archiveFolderName
+                    ) | Out-Host
+                } finally {
+                    Pop-Location
+                }
+            }
+        }
+        default {
+            throw "Unsupported archive format '$archiveFormat' (expected '7z' or 'zip')"
+        }
+    }
+    $archiveSizeMb = [math]::Round((Get-Item -LiteralPath $archivePath).Length / 1MB, 1)
+    Write-Host "Archive created: $archivePath ($archiveSizeMb MB)"
 }
 
 Write-Host "Packaged to $DistDir"
-Write-Host "Zip created: $zipPath"

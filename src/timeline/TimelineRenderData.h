@@ -7,7 +7,7 @@
 #include <QtGlobal>
 #include <QVector>
 
-#include "common/PreviewGameplayConfig.h"
+#include "core/video/PreviewGameplayConfig.h"
 
 enum class TimelineRenderNoteKind {
     Unknown,
@@ -174,11 +174,7 @@ inline double timelineRenderNoteExportVisualEndSecond(
         const double triggerSecond = (note.kind == TimelineRenderNoteKind::TouchHold && endSecond > startSecond)
             ? endSecond
             : startSecond;
-        visualEnd = qMax(
-            visualEnd,
-            triggerSecond
-                + miacode::preview_gameplay::kJudgeEffectFireworkTouchTriggerDelaySeconds
-                + kTimelineFireworkDurationSeconds);
+        visualEnd = qMax(visualEnd, triggerSecond + kTimelineFireworkDurationSeconds);
     }
     return visualEnd;
 }

@@ -1,4 +1,4 @@
-#include "MainEntrypoints.h"
+#include "app/MainEntrypoints.h"
 
 #include "common/OperationLog.h"
 
@@ -293,10 +293,10 @@ void probeD3D11Device() noexcept
         D3D_FEATURE_LEVEL actualLevel = D3D_FEATURE_LEVEL_9_1;
         HRESULT hr = E_FAIL;
 
-        // SEH guard: a faulty driver UMD CAN crash inside D3D11CreateDevice.
-        // We want the crash itself to be diagnostic — beacon line above
-        // already says we got this far; if we don't get the line below,
-        // the probe itself killed the process and that IS the answer.
+        // MSVC can guard the driver call with SEH. MinGW does not implement
+        // __try/__except, so it executes the same probe without the optional
+        // crash interception while keeping all diagnostic markers intact.
+#if defined(_MSC_VER)
         __try {
             hr = createDevice(nullptr, kinds[i], nullptr, 0,
                               requested, sizeof(requested) / sizeof(requested[0]),
@@ -310,6 +310,12 @@ void probeD3D11Device() noexcept
             appendBeaconLineUtf8(buf);
             continue;
         }
+#else
+        hr = createDevice(nullptr, kinds[i], nullptr, 0,
+                          requested, sizeof(requested) / sizeof(requested[0]),
+                          D3D11_SDK_VERSION,
+                          &device, &actualLevel, &ctx);
+#endif
 
         if (SUCCEEDED(hr) && device != nullptr) {
             // Query adapter description for traceability.
@@ -455,15 +461,23 @@ void runStartupDiagnostic() noexcept
     // Marker order matters: each line lands on disk before the next is
     // attempted, so a crash IN any probe leaves the prior lines behind.
     appendBeaconLineUtf8("phase=diag_begin");
+#if defined(_MSC_VER)
     __try { probeOsVersion(); }
     __except (EXCEPTION_EXECUTE_HANDLER) {
         appendBeaconLineUtf8("diag/os seh_in_probe=1");
     }
+#else
+    probeOsVersion();
+#endif
     appendBeaconLineUtf8("phase=diag_modules");
+#if defined(_MSC_VER)
     __try { probeVcRuntimeAndGfx(); }
     __except (EXCEPTION_EXECUTE_HANDLER) {
         appendBeaconLineUtf8("diag/modules seh_in_probe=1");
     }
+#else
+    probeVcRuntimeAndGfx();
+#endif
     // Full process-module enumeration is supplementary crash evidence, not a
     // prerequisite for the startup diagnosis. It traverses arbitrary
     // third-party modules while the process is still in its fragile pre-Qt
@@ -472,10 +486,14 @@ void runStartupDiagnostic() noexcept
         ::GetEnvironmentVariableW(L"MIACODE_ENABLE_DIAG_MODULE_LIST", nullptr, 0);
     if (enableModuleList > 0) {
         appendBeaconLineUtf8("phase=diag_modlist");
+#if defined(_MSC_VER)
         __try { probeLoadedModuleList(); }
         __except (EXCEPTION_EXECUTE_HANDLER) {
             appendBeaconLineUtf8("diag/modlist seh_in_probe=1");
         }
+#else
+        probeLoadedModuleList();
+#endif
     } else {
         appendBeaconLineUtf8("phase=diag_modlist_skipped_default_safe");
     }
@@ -488,10 +506,14 @@ void runStartupDiagnostic() noexcept
         appendBeaconLineUtf8("phase=diag_d3d11_skipped_default_safe");
     } else {
         appendBeaconLineUtf8("phase=diag_d3d11");
+#if defined(_MSC_VER)
         __try { probeD3D11Device(); }
         __except (EXCEPTION_EXECUTE_HANDLER) {
             appendBeaconLineUtf8("diag/d3d11 seh_in_probe=1");
         }
+#else
+        probeD3D11Device();
+#endif
     }
     appendBeaconLineUtf8("phase=diag_end");
 }

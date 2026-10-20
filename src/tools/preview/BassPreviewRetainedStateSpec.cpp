@@ -1,7 +1,7 @@
 #include <QCoreApplication>
 #include <QTextStream>
 
-#include "audio/BassPreviewRetainedState.h"
+#include "audio/bass/BassPreviewRetainedState.h"
 
 namespace {
 

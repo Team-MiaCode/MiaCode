@@ -1,17 +1,3 @@
-// Behavior spec for src/common/DebugOptions.h accessors.
-//
-// Locks down the *bespoke* per-flag logic — default values, optional-flag
-// `value_or` fallbacks, int/double parse + range clamping, debug-mode category
-// gating. This is the safety net that a future table-driven DebugOptions
-// registry must preserve: without it, rerouting the accessors through a
-// generic table could silently change a default and nothing would catch it.
-//
-// Registered with CTest as `debug_options_spec`. Drives the accessors by
-// setting/clearing env vars; most read live, but the per-channel category gates
-// (startup/runtime/audio/export/preview-profile) are snapshot into atomics at
-// setDebugModeEnabled time, so a disable flag changed afterwards needs an explicit
-// refreshDebugCategoryCache() to take effect. Cases must clean up after themselves.
-
 #include <QByteArray>
 #include <QCoreApplication>
 #include <QTextStream>
@@ -59,7 +45,6 @@ bool verifyEnvHelpers(QTextStream& err)
 {
     bool ok = true;
 
-    // Legacy-key fallback: primary wins when set; falls back to legacy otherwise.
     unsetEnv("SPECPROBE_PRIMARY");
     unsetEnv("SPECPROBE_LEGACY");
     setEnv("SPECPROBE_LEGACY", "legacy-val");
@@ -73,7 +58,6 @@ bool verifyEnvHelpers(QTextStream& err)
     unsetEnv("SPECPROBE_PRIMARY");
     unsetEnv("SPECPROBE_LEGACY");
 
-    // Int parsing + fallback.
     unsetEnv("SPECPROBE_INT");
     ok &= require(dbg::envIntValue("SPECPROBE_INT", 7) == 7, "envInt default when unset", err);
     setEnv("SPECPROBE_INT", "42");
@@ -82,7 +66,6 @@ bool verifyEnvHelpers(QTextStream& err)
     ok &= require(dbg::envIntValue("SPECPROBE_INT", 7) == 7, "envInt falls back on parse failure", err);
     unsetEnv("SPECPROBE_INT");
 
-    // Double parsing + fallback.
     unsetEnv("SPECPROBE_DBL");
     ok &= require(qFuzzyCompare(dbg::envDoubleValue("SPECPROBE_DBL", 1.5) + 1.0, 2.5),
                   "envDouble default when unset", err);
@@ -91,7 +74,6 @@ bool verifyEnvHelpers(QTextStream& err)
                   "envDouble parses value", err);
     unsetEnv("SPECPROBE_DBL");
 
-    // Optional flag: empty -> nullopt, truthy/falsey -> value, garbage -> nullopt.
     unsetEnv("SPECPROBE_OPT");
     ok &= require(!dbg::envOptionalFlagValue("SPECPROBE_OPT").has_value(),
                   "envOptional unset -> nullopt", err);
@@ -138,8 +120,6 @@ bool verifyDefaultsAndClamps(QTextStream& err)
 {
     bool ok = true;
 
-    // Preserve the historical default-on path while the two diagnostic
-    // launch profiles select explicit sides of the GPU-binding A/B.
     unsetEnv("MIACODE_GPU_BIND_HIGH_PERFORMANCE");
     ok &= require(dbg::gpuBindHighPerformanceEnabled(),
                   "GPU high-performance binding defaults on", err);
@@ -151,7 +131,6 @@ bool verifyDefaultsAndClamps(QTextStream& err)
                   "GPU high-performance binding respects explicit 1", err);
     unsetEnv("MIACODE_GPU_BIND_HIGH_PERFORMANCE");
 
-    // Frame-pacing sample ms: default 1000, positive-guarded.
     unsetEnv("MIACODE_PREVIEW_FRAME_PACING_DIAG_SAMPLE_MS");
     ok &= require(dbg::previewFramePacingDiagnosticSampleMs() == 1000, "sample ms default 1000", err);
     setEnv("MIACODE_PREVIEW_FRAME_PACING_DIAG_SAMPLE_MS", "500");
@@ -160,7 +139,6 @@ bool verifyDefaultsAndClamps(QTextStream& err)
     ok &= require(dbg::previewFramePacingDiagnosticSampleMs() == 1000, "sample ms <=0 -> default", err);
     unsetEnv("MIACODE_PREVIEW_FRAME_PACING_DIAG_SAMPLE_MS");
 
-    // Visual look-ahead vsyncs: default 1.0, clamped to [0, 4].
     unsetEnv("MIACODE_PREVIEW_VISUAL_LOOKAHEAD_VSYNCS");
     ok &= require(qFuzzyCompare(dbg::previewVisualLookaheadVsyncs(), 1.0), "lookahead default 1.0", err);
     setEnv("MIACODE_PREVIEW_VISUAL_LOOKAHEAD_VSYNCS", "2");
@@ -175,7 +153,6 @@ bool verifyDefaultsAndClamps(QTextStream& err)
     ok &= require(qFuzzyCompare(dbg::previewVisualLookaheadVsyncs(), 1.0), "lookahead invalid -> default", err);
     unsetEnv("MIACODE_PREVIEW_VISUAL_LOOKAHEAD_VSYNCS");
 
-    // Compare-dump max samples: 0 unless runtime debug output is on, else default 8.
     dbg::setDebugModeEnabled(false);
     unsetEnv("MIACODE_DISABLE_RUNTIME_DEBUG_OUTPUT");
     unsetEnv("MIACODE_PREVIEW_DIAG_COMPARE_DUMP_MAX_SAMPLES");

@@ -8,34 +8,84 @@ This directory keeps only public, repeatable build, release, asset, and diagnost
 
 | Directory | Contents |
 |---|---|
-| `build/` | Windows/macOS/Linux build and packaging entry points |
+| `build/` | Windows/macOS build, packaging and package verification entry points |
 | `debug/` | Windows/macOS debug and diagnostic launchers |
 | `ffmpeg/` | FFmpeg runtime/dev-SDK provisioning plus the decode-only trim toolchain |
 | `assets/` | Asset generation and font-subsetting helpers |
+| `api/` | Generation and standards validation of the Net operation catalog, schemas, OpenAPI and client types |
+
+## Net API Generation
+
+Run `python scripts/api/generate_net_api.py` to generate the embedded C++ catalog, OpenAPI and TypeScript types from `tools/net-api/operations.json` and `schemas.json`. The generator uses the Python standard library.
+
+See the [Net API](../docs/specs/net/NET_API_CONTRACT_ZH.md) for availability and extension rules. Generated HTTP routes do not imply a delivered gateway.
 
 ## Build And Package
 
 Windows:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build\build-win.ps1
+# MSVC x64: the generator is resolved through vswhere (Visual Studio + Windows SDK required)
+# x64 builds the decode-only preview SDK with ffmpeg/trim by default (~150 MB -> ~20 MB, needs
+# MSYS2); pass -SkipTrim to skip that build.
+powershell -ExecutionPolicy Bypass -File .\scripts\build\build-win.ps1 -Toolchain msvc -BuildDir build-msvc
+
+# MSVC arm64: native arm64 host, ARM64 generator platform and Qt's arm64 package
+powershell -ExecutionPolicy Bypass -File .\scripts\build\build-win.ps1 -Toolchain msvc-arm64 -BuildDir build-msvc-arm64
+
+# Package an existing build (-Arch has to match the build)
+powershell -ExecutionPolicy Bypass -File .\scripts\build\package-win.ps1 -QtRoot <QtRoot> -BuildDir <BuildDir> -Arch x64
 ```
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build\package-win.ps1 -QtRoot <QtRoot>
-```
+`build-win.ps1` runs, in order: the export `ffmpeg.exe`, the
+preview FFmpeg dev SDK (a trim build on x64 unless `-SkipTrim` is set), Qt resolution, CMake configure and
+build, then `package-win.ps1`. Both
+FFmpeg chains and the packaging chain pick their directories from the architecture the selected
+toolchain targets: `third_party\ffmpeg\windows\<win64|winarm64>\` and
+`third_party\bass\bin\<win64|winarm64>\`, producing `MiaCode_<version>_win_x64` or
+`MiaCode_<version>_win_arm64` (a channel segment from `MIACODE_PACKAGE_CHANNEL` lands right after the version). The arm64 package ships no `bass_aac.dll` (upstream publishes that
+add-on for x86/x64 only); the audio backend already tolerates a missing add-on.
 
-`package-win.ps1` defaults to `build/` and checks whether the generated version header and `MiaCode.exe` need refreshing. If the executable is missing, version-stale, or older than the generated version header, it rebuilds `MiaCode` automatically.
+Qt resolution order: `-QtRoot` → `C:\Qt\<version>\<arch dir>` → `.qt\<version>\<arch dir>` →
+`QT_ROOT_DIR`/`Qt6_DIR` → otherwise `build/provision-qt.ps1` downloads it from the Qt repository.
+That script handles both upstream repository layouts (the flat pre-6.11 folders and the
+per-architecture folders 6.11 uses), verifies every archive against the published `.sha1`, and
+needs no aqtinstall.
+
+`package-win.ps1` rebuilds `MiaCode` and `MiaCodeLauncher` when needed, places the MSVC runtime
+and the trimmed FFmpeg runtimes into `app/`, asserts the package contents
+contract, and writes a 7z archive. With a single-config generator it also checks that
+`CMAKE_BUILD_TYPE` matches `-Config`.
+
+The preview FFmpeg SDK can come from `ffmpeg/trim/build-trimmed-ffmpeg.ps1` instead of the full SDK
+that `ffmpeg/ensure-windows-ffmpeg-dev.ps1` downloads.
+
+Qt version and modules, both MSVC target architectures, package contents and archive format live in
+`build/windows-toolchain.psd1`. Give each architecture its own build directory.
 
 macOS:
 
-```bash
-bash scripts/build/build-macos.sh
-```
+Local packaging, reusing the Qt install, FFmpeg dev SDK, and export `ffmpeg`
+already present on the machine:
 
 ```bash
-QT_ROOT="$HOME/Qt/6.10.2/macos" CMAKE_OSX_ARCHITECTURES=arm64 bash scripts/build/package-mac.sh
+bash scripts/build/build-macos-local.sh
 ```
+
+CI packaging uses Qt 6.11.1 and the FFmpeg 8.1.2 preview SDK
+before assembling the package:
+
+```bash
+bash scripts/build/build-macos-ci.sh
+```
+
+Both entries hand the Release build and package assembly to `package-mac.sh`;
+call it directly for manual control, for example
+`QT_ROOT="$HOME/Qt/6.11.1/macos" bash scripts/build/package-mac.sh`. The CI
+entry reads `QT_VERSION`, `QT_MODULES`, and `MIACODE_PYTHON_VENV_DIR`; the local
+entry reads `QT_ROOT` (probing `.qt/` then `$HOME/Qt/` for `QT_VERSION`),
+`BUILD_DIR`, and `MIACODE_FFMPEG_DEV_DIR`. Setting `MIACODE_PACKAGE_CHANNEL`
+inserts a channel segment into the package name.
 
 Artifacts are written to `dist/`. When a single `arm64` or `x86_64`
 architecture is requested, packaging removes the other architecture slice from
@@ -43,31 +93,13 @@ Qt frameworks/plugins after `macdeployqt` and verifies that every bundled
 Mach-O contains only the target architecture before re-signing. Set
 `MIACODE_THIN_MACOS_APP=OFF` to produce a comparison package that keeps Qt's
 universal binaries.
-Set `MIACODE_PACKAGE_CHANNEL=nightly` to name the directory and ZIP
-`MiaCode-v<version>-nightly-macos-apple-silicon`.
 
-`build-macos.sh` provisions the macOS QtAVPlayer preview decoder FFmpeg development SDK,
-creating the pinned,
-repo-local FFmpeg 6 SDK under `third_party/ffmpeg/macos/dev/`. `package-mac.sh`
-uses that SDK (or an explicit compatible `MIACODE_FFMPEG_DEV_DIR`) and stages
-only its six required dylibs; it does not discover or copy Homebrew. When calling
-`package-mac.sh` directly, run `bash scripts/ffmpeg/ensure-macos-ffmpeg-dev.sh` first.
-
-Linux AppImage (x86_64, Release, 8 jobs by default; requires Docker or Podman):
-
-```bash
-bash scripts/build/build-linux.sh
-```
-
-The script clears `dist/` on every run, then creates
-`dist/MiaCode-v<version>-linux-x86_64/` and a matching `tar.gz`. The version
-directory contains `MiaCode.AppImage` with Qt, the C++ runtime, XCB input-method
-plugins, the pinned FFmpeg, and other runtime files. README and license/notice
-files sit beside the AppImage. The script auto-selects Docker or Podman; set
-`MIACODE_CONTAINER_ENGINE` to choose one. It uses an Ubuntu 22.04 / Qt 6.11.1
-baseline. Incremental builds, packaging files, and download caches all stay
-under `build/`. Runtime support is X11/XWayland with system glibc 2.35+,
-graphics drivers, and X11 runtime libraries.
+The macOS QtAVPlayer preview decoder also needs an FFmpeg development SDK at the
+repo-local `third_party/ffmpeg/macos/dev/`, created by
+`bash scripts/ffmpeg/ensure-macos-ffmpeg-dev.sh` (an existing SDK that passes
+validation is reused). `package-mac.sh` uses that SDK (or an explicit compatible
+`MIACODE_FFMPEG_DEV_DIR`) and stages only its six required dylibs; it does not
+discover or copy Homebrew.
 
 ## Other Scripts
 
@@ -75,7 +107,7 @@ graphics drivers, and X11 runtime libraries.
 - `debug/Start_MiaCode_Debug.command`: the macOS debug launcher at the release package root; double-click it to launch `MiaCode.app` with `--debug` and write logs to the package-root `logs/` directory.
 - `debug/Start_MiaCode_SoftwareVideoDecode.bat`, `debug/Start_MiaCode_QtPluginDiag.bat`: public support diagnostics; not shipped in the Windows release package.
 - `ffmpeg/ensure-windows-ffmpeg.ps1`, `ffmpeg/ensure-macos-ffmpeg.sh`, `ffmpeg/ensure-linux-ffmpeg.sh`: provision the standalone export `ffmpeg`.
-- `ffmpeg/ensure-macos-ffmpeg-dev.sh`: builds the pinned macOS FFmpeg 6 SDK for QtAVPlayer preview decode.
+- `ffmpeg/ensure-macos-ffmpeg-dev.sh`: builds the macOS FFmpeg 8.1.2 SDK for QtAVPlayer preview decode.
 - `ffmpeg/ensure-windows-ffmpeg-dev.ps1`: provisions the Windows QtAVPlayer preview-decode dev SDK.
 - `ffmpeg/trim/`: builds a trimmed Windows decode-only FFmpeg dev SDK.
 - `assets/subset_hud_font.py`: generates the HUD font subset; see `assets/README_font_subset.md`.

@@ -1,4 +1,4 @@
-#include "ChartNormalization.h"
+#include "core/chart/transform/ChartNormalization.h"
 
 #include <algorithm>
 #include <limits>
@@ -7,11 +7,43 @@
 #include <QtGlobal>
 
 #include "common/OperationLog.h"
-#include "core/chart/parser/SimaiNativeParser.h"
+#include "core/chart/parser/SimaiParser.h"
 #include "core/chart/transform/ChartNormalizationSegmentPolicy.h"
 #include "core/chart/transform/Non384SnapTable.h"
 
 namespace miacode::chart_transform {
+
+namespace {
+
+bool selectionStartsAtLineStart(const QString& text, int selectionStart)
+{
+    return selectionStart <= 0 || text.at(selectionStart - 1) == QLatin1Char('\n');
+}
+
+bool selectionEndsAtLineBoundary(const QString& text, int selectionEnd)
+{
+    return selectionEnd >= text.size()
+        || (selectionEnd < text.size() && text.at(selectionEnd) == QLatin1Char('\n'))
+        || (selectionEnd > 0 && text.at(selectionEnd - 1) == QLatin1Char('\n'));
+}
+
+}  // namespace
+
+QString composeNormalizedSelectionReplacement(
+    const QString& original,
+    int selectionStart,
+    int selectionEnd,
+    const QString& normalizedText)
+{
+    QString replacement = normalizedText;
+    if (!selectionStartsAtLineStart(original, selectionStart)) {
+        replacement.prepend(QStringLiteral("\n\n"));
+    }
+    if (!selectionEndsAtLineBoundary(original, selectionEnd)) {
+        replacement.append(QLatin1Char('\n'));
+    }
+    return replacement;
+}
 namespace {
 
 constexpr double kNormalizationEpsilon = 1e-6;
@@ -1302,10 +1334,10 @@ QString renderMeasureLine(const RenderMeasure& measure, const ChartNormalization
     return renderMeasureLineApproximate(measure);
 }
 
-QString summarizeValidationError(const SimaiNativeValidationReport& report)
+QString summarizeValidationError(const SimaiValidationReport& report)
 {
     if (!report.issues.isEmpty()) {
-        const SimaiNativeValidationIssue& issue = report.issues.constFirst();
+        const SimaiValidationIssue& issue = report.issues.constFirst();
         return issue.displayMessage.isEmpty() ? issue.rawMessage : issue.displayMessage;
     }
     return QStringLiteral("Fix syntax errors before normalizing this chart.");
@@ -1439,10 +1471,9 @@ ChartNormalizationResult normalizeChartFragment(
 {
     ChartNormalizationResult result;
 
-    const SimaiNativeValidationReport report = SimaiNativeParser::buildValidationReport(
+    const SimaiValidationReport report = SimaiParser::buildValidationReport(
         input,
-        SimaiNativeValidationLocale::English,
-        nullptr,
+        SimaiValidationLocale::English,
         timingMetadata);
     if (report.errorCount > 0) {
         result.errorMessage = summarizeValidationError(report);
@@ -1838,54 +1869,6 @@ ChartNormalizationResult normalizeChartFragment(
     result.measureLineCount = emittedMeasureLines;
     result.changedCount = result.text == input ? 0 : qMax(1, emittedMeasureLines);
     return result;
-}
-
-ChartNormalizationOptions chartNormalizationOptionsFromPreferences(
-    const QJsonObject& preview,
-    const ChartNormalizationOptions& defaults)
-{
-    ChartNormalizationOptions options = defaults;
-    if (preview.value(kChartNormalizeStartAtNewMeasurePreferenceKey).isBool()) {
-        options.startAtNewMeasure =
-            preview.value(kChartNormalizeStartAtNewMeasurePreferenceKey).toBool(options.startAtNewMeasure);
-    }
-    if (preview.value(kChartNormalizeReduceTo384GridPreferenceKey).isBool()) {
-        options.reduceTo384Grid =
-            preview.value(kChartNormalizeReduceTo384GridPreferenceKey).toBool(options.reduceTo384Grid);
-    }
-    if (preview.value(kChartNormalizeSplitEveryFourMeasuresPreferenceKey).isBool()) {
-        options.splitEveryFourMeasures =
-            preview.value(kChartNormalizeSplitEveryFourMeasuresPreferenceKey).toBool(options.splitEveryFourMeasures);
-    }
-    const QString syntax = preview.value(kChartNormalizeSyntaxPreferenceKey).toString().trimmed().toLower();
-    if (syntax == QStringLiteral("compact_single_line")) {
-        options.syntax = ChartNormalizationSyntax::CompactSingleLine;
-    } else if (syntax == QStringLiteral("segment_preserving")) {
-        options.syntax = ChartNormalizationSyntax::SegmentPreserving;
-    }
-    options.sectionMeasureCount = options.splitEveryFourMeasures ? 4 : 0;
-    if (preview.value(kChartNormalizeSectionMeasureCountPreferenceKey).isDouble()) {
-        options.sectionMeasureCount = qMax(0, preview.value(kChartNormalizeSectionMeasureCountPreferenceKey).toInt(4));
-    }
-    return options;
-}
-
-void saveChartNormalizationOptionsToPreferences(
-    QJsonObject* preview,
-    const ChartNormalizationOptions& options)
-{
-    if (preview == nullptr) {
-        return;
-    }
-    preview->insert(kChartNormalizeStartAtNewMeasurePreferenceKey, options.startAtNewMeasure);
-    preview->insert(kChartNormalizeReduceTo384GridPreferenceKey, options.reduceTo384Grid);
-    preview->insert(kChartNormalizeSplitEveryFourMeasuresPreferenceKey, options.splitEveryFourMeasures);
-    preview->insert(
-        kChartNormalizeSyntaxPreferenceKey,
-        options.syntax == ChartNormalizationSyntax::CompactSingleLine
-            ? QStringLiteral("compact_single_line")
-            : QStringLiteral("segment_preserving"));
-    preview->insert(kChartNormalizeSectionMeasureCountPreferenceKey, options.sectionMeasureCount);
 }
 
 ChartNormalizationResult normalizeChartText(

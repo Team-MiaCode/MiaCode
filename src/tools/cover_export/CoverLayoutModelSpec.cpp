@@ -1,10 +1,13 @@
-#include "tools/cover_export/CoverCompositionState.h"
-#include "tools/cover_export/CoverCompositionPersistenceGuard.h"
-#include "tools/cover_export/CoverLayoutModel.h"
-#include "app/ui/UiText.h"
+#include "export/cover_export/CoverBatchExportPolicy.h"
+#include "export/cover_export/CoverCompositionState.h"
+#include "export/cover_export/CoverCompositionPersistenceGuard.h"
+#include "export/cover_export/CoverLayoutModel.h"
+#include "export/cover_export/CoverFrameExportPlan.h"
+#include "app/services/CoverExportPreferences.h"
 
 #include <QCoreApplication>
 #include <QFile>
+#include <QImage>
 #include <QJsonArray>
 #include <QStandardPaths>
 #include <QTextStream>
@@ -13,8 +16,14 @@ using miacode::cover_export::CoverCompositionState;
 using miacode::cover_export::CoverCompositionPersistenceGuard;
 using miacode::cover_export::CoverLayer;
 using miacode::cover_export::CoverLayoutModel;
+using miacode::cover_export::CoverFrameExportPlan;
 
 namespace {
+
+QJsonObject coverPreferenceSection;
+miacode::app_preferences::CoverExportPreferences coverPreferences(
+    [] { return coverPreferenceSection; },
+    [](const QJsonObject& section) { coverPreferenceSection = section; return true; });
 
 bool require(bool condition, const QString& message, QTextStream& err)
 {
@@ -50,13 +59,25 @@ bool testCompositionPersistenceLifecycle(QTextStream& err)
     if (!require(writes.size() == 1,
                  QStringLiteral("unchanged teardown payload is content-idempotent"), err)) return false;
 
+    coverPreferenceSection = {
+        {QStringLiteral("recentFiles"), QJsonArray{QStringLiteral("recent.miacover")}},
+        {QStringLiteral("presets"), QJsonArray{QJsonObject{{QStringLiteral("name"), QStringLiteral("kept")}}}},
+        {QStringLiteral("unknown_sibling"), QJsonObject{{QStringLiteral("payload"), 9}}},
+        {QStringLiteral("output"), QStringLiteral("stale-folder")},
+    };
+    const QJsonObject prior = coverPreferenceSection;
     const QJsonObject preferences{
         {QStringLiteral("kind"), QStringLiteral("miacode-cover-composition")},
         {QStringLiteral("revision"), 3},
     };
-    if (!require(CoverCompositionState::savePreferences(preferences),
+    if (!require(coverPreferences.savePreferences(preferences),
                  QStringLiteral("cover composition preference save reports success"), err)) return false;
-    const QJsonObject restored = CoverCompositionState::loadPreferences();
+    const QJsonObject restored = coverPreferences.loadPreferences();
+    if (!require(restored.value(QStringLiteral("recentFiles")) == prior.value(QStringLiteral("recentFiles"))
+                     && restored.value(QStringLiteral("presets")) == prior.value(QStringLiteral("presets"))
+                     && restored.value(QStringLiteral("unknown_sibling")) == prior.value(QStringLiteral("unknown_sibling"))
+                     && !restored.contains(QStringLiteral("output")),
+                 QStringLiteral("composition save preserves all sibling data and removes cleared owned fields"), err)) return false;
     return require(restored.value(QStringLiteral("kind")) == preferences.value(QStringLiteral("kind"))
                        && restored.value(QStringLiteral("revision")) == preferences.value(QStringLiteral("revision")),
                    QStringLiteral("cover composition preferences round-trip in the isolated test path"), err);
@@ -84,6 +105,15 @@ bool testMultiFrameModel(QTextStream& err)
     if (!require(qAbs(copy->frameBgBrightness() - 0.42) < 0.001, QStringLiteral("duplicate keeps brightness"), err)) return false;
     if (!require(qAbs(copy->frameBgTransparency() - 0.73) < 0.001, QStringLiteral("duplicate keeps transparency"), err)) return false;
     if (!require(qAbs(copy->opacity() - 0.55) < 0.001, QStringLiteral("duplicate keeps opacity"), err)) return false;
+
+    QImage still(2, 2, QImage::Format_ARGB32);
+    still.fill(Qt::white);
+    model.setLayerImage(first->key(), still);
+    if (!require(first->imageRevision() >= 0 && !first->frameImage().isNull(),
+                 QStringLiteral("stores a rendered chart still"), err)) return false;
+    model.clearLayerImage(first->key());
+    if (!require(first->imageRevision() < 0 && first->frameImage().isNull(),
+                 QStringLiteral("clears a stale chart still before a new renderer"), err)) return false;
 
     if (!require(!model.removeLayer(CoverLayoutModel::cardKey()), QStringLiteral("card cannot be removed"), err)) return false;
     if (!require(model.removeLayer(first->key()), QStringLiteral("frame can be removed"), err)) return false;
@@ -340,6 +370,46 @@ bool testBackgroundBrightnessRoundTrip(QTextStream& err)
     return true;
 }
 
+// The output file is part of the remembered composition. Without it the page
+// re-derives the name on every difficulty switch, silently discarding the one
+// the user typed.
+bool testOutputFileRoundTrip(QTextStream& err)
+{
+    CoverCompositionState state;
+    state.size = QSize(1080, 1080);
+    state.outputFile = QStringLiteral("covers/front.png");
+
+    CoverCompositionState restored;
+    if (!require(CoverCompositionState::fromJson(state.toJson(), &restored),
+                 QStringLiteral("composition with an output file parses"), err)) return false;
+    if (!require(restored.outputFile == state.outputFile,
+                 QStringLiteral("output file round-trips"), err)) return false;
+
+    // Layouts written before the field, and presets (which are deliberately
+    // machine-agnostic), simply carry no file.
+    QJsonObject bare = state.toJson();
+    bare.remove(QStringLiteral("outputFile"));
+    CoverCompositionState bareState;
+    if (!require(CoverCompositionState::fromJson(bare, &bareState),
+                 QStringLiteral("composition without an output file parses"), err)) return false;
+    if (!require(bareState.outputFile.isEmpty(),
+                 QStringLiteral("a missing output file restores as empty"), err)) return false;
+
+    // "output" used to be the folder the card.jpg landed in.
+    QJsonObject legacy = bare;
+    legacy.insert(QStringLiteral("output"), QStringLiteral("/tmp/miacode-cover-output"));
+    CoverCompositionState legacyState;
+    if (!require(CoverCompositionState::fromJson(legacy, &legacyState),
+                 QStringLiteral("composition with a legacy output folder parses"), err)) return false;
+    if (!require(legacyState.outputFile == QStringLiteral("/tmp/miacode-cover-output/card.jpg"),
+                 QStringLiteral("a legacy output folder becomes the card.jpg inside it"), err)) return false;
+
+    CoverCompositionState empty;
+    empty.size = QSize(1080, 1080);
+    return require(!empty.toJson().contains(QStringLiteral("outputFile")),
+                   QStringLiteral("an unset output file writes no key"), err);
+}
+
 bool testCoverPresetPersistence(QTextStream& err)
 {
     QJsonObject composition;
@@ -349,10 +419,10 @@ bool testCoverPresetPersistence(QTextStream& err)
     layout.insert(QStringLiteral("layers"), QJsonArray());
     composition.insert(QStringLiteral("layout"), layout);
 
-    CoverCompositionState::saveUserPreset(QStringLiteral("Spec preset A"), composition);
-    QList<miacode::cover_export::CoverUserPreset> presets = CoverCompositionState::loadUserPresets();
+    coverPreferences.saveUserPreset(QStringLiteral("Spec preset A"), composition);
+    QList<miacode::app_preferences::CoverUserPreset> presets = coverPreferences.loadUserPresets();
     bool found = false;
-    for (const miacode::cover_export::CoverUserPreset& preset : presets) {
+    for (const miacode::app_preferences::CoverUserPreset& preset : presets) {
         if (preset.name == QStringLiteral("Spec preset A")
             && preset.composition.value(QStringLiteral("kind")).toString() == QStringLiteral("miacode-cover-composition")) {
             found = true;
@@ -361,10 +431,10 @@ bool testCoverPresetPersistence(QTextStream& err)
     }
     bool ok = require(found, QStringLiteral("user preset saves and loads"), err);
 
-    CoverCompositionState::renameUserPreset(QStringLiteral("Spec preset A"), QStringLiteral("Spec preset B"));
-    presets = CoverCompositionState::loadUserPresets();
+    coverPreferences.renameUserPreset(QStringLiteral("Spec preset A"), QStringLiteral("Spec preset B"));
+    presets = coverPreferences.loadUserPresets();
     bool renamed = false;
-    for (const miacode::cover_export::CoverUserPreset& preset : presets) {
+    for (const miacode::app_preferences::CoverUserPreset& preset : presets) {
         if (preset.name == QStringLiteral("Spec preset B")) {
             renamed = true;
             break;
@@ -372,10 +442,10 @@ bool testCoverPresetPersistence(QTextStream& err)
     }
     ok = require(renamed, QStringLiteral("user preset renames"), err) && ok;
 
-    CoverCompositionState::removeUserPreset(QStringLiteral("Spec preset B"));
-    presets = CoverCompositionState::loadUserPresets();
+    coverPreferences.removeUserPreset(QStringLiteral("Spec preset B"));
+    presets = coverPreferences.loadUserPresets();
     bool removed = true;
-    for (const miacode::cover_export::CoverUserPreset& preset : presets) {
+    for (const miacode::app_preferences::CoverUserPreset& preset : presets) {
         if (preset.name == QStringLiteral("Spec preset B")) {
             removed = false;
             break;
@@ -383,8 +453,8 @@ bool testCoverPresetPersistence(QTextStream& err)
     }
     ok = require(removed, QStringLiteral("user preset removes"), err) && ok;
 
-    CoverCompositionState::removeUserPreset(QStringLiteral("Spec preset A"));
-    CoverCompositionState::removeUserPreset(QStringLiteral("Spec preset B"));
+    coverPreferences.removeUserPreset(QStringLiteral("Spec preset A"));
+    coverPreferences.removeUserPreset(QStringLiteral("Spec preset B"));
     return ok;
 }
 
@@ -460,51 +530,57 @@ bool testImageAndTextLayers(QTextStream& err)
     return true;
 }
 
-bool testBatchPresetFrameBounds(QTextStream& err)
+bool testExportPlanPreservesFrameTimes(QTextStream& err)
 {
-    const auto presets = CoverCompositionState::builtInPresets();
-    if (!require(presets.size() == 4, QStringLiteral("built-in cover presets are shared"), err)) return false;
-    QJsonObject preset = presets.at(2).composition;
-    QJsonObject layout = preset.value(QStringLiteral("layout")).toObject();
-    QJsonArray layers = layout.value(QStringLiteral("layers")).toArray();
-    QJsonObject first = layers.at(1).toObject();
-    first.insert(QStringLiteral("frameSeconds"), 3.0);
-    layers[1] = first;
-    QJsonObject second = layers.at(2).toObject();
-    second.insert(QStringLiteral("frameSeconds"), 30.0);
-    layers[2] = second;
-    layout.insert(QStringLiteral("layers"), layers);
-    preset.insert(QStringLiteral("layout"), layout);
+    CoverLayoutModel model;
+    CoverLayer* first = model.addChartFrameLayer(12.5);
+    CoverLayer* second = model.addChartFrameLayer(73.25);
+    if (!require(first != nullptr && second != nullptr,
+                 QStringLiteral("export-plan setup creates two frames"), err)) return false;
 
-    QJsonObject prepared;
-    QStringList adjustments;
-    QString error;
-    if (!require(CoverCompositionState::prepareBatchPreset(
-            preset, 5.0, true, &prepared, &adjustments, &error),
-            QStringLiteral("multi-frame preset is prepared"), err)) return false;
-    const QJsonArray resultLayers = prepared.value(QStringLiteral("layout")).toObject()
-        .value(QStringLiteral("layers")).toArray();
-    if (!require(qAbs(resultLayers.at(1).toObject().value(QStringLiteral("frameSeconds")).toDouble() - 3.0) < 0.001,
-                 QStringLiteral("in-range frame time is preserved"), err)) return false;
-    if (!require(resultLayers.at(2).toObject().value(QStringLiteral("frameSeconds")).toDouble() < 5.0
-            && adjustments.size() == 1,
-            QStringLiteral("out-of-range second frame is clamped and reported"), err)) return false;
-    if (!require(!CoverCompositionState::prepareBatchPreset(
-            preset, 5.0, false, &prepared, nullptr, &error),
-            QStringLiteral("unrenderable chart frames fail the cover"), err)) return false;
-    return require(CoverCompositionState::prepareBatchPreset(
-            presets.constFirst().composition, 0.0, false, &prepared, nullptr, &error),
-            QStringLiteral("card-only cover does not require chart frames"), err);
+    const CoverFrameExportPlan plan = CoverFrameExportPlan::fromVisibleLayers(
+        model, second->key(), second->frameSeconds());
+    const auto frames = plan.frames();
+    if (!require(frames.size() == 2, QStringLiteral("export plan includes both visible frames"), err)) return false;
+    if (!require(frames[0].key == first->key() && qAbs(frames[0].seconds - 12.5) < 0.001,
+                 QStringLiteral("export plan keeps the first frame time"), err)) return false;
+    if (!require(frames[1].key == second->key() && qAbs(frames[1].seconds - 73.25) < 0.001,
+                 QStringLiteral("export plan keeps the second frame time"), err)) return false;
+    return require(plan.activeLayerKey() == second->key()
+                       && qAbs(plan.activeLayerSeconds() - second->frameSeconds()) < 0.001,
+                   QStringLiteral("export plan records the shared playhead restore point"), err);
 }
 
 }  // namespace
+
+namespace batch_cover {
+
+int verifyBatchCoverPolicy()
+{
+
+    using namespace miacode::cover_export;
+    const bool valid = boundedBatchCoverFrameSeconds(30.0, 10.0) == 10.0
+        && boundedBatchCoverFrameSeconds(30.0, 10.0, 8.95) == 8.95
+        && boundedBatchCoverFrameSeconds(7.0, 10.0, 8.95) == 7.0
+        && boundedBatchCoverFrameSeconds(-2.0, 10.0) == 0.0
+        && boundedBatchCoverFrameSeconds(5.0, 0.0) == 0.0
+        && boundedBatchCoverFrameSeconds(5.0, 10.0, 0.0) == 0.0
+        && batchCoverOutputPath(QStringLiteral("C:/exports"), QStringLiteral("C:/exports/song(2).wav"))
+            == QStringLiteral("C:/exports/song(2)_cover.png")
+        && batchCoverOutputPath(QStringLiteral("C:/covers"), QStringLiteral("C:/exports/song.mp4"))
+            == QStringLiteral("C:/covers/song_cover.png");
+    if (!valid) QTextStream(stderr) << "Batch cover frame bounds or companion name failed" << Qt::endl;
+    return valid ? 0 : 1;
+}
+
+}
 
 int main(int argc, char** argv)
 {
     QStandardPaths::setTestModeEnabled(true);
     QCoreApplication app(argc, argv);
+    if (batch_cover::verifyBatchCoverPolicy() != 0) return 1;
     QCoreApplication::setApplicationName(QStringLiteral("MiaCodeCoverLayoutModelSpec"));
-    QFile::remove(UiText::preferencesFilePath());
     QTextStream err(stderr);
     if (!testCompositionPersistenceLifecycle(err)) return 1;
     if (!testMultiFrameModel(err)) return 1;
@@ -518,8 +594,8 @@ int main(int argc, char** argv)
     if (!testBackgroundBrightnessRoundTrip(err)) return 1;
     if (!testMoveByViewRows(err)) return 1;
     if (!testImageAndTextLayers(err)) return 1;
+    if (!testExportPlanPreservesFrameTimes(err)) return 1;
     if (!testCoverPresetPersistence(err)) return 1;
-    if (!testBatchPresetFrameBounds(err)) return 1;
-    QFile::remove(UiText::preferencesFilePath());
+    if (!testOutputFileRoundTrip(err)) return 1;
     return 0;
 }

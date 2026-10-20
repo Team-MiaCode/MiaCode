@@ -2,7 +2,7 @@
 // output timeline. Covers the partial-range pre-roll freeze, the full-range
 // negative-origin delay, the positive-origin trim, and the still-image case.
 
-#include "VideoExportMediaTimeline.h"
+#include "export/video_export/VideoExportMediaTimeline.h"
 
 #include <QCoreApplication>
 #include <QString>

@@ -1,0 +1,82 @@
+# 模块分层（当前）
+
+`src/` 下的产品代码按目录归属到静态库，`MiaCode` 可执行文件链接这些库。每个目录只属于一个库，
+下层库不依赖 `MiaCode`。`MiaCode` 内部的所有权见 [当前应用架构](../ui/CURRENT_ARCHITECTURE_ZH.md)。
+
+## 库与目录
+
+库定义在 `cmake/MiaCodeModules.cmake`（`miacode_add_module`），源文件逐个列出。
+
+| CMake 目标 | 源目录 | 主要内容 | 依赖 |
+| --- | --- | --- | --- |
+| `miacode_base` | `src/common` | 日志、调试选项、诊断、任务取消、文件戳、本地化文本、崩溃恢复、看门狗、偏好端口 `PreferenceProvider` | Qt |
+| `miacode_chart` | `src/core/chart` | 文档、解析、变换、选择；音符模型 `model/TimelineData.h`（含 `MuriPadTimeEntry`）与 `model/TimelineMarkerOffset.h`；`ChartClockCount`、`ChartAssetPaths`、`IntroConfig`；`slide_data` 资源及其共享解析入口 `SlideReferenceData` | base |
+| `miacode_analysis` | `src/core/analysis` | Muri 产品代码与报告类型 `MuriTypes`、`MuriConfig`、`MuriRenderOptions`；分析流水线 `TimelineSlowRefresh` | chart |
+| `miacode_editor_core` | `src/editor` | 文本策略、补全、书签语法 | chart |
+| `miacode_scene` | `src/core/scene`、`src/core/video` | 场景数学、Preview*Config、SFX 时间线语义、`AssetPaths`；字体资源 | analysis |
+| `miacode_audio` | `src/audio` | 音频后端接口与提供者、worker、协议、设置、`QtPreviewSfxRuntime`、`WaveformCache` 与解码器接口 `AudioFileDecoder` | scene |
+| `miacode_audio_bass` | `src/audio/bass` | BASS 后端、设备租约、紧急暂停、离线解码 | audio |
+| `miacode_timeline` | `src/timeline` | 时间轴模型 | analysis、audio |
+| `miacode_timeline_quick` | `src/timeline/quick` | QSG 图层；QML 模块 `MiaCode.Timeline 1.0` | timeline |
+| `miacode_preview_quick` | `src/preview/quick_scene`、`src/preview/runtime` | QSG 场景、`PreviewRuntime`、素材与纹理仓库；shader 与判定特效资源；QML 模块 `MiaCode.Preview 1.0` | scene |
+| `miacode_stage_media` | `src/preview/stage_media` | `PreviewStageMediaHost`、`PreviewSharedD3D11Device`、`PvMemoryDiagnostics`、QtAVPlayer；`qrc:/preview/runtime/qml` | scene、preview_quick |
+| `miacode_export` | `src/export` | 视频导出（`video_export`）、封面导出（`cover_export`）、QSG/D3D11 导出会话（`session`）、导出音频；片头资源与 shader | 除 `MiaCode` 外任意库 |
+| `miacode_media_tools` | `src/media_tools` | PV 压缩（`media`）、ZIP 打包（`zip_export`）、网络客户端（`net`） | chart |
+| `MiaCode` | `src/app` | UI、services、runtime（含延迟检测 `runtime/latency`）、quick_shell、platform、进程入口 | 任意库 |
+
+`src/tools` 只放 Spec，`src/devtools` 是命令行诊断入口，`src/intro` 是片头素材，`src/extensions` 只由
+扩展清单 Spec 编译；这些目录不属于任何库。依赖定义见 `cmake/MiaCodeModules.cmake`。
+
+## 注入点
+
+| 端口 | 定义 | 安装方 |
+| --- | --- | --- |
+| 偏好 | `common/PreferenceProvider.h`：库读写自己的 `app.<section>`，并取得偏好目录与界面语言 | `app/runtime/settings/PreferenceDocumentProvider`；`main()` 的 GUI 路径、`runCliVideoExport`、`runCliVideoExportWorker` 各自安装 |
+| 预览音频后端 | `audio/PreviewAudioWorkerFactory.h` 的 `PreviewAudioBackendProvider`（后端工厂与紧急暂停） | `main()` 安装 `bassPreviewAudioBackendProvider()` |
+| 波形解码 | `audio/AudioFileDecoder.h`，`WaveformCacheService::setDecoder` | 播放协调器创建波形缓存时注入 `bassAudioFileDecoder()` |
+| 导出页 | `app/services/ExportPagePort.h` | `Bootstrap` 经 `ApplicationServices::setExportPageFactory` 提供 `ExportSession` |
+
+未安装偏好提供者时读取为空、写入失败；未安装音频后端时 worker 报告工厂返回空；未注入解码器时波形没有采样。
+
+## 资源与 QML 模块
+
+资源随所属库注册，路径保持不变。`.qrc` 经 `miacode_add_qrc` 转成按目标注册的 `qt_add_resources`，
+静态库的资源初始化对象由 Qt 链进使用它的可执行文件，不需要 `Q_INIT_RESOURCE`。
+
+| 资源 | 所属库 | 路径 |
+| --- | --- | --- |
+| `resources/slide_data.qrc` | chart | `:/data/slide_data.json` |
+| `resources/fonts.qrc` | scene | `:/fonts/*.ttf` |
+| `resources/preview_judge_effects.qrc`、`preview_sprite_shaders` | preview_quick | `:/preview/judge_effects/*`、`:/src/preview/quick_scene/shaders/*.qsb` |
+| `resources/preview_runtime_qml.qrc` | stage_media | `qrc:/preview/runtime/qml/*` |
+| `resources/intro.qrc`、`intro_shaders` | export | `qrc:/intro/*`、`:/src/intro/shaders/*.qsb` |
+| `resources/app_icons.qrc`、`ui_shaders`、`miacode_i18n` | MiaCode | `:/icons/*`、`:/config/shortcuts.json`、`:/src/app/ui/shaders/*.qsb`、`:/i18n/*` |
+
+`MiaCode.Preview` 与 `MiaCode.Timeline` 由各自库的 `qt_add_qml_module` 提供静态插件，`main.cpp` 用
+`Q_IMPORT_QML_PLUGIN` 导入一次，进程内所有 QML engine（主界面、预览合成面、封面合成、导出）共用。`MiaCode.UI` 仍是 `MiaCode` 自身的模块。
+
+## app 内部方向
+
+`app/services`、`app/runtime` 不包含 `app/ui`；只有进程入口包含 `app/MainEntrypoints.h`，
+GPU 与进程诊断声明在 `app/platform/PlatformDiagnostics.h`。
+
+## 外部预览宿主的源码消费入口
+
+`MIACODE_BUILD_APP=OFF` 从 `cmake/MiaCodePreviewBuild.cmake` 配置 base、chart、analysis、scene 和
+preview_quick，共用 `MiaCodeModules.cmake` 的源码、链接与资源定义。该配置不查找或构建 Scintilla、
+BASS、FFmpeg、桌面 UI、时间轴、导出或媒体工具。桌面默认配置仍为 `MIACODE_BUILD_APP=ON`。
+
+预览库的 Qt 依赖为 Core、Gui、Quick、Qml、ShaderTools；`MIACODE_PREVIEW_MULTIMEDIA` 默认跟随
+`MIACODE_BUILD_APP`，为 OFF 时关闭 QVideoFrame 入口，宿主使用 RGBA/图像视频帧入口。
+Qt WASM 单线程构建以同步方式加载皮肤、写入诊断日志，不启动线程池或 GUI 看门狗。
+着色器同时保留桌面默认 GLSL 版本并加入 WebGL 2 所需的 300es。
+
+宿主通过 `add_subdirectory(<MiaCode checkout> <binary directory>)` 后链接
+`miacode_preview_quick`，静态 QML 使用者还需导入
+`MiaCode.Preview` 插件，具体示例见 Web 宿主。调用 `miacode::assets::setAssetRoot()` 注入绝对
+资源目录（支持 `:/assets` 与浏览器虚拟文件系统的 `/assets`）；空值恢复桌面发现，相对路径被拒绝。
+资源根目录在创建预览宿主前注入，已加载纹理沿用加载时的目录。
+
+独立源码配置 `MIACODE_BUILD_DEV_TOOLS=ON` 可构建和运行 `web_module_boundary_spec`，验证解析、
+分析、HUD、资源与 QML 模块。它验证最小 Web 链接闭包，音频边界由音频及 Android 规格覆盖。
+实际 WASM、WebAudio、HTMLVideo 和浏览器协议由 MiaView_Web 的浏览器检查覆盖。

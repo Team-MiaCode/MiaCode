@@ -6,7 +6,7 @@
 #include "core/scene/PreviewFireworkWarmupPolicy.h"
 #include "core/scene/PreviewFrameState.h"
 #include "core/scene/PreviewJudgeFireworkLayerState.h"
-#include "common/PreviewGameplayConfig.h"
+#include "core/video/PreviewGameplayConfig.h"
 
 namespace {
 
@@ -61,6 +61,16 @@ bool syntheticDrawsAt(double centeredAt, double playhead, bool useWarmupIdentity
     return layerState.active;
 }
 
+bool verifyChartStartWarmupDrawsWhilePaused(QTextStream& err)
+{
+    bool ok = true;
+    ok &= expect(syntheticDrawsAt(0.0, 0.0),
+                 "warm-up synthetic draws while paused at chart second zero", err);
+    ok &= expect(!syntheticDrawsAt(0.0, 0.0, false),
+                 "ordinary negative-trigger firework remains rejected at chart second zero", err);
+    return ok;
+}
+
 // The declared slack must match what the layer builder actually accepts, or the
 // threshold is calibrated against a fiction.
 bool verifySlackMatchesLayerLifecycle(QTextStream& err)
@@ -79,21 +89,6 @@ bool verifySlackMatchesLayerLifecycle(QTextStream& err)
                  "synthetic still draws just inside the backward slack", err);
     ok &= expect(!syntheticDrawsAt(kCenter, kCenter - kFireworkWarmupBackwardSlackSeconds - kInsideMargin),
                  "synthetic stops drawing past the backward slack", err);
-    return ok;
-}
-
-// Regression for the first-play field log: startup arms at playhead 0, but the
-// warm-up marker's 0.15 s lead gives it a negative trigger. The synthetic must
-// be drawable during the paused startup frames; otherwise PSO/texture creation
-// is deferred into the user's first playback. Real negative-time notes retain
-// the pre-existing rejection rule.
-bool verifyChartStartWarmupDrawsWhilePaused(QTextStream& err)
-{
-    bool ok = true;
-    ok &= expect(syntheticDrawsAt(0.0, 0.0),
-                 "warm-up synthetic draws while paused at chart second zero", err);
-    ok &= expect(!syntheticDrawsAt(0.0, 0.0, false),
-                 "ordinary negative-trigger firework remains rejected at chart second zero", err);
     return ok;
 }
 

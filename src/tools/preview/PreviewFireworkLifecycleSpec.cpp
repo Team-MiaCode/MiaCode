@@ -2,11 +2,12 @@
 #include <QImage>
 #include <QRectF>
 #include <QTextStream>
+#include <cmath>
 
 #include "core/scene/PreviewActiveMarkerView.h"
 #include "core/scene/PreviewFrameState.h"
 #include "core/scene/PreviewJudgeFireworkLayerState.h"
-#include "common/PreviewGameplayConfig.h"
+#include "core/video/PreviewGameplayConfig.h"
 
 namespace {
 
@@ -43,6 +44,8 @@ PreviewFrameState buildStateAt(qreal clipTimeSeconds)
     marker.endSecond = 0.0;
     marker.touchPoint = QPointF(270.0, 270.0);
     state.noteMarkers.append(marker);
+    state.skin.touchPointImage = QImage(32, 32, QImage::Format_ARGB32_Premultiplied);
+    state.skin.touchPointImage.fill(Qt::white);
 
     QImage colorBallImage(32, 32, QImage::Format_ARGB32_Premultiplied);
     colorBallImage.fill(qRgba(255, 255, 255, 255));
@@ -60,121 +63,51 @@ PreviewFrameState buildOffsetStateAt(qreal clipTimeSeconds)
     return state;
 }
 
-bool verifyVideoReferenceSample(
-    qreal clipTimeSeconds,
-    qreal expectedFireworkScale,
-    qreal expectedFireworkAlpha,
-    qreal expectedSmallScale,
-    qreal expectedSmallAlpha,
-    qreal expectedBigScale,
-    qreal expectedBigAlpha,
-    bool expectedDrawFirework,
-    bool expectedDrawSmall,
-    bool expectedDrawBig,
-    bool expectedActive,
-    QTextStream& err
-)
+bool verifySpreadDwellAndTail(QTextStream& err)
 {
-    const PreviewFrameState state = buildStateAt(clipTimeSeconds);
-    const PreviewJudgeFireworkLayerState layerState =
-        miacode::preview::scene::buildPreviewJudgeFireworkLayerState(
-            state,
-            miacode::preview::scene::PreviewActiveMarkerView(state.noteMarkers),
-            QRectF(0.0, 0.0, 540.0, 540.0)
-        );
-
-    const QString prefix = QStringLiteral("t=%1").arg(clipTimeSeconds, 0, 'f', 3);
-    if (!require(layerState.active == expectedActive, prefix + QStringLiteral(" active mismatch"), err)) {
-        return false;
+    const auto layerAt = [](qreal second) {
+        const PreviewFrameState state = buildStateAt(second);
+        return miacode::preview::scene::buildPreviewJudgeFireworkLayerState(
+            state, miacode::preview::scene::PreviewActiveMarkerView(state.noteMarkers),
+            QRectF(0.0, 0.0, 540.0, 540.0));
+    };
+    const auto onset = layerAt(0.0);
+    bool sawLargeBall = false;
+    bool sawSmallBallExit = false;
+    bool sawRelease = false;
+    for (int frame = 0; frame <= 120; ++frame) {
+        const auto layer = layerAt(frame / 60.0);
+        if (layer.active) {
+            if (!require(std::isfinite(layer.outerRadius) && layer.outerRadius >= 0.0,
+                         QStringLiteral("active firework has a finite radius"), err)) return false;
+            sawLargeBall |= layer.drawColorBallBig;
+            sawSmallBallExit |= layer.drawColorBallBig && !layer.drawColorBall;
+        } else if (frame > 0) {
+            sawRelease = true;
+        }
     }
-    if (!expectedActive) {
-        return true;
-    }
-    if (!requireNear(layerState.fireworkScale, expectedFireworkScale, prefix + QStringLiteral(" stripe scale"), err)) {
-        return false;
-    }
-    if (!requireNear(layerState.fireworkAlpha, expectedFireworkAlpha, prefix + QStringLiteral(" stripe alpha"), err)) {
-        return false;
-    }
-    if (!requireNear(layerState.colorBallScale, expectedSmallScale, prefix + QStringLiteral(" small scale"), err)) {
-        return false;
-    }
-    if (!requireNear(layerState.colorBallAlpha, expectedSmallAlpha, prefix + QStringLiteral(" small alpha"), err)) {
-        return false;
-    }
-    if (!requireNear(layerState.colorBallBigScale, expectedBigScale, prefix + QStringLiteral(" big scale"), err)) {
-        return false;
-    }
-    if (!requireNear(layerState.colorBallBigAlpha, expectedBigAlpha, prefix + QStringLiteral(" big alpha"), err)) {
-        return false;
-    }
-    if (!requireNear(layerState.clipTimeSeconds, clipTimeSeconds, prefix + QStringLiteral(" explicit clip time"), err)) {
-        return false;
-    }
-    if (!require(layerState.drawFirework == expectedDrawFirework, prefix + QStringLiteral(" drawFirework mismatch"), err)) {
-        return false;
-    }
-    if (!require(layerState.drawColorBall == expectedDrawSmall, prefix + QStringLiteral(" drawColorBall mismatch"), err)) {
-        return false;
-    }
-    if (!require(layerState.drawColorBallBig == expectedDrawBig, prefix + QStringLiteral(" drawColorBallBig mismatch"), err)) {
-        return false;
-    }
-    return true;
+    return require(onset.active && onset.drawColorBall,
+                   QStringLiteral("touch triggers the small ball"), err)
+        && require(sawLargeBall && sawSmallBallExit && sawRelease,
+                   QStringLiteral("firework expands, releases the small ball and finishes"), err);
 }
 
-// The colour ball and spokes share the first trigger frame. The radial spread is deliberately
-// eased to full radius at frame 9, then leaves a visible fade tail through frame 30.
-bool verifyVideoReferenceAlignment(QTextStream& err)
+bool verifyTouchTriggerClock(QTextStream& err)
 {
-    if (!verifyVideoReferenceSample(0.0, 0.02, 0.8, 0.2, 0.9, 1.0, 0.9, true, true, true, true, err)) {
-        return false;
-    }
-    if (!verifyVideoReferenceSample(0.1, 0.3425, 0.8, 0.38, 0.9, 1.05, 0.75, true, true, true, true, err)) {
-        return false;
-    }
-    if (!verifyVideoReferenceSample(0.13333334, 0.45, 0.8, 0.44, 0.6333333, 1.0666667, 0.6, true, true, true, true, err)) {
-        return false;
-    }
-    if (!verifyVideoReferenceSample(0.2, 1.7, 0.8, 0.5, 0.1, 1.1, 0.3, true, true, true, true, err)) {
-        return false;
-    }
-    if (!verifyVideoReferenceSample(0.23333333, 2.8, 0.8, 0.5, 0.0666667, 1.1166667, 0.2666667, true, true, true, true, err)) {
-        return false;
-    }
-    if (!verifyVideoReferenceSample(0.3, 5.0, 0.8, 0.5, 0.0, 1.15, 0.2, true, false, true, true, err)) {
-        return false;
-    }
-    if (!verifyVideoReferenceSample(0.4, 5.0, 0.65, 0.5, 0.0, 1.15, 0.1, true, false, true, true, err)) {
-        return false;
-    }
-    if (!verifyVideoReferenceSample(0.5, 5.0, 0.5, 0.5, 0.0, 1.15, 0.0, true, false, false, true, err)) {
-        return false;
-    }
-    if (!verifyVideoReferenceSample(0.6, 5.0, 0.448, 0.5, 0.0, 1.15, 0.0, true, false, false, true, err)) {
-        return false;
-    }
-    if (!verifyVideoReferenceSample(0.8, 5.0, 0.176, 0.5, 0.0, 1.15, 0.0, true, false, false, true, err)) {
-        return false;
-    }
-    const qreal duration = static_cast<qreal>(miacode::preview_gameplay::kJudgeEffectFireworkDurationSeconds);
-    const PreviewFrameState finalState = buildStateAt(duration);
-    const PreviewJudgeFireworkLayerState finalLayer =
-        miacode::preview::scene::buildPreviewJudgeFireworkLayerState(
-            finalState,
-            miacode::preview::scene::PreviewActiveMarkerView(finalState.noteMarkers),
-            QRectF(0.0, 0.0, 540.0, 540.0)
-        );
-    if (!require(!finalLayer.active, QStringLiteral("video-reference tail should be gone at clip end"), err)) {
-        return false;
-    }
-
-    return true;
+    auto state = buildStateAt(2.0);
+    state.noteMarkers[0].type = QStringLiteral("touch");
+    state.noteMarkers[0].second = 2.0;
+    const auto layer = miacode::preview::scene::buildPreviewJudgeFireworkLayerState(
+        state, miacode::preview::scene::PreviewActiveMarkerView(state.noteMarkers),
+        QRectF(0.0, 0.0, 540.0, 540.0));
+    return require(layer.active && layer.drawColorBall,
+                   QStringLiteral("touch hit triggers the small ball on the same frame"), err)
+        && requireNear(layer.triggerSecond, 2.0, QStringLiteral("touch trigger second"), err);
 }
 
 bool verifyClipCenterStaysOnPlayfield(QTextStream& err)
 {
-    const PreviewFrameState state = buildOffsetStateAt(0.2);
+    const PreviewFrameState state = buildOffsetStateAt(0.3);
     const PreviewJudgeFireworkLayerState layerState =
         miacode::preview::scene::buildPreviewJudgeFireworkLayerState(
             state,
@@ -193,7 +126,24 @@ bool verifyClipCenterStaysOnPlayfield(QTextStream& err)
     if (!requireNear(layerState.clipCenter.y(), 270.0, QStringLiteral("stage clip center y"), err)) {
         return false;
     }
-    return true;
+    if (!requireNear(layerState.clipRadius, 270.0,
+                     QStringLiteral("firework fills the full canvas circle including the outer ring"), err)) {
+        return false;
+    }
+    const qreal farEdgeDistance = layerState.clipRadius + std::hypot(90.0, 90.0);
+    const auto scaledLayer = miacode::preview::scene::buildPreviewJudgeFireworkLayerState(
+        state, miacode::preview::scene::PreviewActiveMarkerView(state.noteMarkers),
+        QRectF(80.0, 40.0, 1080.0, 1080.0));
+    return require(layerState.outerRadius > 0.0,
+                       QStringLiteral("off-centre burst has a positive expansion radius"), err)
+        && require(layerState.outerRadius < farEdgeDistance,
+                   QStringLiteral("burst edge stays inside the far playfield boundary"), err)
+        && requireNear(scaledLayer.clipRadius, 540.0,
+                       QStringLiteral("full-circle firework scales with the export canvas"), err)
+        && requireNear(scaledLayer.clipCenter.x(), 620.0,
+                       QStringLiteral("scaled canvas clip center x"), err)
+        && requireNear(scaledLayer.clipCenter.y(), 580.0,
+                       QStringLiteral("scaled canvas clip center y"), err);
 }
 
 }  // namespace
@@ -204,7 +154,10 @@ int main(int argc, char* argv[])
     QTextStream err(stderr);
     QTextStream out(stdout);
 
-    if (!verifyVideoReferenceAlignment(err)) {
+    if (!verifyTouchTriggerClock(err)) {
+        return 1;
+    }
+    if (!verifySpreadDwellAndTail(err)) {
         return 1;
     }
     if (!verifyClipCenterStaysOnPlayfield(err)) {

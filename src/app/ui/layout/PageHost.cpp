@@ -1,0 +1,424 @@
+#include "app/ui/layout/PageHost.h"
+
+#include "common/DebugLog.h"
+#include "app/services/net/NetConfiguration.h"
+#include "app/ui/document/DocumentModel.h"
+#include "app/ui/export/ExportSession.h"
+
+
+namespace miacode::ui {
+PageHost::PageHost(miacode::ShellNotifications& notifications,
+                                     DocumentModel& document,
+                                     miacode::EditorPageRouter*& routerSlot,
+                                     QObject*& exportSessionSlot,
+                                     QObject* parent)
+    : QObject(parent)
+    , notifications_(&notifications)
+    , document_(&document)
+    , routerSlot_(&routerSlot)
+    , exportSessionSlot_(&exportSessionSlot)
+{
+    // The menu action and the chart.normalize shortcut land on MainWindow;
+    // re-emit so the editor sees one request regardless of where it came from.
+    connect(&notifications, &miacode::ShellNotifications::normalizeWholeChartRequested, this, [this]() {
+        openNormalizeWholeChart();
+    });
+    connect(&notifications, &miacode::ShellNotifications::mediaToolsRequested, this, [this]() {
+        openMediaProcessingTools();
+    });
+    connect(&notifications, &miacode::ShellNotifications::preferencesRequested, this, [this]() {
+        if (overlayActive()) {
+            requestPageSwitch([this]() {
+                if (!finishLeaveOverlay()) {
+                    return false;
+                }
+                emit preferencesRequested();
+                return true;
+            });
+        } else if (!navigationPending_) {
+            emit preferencesRequested();
+        }
+    });
+    connect(&notifications, &miacode::ShellNotifications::coverExportRequested, this, [this](int difficultyId) {
+        openCoverExport(difficultyId);
+    });
+    connect(&notifications, &miacode::ShellNotifications::selectionRangeExportPageRequested, this, [this]() {
+        openVideoExportPage();
+    });
+    connect(&document, &DocumentModel::documentReplaced, this, [this]() {
+        if (activePageId_.startsWith(QStringLiteral("net-")) && document_ != nullptr && document_->hasDocument()) {
+            activePageId_.clear();
+            emit activePageIdChanged();
+            return;
+        }
+        if (activePageId_ == QLatin1String("export")) {
+            resumeDifficultyId_ = document_ != nullptr
+                ? document_->currentDifficultyId() : 0;
+            resumeEditorKey_.clear();
+            resumeEditorKeyExplicit_ = false;
+            if (ExportSession* const session = exportSessionObject(); session != nullptr) {
+                session->replaceDocument(resumeDifficultyId_);
+            }
+            return;
+        }
+        if (activePageId_ != QLatin1String("latency")) {
+            return;
+        }
+        activePageId_.clear();
+        emit activePageIdChanged();
+    });
+    // requestPageSwitch() is asynchronous: openVideoExportPage() returns true
+    // once the switch is queued, and a refusal arrives here instead. Drop the
+    // staged range then, so it cannot be applied by a later unrelated entry.
+    connect(this, &PageHost::navigationRejected, this, [this]() {
+        if (ExportSession* const session = exportSessionObject(); session != nullptr) {
+            session->clearPendingSelectionRangeExport();
+        }
+    });
+    connect(&document, &DocumentModel::documentStateChanged, this, [this]() {
+        if (document_ == nullptr || document_->hasDocument() || activePageId_.isEmpty()
+            || activePageId_.startsWith(QStringLiteral("net-"))) {
+            return;
+        }
+        if (activePageId_ == QLatin1String("export")) {
+            if (ExportSession* const session = exportSessionObject(); session != nullptr) {
+                session->leave();
+            }
+        }
+        activePageId_.clear();
+        resumeDifficultyId_ = 0;
+        resumeEditorKey_.clear();
+        resumeEditorKeyExplicit_ = false;
+        emit activePageIdChanged();
+    });
+}
+
+ExportSession* PageHost::exportSessionObject() const
+{
+    return exportSessionSlot_ != nullptr
+        ? qobject_cast<ExportSession*>(*exportSessionSlot_)
+        : nullptr;
+}
+
+QObject* PageHost::exportSession() const
+{
+    return exportSessionSlot_ != nullptr ? *exportSessionSlot_ : nullptr;
+}
+
+void PageHost::rememberResumeDifficulty()
+{
+    if (resumeEditorKeyExplicit_) {
+        return;
+    }
+    if (activePageId_ == QLatin1String("latency") || activePageId_.startsWith(QStringLiteral("net-"))) {
+        rememberEditorReturnTarget(activePageId_);
+        return;
+    }
+    miacode::EditorPageRouter* const pages = router();
+    if (pages == nullptr) {
+        return;
+    }
+    if (pages->hasActiveDifficulty() && pages->activeDifficultyId() > 0) {
+        resumeDifficultyId_ = pages->activeDifficultyId();
+    } else {
+        resumeDifficultyId_ = 0;
+    }
+}
+
+void PageHost::rememberEditorReturnTarget(const QString& editorKey)
+{
+    resumeEditorKey_ = editorKey;
+    resumeEditorKeyExplicit_ = true;
+    resumeDifficultyId_ = 0;
+}
+
+bool PageHost::resumeChartOrMetadata()
+{
+    miacode::EditorPageRouter* const pages = router();
+    if (pages == nullptr) {
+        return false;
+    }
+    bool restored = false;
+    if (resumeEditorKeyExplicit_ && resumeEditorKey_.startsWith(QStringLiteral("net-"))) {
+        restored = pages->clearEditorPresentation();
+    } else if (resumeEditorKeyExplicit_ && resumeEditorKey_ == QLatin1String("latency")) {
+        restored = pages->enterLatencyPage();
+    } else if (resumeEditorKeyExplicit_ && resumeEditorKey_.isEmpty()) {
+        restored = pages->clearEditorPresentation();
+    } else {
+        const int difficultyId = resumeEditorKeyExplicit_ && resumeEditorKey_.startsWith(QStringLiteral("difficulty:"))
+            ? resumeEditorKey_.mid(QStringLiteral("difficulty:").size()).toInt()
+            : resumeDifficultyId_;
+        if (difficultyId > 0) {
+            if (document_ != nullptr) {
+                document_->selectDifficulty(difficultyId);
+            }
+            restored = pages->enterDifficultyPage(difficultyId);
+        }
+        if (!restored) {
+            restored = !resumeEditorKeyExplicit_ || resumeEditorKey_ == QLatin1String("metadata")
+                ? pages->enterMetadataPage()
+                : pages->clearEditorPresentation();
+        }
+    }
+    if (restored) {
+        resumeEditorKey_.clear();
+        resumeEditorKeyExplicit_ = false;
+        resumeDifficultyId_ = 0;
+    }
+    return restored;
+}
+
+bool PageHost::requestPageSwitch(std::function<bool()> action)
+{
+    if (navigationPending_ || document_ == nullptr || !action) {
+        return false;
+    }
+
+    navigationPending_ = true;
+    emit navigationPendingChanged();
+    const qulonglong documentGeneration = document_->documentGeneration();
+    QPointer<PageHost> self(this);
+    document_->requestLeaveCurrentField(
+        [self, documentGeneration, action = std::move(action)](bool mayLeave) mutable {
+            if (!self) {
+                return;
+            }
+            self->navigationPending_ = false;
+            emit self->navigationPendingChanged();
+            if (!mayLeave || self->document_ == nullptr
+                || self->document_->documentGeneration() != documentGeneration
+                || !action()) {
+                emit self->navigationRejected();
+                return;
+            }
+        });
+    return true;
+}
+
+bool PageHost::openVideoExportPage(const QString& tab)
+{
+    miacode::EditorPageRouter* const pages = router();
+    if (document_ == nullptr || !document_->hasDocument()
+        || pages == nullptr || exportSessionObject() == nullptr) {
+        return false;
+    }
+    const QString requestedTab = tab == QLatin1String("batch")
+        ? QStringLiteral("batch") : QStringLiteral("export");
+    if (activePageId_ == QLatin1String("export")) {
+        // The export page is a resident QML surface. Re-clicking its sidebar
+        // entry only changes the single/batch tab; tearing down and rebuilding
+        // the audition here made an otherwise harmless navigation expensive.
+        exportSessionObject()->setActiveTab(requestedTab);
+        return true;
+    }
+    rememberResumeDifficulty();
+    return requestPageSwitch([this, requestedTab]() {
+        if (exportSessionObject() == nullptr || router() == nullptr) {
+            return false;
+        }
+        exportSessionObject()->setActiveTab(requestedTab);
+        if (!router()->enterExportPage()) {
+            return false;
+        }
+        activePageId_ = QStringLiteral("export");
+        emit activePageIdChanged();
+        return true;
+    });
+}
+
+bool PageHost::openExportPage()
+{
+    return openVideoExportPage(QStringLiteral("export"));
+}
+
+bool PageHost::openLatencyPage()
+{
+    miacode::EditorPageRouter* const pages = router();
+    if (document_ == nullptr || !document_->hasDocument() || pages == nullptr
+        || navigationPending_) {
+        return false;
+    }
+    if (activePageId_ == QLatin1String("latency")) {
+        emit latencyPageActivated();
+        return true;
+    }
+    return requestPageSwitch([this]() {
+        if (router() == nullptr || !router()->enterLatencyPage()) {
+            return false;
+        }
+        // The editor tab owns the visible page; the active id tracks its
+        // synthesized preview source.
+        if (activePageId_ != QLatin1String("latency")) {
+            activePageId_ = QStringLiteral("latency");
+            emit activePageIdChanged();
+        }
+        emit latencyPageActivated();
+        return true;
+    });
+}
+
+bool PageHost::netEnabled() const
+{
+    return net_configuration::enabled();
+}
+
+bool PageHost::openNetPage(const QString& page)
+{
+    if (!netEnabled() || (page != QLatin1String("net-download") && page != QLatin1String("net-upload")) || router() == nullptr || navigationPending_) return false;
+    if (activePageId_ == page) {
+        emit netPageActivated(page);
+        return true;
+    }
+    return requestPageSwitch([this, page] {
+        if (router() == nullptr || !router()->clearEditorPresentation()) return false;
+        activePageId_ = page;
+        emit activePageIdChanged();
+        emit netPageActivated(page);
+        return true;
+    });
+}
+
+bool PageHost::finishLeaveOverlay()
+{
+    if (router() == nullptr) {
+        return false;
+    }
+    if (!overlayActive()) {
+        return true;
+    }
+
+    const bool returnToLatency = resumeEditorKeyExplicit_
+        && resumeEditorKey_ == QLatin1String("latency");
+    const QString returnToNet = resumeEditorKeyExplicit_ && resumeEditorKey_.startsWith(QStringLiteral("net-"))
+        ? resumeEditorKey_ : QString();
+    if (!resumeChartOrMetadata()) {
+        return false;
+    }
+    activePageId_ = returnToLatency ? QStringLiteral("latency") : returnToNet;
+    emit activePageIdChanged();
+    if (returnToLatency) {
+        emit latencyPageActivated();
+    }
+    if (!returnToNet.isEmpty()) emit netPageActivated(returnToNet);
+    emit overlayPageLeft();
+    return true;
+}
+
+bool PageHost::leaveOverlayPage()
+{
+    if (router() == nullptr) {
+        return false;
+    }
+    if (!overlayActive()) {
+        return true;
+    }
+    return requestPageSwitch([this]() { return finishLeaveOverlay(); });
+}
+
+bool PageHost::ensureDifficultyPageActive(int difficultyId)
+{
+    miacode::EditorPageRouter* const pages = router();
+    if (document_ == nullptr || !document_->hasDocument()
+        || pages == nullptr || difficultyId <= 0) {
+        return false;
+    }
+    if (!pages->difficultyPageActive() || pages->activeDifficultyId() != difficultyId) {
+        if (!pages->enterDifficultyPage(difficultyId)) {
+            return false;
+        }
+    }
+    if (activePageId_ == QLatin1String("latency") || activePageId_.startsWith(QStringLiteral("net-"))) {
+        activePageId_.clear();
+        emit activePageIdChanged();
+    }
+    return true;
+}
+
+bool PageHost::activateMetadataPage()
+{
+    if (router() == nullptr || overlayActive()
+        || !router()->enterMetadataPage()) {
+        return false;
+    }
+    if (!activePageId_.isEmpty()) {
+        activePageId_.clear();
+        emit activePageIdChanged();
+    }
+    return true;
+}
+
+bool PageHost::clearEditorPresentation()
+{
+    miacode::EditorPageRouter* const pages = router();
+    if (pages == nullptr || overlayActive() || navigationPending_) {
+        return false;
+    }
+    if (!pages->clearEditorPresentation()) {
+        return false;
+    }
+    if (activePageId_ == QLatin1String("latency") || activePageId_.startsWith(QStringLiteral("net-"))) {
+        activePageId_.clear();
+        emit activePageIdChanged();
+    }
+    return true;
+}
+
+void PageHost::openMediaProcessingTools()
+{
+    if (document_ == nullptr || !document_->hasDocument()) {
+        return;
+    }
+    emit mediaToolsRequested();
+}
+
+void PageHost::openNormalizeWholeChart()
+{
+    if (document_ == nullptr || !document_->hasDocument()
+        || document_->currentDifficultyId() <= 0 || navigationPending_) {
+        return;
+    }
+    if (activePageId_ == QLatin1String("export")) {
+        return;
+    }
+    if (overlayActive()) {
+        requestPageSwitch([this]() {
+            if (!finishLeaveOverlay()) {
+                return false;
+            }
+            emit normalizeWholeChartRequested();
+            return true;
+        });
+        return;
+    }
+    emit normalizeWholeChartRequested();
+}
+
+void PageHost::openBatchExport()
+{
+    openVideoExportPage(QStringLiteral("batch"));
+}
+
+bool PageHost::openCoverExport(int difficultyId)
+{
+    if (document_ == nullptr || !document_->hasDocument() || router() == nullptr) {
+        return false;
+    }
+    const int selectedDifficultyId = difficultyId > 0 ? difficultyId
+        : activePageId_ == QLatin1String("export") && exportSessionObject() != nullptr
+            ? exportSessionObject()->selectedDifficultyId() : router()->activeDifficultyId();
+    emit coverWindowRequested(selectedDifficultyId);
+    return true;
+}
+
+void PageHost::packAsZip()
+{
+    if (document_ == nullptr || !document_->hasDocument()) {
+        return;
+    }
+    if (miacode::EditorPageRouter* const pages = router(); pages != nullptr) {
+        pages->packChartAsZip();
+    }
+}
+
+} // namespace miacode::ui

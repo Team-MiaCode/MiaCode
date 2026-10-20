@@ -29,18 +29,27 @@ Item {
     // the card fully (no fade-in). The maimai track-start card does NOT fade as one
     // unit — frame/jacket/level/text appear with different delays (see partOpacity).
     property int revealStartFrame: -1
-    property url templateSource: Qt.resolvedUrl("../templates/maimai_banner.json")
     property url backgroundImage: ""
     property url jacketImage: ""
+    property bool cacheStaticImages: true
+    property bool cacheDynamicImages: true
     // Fallback art when no 曲绘 is available (see effectiveJacket).
-    property url logoImage: "qrc:/icons/app.png"
+    property url logoImage: "qrc:/icons/app-original.png"
     property var trackOverrides: ({})
-    // When the host supplies a parsed template object (the integrated export
-    // injects it from C++ so it doesn't depend on an async XMLHttpRequest that
-    // never fires under the headless QQuickRenderControl loop), use it verbatim
-    // and skip the templateSource XHR entirely.
     property var externalTemplate: null
-    property var template: defaultTemplate()
+    property bool fitToContent: false
+    readonly property var sourceTemplate: externalTemplate || defaultTemplate()
+    readonly property real contentTop: sourceTemplate.layout && sourceTemplate.layout.mbaseTab
+        ? Math.min(0, sourceTemplate.layout.mbaseTab.y || 0) : 0
+    readonly property var template: {
+        if (!fitToContent) return sourceTemplate
+        const fitted = JSON.parse(JSON.stringify(sourceTemplate))
+        const contentHeight = fitted.card.nativeHeight - contentTop
+        fitted.card.heightRatio = fitted.card.nativeHeight / contentHeight
+        fitted.card.topMargin = -contentTop / contentHeight
+        fitted.transparentBackground = true
+        return fitted
+    }
 
     // When true, the outer blurred-jacket backdrop + dim + black base are skipped,
     // leaving only the card (rounded frame + tab) with alpha around it. Used to
@@ -174,17 +183,6 @@ Item {
             },
             transparentBackground: true
         }
-    }
-
-    function loadTemplate() {
-        var xhr = new XMLHttpRequest()
-        xhr.open("GET", templateSource)
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
-                template = JSON.parse(xhr.responseText)
-            }
-        }
-        xhr.send()
     }
 
     function trackValue(name) {
@@ -424,24 +422,6 @@ Item {
         return (s.offsetY !== undefined) ? s.offsetY : 14
     }
 
-    Component.onCompleted: {
-        if (externalTemplate) {
-            template = externalTemplate
-        } else {
-            loadTemplate()
-        }
-    }
-    onExternalTemplateChanged: {
-        if (externalTemplate) {
-            template = externalTemplate
-        }
-    }
-    onTemplateSourceChanged: {
-        if (!externalTemplate) {
-            loadTemplate()
-        }
-    }
-
     QtObject {
         id: geom
         readonly property real cardH: root.template.card.heightRatio * root.height
@@ -561,6 +541,7 @@ Item {
     // on it stays hidden and feeds the MultiEffect below as the blur source.
     Image {
         id: backdropSource
+        cache: root.cacheDynamicImages
         anchors.fill: parent
         source: root.effectiveBackdrop
         fillMode: Image.PreserveAspectCrop
@@ -642,6 +623,7 @@ Item {
             anchors.fill: parent
             opacity: root.stageOpacity("frame")
             source: root.assetUrl(root.template.assets.frame[root.trackValue("difficulty")])
+            cache: root.cacheStaticImages
             smooth: true
             mipmap: true
         }
@@ -684,6 +666,7 @@ Item {
             Image {
                 anchors.fill: parent
                 source: root.effectiveJacket
+                cache: root.cacheDynamicImages
                 fillMode: Image.PreserveAspectCrop
                 visible: root.effectiveJacket.toString().length > 0
                 smooth: true
@@ -703,6 +686,7 @@ Item {
             x: b.x; y: b.y; width: b.w; height: b.h
             opacity: root.stageOpacity("tab")
             source: root.assetUrl(root.template.assets.tab[root.trackValue("difficulty")])
+            cache: root.cacheStaticImages
             // The prefab tab only ships a LEFT tall shoulder (the でらっくす seat).
             // For Standard (SD) charts mirror it so the shoulder moves to the
             // right and seats the スタンダード plate symmetrically.
@@ -718,6 +702,7 @@ Item {
             x: b.x; y: b.y; width: b.w; height: b.h
             opacity: root.stageOpacity("tab")
             source: root.assetUrl(root.template.assets.plateDeluxe)
+            cache: root.cacheStaticImages
             visible: root.trackValue("mode") !== "Standard"
             smooth: true
             mipmap: true
@@ -727,6 +712,7 @@ Item {
             x: b.x; y: b.y; width: b.w; height: b.h
             opacity: root.stageOpacity("tab")
             source: root.assetUrl(root.template.assets.plateStandard)
+            cache: root.cacheStaticImages
             visible: root.trackValue("mode") === "Standard"
             smooth: true
             mipmap: true
@@ -757,6 +743,7 @@ Item {
             x: b.x; y: b.y; width: b.w; height: b.h
             opacity: root.stageOpacity("level")
             source: root.assetUrl(root.template.assets.lvPill[root.trackValue("difficulty")])
+            cache: root.cacheStaticImages
             smooth: true
             mipmap: true
         }
@@ -806,6 +793,7 @@ Item {
 
                 Image {
                     id: lvLabelSprite
+                    cache: root.cacheStaticImages
                     height: 60
                     width: root.lvGlyphWidth(14)
                     source: root.lvAtlasUrl()
@@ -821,6 +809,7 @@ Item {
                     Repeater {
                         model: root.lvDigitSequence(root.trackValue("level"))
                         Image {
+                            cache: root.cacheStaticImages
                             height: 60
                             width: root.lvGlyphWidth(modelData)
                             source: root.lvAtlasUrl()

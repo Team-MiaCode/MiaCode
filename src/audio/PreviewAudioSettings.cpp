@@ -1,4 +1,4 @@
-#include "PreviewAudioSettings.h"
+#include "audio/PreviewAudioSettings.h"
 
 #include <QtGlobal>
 
@@ -14,6 +14,7 @@ constexpr double kDefaultBreakSlideVolume = 0.30;
 constexpr double kDefaultSlideVolume = 0.30;
 constexpr double kDefaultTouchVolume = 0.30;
 constexpr double kDefaultFireworkVolume = 0.30;
+constexpr double kDefaultIntroVolume = 1.0;
 constexpr double kMaxGlobalVolume = 1.0;
 constexpr double kMuteThreshold = 0.0001;
 
@@ -119,6 +120,7 @@ void PreviewAudioSettings::normalize()
     normalizeVolumePair(slideVolume, slideRestoreVolume, kDefaultSlideVolume);
     normalizeVolumePair(touchVolume, touchRestoreVolume, kDefaultTouchVolume);
     normalizeVolumePair(fireworkVolume, fireworkRestoreVolume, kDefaultFireworkVolume);
+    normalizeVolumePair(introVolume, introRestoreVolume, kDefaultIntroVolume);
 }
 
 int PreviewAudioSettings::globalPercent() const
@@ -169,6 +171,11 @@ int PreviewAudioSettings::touchPercent() const
 int PreviewAudioSettings::fireworkPercent() const
 {
     return qRound(clamp(fireworkVolume) * 100.0);
+}
+
+int PreviewAudioSettings::introPercent() const
+{
+    return qRound(clamp(introVolume) * 100.0);
 }
 
 void PreviewAudioSettings::setGlobalPercent(int value)
@@ -253,6 +260,14 @@ void PreviewAudioSettings::setFireworkPercent(int value)
     }
 }
 
+void PreviewAudioSettings::setIntroPercent(int value)
+{
+    setVolumePercent(introVolume, introRestoreVolume, value, kDefaultIntroVolume);
+    if (introVolume > kMuteThreshold) {
+        restoreGlobalIfMuted(*this);
+    }
+}
+
 bool PreviewAudioSettings::globalMuted() const
 {
     return isMutedVolume(globalVolume);
@@ -301,6 +316,11 @@ bool PreviewAudioSettings::touchMuted() const
 bool PreviewAudioSettings::fireworkMuted() const
 {
     return isMutedVolume(fireworkVolume);
+}
+
+bool PreviewAudioSettings::introMuted() const
+{
+    return isMutedVolume(introVolume);
 }
 
 bool PreviewAudioSettings::allNonTrackMuted() const
@@ -402,6 +422,14 @@ void PreviewAudioSettings::toggleFireworkMuted()
     toggleMuted(fireworkVolume, fireworkRestoreVolume, kDefaultFireworkVolume);
 }
 
+void PreviewAudioSettings::toggleIntroMuted()
+{
+    if (introMuted()) {
+        restoreGlobalIfMuted(*this);
+    }
+    toggleMuted(introVolume, introRestoreVolume, kDefaultIntroVolume);
+}
+
 void PreviewAudioSettings::toggleAllNonTrackMuted()
 {
     if (!allNonTrackMuted()) {
@@ -469,6 +497,8 @@ QJsonObject PreviewAudioSettings::toJson() const
     object.insert("touch_restore_volume", normalized.touchRestoreVolume);
     object.insert("firework_volume", normalized.fireworkVolume);
     object.insert("firework_restore_volume", normalized.fireworkRestoreVolume);
+    object.insert("intro_volume", normalized.introVolume);
+    object.insert("intro_restore_volume", normalized.introRestoreVolume);
     return object;
 }
 
@@ -590,6 +620,12 @@ PreviewAudioSettings PreviewAudioSettings::fromJson(const QJsonObject& object)
             "hanabi_restore_volume",
             settings.fireworkVolume > kMuteThreshold ? settings.fireworkVolume : kDefaultFireworkVolume));
 
+    settings.introVolume = valueOrDefault(object, "intro_volume", kDefaultIntroVolume);
+    settings.introRestoreVolume = valueOrDefault(
+        object,
+        "intro_restore_volume",
+        settings.introVolume > kMuteThreshold ? settings.introVolume : kDefaultIntroVolume);
+
     settings.normalize();
     return settings;
 }
@@ -599,9 +635,8 @@ PreviewAudioSettings makePreviewLatencyAuditionLevels(const PreviewAudioSettings
     PreviewAudioSettings levels = mix;
     // Keep the song audio at the user's normal effective volume by collapsing the
     // chained (global * track) multiplier into a single trackVolume term and
-    // pinning globalVolume to 1.0. SFX kinds then get the sandbox slider's value
-    // directly (independent of the user's normal mix), so the test taps are easy
-    // to hear regardless of how quietly the user runs the song.
+    // pinning globalVolume to 1.0. Only answer uses the sandbox slider's value,
+    // independently of the user's normal SFX mix.
     const double effectiveTrackVolume = previewTrackVolume(mix);
     levels.globalVolume = 1.0;
     levels.globalRestoreVolume = 1.0;
@@ -609,22 +644,38 @@ PreviewAudioSettings makePreviewLatencyAuditionLevels(const PreviewAudioSettings
     levels.trackRestoreVolume = levels.trackVolume;
 
     const double sfxLevel = qBound(0.0, static_cast<double>(sfxPercent) / 100.0, 1.0);
-    levels.tapVolume = sfxLevel;
-    levels.tapRestoreVolume = sfxLevel;
-    levels.exVolume = sfxLevel;
-    levels.exRestoreVolume = sfxLevel;
-    levels.breakVolume = sfxLevel;
-    levels.breakRestoreVolume = sfxLevel;
-    levels.breakSlideVolume = sfxLevel;
-    levels.breakSlideRestoreVolume = sfxLevel;
-    levels.slideVolume = sfxLevel;
-    levels.slideRestoreVolume = sfxLevel;
-    levels.touchVolume = sfxLevel;
-    levels.touchRestoreVolume = sfxLevel;
-    levels.fireworkVolume = sfxLevel;
-    levels.fireworkRestoreVolume = sfxLevel;
+    levels.tapVolume = 0.0;
+    levels.tapRestoreVolume = 0.0;
+    levels.exVolume = 0.0;
+    levels.exRestoreVolume = 0.0;
+    levels.breakVolume = 0.0;
+    levels.breakRestoreVolume = 0.0;
+    levels.breakSlideVolume = 0.0;
+    levels.breakSlideRestoreVolume = 0.0;
+    levels.slideVolume = 0.0;
+    levels.slideRestoreVolume = 0.0;
+    levels.touchVolume = 0.0;
+    levels.touchRestoreVolume = 0.0;
+    levels.fireworkVolume = 0.0;
+    levels.fireworkRestoreVolume = 0.0;
+    levels.introVolume = 0.0;
+    levels.introRestoreVolume = 0.0;
     levels.answerVolume = sfxLevel;
     levels.answerRestoreVolume = sfxLevel;
+    levels.normalize();
+    return levels;
+}
+
+PreviewAudioSettings makePreviewIntroSegmentLevels(const PreviewAudioSettings& mix, double trackGain)
+{
+    PreviewAudioSettings levels = mix;
+    levels.trackVolume = PreviewAudioSettings::clamp(mix.trackVolume * qBound(0.0, trackGain, 1.0));
+    for (double* volume : {&levels.answerVolume, &levels.tapVolume, &levels.exVolume,
+                           &levels.breakVolume, &levels.breakSlideVolume, &levels.slideVolume,
+                           &levels.touchVolume, &levels.fireworkVolume, &levels.introVolume}) {
+        *volume = 0.0;
+    }
+    levels.mineSfxEnabled = false;
     levels.normalize();
     return levels;
 }

@@ -1,5 +1,5 @@
-#include "ChartBatchTransform.h"
-#include "ChartBatchTransform.Internal.h"
+#include "core/chart/transform/ChartBatchTransform.h"
+#include "core/chart/transform/ChartBatchTransform.Internal.h"
 
 #include <functional>
 

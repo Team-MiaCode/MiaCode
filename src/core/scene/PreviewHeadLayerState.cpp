@@ -1,6 +1,6 @@
 #include "core/scene/PreviewHeadLayerState.h"
 
-#include "common/PreviewGameplayConfig.h"
+#include "core/video/PreviewGameplayConfig.h"
 #include "core/scene/PreviewAnimatedSpriteHelpers.h"
 #include "core/scene/PreviewJudgeOverlayShared.h"
 #include "core/scene/PreviewMarkerDrawOrder.h"

@@ -1,9 +1,11 @@
 #include "preview/quick_scene/PreviewQuickJudgeFireworkLayer.h"
 
 #include "preview/quick_scene/PreviewTextureRepository.h"
+#include "preview/quick_scene/PreviewFireworkPostProcess.h"
 #include "core/scene/PreviewJudgeFireworkLayerState.h"
 #include "core/scene/PreviewPreparedSceneCache.h"
 #include "core/scene/PreviewSceneGeometry.h"
+#include "core/video/PreviewVideoGeometryConfig.h"
 
 #include <QMatrix4x4>
 #include <QQuickWindow>
@@ -17,11 +19,18 @@
 #include <QSGTexture>
 #include <QtMath>
 
+#include <array>
+#include <cmath>
 #include <cstring>
 
 namespace {
 
-constexpr int kFireworkMaterialUniformBufferSize = 160;
+constexpr int kFireworkGlowFieldCount = 11;
+struct FireworkGlowField {
+    float axisX, axisY, inverseReach, inverseWidth;
+    float centerX, centerY, weight, padding;
+};
+constexpr int kFireworkMaterialUniformBufferSize = 176 + kFireworkGlowFieldCount * sizeof(FireworkGlowField);
 constexpr qreal kFireworkQuadRadiusMin = 1.0;
 constexpr int kFireworkClipSegments = 64;
 constexpr int kFireworkRenderFlagDrawStripe = 0x1;
@@ -29,10 +38,110 @@ constexpr int kFireworkRenderFlagDrawBigBall = 0x2;
 constexpr int kFireworkRenderFlagDrawSmallBall = 0x4;
 constexpr int kFireworkRenderFlagUseTexture = 0x8;
 constexpr int kFireworkRenderFlagDrawFallbackBall = 0x10;
+constexpr int kFireworkRenderFlagWarmup = 0x20;
 
-float nextFireworkStarAngleSeed()
+float fireworkStarAngleSeed(qreal triggerSecond)
 {
-    return static_cast<float>(QRandomGenerator::global()->generateDouble() * 4096.0);
+    QRandomGenerator random(static_cast<quint32>(qHash(triggerSecond, size_t{0})));
+    return static_cast<float>(random.generateDouble() * 4096.0);
+}
+
+float fireworkSmoothStep(float value)
+{
+    const float bounded = qBound(0.0f, value, 1.0f);
+    return bounded * bounded * (3.0f - 2.0f * bounded);
+}
+
+std::array<FireworkStarState, kFireworkStarCount> fireworkStarStates(
+    float clipTime, float clipRadius, float angleSeed)
+{
+    constexpr std::array<std::array<float, 3>, kFireworkStarCount> positions = {{
+        {290,130,19},{558,178,13},{570,199,12},{617,285,21},
+        {468,268,12},{286,241,8},{258,288,21},{241,322,12},
+        {244,382,20},{237,397,14},{259,441,14},{511,362,8},
+        {514,377,7},{486,402,22},{489,423,12},{477,441,14},
+        {459,457,13},{420,476,23},{404,487,12},{598,475,14},
+        {585,503,15},{539,535,23},{526,563,10},{468,607,8},
+        {184,490,20},{155,535,9},{218,557,13},{149,287,19},
+        {187,225,8},{220,183,13},{95,398,10},{333,78,9}
+    }};
+    constexpr float lateDelays[8] = {.39f,.53f,.28f,.34f,.61f,.46f,.65f,.58f};
+    std::array<FireworkStarState, kFireworkStarCount> stars{};
+    const float rotation = angleSeed * 6.28318530718f / 4096.0f;
+    const float cosAngle = std::cos(rotation), sinAngle = std::sin(rotation);
+    for (int i = 0; i < kFireworkStarCount; ++i) {
+        const auto& point = positions[i];
+        const float variation = static_cast<float>((i * 17 + 7) % 29) / 28.0f;
+        const float delay = i >= 24 ? lateDelays[i - 24]
+            : (point[2] >= 18 ? .068f : (i == 5 || i == 11) ? .085f : .145f) + variation * .065f;
+        const float age = clipTime - delay;
+        const float x = (point[0] - 360.0f) / 350.0f;
+        const float y = (point[1] - 360.0f) / 350.0f;
+        const float travelLifetime = (.97f / std::hypot(x, y) - 1.0f) / .55f;
+        const float desiredStart = .10f + variation * .08f;
+        const float desiredDuration = .28f + static_cast<float>((i * 11 + 3) % 23) / 22.0f * .16f;
+        const float lifetime = qMin(qMin(desiredStart + desiredDuration, travelLifetime), 1.0f - delay);
+        const float shrinkStart = desiredStart * lifetime / (desiredStart + desiredDuration);
+        const float departure = qBound(0.0f, (age - shrinkStart) / (lifetime - shrinkStart), 1.0f);
+        if (age < 0.0f || departure >= 1.0f) {
+            continue;
+        }
+        const float distance = clipRadius * (1.0f + .55f * age);
+        const float width = .66f + static_cast<float>((i % 12 + (i / 12) * 2) % 5) * .035f;
+        stars[i] = {(x * cosAngle - y * sinAngle) * distance,
+            (x * sinAngle + y * cosAngle) * distance,
+            point[2] / 350.0f * clipRadius * (1.0f - fireworkSmoothStep(departure)) / width, 1.0f};
+    }
+    return stars;
+}
+
+std::array<FireworkGlowField, kFireworkGlowFieldCount> fireworkGlowFields(float time)
+{
+    constexpr float directions[] = {0.0f, .39f, 1.05f, 1.42f, 2.19f, 2.64f, 3.02f, 3.85f, 4.21f, 4.90f, 5.75f};
+    struct Shape { float speed, variation, width; };
+    static const auto shapes = [] {
+        std::array<Shape, kFireworkGlowFieldCount> values{};
+        for (int i = 0; i < kFireworkGlowFieldCount; ++i) {
+            values[i] = {5.0f + 3.0f * (.5f + .5f * std::sin(i * 1.73f)),
+                .5f + .5f * std::sin(i * 4.13f + 1.7f),
+                .023f + .006f * (.5f + .5f * std::cos(i * 2.91f))};
+        }
+        return values;
+    }();
+    const float lightRetirement = qBound(0.0f, (time + 1.0f / 30.0f - .567f) / .433f, 1.0f);
+    const float dispersion = fireworkSmoothStep(time / 1.067f / .100f) * (1.0f - std::pow(lightRetirement, 4.0f));
+    std::array<FireworkGlowField, kFireworkGlowFieldCount> fields{};
+    for (int i = 0; i < kFireworkGlowFieldCount; ++i) {
+        const auto& shape = shapes[i];
+        const float phase = time * shape.speed;
+        const float angle = directions[i] + qDegreesToRadians(time * 70.0f)
+            + .075f * std::sin(phase + i * 2.61f) * dispersion;
+        const float x = std::cos(angle), y = std::sin(angle);
+        const float reach = (.126f + (.207f - .126f) * shape.variation)
+            * (1.0f + .16f * std::sin(phase + i * 3.17f) * dispersion);
+        const float width = shape.width * (1.0f + .08f * std::sin(phase * .83f + i * 1.91f) * dispersion);
+        const float center = (.010f + .006f * shape.variation) * dispersion;
+        fields[i] = {x, y, 1.0f / (.026f + (reach - .026f) * dispersion),
+            1.0f / (.026f + (width - .026f) * dispersion), x * center, y * center,
+            .88f + .12f * shape.variation, 0.0f};
+    }
+    return fields;
+}
+
+QImage solidFireworkBallImage(const QImage& sourceImage)
+{
+    QImage image = sourceImage.convertToFormat(QImage::Format_RGBA8888);
+    const float edgeWidth = 2.0f / image.width();
+    for (int y = 0; y < image.height(); ++y) {
+        auto* pixels = image.scanLine(y);
+        for (int x = 0; x < image.width(); ++x) {
+            const float radial = std::hypot((x + .5f) / image.width() * 2.0f - 1.0f,
+                (y + .5f) / image.height() * 2.0f - 1.0f);
+            const float coverage = 1.0f - fireworkSmoothStep((radial - .85f + edgeWidth) / (2.0f * edgeWidth));
+            pixels[x * 4 + 3] = static_cast<uchar>(qRound(255.0f * coverage));
+        }
+    }
+    return image.convertToFormat(QImage::Format_RGBA8888_Premultiplied);
 }
 
 class PreviewQuickJudgeFireworkMaterial;
@@ -91,6 +200,9 @@ public:
 
     void updateClip(const QPointF& center, qreal radius)
     {
+        if (center == center_ && radius == radius_) return;
+        center_ = center;
+        radius_ = radius;
         auto* vertices = geometry_->vertexDataAsPoint2D();
         for (int segmentIndex = 0; segmentIndex < kFireworkClipSegments; ++segmentIndex) {
             const qreal t0 = static_cast<qreal>(segmentIndex) / static_cast<qreal>(kFireworkClipSegments);
@@ -116,6 +228,8 @@ public:
     }
 
 private:
+    QPointF center_;
+    qreal radius_ = -1.0;
     QSGGeometry* geometry_ = nullptr;
 };
 
@@ -171,6 +285,7 @@ public:
         const auto* otherMaterial = static_cast<const PreviewQuickJudgeFireworkMaterial*>(other);
         if (texture_ == otherMaterial->texture_
             && brightBlockTexture_ == otherMaterial->brightBlockTexture_
+            && bigBallTexture_ == otherMaterial->bigBallTexture_
             && qFuzzyCompare(quadRadius_ + 1.0f, otherMaterial->quadRadius_ + 1.0f)
             && qFuzzyCompare(clipRadius_ + 1.0f, otherMaterial->clipRadius_ + 1.0f)
             && qFuzzyCompare(outerRadius_ + 1.0f, otherMaterial->outerRadius_ + 1.0f)
@@ -199,6 +314,7 @@ public:
     void setState(
         QSGTexture* texture,
         QSGTexture* brightBlockTexture,
+        QSGTexture* bigBallTexture,
         bool useTexture,
         float quadRadius,
         float clipRadius,
@@ -218,11 +334,13 @@ public:
         float clipTimeSeconds,
         float life01,
         float starAngleSeed,
+        const std::array<FireworkGlowField, kFireworkGlowFieldCount>& glowFields,
         const QRectF& sourceRectNormalized
     )
     {
         texture_ = texture;
         brightBlockTexture_ = brightBlockTexture;
+        bigBallTexture_ = bigBallTexture;
         useTexture_ = useTexture;
         quadRadius_ = quadRadius;
         clipRadius_ = clipRadius;
@@ -242,11 +360,16 @@ public:
         clipTimeSeconds_ = clipTimeSeconds;
         life01_ = life01;
         starAngleSeed_ = starAngleSeed;
+        glowFields_ = glowFields;
         sourceRectNormalized_ = sourceRectNormalized;
     }
 
     QSGTexture* texture() const { return texture_; }
     QSGTexture* brightBlockTexture() const { return brightBlockTexture_; }
+    QSGTexture* bigBallTexture() const { return bigBallTexture_; }
+    std::array<float, 4> starsUvTransform{};
+    QSGTexture* starsTexture() const { return starsTexture_; }
+    void setStarsTexture(QSGTexture* texture) { starsTexture_ = texture; }
     bool useTexture() const { return useTexture_; }
     float quadRadius() const { return quadRadius_; }
     float clipRadius() const { return clipRadius_; }
@@ -266,11 +389,14 @@ public:
     float clipTimeSeconds() const { return clipTimeSeconds_; }
     float life01() const { return life01_; }
     float starAngleSeed() const { return starAngleSeed_; }
+    const std::array<FireworkGlowField, kFireworkGlowFieldCount>& glowFields() const { return glowFields_; }
     QRectF sourceRectNormalized() const { return sourceRectNormalized_; }
 
 private:
+    QSGTexture* starsTexture_ = nullptr;
     QSGTexture* texture_ = nullptr;
     QSGTexture* brightBlockTexture_ = nullptr;
+    QSGTexture* bigBallTexture_ = nullptr;
     bool useTexture_ = false;
     float quadRadius_ = 0.0f;
     float clipRadius_ = 0.0f;
@@ -290,6 +416,7 @@ private:
     float clipTimeSeconds_ = 0.0f;
     float life01_ = 0.0f;
     float starAngleSeed_ = 0.0f;
+    std::array<FireworkGlowField, kFireworkGlowFieldCount> glowFields_{};
     QRectF sourceRectNormalized_;
 };
 
@@ -343,10 +470,10 @@ bool PreviewQuickJudgeFireworkMaterialShader::updateUniformData(
         static_cast<float>(material->sourceRectNormalized().height())
     };
     const float timing[4] = {
-        material->clipTimeSeconds(),
+        material->clipTimeSeconds() / 1.067f,
         material->life01(),
         material->starAngleSeed(),
-        0.0f
+        material->clipTimeSeconds()
     };
 
     std::memcpy(uniformData->data() + 64, &opacity, sizeof(float));
@@ -356,6 +483,12 @@ bool PreviewQuickJudgeFireworkMaterialShader::updateUniformData(
     std::memcpy(uniformData->data() + 112, colorBallBig, sizeof(colorBallBig));
     std::memcpy(uniformData->data() + 128, sourceRect, sizeof(sourceRect));
     std::memcpy(uniformData->data() + 144, timing, sizeof(timing));
+    std::memcpy(
+        uniformData->data() + 160,
+        material->glowFields().data(),
+        sizeof(FireworkGlowField) * kFireworkGlowFieldCount);
+    std::memcpy(uniformData->data() + 160 + sizeof(FireworkGlowField) * kFireworkGlowFieldCount,
+        material->starsUvTransform.data(), sizeof(float) * 4);
     return true;
 }
 
@@ -369,12 +502,14 @@ void PreviewQuickJudgeFireworkMaterialShader::updateSampledImage(
 {
     Q_UNUSED(oldMaterial);
 
-    if ((binding != 1 && binding != 2) || texture == nullptr) {
+    if ((binding != 1 && binding != 2 && binding != 3 && binding != 4) || texture == nullptr) {
         return;
     }
 
     const auto* material = static_cast<const PreviewQuickJudgeFireworkMaterial*>(newMaterial);
-    *texture = binding == 1 ? material->texture() : material->brightBlockTexture();
+    *texture = binding == 1 ? material->texture()
+        : binding == 2 ? material->brightBlockTexture()
+        : binding == 3 ? material->bigBallTexture() : material->starsTexture();
     if (*texture != nullptr) {
         (*texture)->commitTextureOperations(state.rhi(), state.resourceUpdateBatch());
     }
@@ -395,9 +530,7 @@ bool PreviewQuickJudgeFireworkMaterialShader::updateGraphicsPipelineState(
         return false;
     }
 
-    // Premultiplied source-over (matches MajdataPlay's SrcAlpha OneMinusSrcAlpha). The frag
-    // outputs premultiplied color, so the src factor stays One and dst is OneMinusSrcAlpha;
-    // this replaces the old additive blend that made the firework read too bright.
+    // Alpha controls coloured coverage; zero-coverage emission adds light to the stage.
     ps->blendEnable = true;
     ps->srcColor = GraphicsPipelineState::One;
     ps->dstColor = GraphicsPipelineState::OneMinusSrcAlpha;
@@ -409,56 +542,43 @@ bool PreviewQuickJudgeFireworkMaterialShader::updateGraphicsPipelineState(
     return true;
 }
 
-class PreviewQuickJudgeFireworkNode final : public QSGGeometryNode
+class PreviewQuickJudgeFireworkNode final : public QSGNode
 {
 public:
-    PreviewQuickJudgeFireworkNode()
-        : starAngleSeed_(nextFireworkStarAngleSeed())
+    explicit PreviewQuickJudgeFireworkNode(QQuickWindow* window)
     {
         geometry_ = new QSGGeometry(previewQuickJudgeFireworkVertexAttributes(), 4);
         geometry_->setDrawingMode(QSGGeometry::DrawTriangleStrip);
         geometry_->setVertexDataPattern(QSGGeometry::DynamicPattern);
-        setGeometry(geometry_);
-        setFlag(QSGNode::OwnsGeometry, true);
-
+        postProcess_ = new PreviewFireworkPostProcess(window);
+        appendChildNode(postProcess_);
+        sourceNode_ = new QSGGeometryNode;
+        postProcess_->sourceRoot()->appendChildNode(sourceNode_);
+        sourceNode_->setGeometry(geometry_);
+        sourceNode_->setFlag(QSGNode::OwnsGeometry, true);
         material_ = new PreviewQuickJudgeFireworkMaterial();
-        setMaterial(material_);
-        setFlag(QSGNode::OwnsMaterial, true);
+        sourceNode_->setMaterial(material_);
+        sourceNode_->setFlag(QSGNode::OwnsMaterial, true);
+        material_->setStarsTexture(postProcess_->starTexture());
     }
 
     void updateNode(
         const miacode::preview::scene::PreviewJudgeFireworkLayerState& layerState,
-        QSGTexture* texture,
-        QSGTexture* brightBlockTexture,
-        bool useTexture,
-        const QRectF& normalizedSourceRect,
-        float sourceAspect
-    )
+        QSGTexture* texture, QSGTexture* brightBlockTexture, QSGTexture* bigBallTexture,
+        bool useTexture, const QRectF& normalizedSourceRect, float sourceAspect, float smoothBlendStart)
     {
-        const bool triggerChanged = hasPreviousFrame_
-            && !qFuzzyCompare(layerState.triggerSecond + 1.0, previousTriggerSecond_ + 1.0);
-        const bool clipRestarted = hasPreviousFrame_
-            && layerState.clipTimeSeconds + 0.0001 < previousClipTimeSeconds_;
-        if (triggerChanged || clipRestarted) {
-            starAngleSeed_ = nextFireworkStarAngleSeed();
+        if (layerState.triggerSecond != previousTriggerSecond_) {
+            starAngleSeed_ = fireworkStarAngleSeed(layerState.triggerSecond);
+            previousTriggerSecond_ = layerState.triggerSecond;
         }
-        previousTriggerSecond_ = layerState.triggerSecond;
-        previousClipTimeSeconds_ = layerState.clipTimeSeconds;
-        hasPreviousFrame_ = true;
 
-        const qreal resolvedQuadRadius = qMax<qreal>(
-            kFireworkQuadRadiusMin,
-            qMax(
-                qMax(layerState.outerRadius, layerState.clipRadius),
-                qMax(
-                    layerState.holeMaskRadius,
-                    qMax(
-                        qMax(layerState.colorBallRadius, layerState.colorBallBigRadius),
-                        layerState.fallbackColorBallRadius
-                    )
-                )
-            )
-        );
+        // The hole is a mask, not visible content; only drawn layers set the bounds.
+        const qreal contentRadius = qMax(layerState.outerRadius,
+            qMax(layerState.clipRadius * 1.26,
+                qMax(layerState.colorBallRadius,
+                    qMax(layerState.colorBallBigRadius, layerState.fallbackColorBallRadius))));
+        const qreal resolvedQuadRadius = layerState.warmup ? kFireworkQuadRadiusMin
+            : contentRadius * 1.045 + layerState.clipRadius * 0.012;
         int renderFlags = 0;
         if (layerState.drawFirework) {
             renderFlags |= kFireworkRenderFlagDrawStripe;
@@ -475,17 +595,40 @@ public:
         if (layerState.drawFallbackColorBall) {
             renderFlags |= kFireworkRenderFlagDrawFallbackBall;
         }
+        if (layerState.warmup) {
+            renderFlags |= kFireworkRenderFlagWarmup;
+        }
         const float quadRadius = static_cast<float>(resolvedQuadRadius);
-        auto* vertices = reinterpret_cast<PreviewQuickJudgeFireworkVertex*>(geometry_->vertexData());
-        vertices[0] = {static_cast<float>(layerState.center.x() - quadRadius), static_cast<float>(layerState.center.y() - quadRadius), 0.0f, 0.0f};
-        vertices[1] = {static_cast<float>(layerState.center.x() + quadRadius), static_cast<float>(layerState.center.y() - quadRadius), 1.0f, 0.0f};
-        vertices[2] = {static_cast<float>(layerState.center.x() - quadRadius), static_cast<float>(layerState.center.y() + quadRadius), 0.0f, 1.0f};
-        vertices[3] = {static_cast<float>(layerState.center.x() + quadRadius), static_cast<float>(layerState.center.y() + quadRadius), 1.0f, 1.0f};
-        geometry_->markVertexDataDirty();
+        const QRectF bounds(layerState.center.x() - quadRadius, layerState.center.y() - quadRadius,
+                            quadRadius * 2.0, quadRadius * 2.0);
+        if (bounds != previousBounds_) {
+            auto* vertices = reinterpret_cast<PreviewQuickJudgeFireworkVertex*>(geometry_->vertexData());
+            vertices[0] = {static_cast<float>(layerState.center.x() - quadRadius), static_cast<float>(layerState.center.y() - quadRadius), 0.0f, 0.0f};
+            vertices[1] = {static_cast<float>(layerState.center.x() + quadRadius), static_cast<float>(layerState.center.y() - quadRadius), 1.0f, 0.0f};
+            vertices[2] = {static_cast<float>(layerState.center.x() - quadRadius), static_cast<float>(layerState.center.y() + quadRadius), 0.0f, 1.0f};
+            vertices[3] = {static_cast<float>(layerState.center.x() + quadRadius), static_cast<float>(layerState.center.y() + quadRadius), 1.0f, 1.0f};
+            geometry_->markVertexDataDirty();
+            previousBounds_ = bounds;
+            sourceNode_->markDirty(QSGNode::DirtyGeometry);
+        }
+        const float animationTime = static_cast<float>(miacode::preview_gameplay::judgeEffectFireworkAnimationTime(layerState.clipTimeSeconds));
+        const float exitScale = 1.0f + .045f * fireworkSmoothStep((animationTime + 1.0f / 30.0f - .90f) / .20f);
+        const QRectF stageBounds(layerState.clipCenter.x() - layerState.clipRadius,
+            layerState.clipCenter.y() - layerState.clipRadius,
+            layerState.clipRadius * 2.0, layerState.clipRadius * 2.0);
+        const QRectF captureBounds = bounds.intersected(stageBounds);
+        material_->starsUvTransform = {
+            float((bounds.x() - captureBounds.x()) / captureBounds.width()),
+            float((bounds.y() - captureBounds.y()) / captureBounds.height()),
+            float(bounds.width() / captureBounds.width()),
+            float(bounds.height() / captureBounds.height())};
+        postProcess_->update(bounds, stageBounds, layerState.clipRadius, exitScale, smoothBlendStart,
+            fireworkStarStates(animationTime, layerState.clipRadius, starAngleSeed_));
 
         material_->setState(
             texture,
             brightBlockTexture,
+            bigBallTexture,
             useTexture,
             quadRadius,
             static_cast<float>(layerState.clipRadius),
@@ -502,27 +645,30 @@ public:
             static_cast<float>(layerState.fallbackColorBallAlpha),
             static_cast<float>(renderFlags),
             sourceAspect,
-            static_cast<float>(layerState.clipTimeSeconds),
+            static_cast<float>(miacode::preview_gameplay::judgeEffectFireworkAnimationTime(
+                layerState.clipTimeSeconds)),
             static_cast<float>(layerState.life01),
             starAngleSeed_,
+            fireworkGlowFields(animationTime),
             normalizedSourceRect
         );
-        markDirty(QSGNode::DirtyGeometry | QSGNode::DirtyMaterial);
+        sourceNode_->markDirty(QSGNode::DirtyMaterial);
     }
 
 private:
     QSGGeometry* geometry_ = nullptr;
     PreviewQuickJudgeFireworkMaterial* material_ = nullptr;
+    PreviewFireworkPostProcess* postProcess_ = nullptr;
+    QSGGeometryNode* sourceNode_ = nullptr;
+    QRectF previousBounds_;
     float starAngleSeed_ = 0.0f;
-    qreal previousTriggerSecond_ = 0.0;
-    qreal previousClipTimeSeconds_ = 0.0;
-    bool hasPreviousFrame_ = false;
+    qreal previousTriggerSecond_ = -1.0;
 };
 
 class PreviewQuickJudgeFireworkRootNode final : public QSGNode
 {
 public:
-    PreviewQuickJudgeFireworkRootNode()
+    explicit PreviewQuickJudgeFireworkRootNode(QQuickWindow* window) : window_(window)
     {
         contentSlot_ = new QSGNode();
         appendChildNode(contentSlot_);
@@ -539,7 +685,7 @@ public:
     PreviewQuickJudgeFireworkNode* ensureFireworkNode()
     {
         if (fireworkNode_ == nullptr) {
-            fireworkNode_ = new PreviewQuickJudgeFireworkNode();
+            fireworkNode_ = new PreviewQuickJudgeFireworkNode(window_);
         }
         return fireworkNode_;
     }
@@ -610,17 +756,18 @@ private:
         }
     }
 
+    QQuickWindow* window_;
     QSGNode* contentSlot_ = nullptr;
     PreviewQuickEllipseClipNode* clipNode_ = nullptr;
     PreviewQuickJudgeFireworkNode* fireworkNode_ = nullptr;
 };
 
-PreviewQuickJudgeFireworkRootNode* ensureJudgeFireworkRoot(QSGNode* oldNode)
+PreviewQuickJudgeFireworkRootNode* ensureJudgeFireworkRoot(QSGNode* oldNode, QQuickWindow* window)
 {
     if (auto* root = dynamic_cast<PreviewQuickJudgeFireworkRootNode*>(oldNode)) {
         return root;
     }
-    return new PreviewQuickJudgeFireworkRootNode();
+    return new PreviewQuickJudgeFireworkRootNode(window);
 }
 
 QRectF normalizedSourceRectFor(
@@ -716,7 +863,20 @@ QSGNode* PreviewQuickJudgeFireworkLayer::updateNode(
     }
     brightBlockTexture->setFiltering(QSGTexture::Linear);
 
-    auto* root = ensureJudgeFireworkRoot(oldNode);
+    const QImage& ballSource = useTexture ? *sourceImage : fallbackFireworkTextureImage();
+    if (colorBallSourceKey_ != ballSource.cacheKey()) {
+        colorBallImage_ = solidFireworkBallImage(ballSource);
+        colorBallSourceKey_ = ballSource.cacheKey();
+    }
+    QSGTexture* bigBallTexture = textures->retainedTextureForImage(
+        QStringLiteral("judge_firework_color_ball"), colorBallImage_, true);
+    if (bigBallTexture == nullptr) return nullptr;
+    bigBallTexture->setFiltering(QSGTexture::Linear);
+    bigBallTexture->setMipmapFiltering(QSGTexture::Linear);
+    bigBallTexture->setHorizontalWrapMode(QSGTexture::ClampToEdge);
+    bigBallTexture->setVerticalWrapMode(QSGTexture::ClampToEdge);
+
+    auto* root = ensureJudgeFireworkRoot(oldNode, window);
     root->useClip(layerState.clipRadius > 0.0);
     if (root->clipNode() != nullptr) {
         root->clipNode()->updateClip(layerState.clipCenter, layerState.clipRadius);
@@ -726,9 +886,13 @@ QSGNode* PreviewQuickJudgeFireworkLayer::updateNode(
         layerState,
         texture,
         brightBlockTexture,
+        bigBallTexture,
         useTexture,
         normalizedSourceRectFor(sourceImage, layerState.colorBallSourceRect),
-        static_cast<float>(sourceAspectFor(sourceImage, layerState.colorBallSourceRect))
+        static_cast<float>(sourceAspectFor(sourceImage, layerState.colorBallSourceRect)),
+        state.render.smoothBrightness
+            ? float(miacode::preview_video::smoothBrightnessBlendStartRadius(
+                layerState.clipRadius * 2.0, state.assets.layoutRingDiameterRatio)) : 0.0f
     );
     return root;
 }

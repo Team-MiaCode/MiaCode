@@ -2,8 +2,8 @@
 
 #include <QtGlobal>
 
-#include "common/PreviewGameplayConfig.h"
-#include "common/PreviewSkinConfig.h"
+#include "core/video/PreviewGameplayConfig.h"
+#include "core/video/PreviewSkinConfig.h"
 
 namespace miacode::preview::scene {
 

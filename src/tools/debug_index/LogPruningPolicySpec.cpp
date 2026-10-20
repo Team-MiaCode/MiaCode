@@ -1,7 +1,7 @@
 #include <QString>
 #include <QTextStream>
 
-#include "audio/BassPreviewSfxSchedulerPolicy.h"
+#include "audio/bass/BassPreviewSfxSchedulerPolicy.h"
 #include "common/LogEmissionPolicy.h"
 #include "common/UiHangWatchdogPolicy.h"
 

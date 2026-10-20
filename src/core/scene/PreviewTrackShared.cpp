@@ -193,6 +193,24 @@ int totalWifiTrackArrowCount(const QVector<QVector<QPointF>>& areas)
     return totalArrowCount;
 }
 
+PreviewSlideTrackTrimStart findPreviewSlideTrackTrimStart(
+    const QVector<QVector<QVector<QPointF>>>& segments,
+    int removedArrowCount)
+{
+    int remaining = removedArrowCount;
+    for (int segmentIndex = 0; segmentIndex < segments.size(); ++segmentIndex) {
+        const auto& areas = segments.at(segmentIndex);
+        for (int areaIndex = 0; areaIndex < areas.size(); ++areaIndex) {
+            const int arrowCount = areas.at(areaIndex).size();
+            if (remaining < arrowCount) {
+                return {segmentIndex, areaIndex, remaining};
+            }
+            remaining -= arrowCount;
+        }
+    }
+    return {static_cast<int>(segments.size()), 0, 0};
+}
+
 PreviewSlideEraseByAreaData buildPreviewSlideEraseByAreaData(const TimelineNoteMarker& marker)
 {
     PreviewSlideEraseByAreaData eraseByAreaData;

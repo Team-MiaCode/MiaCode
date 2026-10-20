@@ -1,0 +1,330 @@
+#include "app/runtime/document/DocumentSessionHost.h"
+#include "app/services/UiRequestService.h"
+#include "app/runtime/Shared.h"
+#include "app/runtime/export/VideoExportHost.h"
+#include "app/runtime/shell/ShellHost.h"
+
+#include "audio/QtPreviewSfxRuntime.h"
+#include "core/chart/parser/SimaiParser.h"
+#include "app/quick_shell/QuickShellPreviewCompositeSurface.h"
+#include "app/quick_shell/QuickShellPreviewSurfacePolicy.h"
+#include "core/chart/ChartAssetPaths.h"
+#include "common/CrashRecovery.h"
+#include "common/DebugLog.h"
+#include "common/DebugOptions.h"
+#include "common/OperationLog.h"
+#include "audio/WaveformCache.h"
+#include "preview/runtime/PreviewRuntime.h"
+#include "preview/stage_media/PreviewStageMediaHost.h"
+#include "core/scene/PreviewProgressStatsCache.h"
+#include "core/chart/transform/ChartBatchTransform.h"
+#include "core/chart/transform/ChartNormalization.h"
+#include "core/analysis/MuriAnalyzer.h"
+#include "core/analysis/MuriPanelEntries.h"
+#include "core/analysis/MuriStaticChecker.h"
+
+#include <algorithm>
+
+#include <QtCore>
+#include <QtGui>
+using namespace miacode::runtime::shared;
+#include "app/runtime/document/DocumentFlow.Internal.h"
+
+miacode::runtime::DocumentSessionHost::DocumentSessionHost(
+    ::Session& session,
+    RuntimeContext::Ui& ui,
+    RuntimeContext::State& state)
+    : session_(session)
+    , ui_(ui)
+    , state_(state)
+{}
+
+void miacode::runtime::DocumentSessionHost::cancelPendingStartupRestore()
+{
+    if (!state_.startupRestorePending_) {
+        return;
+    }
+    state_.startupRestorePending_ = false;
+    ++state_.startupRestoreGeneration_;
+}
+
+void Session::onOpenCurrentFolder()
+{
+    const QFileInfo fileInfo(currentFilePath_);
+    const QString folderPath = currentFilePath_.isEmpty()
+        ? QString()
+        : fileInfo.absoluteDir().absolutePath();
+    if (!folderPath.isEmpty()) {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(folderPath));
+    }
+}
+
+void Session::addRecentFilePath(const QString& path)
+{
+    if (applicationServices_.workspace().isNetPreview()) return;
+    const QString normalizedPath = path.isEmpty() ? QString() : QDir::cleanPath(path);
+    if (normalizedPath.isEmpty()) {
+        return;
+    }
+    recentFilePaths_.removeAll(normalizedPath);
+    recentFilePaths_.prepend(normalizedPath);
+    while (recentFilePaths_.size() > 10) {
+        recentFilePaths_.removeLast();
+    }
+    savePortableState();
+}
+
+QVariantList miacode::runtime::DocumentSessionHost::recentDocumentEntries()
+{
+    QStringList existing;
+    QSet<QString> seen;
+    QVariantList entries;
+    for (const QString& path : state_.recentFilePaths_) {
+        const QString normalized = path.isEmpty() ? QString() : QDir::cleanPath(path);
+        if (normalized.isEmpty() || seen.contains(normalized)) {
+            continue;
+        }
+        const QFileInfo info(normalized);
+        if (!info.exists() || !info.isFile()) {
+            continue;
+        }
+        seen.insert(normalized);
+        existing.append(normalized);
+        const QString folderName = info.absoluteDir().dirName().trimmed();
+        entries.append(QVariantMap{
+            {QStringLiteral("path"), normalized},
+            {QStringLiteral("label"), folderName.isEmpty()
+                 ? QDir::toNativeSeparators(info.absoluteFilePath())
+                 : folderName},
+        });
+    }
+    if (existing != state_.recentFilePaths_) {
+        state_.recentFilePaths_ = existing;
+        session_.savePortableState();
+    }
+    return entries;
+}
+
+void miacode::runtime::DocumentSessionHost::restoreBackupDocument(const QString& path)
+{
+    restoreBackupFilePath(path);
+}
+
+void miacode::runtime::DocumentSessionHost::noteRecentDocument(const QString& path)
+{
+    session_.addRecentFilePath(path);
+}
+
+void miacode::runtime::DocumentSessionHost::removeRecentDocument(const QString& path)
+{
+    const QString normalizedPath = path.isEmpty() ? QString() : QDir::cleanPath(path);
+    if (normalizedPath.isEmpty()) {
+        return;
+    }
+    if (state_.recentFilePaths_.removeAll(normalizedPath) > 0) {
+        session_.savePortableState();
+    }
+}
+
+bool Session::openFileAtPath(const QString& path, bool showErrors)
+{
+    return documents_->openFileAtPath(path, showErrors);
+}
+
+// openStartupTarget runs at launch and from the chart-drop switch prompt, both
+// of which the v2 shell reaches, so what it has to say goes to the shell.
+void Session::postShellNotice(const QString& title, const QString& text)
+{
+    if (miacode::UiRequestService* const requests = uiRequestService()) {
+        requests->postNotice(miacode::NoticeSeverity::Warning, title, text);
+    }
+}
+
+bool Session::openStartupTarget(const QString& path)
+{
+    const QString normalizedPath = path.isEmpty() ? QString() : QDir::cleanPath(path);
+    if (normalizedPath.isEmpty()) {
+        return false;
+    }
+
+    const QFileInfo info(normalizedPath);
+    if (info.isDir()) {
+        const QString maidataPath = QDir(info.absoluteFilePath()).filePath(QStringLiteral("maidata.txt"));
+        if (QFileInfo::exists(maidataPath) && QFileInfo(maidataPath).isFile()) {
+            return openFileAtPath(maidataPath, true);
+        }
+
+        setCurrentFilePath(QString(), true);
+        postShellNotice(
+            qtTrId("dialog.open_startup_folder.missing_maidata.title"),
+            qtTrId("dialog.open_startup_folder.missing_maidata.message")
+                .arg(QDir::toNativeSeparators(info.absoluteFilePath()))
+        );
+        return false;
+    }
+
+    if (info.exists() && info.isFile()) {
+        return openFileAtPath(info.absoluteFilePath(), true);
+    }
+
+    postShellNotice(
+        qtTrId("dialog.open_startup_target.missing.title"),
+        qtTrId("dialog.open_startup_target.missing.message")
+            .arg(QDir::toNativeSeparators(normalizedPath))
+    );
+    return false;
+}
+
+bool Session::restoreLastSessionFile()
+{
+    return documents_->restoreLastSessionFile();
+}
+
+void Session::scheduleStartupRestoreLastSessionFile()
+{
+    documents_->scheduleStartupRestoreLastSessionFile();
+}
+
+void Session::cancelPendingStartupRestore()
+{
+    documents_->cancelPendingStartupRestore();
+}
+
+void Session::applyPreparedStartupRestoreDocument(const PreparedStartupRestoreDocument& prepared)
+{
+    documents_->applyPreparedStartupRestoreDocument(prepared);
+}
+
+void Session::applyOpenedDocumentState(
+    const QString& normalizedPath,
+    TextEncoding encodingUsed,
+    const SimaiDocument& document,
+    double knownTrackDurationSeconds)
+{
+    documents_->applyOpenedDocumentState(
+        normalizedPath,
+        encodingUsed,
+        document,
+        knownTrackDurationSeconds
+    );
+}
+
+void Session::resetAutosaveState(const QString& referenceText)
+{
+    documents_->resetAutosaveState(referenceText);
+}
+
+QString Session::resolveAutosaveDirectoryPath() const
+{
+    return documents_->resolveAutosaveDirectoryPath();
+}
+
+QString Session::currentDocumentTextForAutosave() const
+{
+    return documents_->currentDocumentTextForAutosave();
+}
+
+void Session::pruneAutosaveFiles(const QString& autosaveDirectoryPath) const
+{
+    documents_->pruneAutosaveFiles(autosaveDirectoryPath);
+}
+
+void Session::runAutosaveCheck(bool allowHistory)
+{
+    documents_->runAutosaveCheck(allowHistory);
+}
+
+bool Session::saveToPath(const QString& path)
+{
+    return documents_->saveToPath(path);
+}
+
+void Session::updatePauseButtonAppearance()
+{
+    documents_->updatePauseButtonAppearance();
+}
+
+void Session::updateDirtyState()
+{
+    documents_->updateDirtyState();
+}
+
+void Session::clearDeletedDifficultyUndoState()
+{
+    documents_->clearDeletedDifficultyUndoState();
+}
+
+bool Session::undoDeletedDifficultyField()
+{
+    return documents_->undoDeletedDifficultyField();
+}
+
+bool Session::switchToMetadataField()
+{
+    return documents_->switchToMetadataField();
+}
+
+bool Session::switchToDifficultyField(int difficultyId)
+{
+    return documents_->switchToDifficultyField(difficultyId);
+}
+
+bool Session::switchToLatencyField()
+{
+    return documents_->switchToLatencyField();
+}
+
+bool Session::switchToExportField()
+{
+    return documents_->switchToExportField();
+}
+
+bool miacode::runtime::DocumentSessionHost::enterDifficultyPage(int difficultyId)
+{
+    return switchToDifficultyField(difficultyId);
+}
+
+bool miacode::runtime::DocumentSessionHost::enterMetadataPage()
+{
+    return switchToMetadataField();
+}
+
+bool miacode::runtime::DocumentSessionHost::enterLatencyPage()
+{
+    return switchToLatencyField();
+}
+
+bool miacode::runtime::DocumentSessionHost::enterExportPage()
+{
+    return switchToExportField();
+}
+
+void miacode::runtime::DocumentSessionHost::packChartAsZip()
+{
+    session_.videoExport_->onPackAsZip();
+}
+
+void miacode::runtime::DocumentSessionHost::openPreferences()
+{
+    emit session_.preferencesRequested();
+}
+
+void miacode::runtime::DocumentSessionHost::requestShellClose(std::function<void(bool)> onDecided)
+{
+    session_.shell_->requestShellClose(std::move(onDecided));
+}
+
+void Session::activateInitialField()
+{
+    documents_->activateInitialField();
+}
+
+void Session::loadDocument()
+{
+    documents_->loadDocument();
+}
+
+void Session::clearTimelineAndPreview()
+{
+    documents_->clearTimelineAndPreview();
+}

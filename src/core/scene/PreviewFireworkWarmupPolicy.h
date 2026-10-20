@@ -1,15 +1,16 @@
 #pragma once
 
-#include "common/PreviewGameplayConfig.h"
-#include "timeline/TimelineData.h"
+#include "core/video/PreviewGameplayConfig.h"
+#include "core/chart/model/TimelineData.h"
 
 #include <QtGlobal>
 
 // Pure placement/re-centre policy for the firework PSO warm-up synthetic marker.
 //
-// The warm-up injects one off-screen synthetic firework so Qt RHI compiles the
-// firework material pipeline and uploads the colour-ball texture at a benign
-// moment instead of on the user's first real firework. Completion is gated on a
+// The warm-up injects one synthetic firework. Its marker uses an off-screen
+// coordinate for identity; the rendering layer places a transparent quad on
+// screen so Qt RHI submits the firework pipeline and colour-ball texture before
+// the user's first real firework. Completion is gated on a
 // CONFIRMED draw, so the synthetic has to stay inside its lifecycle window until
 // the firework layer emits a node — which is why it is re-centred on the live
 // playhead while armed.

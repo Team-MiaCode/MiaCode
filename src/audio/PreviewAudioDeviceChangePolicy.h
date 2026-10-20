@@ -10,7 +10,7 @@
 // Why this exists: the preview clock is an anchor-plus-advance model, not a follower of
 // the device position. When the output device set changes underneath a running session
 // the anchor goes stale and stays stale, which is the desync users report
-// (docs/audit/AUDIO_CLOCK_DESYNC_AUDIT_ZH.md §1). Three attempts to re-anchor silently
+// during playback. Three attempts to re-anchor silently
 // while playback continued did not fix it. A pause/resume cycle always does, because
 // pause anchors and resume re-starts from that fresh anchor — so the fix is to pause on
 // the device event and let the user resume.

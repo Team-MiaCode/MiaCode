@@ -1,6 +1,6 @@
 #include "core/scene/PreviewMuriActionLayerState.h"
 
-#include "common/MuriConfig.h"
+#include "core/analysis/MuriConfig.h"
 #include "core/scene/PreviewSceneMath.h"
 
 #include <algorithm>

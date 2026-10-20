@@ -3,6 +3,7 @@
 #include "common/DebugOptions.h"
 #include "common/DebugLog.h"
 #include "common/Mmcss.h"
+#include "common/PixelGeometry.h"
 #include "preview/runtime/PreviewRuntime.h"
 #include "preview/quick_scene/PreviewQuickHudLayer.h"
 #include "core/scene/PreviewFrameState.h"
@@ -378,12 +379,19 @@ PreviewQuickSceneRoot::PreviewQuickSceneRoot(QQuickItem* parent)
                 .arg(pointerHex(window()))
         );
         syncVisibleHostWindowBinding("visible_changed");
+        if (runtime_ != nullptr && miacode::debug_options::runtimeDebugOutputEnabled()) {
+            runtime_->noteV2UiSceneRootVisibility(instanceId_, isVisible());
+        }
         update();
     });
 }
 
 PreviewQuickSceneRoot::~PreviewQuickSceneRoot()
 {
+#ifdef Q_OS_MACOS
+    QObject::disconnect(framePresentedCaptureConnection_);
+    QObject::disconnect(guiFrameConnection_);
+#endif
     if (frameSwapConnection_) {
         QObject::disconnect(frameSwapConnection_);
     }
@@ -402,6 +410,9 @@ PreviewQuickSceneRoot::~PreviewQuickSceneRoot()
     );
     if (runtime_ != nullptr) {
         runtime_->setHoveredTouchPad(QString());
+        if (miacode::debug_options::runtimeDebugOutputEnabled()) {
+            runtime_->noteV2UiSceneRootUnbound(instanceId_);
+        }
         if (boundWindow_ != nullptr) {
             runtime_->clearVisibleHostWindow(boundWindow_);
         }
@@ -427,6 +438,9 @@ void PreviewQuickSceneRoot::setRuntime(PreviewRuntime* runtime)
     }
     if (runtime_ != nullptr) {
         runtime_->setHoveredTouchPad(QString());
+        if (miacode::debug_options::runtimeDebugOutputEnabled()) {
+            runtime_->noteV2UiSceneRootUnbound(instanceId_);
+        }
         if (boundWindow_ != nullptr) {
             runtime_->clearVisibleHostWindow(boundWindow_);
         }
@@ -438,10 +452,16 @@ void PreviewQuickSceneRoot::setRuntime(PreviewRuntime* runtime)
     runtime_ = runtime;
     if (runtime_ != nullptr) {
         frameState_ = nullptr;
+        if (miacode::debug_options::runtimeDebugOutputEnabled()) {
+            runtime_->noteV2UiSceneRootBound(instanceId_, isVisible());
+        }
         runtimeUpdateConnection_ = QObject::connect(runtime_, &PreviewRuntime::frameStateChanged, this, [this]() {
+            if (runtime_ != nullptr && miacode::debug_options::runtimeDebugOutputEnabled()) {
+                runtime_->noteV2UiSceneRootFrameStateDispatch(isVisible());
+            }
             update();
         });
-        runtime_->setFrameSize(boundingRect().size().toSize());
+        runtime_->setFrameSize(miacode::pixel_geometry::coveringSize(boundingRect().size()));
     }
     syncVisibleHostWindowBinding("set_runtime");
     appendQuickSceneLog(
@@ -470,7 +490,7 @@ QString PreviewQuickSceneRoot::touchPadAtItemPoint(const QPointF& itemPoint) con
         return QString();
     }
     const QRectF playfieldRect = miacode::preview::scene::playfieldRectForStage(
-        miacode::preview::scene::stageRectForSize(boundingRect().size().toSize()),
+        miacode::preview::scene::stageRectForSize(miacode::pixel_geometry::coveringSize(boundingRect().size())),
         stateSnapshot->render.layoutSquareScale
     );
     if (!playfieldRect.contains(itemPoint) || playfieldRect.width() <= 0.0) {
@@ -576,8 +596,15 @@ void PreviewQuickSceneRoot::setRuntimeObject(QObject* runtimeObject)
 
 void PreviewQuickSceneRoot::setFrameState(const miacode::preview::scene::PreviewFrameState* frameState)
 {
+#ifdef Q_OS_MACOS
+    QObject::disconnect(framePresentedCaptureConnection_);
+    QObject::disconnect(guiFrameConnection_);
+#endif
     if (runtime_ != nullptr && boundWindow_ != nullptr) {
         runtime_->clearVisibleHostWindow(boundWindow_);
+    }
+    if (runtime_ != nullptr && miacode::debug_options::runtimeDebugOutputEnabled()) {
+        runtime_->noteV2UiSceneRootUnbound(instanceId_);
     }
     if (runtimeUpdateConnection_) {
         QObject::disconnect(runtimeUpdateConnection_);
@@ -606,6 +633,15 @@ void PreviewQuickSceneRoot::setLayerFlags(miacode::preview::scene::PreviewRender
         return;
     }
     layerFlags_ = layerFlags;
+    update();
+}
+
+void PreviewQuickSceneRoot::setBackgroundColor(const QColor& color)
+{
+    if (backgroundColor_ == color)
+        return;
+    backgroundColor_ = color;
+    emit backgroundColorChanged();
     update();
 }
 
@@ -655,6 +691,10 @@ PreviewTextureStats PreviewQuickSceneRoot::takePendingTextureStatsForPresentatio
 
 void PreviewQuickSceneRoot::syncVisibleHostWindowBinding(const char* reason)
 {
+#ifdef Q_OS_MACOS
+    QObject::disconnect(framePresentedCaptureConnection_);
+    QObject::disconnect(guiFrameConnection_);
+#endif
     const QString reasonText = QString::fromLatin1(reason != nullptr ? reason : "unspecified");
     if (frameSwapConnection_) {
         QObject::disconnect(frameSwapConnection_);
@@ -779,7 +819,23 @@ void PreviewQuickSceneRoot::syncVisibleHostWindowBinding(const char* reason)
             }
         },
         Qt::DirectConnection);
-    frameSwapConnection_ = QObject::connect(boundWindow_, &QQuickWindow::frameSwapped, this, [this]() {
+#ifdef Q_OS_MACOS
+    // 原生窗口动画期间，绘制仍可继续，界面线程的排队通知可能延迟。
+    // 每次绑定独立保存待处理状态，两种界面线程回调共享一次性通知。
+    const auto pendingPresent = std::make_shared<std::atomic<bool>>(false);
+    framePresentedCaptureConnection_ = QObject::connect(
+        boundWindow_, &QQuickWindow::frameSwapped, this,
+        [pendingPresent]() { pendingPresent->store(true, std::memory_order_release); },
+        Qt::DirectConnection);
+    const auto notifyPresented = [this, pendingPresent,
+                                  host = boundWindow_, runtime = runtime_]() {
+        if (host != boundWindow_ || runtime != runtime_
+            || !pendingPresent->exchange(false, std::memory_order_acquire)) {
+            return;
+        }
+#else
+    const auto notifyPresented = [this]() {
+#endif
         if (runtime_ == nullptr || boundWindow_ == nullptr || window() != boundWindow_) {
             return;
         }
@@ -787,7 +843,16 @@ void PreviewQuickSceneRoot::syncVisibleHostWindowBinding(const char* reason)
             runtime_->notePresentedTextureStats(takePendingTextureStatsForPresentation());
         }
         runtime_->notifyVisibleFramePresented();
-    });
+    };
+    frameSwapConnection_ = QObject::connect(
+        boundWindow_, &QQuickWindow::frameSwapped, this, notifyPresented);
+#ifdef Q_OS_MACOS
+    // afterAnimating 在界面线程、场景同步之前执行；复用原有播放帧率控制。
+    // 与排队通知共用一次性标记，每个待处理呈现最多推进一次播放。
+    guiFrameConnection_ = QObject::connect(
+        boundWindow_, &QQuickWindow::afterAnimating, this,
+        notifyPresented, Qt::DirectConnection);
+#endif
     // Register Qt's QSG render thread with Windows MMCSS (Multimedia Class Scheduler
     // Service) under the "Games" task class. This asks the OS scheduler to protect the
     // thread from being preempted by background work — the standard fix used by every
@@ -930,7 +995,7 @@ QSGNode* PreviewQuickSceneRoot::updatePaintNode(QSGNode* oldNode, UpdatePaintNod
     } else {
         state = frameState_;
     }
-    const QSize renderSize = boundingRect().size().toSize();
+    const QSize renderSize = miacode::pixel_geometry::coveringSize(boundingRect().size());
     const bool hasState = state != nullptr;
     const bool hasWindow = window() != nullptr;
     const quintptr windowHandle = reinterpret_cast<quintptr>(window());
@@ -967,19 +1032,20 @@ QSGNode* PreviewQuickSceneRoot::updatePaintNode(QSGNode* oldNode, UpdatePaintNod
         return root;
     }
 
+    const bool releaseStorage = preparedCache_.key().storageGeneration != state->sceneStorageGeneration;
     const bool cacheRebuilt = preparedCache_.sync(*state);
     if (cacheRebuilt) {
-        guideCursor_.reset();
-        headCursor_.reset();
-        trackCursor_.reset();
-        slideMotionCursor_.reset();
-        judgeEffectCursor_.reset();
-        judgeFireworkCursor_.reset();
-        touchCursor_.reset();
-        touchJudgeCursor_.reset();
-        touchHoldCursor_.reset();
-        chartReviewCursor_.reset();
-        maimuriDxJudgeCursor_.reset();
+        guideCursor_.reset(releaseStorage);
+        headCursor_.reset(releaseStorage);
+        trackCursor_.reset(releaseStorage);
+        slideMotionCursor_.reset(releaseStorage);
+        judgeEffectCursor_.reset(releaseStorage);
+        judgeFireworkCursor_.reset(releaseStorage);
+        touchCursor_.reset(releaseStorage);
+        touchJudgeCursor_.reset(releaseStorage);
+        touchHoldCursor_.reset(releaseStorage);
+        chartReviewCursor_.reset(releaseStorage);
+        maimuriDxJudgeCursor_.reset(releaseStorage);
     }
 
     const double playheadSeconds = state->playheadSeconds;
@@ -1012,7 +1078,7 @@ QSGNode* PreviewQuickSceneRoot::updatePaintNode(QSGNode* oldNode, UpdatePaintNod
         "stage_background",
         layerStatsForFrame,
         [&](QSGNode* oldChild) {
-            return stageBackgroundLayer_.updateNode(oldChild, *state, renderSize, window(), textures);
+            return stageBackgroundLayer_.updateNode(oldChild, *state, renderSize, window(), textures, backgroundColor_);
         });
     updateCenterDisplaySlot(
         layerSlotAt(root, slotIndex++),
@@ -1029,30 +1095,7 @@ QSGNode* PreviewQuickSceneRoot::updatePaintNode(QSGNode* oldNode, UpdatePaintNod
         cachedCenterDisplayBreakTotal_,
         cachedCenterDisplayRenderSize_,
         cachedCenterDisplayDpr_);
-    updateLayerSlotProfiled(
-        layerSlotAt(root, slotIndex++),
-        miacode::preview::scene::previewRenderLayerEnabled(layerFlags_, miacode::preview::scene::BackdropLayer),
-        "backdrop",
-        layerStatsForFrame,
-        [&](QSGNode* oldChild) {
-            return backdropLayer_.updateNode(oldChild, *state, renderSize, window(), textures);
-        });
-    updateLayerSlotProfiled(
-        layerSlotAt(root, slotIndex++),
-        miacode::preview::scene::previewRenderLayerEnabled(layerFlags_, miacode::preview::scene::MuriPadStateLayer),
-        "muri_pad",
-        layerStatsForFrame,
-        [&](QSGNode* oldChild) {
-            return muriPadLayer_.updateNode(oldChild, *state, renderSize, window(), textures);
-        });
-    updateLayerSlotProfiled(
-        layerSlotAt(root, slotIndex++),
-        miacode::preview::scene::previewRenderLayerEnabled(layerFlags_, miacode::preview::scene::MuriActionLayer),
-        "muri_action",
-        layerStatsForFrame,
-        [&](QSGNode* oldChild) {
-            return muriActionLayer_.updateNode(oldChild, *state, renderSize, window(), textures);
-        });
+    // The skin overlays the full-circle firework through its own alpha.
     bool judgeFireworkNodeProduced = false;
     updateLayerSlotProfiled(
         layerSlotAt(root, slotIndex++),
@@ -1083,6 +1126,30 @@ QSGNode* PreviewQuickSceneRoot::updatePaintNode(QSGNode* oldNode, UpdatePaintNod
         preparedCache_.judgeFireworkLayer().entries.size(),
         judgeFireworkCursor_.activePreparedIndices.size()
     );
+    updateLayerSlotProfiled(
+        layerSlotAt(root, slotIndex++),
+        miacode::preview::scene::previewRenderLayerEnabled(layerFlags_, miacode::preview::scene::BackdropLayer),
+        "backdrop",
+        layerStatsForFrame,
+        [&](QSGNode* oldChild) {
+            return backdropLayer_.updateNode(oldChild, *state, renderSize, window(), textures);
+        });
+    updateLayerSlotProfiled(
+        layerSlotAt(root, slotIndex++),
+        miacode::preview::scene::previewRenderLayerEnabled(layerFlags_, miacode::preview::scene::MuriPadStateLayer),
+        "muri_pad",
+        layerStatsForFrame,
+        [&](QSGNode* oldChild) {
+            return muriPadLayer_.updateNode(oldChild, *state, renderSize, window(), textures);
+        });
+    updateLayerSlotProfiled(
+        layerSlotAt(root, slotIndex++),
+        miacode::preview::scene::previewRenderLayerEnabled(layerFlags_, miacode::preview::scene::MuriActionLayer),
+        "muri_action",
+        layerStatsForFrame,
+        [&](QSGNode* oldChild) {
+            return muriActionLayer_.updateNode(oldChild, *state, renderSize, window(), textures);
+        });
     updateLayerSlotProfiled(
         layerSlotAt(root, slotIndex++),
         miacode::preview::scene::previewRenderLayerEnabled(layerFlags_, miacode::preview::scene::GuideLayer),
@@ -1502,7 +1569,7 @@ void PreviewQuickSceneRoot::geometryChange(const QRectF& newGeometry, const QRec
     QQuickItem::geometryChange(newGeometry, oldGeometry);
     if (newGeometry.size() != oldGeometry.size()) {
         if (runtime_ != nullptr) {
-            runtime_->setFrameSize(newGeometry.size().toSize());
+            runtime_->setFrameSize(miacode::pixel_geometry::coveringSize(newGeometry.size()));
         }
         ++geometryChangeCount_;
         appendQuickSceneLog(

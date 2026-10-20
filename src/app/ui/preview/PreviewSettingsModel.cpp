@@ -1,0 +1,536 @@
+#include "common/LocalizedText.h"
+#include "app/services/HudFontPreferences.h"
+
+#include "app/ui/preview/PreviewSettingsModel.h"
+
+#include "core/video/PreviewGameplayConfig.h"
+#include "core/scene/PreviewHudState.h"
+#include "core/video/PreviewRenderSettings.h"
+#include "preview/runtime/PreviewRuntime.h"
+#include "export/video_export/FontLibrary.h"
+#include "app/services/UserFontLibrary.h"
+#include "app/ui/preferences/LocaleService.h"
+
+#include <QDesktopServices>
+#include <QDir>
+#include <QUrl>
+#include <QCoreApplication>
+#include <QFileInfo>
+
+namespace miacode::ui {
+
+namespace {
+
+QString text(const char* key)
+{
+    return qtTrId(key);
+}
+
+QVariantMap option(const QVariant& value, const char* labelKey)
+{
+    return QVariantMap{
+        {QStringLiteral("value"), value},
+        {QStringLiteral("label"), text(labelKey)},
+    };
+}
+
+constexpr int kBuiltinOutlineCount = 4;
+
+int indexForOutlineVariant(PreviewOutlineVariant variant)
+{
+    switch (variant) {
+    case PreviewOutlineVariant::Point:
+        return 0;
+    case PreviewOutlineVariant::JudgeArea:
+        return 2;
+    case PreviewOutlineVariant::JudgeAreaLabeled:
+        return 3;
+    case PreviewOutlineVariant::Line:
+    default:
+        return 1;
+    }
+}
+
+PreviewOutlineVariant outlineVariantForIndex(int index)
+{
+    switch (index) {
+    case 0:
+        return PreviewOutlineVariant::Point;
+    case 2:
+        return PreviewOutlineVariant::JudgeArea;
+    case 3:
+        return PreviewOutlineVariant::JudgeAreaLabeled;
+    case 1:
+    default:
+        return PreviewOutlineVariant::Line;
+    }
+}
+
+}  // namespace
+
+PreviewSettingsModel::PreviewSettingsModel(miacode::ShellNotifications& notifications,
+                                                 miacode::UiRequestService& uiRequests,
+                                                 miacode::PreviewAppearanceState& appearance,
+                                                 miacode::PreviewSurface*& surfaceSlot,
+                                                 QObject* parent)
+    : QObject(parent)
+    // From the application assembly, not from the hidden window.
+    , uiRequests_(&uiRequests)
+    , appearance_(&appearance)
+    , surfaceSlot_(&surfaceSlot)
+{
+    connect(&miacode::LocaleService::instance(), &miacode::LocaleService::languageChanged,
+            this, [this](const QString&) {
+                emit localeLabelsChanged();
+                emit skinChanged();
+                emit fontLibraryChanged();
+                emit hudFontChanged();
+            });
+    // `values` is a snapshot; QML re-reads it only on `changed`. The export page
+    // writes the same render state, so its writes have to arrive here too.
+    connect(&notifications, &miacode::ShellNotifications::previewRenderSettingsChanged,
+            this, &PreviewSettingsModel::changed);
+}
+
+QVariantMap PreviewSettingsModel::values() const
+{
+    return surface() != nullptr ? surface()->renderSettings() : QVariantMap{};
+}
+
+void PreviewSettingsModel::setValue(const QString& key, const QVariant& value)
+{
+    if (surface() == nullptr) {
+        return;
+    }
+    surface()->setRenderSetting(key, value);
+    emit changed();
+}
+
+QVariantMap PreviewSettingsModel::labels() const
+{
+    return QVariantMap{
+        {QStringLiteral("brightnessOuter"), text("dialog.render_settings.video.brightness_outer")},
+        {QStringLiteral("brightnessInner"), text("dialog.render_settings.video.brightness_inner")},
+        {QStringLiteral("layoutSquareScale"), text("dialog.render_settings.video.layout_square_scale")},
+        {QStringLiteral("scaleMode"), text("dialog.render_settings.video.scale_mode")},
+        {QStringLiteral("smoothBrightness"), text("dialog.render_settings.video.smooth_brightness")},
+        {QStringLiteral("showTimestamp"), text("dialog.video_export.option.show_timestamp")},
+        {QStringLiteral("touchPadAuthoringShortcut"),
+         text("dialog.render_settings.video.touch_pad_authoring_shortcut")},
+        {QStringLiteral("showDebugInfo"), text("dialog.render_settings.preview.debug")},
+        {QStringLiteral("forceLabeledJudgeLineWhenPaused"),
+         text("dialog.render_settings.gameplay.force_labeled_judge_line_when_paused")},
+        {QStringLiteral("tapFlowSpeed"), text("dialog.render_settings.video.tap_flow_speed")},
+        {QStringLiteral("touchFlowSpeed"), text("dialog.render_settings.video.touch_flow_speed")},
+        {QStringLiteral("judgeEffect"), text("dialog.render_settings.gameplay.judge_effect")},
+        {QStringLiteral("slideEarlierOnTop"), text("dialog.render_settings.gameplay.slide_stack_order")},
+        {QStringLiteral("centerDisplay"), text("dialog.render_settings.gameplay.center_display")},
+        {QStringLiteral("tapJudgeTextDistance"),
+         text("dialog.render_settings.gameplay.tap_judge_text_distance")},
+    };
+}
+
+QString PreviewSettingsModel::videoGroupLabel() const
+{
+    return text("dialog.render_settings.visual_group");
+}
+
+QString PreviewSettingsModel::gameplayGroupLabel() const
+{
+    return text("dialog.render_settings.gameplay_group");
+}
+
+QString PreviewSettingsModel::skinGroupLabel() const
+{
+    return text("dialog.render_settings.skin_group");
+}
+
+QVariantList PreviewSettingsModel::scaleModeOptions() const
+{
+    return QVariantList{
+        option(static_cast<int>(PreviewBackgroundScaleMode::FillCrop),
+               "dialog.render_settings.video.scale.fill"),
+        option(static_cast<int>(PreviewBackgroundScaleMode::FitContain),
+               "dialog.render_settings.video.scale.fit"),
+        option(static_cast<int>(PreviewBackgroundScaleMode::SquareFitContain),
+               "dialog.render_settings.video.scale.square_fit"),
+        option(static_cast<int>(PreviewBackgroundScaleMode::InnerCircleFitOuterFill),
+               "dialog.render_settings.video.scale.inner_circle_fit_outer_fill"),
+    };
+}
+
+QVariantList PreviewSettingsModel::slideStackOrderOptions() const
+{
+    // true = the earlier second and its text sit on top, which is the DX order.
+    return QVariantList{
+        option(true, "dialog.render_settings.gameplay.slide_stack_order.dx_style"),
+        option(false, "dialog.render_settings.gameplay.slide_stack_order.finale_style"),
+    };
+}
+
+QVariantList PreviewSettingsModel::centerDisplayOptions() const
+{
+    using miacode::preview_gameplay::CenterDisplayMode;
+    return QVariantList{
+        option(static_cast<int>(CenterDisplayMode::Off),
+               "dialog.render_settings.gameplay.center_display.off"),
+        option(static_cast<int>(CenterDisplayMode::Combo),
+               "dialog.render_settings.gameplay.center_display.combo"),
+        option(static_cast<int>(CenterDisplayMode::AchievementDxPlus),
+               "dialog.render_settings.gameplay.center_display.achievement_dx_plus"),
+        option(static_cast<int>(CenterDisplayMode::AchievementDxMinus100),
+               "dialog.render_settings.gameplay.center_display.achievement_dx_minus_100"),
+        option(static_cast<int>(CenterDisplayMode::AchievementDxMinus101),
+               "dialog.render_settings.gameplay.center_display.achievement_dx_minus_101"),
+        option(static_cast<int>(CenterDisplayMode::DxScorePlus),
+               "dialog.render_settings.gameplay.center_display.dx_score_plus"),
+        option(static_cast<int>(CenterDisplayMode::DxScoreMinus),
+               "dialog.render_settings.gameplay.center_display.dx_score_minus"),
+        option(static_cast<int>(CenterDisplayMode::AchievementFinalePlus),
+               "dialog.render_settings.gameplay.center_display.achievement_finale_plus"),
+    };
+}
+
+QVariantList PreviewSettingsModel::tapJudgeTextDistanceOptions() const
+{
+    return QVariantList{
+        option(static_cast<int>(PreviewTapJudgeTextDistance::Inner),
+               "dialog.render_settings.gameplay.tap_judge_text_distance.inner"),
+        option(static_cast<int>(PreviewTapJudgeTextDistance::Middle),
+               "dialog.render_settings.gameplay.tap_judge_text_distance.middle"),
+        option(static_cast<int>(PreviewTapJudgeTextDistance::Outer),
+               "dialog.render_settings.gameplay.tap_judge_text_distance.outer"),
+    };
+}
+
+QVariantList PreviewSettingsModel::judgeEffectOptions() const
+{
+    // Keys into `values`, not enum members: each overlay is its own boolean.
+    return QVariantList{
+        option(QStringLiteral("judgeEffectSlide"),
+               "dialog.render_settings.gameplay.judge_effect.slide"),
+        option(QStringLiteral("judgeEffectTap"),
+               "dialog.render_settings.gameplay.judge_effect.tap"),
+        option(QStringLiteral("judgeEffectBreak"),
+               "dialog.render_settings.gameplay.judge_effect.break"),
+        option(QStringLiteral("judgeEffectTouch"),
+               "dialog.render_settings.gameplay.judge_effect.touch"),
+    };
+}
+
+QVariantList PreviewSettingsModel::skinOptions() const
+{
+    QVariantList list;
+    if (surface() == nullptr) {
+        return list;
+    }
+    for (const QString& name : surface()->availableSkinDirectoryNames()) {
+        list.append(QVariantMap{
+            {QStringLiteral("id"), name},
+            {QStringLiteral("label"), surface()->skinDisplayName(name)},
+        });
+    }
+    return list;
+}
+
+int PreviewSettingsModel::skinIndex() const
+{
+    if (surface() == nullptr) {
+        return -1;
+    }
+    const QStringList names = surface()->availableSkinDirectoryNames();
+    for (int i = 0; i < names.size(); ++i) {
+        if (names.at(i).compare(appearance_->skinDirectoryName(), Qt::CaseInsensitive) == 0) {
+            return i;
+        }
+    }
+    return names.isEmpty() ? -1 : 0;
+}
+
+QVariantList PreviewSettingsModel::skinJudgeEffectOptions() const
+{
+    return QVariantList{
+        text("dialog.skin_settings.chart_effect.standard"),
+        text("dialog.skin_settings.chart_effect.starry"),
+    };
+}
+
+int PreviewSettingsModel::skinJudgeEffectIndex() const
+{
+    return appearance_->judgeEffectStyle() == PreviewJudgeEffectStyle::Starry ? 1 : 0;
+}
+
+QVariantList PreviewSettingsModel::outlineOptions() const
+{
+    QVariantList list{
+        QVariantMap{
+            {QStringLiteral("id"), QStringLiteral("point")},
+            {QStringLiteral("label"), text("dialog.render_settings.gameplay.judge_line.point")},
+        },
+        QVariantMap{
+            {QStringLiteral("id"), QStringLiteral("line")},
+            {QStringLiteral("label"), text("dialog.render_settings.gameplay.judge_line.line")},
+        },
+        QVariantMap{
+            {QStringLiteral("id"), QStringLiteral("area")},
+            {QStringLiteral("label"), text("dialog.render_settings.gameplay.judge_line.area")},
+        },
+        QVariantMap{
+            {QStringLiteral("id"), QStringLiteral("area_labeled")},
+            {QStringLiteral("label"), text("dialog.render_settings.gameplay.judge_line.area_labeled")},
+        },
+    };
+    if (surface() == nullptr) {
+        return list;
+    }
+    for (const QString& name : surface()->availableCustomOutlineFileNames()) {
+        list.append(QVariantMap{
+            {QStringLiteral("id"), name},
+            {QStringLiteral("label"), surface()->customOutlineDisplayName(name)},
+        });
+    }
+    return list;
+}
+
+int PreviewSettingsModel::outlineIndex() const
+{
+    if (surface() == nullptr) {
+        return 1;
+    }
+    const QString custom = surface()->currentCustomOutlineFileName();
+    if (!custom.isEmpty()) {
+        const QStringList names = surface()->availableCustomOutlineFileNames();
+        for (int i = 0; i < names.size(); ++i) {
+            if (names.at(i).compare(custom, Qt::CaseInsensitive) == 0) {
+                return kBuiltinOutlineCount + i;
+            }
+        }
+    }
+    return indexForOutlineVariant(appearance_->outlineVariant());
+}
+
+QVariantList PreviewSettingsModel::fontLibraryOptions() const
+{
+    QVariantList list;
+    const auto area = miacode::preview::scene::previewHudFontAreaFromId(hudFontAreaId_);
+    const QString defaultFamily = miacode::preview::scene::previewHudDefaultFontForArea(area, 14).family();
+    const QString selectedPath = hudFontPath();
+    bool selectedListed = selectedPath.isEmpty();
+    const QVector<miacode::video_export::FontLibraryEntry> entries =
+        miacode::video_export::fontLibraryEntries(
+            miacode::app_preferences::fontLibraryDirectory(), true, text("card_font.default"));
+    for (const miacode::video_export::FontLibraryEntry& entry : entries) {
+        list.append(QVariantMap{
+            {QStringLiteral("label"), entry.label},
+            {QStringLiteral("path"), entry.path},
+            {QStringLiteral("family"), entry.path.isEmpty() ? defaultFamily : entry.family},
+        });
+        selectedListed |= entry.path == selectedPath;
+    }
+    // Stored area paths can be outside the imported font library.
+    // Keep their real selection visible rather than mislabelling them Default.
+    if (!selectedListed) {
+        const QString family = miacode::video_export::fontFamilyForFile(selectedPath);
+        if (!family.isEmpty()) {
+            list.append(QVariantMap{
+                {QStringLiteral("label"), QStringLiteral("%1 (%2)").arg(family, QFileInfo(selectedPath).fileName())},
+                {QStringLiteral("path"), selectedPath},
+                {QStringLiteral("family"), family},
+            });
+        }
+    }
+    return list;
+}
+
+QVariantList PreviewSettingsModel::hudFontAreaOptions() const
+{
+    QVariantList result;
+    for (const auto& choice : miacode::preview::scene::previewHudFontAreaChoices()) {
+        result.append(QVariantMap{
+            {QStringLiteral("label"), text(choice.labelKey)},
+            {QStringLiteral("sample"), QLatin1String(choice.sample)},
+            {QStringLiteral("areaId"), miacode::preview::scene::previewHudFontAreaId(choice.area)},
+        });
+    }
+    return result;
+}
+
+int PreviewSettingsModel::hudFontAreaIndex() const
+{
+    return miacode::preview::scene::previewHudFontAreaIndex(
+        miacode::preview::scene::previewHudFontAreaFromId(hudFontAreaId_));
+}
+
+QString PreviewSettingsModel::hudFontPath() const
+{
+    return miacode::hud_preferences::load().path(
+        miacode::preview::scene::previewHudFontAreaFromId(hudFontAreaId_));
+}
+
+QString PreviewSettingsModel::hudFontSample() const
+{
+    const QVariantList areas = hudFontAreaOptions();
+    return areas.at(qBound(0, hudFontAreaIndex(), static_cast<int>(areas.size()) - 1))
+        .toMap().value(QStringLiteral("sample")).toString();
+}
+
+QFont PreviewSettingsModel::hudFont() const
+{
+    const auto area = miacode::preview::scene::previewHudFontAreaFromId(hudFontAreaId_);
+    return area == miacode::preview::scene::PreviewHudFontArea::DebugInfo
+        ? miacode::preview::scene::previewHudMonoFontForArea(miacode::hud_preferences::load(), area, 14)
+        : miacode::preview::scene::previewHudTimestampFontForArea(miacode::hud_preferences::load(), area, 14, QFont::DemiBold);
+}
+
+void PreviewSettingsModel::setSkinIndex(int index)
+{
+    if (surface() == nullptr) {
+        return;
+    }
+    const QStringList names = surface()->availableSkinDirectoryNames();
+    if (index < 0 || index >= names.size()) {
+        return;
+    }
+    const QString skinDirectoryName = names.at(index);
+    // The owner decides whether this is a real change, and applying it to the
+    // live surfaces plus persisting it are the window's reaction to that.
+    if (!appearance_->setSkinDirectory(skinDirectoryName)) {
+        return;
+    }
+    emit skinChanged();
+}
+
+void PreviewSettingsModel::setSkinJudgeEffectIndex(int index)
+{
+    if (surface() == nullptr) {
+        return;
+    }
+    const auto style = index == 1 ? PreviewJudgeEffectStyle::Starry : PreviewJudgeEffectStyle::Standard;
+    if (!appearance_->setJudgeEffectStyle(style)) {
+        return;
+    }
+    emit skinChanged();
+}
+
+void PreviewSettingsModel::setOutlineIndex(int index)
+{
+    if (surface() == nullptr) {
+        return;
+    }
+    if (index >= kBuiltinOutlineCount) {
+        const QStringList names = surface()->availableCustomOutlineFileNames();
+        const int customIndex = index - kBuiltinOutlineCount;
+        if (customIndex < 0 || customIndex >= names.size()) {
+            return;
+        }
+        surface()->applyCustomOutlineFileName(names.at(customIndex), true);
+        emit skinChanged();
+        return;
+    }
+    surface()->applyOutlineVariant(
+        outlineVariantForIndex(index), /*useAutoSelection=*/false, /*persistState=*/true);
+    emit skinChanged();
+}
+
+void PreviewSettingsModel::setHudFontAreaIndex(int index)
+{
+    const auto choices = miacode::preview::scene::previewHudFontAreaChoices();
+    if (choices.isEmpty()) return;
+    const int normalized = qBound(0, index, choices.size() - 1);
+    const int nextAreaId = miacode::preview::scene::previewHudFontAreaId(
+        choices.at(normalized).area);
+    if (hudFontAreaId_ == nextAreaId) {
+        return;
+    }
+    hudFontAreaId_ = nextAreaId;
+    emit fontLibraryChanged();
+    emit hudFontChanged();
+}
+
+void PreviewSettingsModel::setHudFontPath(const QString& path)
+{
+    const auto area = miacode::preview::scene::previewHudFontAreaFromId(hudFontAreaId_);
+    if (miacode::hud_preferences::load().path(area) == path) {
+        return;
+    }
+    miacode::hud_preferences::setPath(area, path);
+    if (surface() != nullptr) {
+        surface()->refreshSurfaces();
+    }
+    emit fontLibraryChanged();
+    emit hudFontChanged();
+}
+
+void PreviewSettingsModel::openSkinDirectory()
+{
+    if (surface() == nullptr) {
+        return;
+    }
+    const QString skinRoot = surface()->resolveSkinRootDir();
+    if (!skinRoot.isEmpty()) {
+        QDir().mkpath(skinRoot);
+        QDesktopServices::openUrl(QUrl::fromLocalFile(skinRoot));
+    }
+}
+
+void PreviewSettingsModel::openJudgeLineDirectory()
+{
+    if (surface() == nullptr) {
+        return;
+    }
+    const QString outlineDir = surface()->resolveCustomOutlineDir();
+    if (!outlineDir.isEmpty()) {
+        QDir().mkpath(outlineDir);
+        QDesktopServices::openUrl(QUrl::fromLocalFile(outlineDir));
+    }
+}
+
+void PreviewSettingsModel::importHudFont()
+{
+    if (uiRequests_ == nullptr) {
+        return;
+    }
+    miacode::FileRequest request;
+    request.title = miacode::localizedText("dialog.video_export.option.import_hud_font");
+    request.nameFilters = {miacode::localizedText("file_filter.font")};
+    uiRequests_->requestFile(request, [this](const QString& path) {
+        applyHudFontImport(path);
+    });
+}
+
+void PreviewSettingsModel::applyHudFontImport(const QString& selectedPath)
+{
+    if (selectedPath.isEmpty()) {
+        return;
+    }
+    const miacode::video_export::FontImportResult result =
+        miacode::video_export::importFontFileIntoLibrary(selectedPath, miacode::app_preferences::fontLibraryDirectory());
+    if (result.path.isEmpty()) {
+        if (uiRequests_ != nullptr) {
+            uiRequests_->postNotice(
+                miacode::NoticeSeverity::Warning,
+                miacode::localizedText("dialog.video_export.option.import_hud_font"),
+                result.failure == miacode::video_export::FontImportFailure::CopyFailed
+                    ? miacode::localizedText("card_font.copy_failed")
+                    : miacode::localizedText("card_font.invalid_font"));
+        }
+        return;
+    }
+    emit fontLibraryChanged();
+    setHudFontPath(result.path);
+}
+
+void PreviewSettingsModel::resetHudFont()
+{
+    setHudFontPath(QString());
+}
+
+void PreviewSettingsModel::refresh()
+{
+    emit changed();
+    emit skinChanged();
+    emit fontLibraryChanged();
+    emit hudFontChanged();
+}
+
+}  // namespace miacode::ui

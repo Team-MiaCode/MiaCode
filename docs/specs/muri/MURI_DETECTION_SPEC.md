@@ -1,23 +1,16 @@
 # 无理检测规则与行为规格
 
-本文档汇总当前 `MiaCode` 无理检测的输入、判定类型、阈值、锚点、列表合并与去重行为，作为实现、回归测试和后续补充样例时的统一依据。
-
 ## 1. 范围
 
-- 本规格覆盖三层结果：
+- 分析入口：
   - 运行时无理分析：`MuriAnalyzer::analyze`
   - 静态参考：`miacode::muri::buildStaticMuriReferences`
   - 面板可见项合并：`miacode::muri::buildVisibleMuriPanelEntries`
-- 本规格同时覆盖无理面板条目点击后的编辑器跳转行为。
-- 本规格不覆盖：
-  - 语法错误与警告
-  - 预览渲染细节
-  - 导出画面表现
 
 ## 2. 输入与前置归一化
 
-- 输入基于 `SimaiNativeParser::parseForTimeline` 产出的 `TimelineNoteMarker`。
-- 若上游对 marker 做了 `&first` 平移，则运行时分析和静态参考都必须使用平移后的秒数；即使平移后秒数为负，也必须原样进入判定，不能折到 `0`。
+- 输入基于 `SimaiParser::parseForTimeline` 产出的 `TimelineNoteMarker`。
+- `&first` 平移后的 marker 秒数用于运行时分析与静态参考，负秒数按原值参与判定。
 - slide / wifi 的头星会参与无理分析：
   - 运行时会生成头星对应的 tap-like judge target，但它复用所属 slide / wifi 的真实语义，不额外参与多押手动作统计。
   - 静态参考会生成辅助的 head-star target，用于 `SlideHeadTap` / `TapOnSlide` 参考构建。
@@ -37,7 +30,7 @@
 ## 4. 共享时间常量
 
 - 判定时基：`180 TPS`。用于把所有判定、窗口和延迟常量统一换算成 tick 与秒。
-- 抬手延迟：`3 / 180 = 16.7 ms`。用于普通按下动作结束后额外保留一小段按住时间，避免手部动作过早消失。
+- 抬手延迟：`3 / 180 = 16.7 ms`。用于延长普通按下动作的占用时间。
 - 额外 pad down 延迟：`9 / 180 = 50.0 ms`。用于模拟 slide 头等场景的额外按下触发时机。
 - tap critical：`3 / 180 = 16.7 ms`。用于判定 tap 何时开始落出 critical window。
 - tap available：`27 / 180 = 150.0 ms`。用于限制 tap 在运行时还能被判定的最晚可用窗口。
@@ -45,11 +38,18 @@
 - slide critical：`42 / 180 = 233.3 ms`。用于计算 slide 最终完成判定的核心临界窗基准。
 - slide available：`24 h = 86400.0 s`。用于限定 slide / wifi 在运行时仍可等待完成的整体可用窗口；超出后直接视为 bad。
 - slide leading：`15 / 180 = 83.3 ms`。用于给 slide 相关运行时动作保留前导时间语义。
-- tap-on-slide 起始阈值：`1 / 180 = 5.6 ms`。用于过滤过于贴近 slide 起点的极小时间差，避免过早把物件算进撞头/撞尾区间。
+- tap-on-slide 起始阈值：`1 / 180 = 5.6 ms`。用于确定撞头/撞尾区间的起点。
 - touch-on-slide 阈值：`24 / 180 = 133.3 ms`。用于判定 touch 与 slide 之间的贴靠 / 碰撞时间边界。
 - slide-too-fast 阈值：`1 / 180 = 5.6 ms`。用于判断 slide / wifi 完成时机是否已经快到超出允许误差。
 - SlideHeadTap 无启动 tap 的警告阈值：`50.0 ms`。
 - SlideHeadTap 晚窗口警告阈值：`150.0 ms`。
+
+### 4.1 可调参数
+
+以下两项在“无理检测”渲染模式菜单中调整，随预览设置持久化；预览叠层、时间轴标记、无理面板和导出快照使用同一组值。
+
+- 手部半径：以 1080 px 参考判定区为单位，默认 `30 px`，范围 `0–60 px`（步长 3）；界面按默认值的百分比显示，即 `0%–200%`（步长 10%）。tap / hold / touch / slide 的运行时手部动作与预览手部轨迹共用该半径；wifi 的手部扇形固定为 `100 px`。
+- 撞尾阈值：静态 `TapOnSlide` 参考检查的碰撞时间阈值，默认 `200 ms`，范围 `150–250 ms`（步长 5）。
 
 ## 5. 运行时分析规则
 
@@ -74,7 +74,8 @@
 
 ### 5.3 TapOnSlide
 
-- 当普通物件因 slide / wifi 尾部、路径进入时机或 critical 末端窗口而可能发生碰撞时，报 `TapOnSlide`。
+- 当普通物件因 slide / wifi 路径进入时机，或落在 critical 附近的撞尾窗口内而可能发生碰撞时，报 `TapOnSlide`。
+- 超慢 slide / wifi：若普通物件落在 `critical + threshold` 之后、且仍在 `end + (threshold - 150ms)` 占用窗口内，则报 `Overlap`（同 pad 占用），不再报 `TapOnSlide`。
 - 运行时路径基于真实提前判定结果。
 - 静态参考基于：
   - slide 各 segment 的 `pad enter time`
@@ -89,10 +90,14 @@
 ### 5.4 Overlap
 
 - 运行时 `Overlap` 来自普通物件最终以“同位置叠键”方式判定失败。
-- 静态 `Overlap` 来自非 slide 物件之间的同 pad 重叠参考：
-  - tap / touch 对 tap / touch：同 pad 且时差不超过 `6 / 180 = 33.3 ms`
-  - tap / touch 对 hold / touch-hold：落在对方按住区间前后各 `33.3 ms` 的扩展区间内
-  - hold / touch-hold 对 hold / touch-hold：两个扩展区间相交
+- 晚到且无显式 cause 时，运行时会回查当前 pad 占用源（含仍占用终点区的 slide / wifi），写入详情。
+- 晚到占用源为 slide / wifi 时，终点区超慢占用由静态 `Overlap` 呈现。
+- 静态 `Overlap` 来自：
+  - 非 slide 物件之间的同 pad 重叠参考：
+    - tap / touch 对 tap / touch：同 pad 且时差不超过 `6 / 180 = 33.3 ms`
+    - tap / touch 对 hold / touch-hold：落在对方按住区间前后各 `33.3 ms` 的扩展区间内
+    - hold / touch-hold 对 hold / touch-hold：两个扩展区间相交
+  - slide / wifi 终点区超慢占用：`critical + threshold < note ≤ end + (threshold - 150ms)`，受影响目标为同终点 pad 的 `tap` / `hold` / `head star`
 - slide 头真撞尾的配对不会被再次当作晚到 overlap 补报。
 
 ### 5.5 MultiTouch
@@ -108,7 +113,7 @@
 
 ### 5.6 详情文本
 
-- `SlideHeadTap` 详情会明确写出受影响目标，而不是只写裸类型：
+- `SlideHeadTap` 详情写出受影响目标：
   - `slide 1>5 start will early-judge tap 8, gap 40.0 ms.`
   - `slide 1>5 jump-start will early-judge hold 8, gap 170.5 ms.`
   - `slide 1>5 jump-start will early-judge star 1, gap 170.5 ms.`
@@ -170,7 +175,7 @@
 - 当诊断涉及多个物件时，锚点取“首个涉事物件”：
   - 优先按秒数更早者
   - 若秒数相同，则按文档顺序更早的 `line / col`
-- 面板显示的 `line / col` 与锚点绑定，而不是默认挂在被影响的后续物件上。
+- 面板显示的 `line / col` 取自锚点。
 
 ### 7.2 静态参考
 
@@ -180,9 +185,8 @@
 
 ### 7.3 点击跳转
 
-- 点击无理面板条目时，编辑器必须跳到条目存下来的精确 `line / col`。
+- 点击无理面板条目时，编辑器跳到条目保存的 `line / col`。
 - 预览 / timeline 仍可以使用 `anchorSecond` 做 seek。
-- 但按秒 seek 不能覆盖精确列号跳转，避免出现“只跳到该行、列号丢失”的现象。
 
 ### 7.4 典型例子
 
@@ -196,7 +200,7 @@ E
 ```
 
 - 运行时 `SlideHeadTap` 的真正发生秒数是 slide 头提前判定后续 tap 的时刻。
-- 但面板显示和点击跳转必须落在 `slide 8>3` 本身所在行列，而不是后续 `8`。
+- 面板显示和点击跳转使用 `slide 8>3` 所在行列。
 
 ## 8. 面板可见项合并规则
 
@@ -290,7 +294,7 @@ E
 
 - `-83.3 ms (slide leading)`
 
-这时 slide 已经进入 runtime 可判定状态，`availableSecond = marker.second - 83.3 ms`。如果更早就有相关 pad-down（区域按下），slide 可以从一开始就继承这些状态。注意，`83.3 ms` 已经把抬手延迟 `16.6 ms` 算在内了，等价于实际判定边界约为 `-100 ms`。
+`availableSecond = marker.second - 83.3 ms`，slide 从此时进入可判定状态并继承已有 pad-down。`83.3 ms` 包含抬手延迟 `16.6 ms`，实际判定边界约为 `-100 ms`。
 
 - `0 ms (marker.second)`
 
@@ -316,14 +320,14 @@ slide / wifi 每进一个新 area，simple-note 模拟都会收到一次那个 a
 
 - `500 ms (endSecond)`
 
-正常结束参考线。到这还没完成，不会立刻判死，只是进入“还能继续等”的区间。
+正常结束参考线。此后继续等待完成判定，截止于 `endSecond + 24 h`。
 可能影响的无理类型：`SlideTooFast`
 
 - `endSecond + 24 h (slide available)`
 
-这是最后等待点。到这还没完成，就强制 bad。
+等待截止点，超时判定为 bad。
 
-对于 `slide critical`，实现里另有一个独立的 `+50 ms shift` 容错分支。这个分支不是简单给 `criticalDeltaSecond` 再加 `50 ms`，而是额外用一扇向前偏了 `50 ms` 的基础窗口再检查一次，因此主要只会多宽容一部分过早完成的 slide。`MaiMuriDX` 的 slide 判定里也有同款双分支实现；wifi 不使用这个分支。伪代码如下：
+`slide critical` 另有 `+50 ms shift` 分支，使用前移 `50 ms` 的基础窗口检查过早完成的 slide。该分支仅用于 slide：
 
 ```text
 delta = judgeSecond - criticalSecond

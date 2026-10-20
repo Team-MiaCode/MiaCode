@@ -1,6 +1,7 @@
 #include "common/OperationLog.h"
 
 #include "common/DebugLog.h"
+#include "common/TaskCancellation.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -284,6 +285,8 @@ Scope::~Scope() noexcept
         // Normal exit — happy path stays silent.
         return;
     }
+    // Cooperative cancellation is a normal task completion, not a failed operation.
+    if (miacode::task::CancellationScope::cancellationUnwinding()) return;
 
     // Exception unwind. g_chainTop now points at our parent; we prepend
     // ourselves to the chain string so the failing op is at the head.

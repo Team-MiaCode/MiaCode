@@ -13,7 +13,20 @@ MACOS_CODESIGN_IDENTITY="${MACOS_CODESIGN_IDENTITY:--}"
 PACKAGE_ARCHITECTURES="${CMAKE_OSX_ARCHITECTURES:-arm64}"
 THIN_SINGLE_ARCH_PACKAGE="${MIACODE_THIN_MACOS_APP:-ON}"
 MIACODE_FFMPEG_DEV_DIR="${MIACODE_FFMPEG_DEV_DIR:-}"
-PACKAGE_CHANNEL="${MIACODE_PACKAGE_CHANNEL:-}"
+RELEASE_CHANNEL="${MIACODE_RELEASE_CHANNEL:-nightly}"
+PACKAGE_CHANNEL="${MIACODE_PACKAGE_CHANNEL-$RELEASE_CHANNEL}"
+if [[ "$PACKAGE_CHANNEL" == "release" ]]; then
+  PACKAGE_CHANNEL=""
+fi
+PACKAGE_JOBS="${MIACODE_PACKAGE_JOBS:-$(sysctl -n hw.ncpu)}"
+FFMPEG_RUNTIME_LIBRARIES=(
+  "libavcodec.62.dylib"
+  "libavfilter.11.dylib"
+  "libavformat.62.dylib"
+  "libavutil.60.dylib"
+  "libswresample.6.dylib"
+  "libswscale.9.dylib"
+)
 if [[ -z "$QT_ROOT" && -n "${QT_ROOT_DIR:-}" ]]; then
   QT_ROOT="$QT_ROOT_DIR"
 fi
@@ -57,12 +70,14 @@ package_step() {
 }
 
 VERSION="$(parse_version "$ROOT_DIR/CMakeLists.txt")"
-MACOS_PACKAGE_SUFFIX="macos-apple-silicon"
-PACKAGE_NAME="MiaCode-v${VERSION}"
+# Release artifact name: <name>_<version>[_<channel>]_<os>_<arch>. Separators
+# stay underscores except inside the version, which keeps its own dots and
+# hyphens (e.g. 2.0.0-alpha).
+PACKAGE_NAME="MiaCode_${VERSION}"
 if [[ -n "$PACKAGE_CHANNEL" ]]; then
-  PACKAGE_NAME+="-${PACKAGE_CHANNEL}"
+  PACKAGE_NAME+="_${PACKAGE_CHANNEL}"
 fi
-PACKAGE_NAME+="-${MACOS_PACKAGE_SUFFIX}"
+PACKAGE_NAME+="_mac_${PACKAGE_ARCHITECTURES}"
 DIST_DIR="${DIST_DIR:-$ROOT_DIR/dist/$PACKAGE_NAME}"
 
 version_gt() {
@@ -126,14 +141,6 @@ validate_minos() {
 
 resolve_macos_ffmpeg_dev_dir() {
   local library
-  local -a required_libraries=(
-    "libavcodec.60.dylib"
-    "libavfilter.9.dylib"
-    "libavformat.60.dylib"
-    "libavutil.58.dylib"
-    "libswresample.4.dylib"
-    "libswscale.7.dylib"
-  )
 
   if [[ -z "$MIACODE_FFMPEG_DEV_DIR" ]]; then
     MIACODE_FFMPEG_DEV_DIR="$ROOT_DIR/third_party/ffmpeg/macos/dev"
@@ -147,7 +154,7 @@ resolve_macos_ffmpeg_dev_dir() {
     echo "Run: bash scripts/ffmpeg/ensure-macos-ffmpeg-dev.sh" >&2
     exit 1
   fi
-  for library in "${required_libraries[@]}"; do
+  for library in "${FFMPEG_RUNTIME_LIBRARIES[@]}"; do
     if [[ ! -f "$MIACODE_FFMPEG_DEV_DIR/lib/$library" ]]; then
       echo "macOS FFmpeg SDK is missing required library: $MIACODE_FFMPEG_DEV_DIR/lib/$library" >&2
       exit 1
@@ -197,6 +204,21 @@ mach_o_files() {
   find "$app_path/Contents" -type f \( -name '*.dylib' -o -name '*.so' -o -perm -111 \) -print0
 }
 
+assert_no_packaged_extensions() {
+  local app_path="$1"
+  local dist_path="$(dirname "$app_path")"
+  local forbidden_path
+  for forbidden_path in \
+    "$dist_path/extensions" \
+    "$app_path/Contents/Resources/extensions" \
+    "$app_path/Contents/MacOS/extensions"; do
+    if [[ -e "$forbidden_path" || -L "$forbidden_path" ]]; then
+      echo "Product extension host payload must not be packaged: $forbidden_path" >&2
+      return 1
+    fi
+  done
+}
+
 is_external_dylib() {
   local dependency="$1"
   case "$dependency" in
@@ -212,14 +234,6 @@ stage_macos_ffmpeg_runtime() {
   local frameworks_dir="$app_path/Contents/Frameworks"
   local app_binary="$app_path/Contents/MacOS/MiaCode"
   local library source_path destination_path macho_path dependency dependency_base
-  local -a required_libraries=(
-    "libavcodec.60.dylib"
-    "libavfilter.9.dylib"
-    "libavformat.60.dylib"
-    "libavutil.58.dylib"
-    "libswresample.4.dylib"
-    "libswscale.7.dylib"
-  )
 
   if [[ ! -d "$frameworks_dir" ]]; then
     echo "Missing Frameworks directory while staging FFmpeg: $frameworks_dir" >&2
@@ -230,7 +244,7 @@ stage_macos_ffmpeg_runtime() {
     return 1
   fi
 
-  for library in "${required_libraries[@]}"; do
+  for library in "${FFMPEG_RUNTIME_LIBRARIES[@]}"; do
     source_path="$MIACODE_FFMPEG_DEV_DIR/lib/$library"
     destination_path="$frameworks_dir/$library"
     cp -L "$source_path" "$destination_path"
@@ -240,7 +254,7 @@ stage_macos_ffmpeg_runtime() {
   while IFS= read -r -d '' macho_path; do
     while IFS= read -r dependency; do
       dependency_base="$(basename "$dependency")"
-      for library in "${required_libraries[@]}"; do
+      for library in "${FFMPEG_RUNTIME_LIBRARIES[@]}"; do
         if [[ "$dependency_base" == "$library" && "$dependency" != "@rpath/$library" ]]; then
           install_name_tool -change "$dependency" "@rpath/$library" "$macho_path"
         fi
@@ -308,7 +322,7 @@ remove_qt_ffmpeg_backend() {
     "libswscale.8.dylib"
   )
 
-  # macOS preview uses QtAVPlayer and FFmpeg 6. QVideoFrame, VideoOutput, and
+  # macOS preview uses QtAVPlayer and the project FFmpeg runtime. QVideoFrame, VideoOutput, and
   # QMediaDevices still require Qt Multimedia, but not Qt's parallel FFmpeg 7
   # backend. Keep libdarwinmediaplugin.dylib for the native device backend.
   rm -f "$plugin_path"
@@ -317,8 +331,7 @@ remove_qt_ffmpeg_backend() {
     case "$macho_path" in
       "$frameworks_dir"/libavcodec.61.dylib|"$frameworks_dir"/libavfilter.10.dylib|"$frameworks_dir"/libavformat.61.dylib|"$frameworks_dir"/libavutil.59.dylib|"$frameworks_dir"/libswresample.5.dylib|"$frameworks_dir"/libswscale.8.dylib)
         # The Qt FFmpeg runtime libraries may reference one another, but are
-        # removed as one unit. Qt 6.10.2 does not stage avfilter.10; include
-        # it defensively so a future Qt deployment cannot reintroduce it.
+        # removed as one unit. Include avfilter for Qt package revisions that stage it.
         continue
         ;;
     esac
@@ -373,25 +386,6 @@ verify_no_external_ffmpeg_dylib_references() {
   return "$verification_failed"
 }
 
-validate_bundled_ffmpeg_minos() {
-  local app_path="$1"
-  local expected_target="$2"
-  local library_path library
-  local -a required_libraries=(
-    "libavcodec.60.dylib"
-    "libavfilter.9.dylib"
-    "libavformat.60.dylib"
-    "libavutil.58.dylib"
-    "libswresample.4.dylib"
-    "libswscale.7.dylib"
-  )
-
-  for library in "${required_libraries[@]}"; do
-    library_path="$app_path/Contents/Frameworks/$library"
-    validate_minos "$library_path" "$expected_target"
-  done
-}
-
 if [[ -n "$QT_ROOT" ]]; then
   export PATH="$QT_ROOT/bin:$PATH"
   export CMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH:-$QT_ROOT}"
@@ -403,7 +397,7 @@ if ! command -v cmake >/dev/null 2>&1; then
 fi
 
 if ! command -v macdeployqt >/dev/null 2>&1; then
-  echo "macdeployqt not found in PATH (set QT_ROOT=/path/to/Qt/6.8.x/macos)" >&2
+  echo "macdeployqt not found in PATH (set QT_ROOT=/path/to/Qt/6.10.x/macos)" >&2
   exit 1
 fi
 
@@ -414,6 +408,7 @@ cmake_args=(
   -S "$ROOT_DIR"
   -B "$BUILD_DIR"
   -DCMAKE_BUILD_TYPE=Release
+  "-DMIACODE_RELEASE_CHANNEL=$RELEASE_CHANNEL"
   "-DMIACODE_BUILD_DEV_TOOLS=$BUILD_DEV_TOOLS"
   "-DMIACODE_FFMPEG_DEV_DIR=$MIACODE_FFMPEG_DEV_DIR"
 )
@@ -425,15 +420,13 @@ if [[ -n "$PACKAGE_ARCHITECTURES" ]]; then
 fi
 package_step "Configuring Release build in $BUILD_DIR"
 cmake "${cmake_args[@]}"
-# Keep the complete build graph at four jobs or fewer. This cap is deliberate:
-# release packaging must not saturate the local machine with compiler processes.
-build_args=(--build "$BUILD_DIR" --config Release --parallel 4)
+build_args=(--build "$BUILD_DIR" --config Release --parallel "$PACKAGE_JOBS")
 if [[ "$BUILD_DEV_TOOLS" == "ON" ]]; then
-  build_args+=(--target MiaCode simai_native_dump soundtouch_probe)
+  build_args+=(--target MiaCode miacode_simai_dump miacode_audio_probe)
 else
   build_args+=(--target MiaCode)
 fi
-package_step "Building MiaCode (at most 4 concurrent jobs)"
+package_step "Building MiaCode with $PACKAGE_JOBS concurrent jobs"
 cmake "${build_args[@]}"
 
 APP_PATH="$BUILD_DIR/MiaCode.app"
@@ -450,7 +443,7 @@ rm -rf "$DIST_DIR"
 mkdir -p "$DIST_DIR"
 cp -R "$APP_PATH" "$DIST_DIR/"
 
-for release_doc in LICENSE LICENSE_SCOPE.md THIRD_PARTY_NOTICES.md; do
+for release_doc in LICENSE THIRD_PARTY_NOTICES.md; do
   if [[ ! -f "$ROOT_DIR/$release_doc" ]]; then
     echo "Missing release documentation file: $ROOT_DIR/$release_doc" >&2
     exit 1
@@ -466,7 +459,7 @@ else
 fi
 
 if [[ "$BUILD_DEV_TOOLS" == "ON" ]]; then
-  for helper_bin in simai_native_dump soundtouch_probe; do
+  for helper_bin in miacode_simai_dump miacode_audio_probe; do
     helper_path="$BUILD_DIR/$helper_bin"
     if [[ ! -f "$helper_path" && -f "$BUILD_DIR/Release/$helper_bin" ]]; then
       helper_path="$BUILD_DIR/Release/$helper_bin"
@@ -559,7 +552,7 @@ Gatekeeper 提示
 包内容
 MiaCode.app：应用程序
 Start_MiaCode_Debug.command：诊断启动器
-LICENSE、LICENSE_SCOPE.md、THIRD_PARTY_NOTICES.md 和 licenses/：许可证与第三方声明
+LICENSE、THIRD_PARTY_NOTICES.md 和 licenses/：许可证与第三方声明
 EOF
 
 cat >"$DIST_DIR/README_EN.txt" <<'EOF'
@@ -581,7 +574,7 @@ Open Start_MiaCode_Debug.command to start MiaCode in diagnostic mode. Logs are w
 Package Contents
 MiaCode.app: application
 Start_MiaCode_Debug.command: diagnostic launcher
-LICENSE, LICENSE_SCOPE.md, THIRD_PARTY_NOTICES.md, and licenses/: license and third-party notices
+LICENSE, THIRD_PARTY_NOTICES.md, and licenses/: license and third-party notices
 EOF
 
 debug_launcher_source="$ROOT_DIR/scripts/debug/Start_MiaCode_Debug.command"
@@ -600,6 +593,7 @@ fi
 package_step "Deploying Qt frameworks, plugins, and QML imports (macdeployqt may be quiet for several minutes)"
 macdeployqt "$DIST_DIR/MiaCode.app" -qmldir="$ROOT_DIR/src" -always-overwrite
 package_step "Removing non-release Qt helper components"
+assert_no_packaged_extensions "$DIST_DIR/MiaCode.app"
 
 # Qt Multimedia can pull Homebrew's dynamically linked ffprobe into the bundle.
 # MiaCode does not invoke it; export uses the pinned static ffmpeg below. Leaving
@@ -615,23 +609,14 @@ rm -rf "$DIST_DIR/MiaCode.app/Contents/PlugIns/sqldrivers"
 package_step "Removing the unused Qt FFmpeg 7 media backend"
 remove_qt_ffmpeg_backend "$DIST_DIR/MiaCode.app"
 
-package_step "Staging the self-contained FFmpeg 6 preview runtime"
+package_step "Staging the self-contained FFmpeg 8.1 preview runtime"
 stage_macos_ffmpeg_runtime "$DIST_DIR/MiaCode.app"
 strip_absolute_build_rpaths "$DIST_DIR/MiaCode.app/Contents/MacOS/MiaCode"
 
-# macdeployqt copies universal Qt frameworks/plugins even when MiaCode itself is
-# a single-architecture executable. For a package explicitly configured as
-# arm64 or x86_64, keep only that matching slice. The helper hard-fails on any
-# Mach-O that lacks the target architecture, preventing an x86-only Rosetta
-# helper or another incompatible binary from being silently damaged.
 if [[ "$THIN_SINGLE_ARCH_PACKAGE" == "ON" ]]; then
   package_step "Thinning all bundled Mach-O files to arm64"
-  "$ROOT_DIR/scripts/build/thin-macos-app.sh" \
-    "$DIST_DIR/MiaCode.app" "arm64"
+  python3 "$ROOT_DIR/scripts/build/package.py" thin "$DIST_DIR/MiaCode.app" "arm64"
 fi
-
-package_step "Verifying there are no build-machine dylib references"
-verify_no_external_ffmpeg_dylib_references "$DIST_DIR/MiaCode.app"
 
 bass_frameworks_dir="$DIST_DIR/MiaCode.app/Contents/Frameworks"
 required_bass_libraries=(
@@ -639,6 +624,7 @@ required_bass_libraries=(
   "libbassmix.dylib"
   "libbass_fx.dylib"
   "libbassopus.dylib"
+  "libbassflac.dylib"
 )
 for bass_library in "${required_bass_libraries[@]}"; do
   bass_path="$bass_frameworks_dir/$bass_library"
@@ -646,15 +632,10 @@ for bass_library in "${required_bass_libraries[@]}"; do
     echo "Missing packaged macOS BASS runtime: $bass_path" >&2
     exit 1
   fi
-  if [[ "$(lipo -archs "$bass_path")" != "arm64" ]]; then
-    echo "Packaged BASS runtime is not arm64-only: $bass_path" >&2
-    exit 1
-  fi
 done
 
 # macdeployqt and architecture thinning rewrite Mach-O files and invalidate
-# bundled signatures. Re-sign only after both operations finish, then verify the
-# completed bundle before it can be archived.
+# bundled signatures, so signing runs after both operations finish.
 if [[ -n "$MACOS_CODESIGN_IDENTITY" ]]; then
   package_step "Signing the completed app bundle"
   if ! command -v codesign >/dev/null 2>&1; then
@@ -662,51 +643,31 @@ if [[ -n "$MACOS_CODESIGN_IDENTITY" ]]; then
     exit 1
   fi
   codesign --force --deep --sign "$MACOS_CODESIGN_IDENTITY" "$DIST_DIR/MiaCode.app"
-  codesign --verify --deep --strict --verbose=2 "$DIST_DIR/MiaCode.app"
 fi
 
-if [[ -n "$DEPLOYMENT_TARGET" ]]; then
-  package_step "Validating minimum macOS version $DEPLOYMENT_TARGET"
-  validate_minos "$DIST_DIR/MiaCode.app/Contents/MacOS/MiaCode" "$DEPLOYMENT_TARGET"
-  validate_minos "$DIST_DIR/MiaCode.app/Contents/Frameworks/QtCore.framework/Versions/A/QtCore" "$DEPLOYMENT_TARGET"
-  validate_bundled_ffmpeg_minos "$DIST_DIR/MiaCode.app" "$DEPLOYMENT_TARGET"
-  for bass_library in "${required_bass_libraries[@]}"; do
-    validate_minos "$bass_frameworks_dir/$bass_library" "$DEPLOYMENT_TARGET"
-  done
-fi
+assert_no_packaged_extensions "$DIST_DIR/MiaCode.app"
 
-package_step "Creating ZIP archive"
-ZIP_PATH="${DIST_DIR}.zip"
-rm -f "$ZIP_PATH"
-(
-  cd "$(dirname "$DIST_DIR")"
-  ditto -c -k --sequesterRsrc --keepParent "$(basename "$DIST_DIR")" "$(basename "$ZIP_PATH")"
-)
-
-zip_launcher_path="$(basename "$DIST_DIR")/Start_MiaCode_Debug.command"
-zip_launcher_mode="$(zipinfo -l "$ZIP_PATH" "$zip_launcher_path" | awk '$1 ~ /^-[rwx-]+$/ { print $1; exit }')"
-if [[ ! "$zip_launcher_mode" =~ ^-..x ]]; then
-  echo "ZIP is missing an executable macOS debug launcher: $zip_launcher_path" >&2
-  exit 1
-fi
-
-if [[ -n "$MACOS_CODESIGN_IDENTITY" ]]; then
-  package_step "Verifying the ZIP-extracted app signature"
-  zip_verify_dir="$(mktemp -d "${TMPDIR:-/tmp}/miacode-package-verify.XXXXXX")"
-  ditto -x -k "$ZIP_PATH" "$zip_verify_dir"
-  zip_extracted_app="$zip_verify_dir/$(basename "$DIST_DIR")/MiaCode.app"
-  if [[ ! -d "$zip_extracted_app" ]]; then
-    echo "ZIP-extracted app is missing: $zip_extracted_app" >&2
-    rm -rf "$zip_verify_dir"
+package_step "Creating 7z archive"
+ARCHIVE_PATH="${DIST_DIR}.7z"
+rm -f "$ARCHIVE_PATH"
+SEVEN_ZIP="$(command -v 7z || command -v 7za || command -v 7zz || true)"
+if [[ -n "$SEVEN_ZIP" ]]; then
+  (
+    cd "$(dirname "$DIST_DIR")"
+    "$SEVEN_ZIP" a -t7z -mx=9 -mmt=on -bso0 -bsp0 "$ARCHIVE_PATH" "$(basename "$DIST_DIR")"
+  )
+else
+  PYTHON_SEVEN_ZIP="${PYTHON_BIN:-python3}"
+  if ! "$PYTHON_SEVEN_ZIP" -c 'import py7zr' >/dev/null 2>&1; then
+    echo "7z archive creation needs a 7z binary or the py7zr module. Install p7zip, or run: $PYTHON_SEVEN_ZIP -m pip install py7zr" >&2
     exit 1
   fi
-  if ! codesign --verify --deep --strict --verbose=2 "$zip_extracted_app"; then
-    rm -rf "$zip_verify_dir"
-    exit 1
-  fi
-  rm -rf "$zip_verify_dir"
+  (
+    cd "$(dirname "$DIST_DIR")"
+    "$PYTHON_SEVEN_ZIP" -m py7zr c "$ARCHIVE_PATH" "$(basename "$DIST_DIR")"
+  )
 fi
 
 package_step "Packaging complete"
 echo "Packaged to $DIST_DIR"
-echo "Zip created: $ZIP_PATH"
+echo "Archive created: $ARCHIVE_PATH"

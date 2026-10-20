@@ -1,0 +1,260 @@
+#include "app/runtime/preview/PreviewHost.h"
+
+namespace miacode::runtime {
+
+PreviewHost::PreviewHost(miacode::PreviewSurface& legacySurface,
+                         miacode::PreviewPlaybackPort& playbackPort,
+                         miacode::AudioClockSource& audioClockSource)
+    : legacySurface_(&legacySurface)
+    , playbackPort_(&playbackPort)
+    , audioClockSource_(&audioClockSource)
+{
+}
+
+void PreviewHost::invalidateSession()
+{
+    legacySurface_ = nullptr;
+    playbackPort_ = nullptr;
+    audioClockSource_ = nullptr;
+}
+
+miacode::PlaybackSnapshot PreviewHost::playbackSnapshot() const
+{
+    return playbackPort_ != nullptr ? playbackPort_->playbackSnapshot()
+                                    : miacode::PlaybackSnapshot{};
+}
+
+double PreviewHost::currentAudioClockSecond() const
+{
+    return audioClockSource_ != nullptr ? audioClockSource_->currentAudioClockSecond() : 0.0;
+}
+
+bool PreviewHost::playing() const
+{
+    return playbackTransportState() == miacode::PlaybackTransportState::Playing;
+}
+
+miacode::PlaybackTransportState PreviewHost::playbackTransportState() const
+{
+    return playbackSnapshot().transportState;
+}
+
+double PreviewHost::positionSeconds() const
+{
+    return currentAudioClockSecond();
+}
+
+double PreviewHost::durationSeconds() const
+{
+    return playbackSnapshot().durationSeconds;
+}
+
+double PreviewHost::lowerBoundSeconds() const
+{
+    return playbackSnapshot().lowerBoundSeconds;
+}
+
+double PreviewHost::playbackRate() const
+{
+    return playbackSnapshot().playbackRate;
+}
+
+QString PreviewHost::playbackRateLabel() const
+{
+    return legacySurface_ != nullptr ? legacySurface_->playbackRateLabel() : QString();
+}
+
+QObject* PreviewHost::previewRuntimeObject() const
+{
+    return legacySurface_ != nullptr ? legacySurface_->previewRuntimeObject() : nullptr;
+}
+
+QObject* PreviewHost::stageMediaHostObject() const
+{
+    return legacySurface_ != nullptr ? legacySurface_->stageMediaHostObject() : nullptr;
+}
+
+double PreviewHost::canvasAspectRatio() const
+{
+    return legacySurface_ != nullptr ? legacySurface_->canvasAspectRatio() : 1.0;
+}
+
+QStringList PreviewHost::statsTexts() const
+{
+    return legacySurface_ != nullptr ? legacySurface_->statsTexts() : QStringList();
+}
+
+RenderMode PreviewHost::muriRenderMode() const
+{
+    return legacySurface_ != nullptr ? legacySurface_->muriRenderMode() : RenderMode::Native;
+}
+
+void PreviewHost::setMuriRenderMode(RenderMode mode)
+{
+    if (legacySurface_ != nullptr) {
+        legacySurface_->setMuriRenderMode(mode);
+    }
+}
+
+void PreviewHost::toggleMuriRenderMode()
+{
+    if (legacySurface_ != nullptr) {
+        legacySurface_->toggleMuriRenderMode();
+    }
+}
+
+int PreviewHost::muriHandRadiusPx() const
+{
+    return legacySurface_ != nullptr ? legacySurface_->muriHandRadiusPx()
+                                     : miacode::muri::kHandRadiusDefaultPx;
+}
+
+void PreviewHost::setMuriHandRadiusPx(int radiusPx)
+{
+    if (legacySurface_ != nullptr) {
+        legacySurface_->setMuriHandRadiusPx(radiusPx);
+    }
+}
+
+int PreviewHost::muriTapOnSlideThresholdMs() const
+{
+    return legacySurface_ != nullptr ? legacySurface_->muriTapOnSlideThresholdMs()
+                                     : miacode::muri::kStaticTapOnSlideThresholdDefaultMs;
+}
+
+void PreviewHost::setMuriTapOnSlideThresholdMs(int thresholdMs)
+{
+    if (legacySurface_ != nullptr) {
+        legacySurface_->setMuriTapOnSlideThresholdMs(thresholdMs);
+    }
+}
+
+QStringList PreviewHost::availableSkinDirectoryNames() const
+{
+    return legacySurface_ != nullptr ? legacySurface_->availableSkinDirectoryNames() : QStringList();
+}
+
+QString PreviewHost::skinDisplayName(const QString& directoryName) const
+{
+    return legacySurface_ != nullptr ? legacySurface_->skinDisplayName(directoryName) : QString();
+}
+
+QString PreviewHost::resolveSkinDir() const
+{
+    return legacySurface_ != nullptr ? legacySurface_->resolveSkinDir() : QString();
+}
+
+QString PreviewHost::resolveSkinRootDir() const
+{
+    return legacySurface_ != nullptr ? legacySurface_->resolveSkinRootDir() : QString();
+}
+
+QString PreviewHost::resolveCustomOutlineDir() const
+{
+    return legacySurface_ != nullptr ? legacySurface_->resolveCustomOutlineDir() : QString();
+}
+
+QStringList PreviewHost::availableCustomOutlineFileNames() const
+{
+    return legacySurface_ != nullptr ? legacySurface_->availableCustomOutlineFileNames() : QStringList();
+}
+
+QString PreviewHost::customOutlineDisplayName(const QString& fileName) const
+{
+    return legacySurface_ != nullptr ? legacySurface_->customOutlineDisplayName(fileName) : QString();
+}
+
+QString PreviewHost::currentCustomOutlineFileName() const
+{
+    return legacySurface_ != nullptr ? legacySurface_->currentCustomOutlineFileName() : QString();
+}
+
+void PreviewHost::applyOutlineVariant(PreviewOutlineVariant variant, bool useAutoSelection,
+                                       bool persistState)
+{
+    if (legacySurface_ != nullptr) {
+        legacySurface_->applyOutlineVariant(variant, useAutoSelection, persistState);
+    }
+}
+
+void PreviewHost::applyCustomOutlineFileName(const QString& fileName, bool persistState)
+{
+    if (legacySurface_ != nullptr) {
+        legacySurface_->applyCustomOutlineFileName(fileName, persistState);
+    }
+}
+
+QVariantMap PreviewHost::renderSettings() const
+{
+    return legacySurface_ != nullptr ? legacySurface_->renderSettings() : QVariantMap();
+}
+
+void PreviewHost::setRenderSetting(const QString& key, const QVariant& value)
+{
+    if (legacySurface_ != nullptr) {
+        legacySurface_->setRenderSetting(key, value);
+    }
+}
+
+void PreviewHost::refreshSurfaces()
+{
+    if (legacySurface_ != nullptr) {
+        legacySurface_->refreshSurfaces();
+    }
+}
+
+void PreviewHost::prepareForMediaFileOperation()
+{
+    if (legacySurface_ != nullptr) {
+        legacySurface_->prepareForMediaFileOperation();
+    }
+}
+
+void PreviewHost::refreshMediaAfterFileOperation()
+{
+    if (legacySurface_ != nullptr) {
+        legacySurface_->refreshMediaAfterFileOperation();
+    }
+}
+
+void PreviewHost::applySfxLevels()
+{
+    if (legacySurface_ != nullptr) {
+        legacySurface_->applySfxLevels();
+    }
+}
+
+void PreviewHost::prepareForShutdown()
+{
+    if (legacySurface_ != nullptr) {
+        legacySurface_->prepareForShutdown();
+    }
+}
+
+PreviewAudioSettings PreviewHost::audioSettings() const
+{
+    return legacySurface_ != nullptr ? legacySurface_->audioSettings() : PreviewAudioSettings();
+}
+
+void PreviewHost::applyAudioSettings(const PreviewAudioSettings& settings)
+{
+    if (legacySurface_ != nullptr) {
+        legacySurface_->applyAudioSettings(settings);
+    }
+}
+
+void PreviewHost::saveAudioSettingsAsSoftwareDefault()
+{
+    if (legacySurface_ != nullptr) {
+        legacySurface_->saveAudioSettingsAsSoftwareDefault();
+    }
+}
+
+void PreviewHost::restoreAudioSettingsFromSoftwareDefault()
+{
+    if (legacySurface_ != nullptr) {
+        legacySurface_->restoreAudioSettingsFromSoftwareDefault();
+    }
+}
+
+}  // namespace miacode::runtime

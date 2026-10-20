@@ -3,7 +3,7 @@
 #include <QVector>
 
 #include "core/scene/PreviewHudState.h"
-#include "timeline/TimelineData.h"
+#include "core/chart/model/TimelineData.h"
 
 namespace miacode::preview::scene {
 

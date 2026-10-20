@@ -1,8 +1,8 @@
 #pragma once
 
-#include "common/PreviewSfxAssets.h"
+#include "core/scene/PreviewSfxAssets.h"
 
-#include "common/PreviewSfxSemantics.h"
+#include "core/scene/PreviewSfxSemantics.h"
 
 #include <QJsonObject>
 #include <QString>
@@ -29,6 +29,10 @@ struct PreviewAudioSettings {
     double touchRestoreVolume = 0.30;
     double fireworkVolume = 0.30;
     double fireworkRestoreVolume = 0.30;
+    // Opening jingle ("track_start"). Not a note SFX, so it stays out of
+    // allNonTrackMuted(); like every other channel it sits under globalVolume.
+    double introVolume = 1.0;
+    double introRestoreVolume = 1.0;
     bool breakSlideTailCheerMuted = false;
     bool mineSfxEnabled = true;
 
@@ -46,6 +50,7 @@ struct PreviewAudioSettings {
     int slidePercent() const;
     int touchPercent() const;
     int fireworkPercent() const;
+    int introPercent() const;
     void setGlobalPercent(int value);
     void setTrackPercent(int value);
     void setAnswerPercent(int value);
@@ -56,6 +61,7 @@ struct PreviewAudioSettings {
     void setSlidePercent(int value);
     void setTouchPercent(int value);
     void setFireworkPercent(int value);
+    void setIntroPercent(int value);
 
     bool globalMuted() const;
     bool trackMuted() const;
@@ -67,6 +73,7 @@ struct PreviewAudioSettings {
     bool slideMuted() const;
     bool touchMuted() const;
     bool fireworkMuted() const;
+    bool introMuted() const;
     bool allNonTrackMuted() const;
 
     void toggleGlobalMuted();
@@ -79,6 +86,7 @@ struct PreviewAudioSettings {
     void toggleSlideMuted();
     void toggleTouchMuted();
     void toggleFireworkMuted();
+    void toggleIntroMuted();
     void toggleAllNonTrackMuted();
 
     QJsonObject toJson() const;
@@ -123,7 +131,7 @@ inline double previewSfxVolumeForKind(const PreviewAudioSettings& settings, cons
         return settings.answerVolume * globalVolume;
     }
     if (lowered == "track_start") {
-        return miacode::preview_sfx::selectedIntroSoundVolume();
+        return PreviewAudioSettings::clamp(settings.introVolume) * globalVolume;
     }
     return 0.0;
 }
@@ -135,12 +143,18 @@ inline double previewTrackVolume(const PreviewAudioSettings& settings)
 }
 
 // Derive the latency-page audition levels from the user's normal preview mix.
-// Pure function: every SFX kind plays at `sfxPercent` (independent of the user's
+// Pure function: only answer plays at `sfxPercent` (independent of the user's
 // per-kind SFX volumes), while the song keeps its normal *effective* volume
 // (global*track folded into trackVolume, globalVolume pinned to 1.0). This is the
 // LatencyAudition half of the single level-dispatch entry
 // (MainWindow::applyPreviewAudioSettingsToRuntime); there is no snapshot/restore.
 PreviewAudioSettings makePreviewLatencyAuditionLevels(const PreviewAudioSettings& mix, int sfxPercent);
+
+// The export page's PV-preview intro audition plays the song from the chosen
+// segment through the normal transport: every note SFX kind is silent and the
+// song keeps the user's level scaled by `trackGain` (the intro's fade envelope).
+// Pure function of the mix, like the latency audition levels.
+PreviewAudioSettings makePreviewIntroSegmentLevels(const PreviewAudioSettings& mix, double trackGain);
 
 bool resolveBreakSlideTailCheerMutedPreference(const QJsonObject& preview);
 PreviewAudioSettings previewAudioSettingsWithBreakSlideTailCheerPreference(

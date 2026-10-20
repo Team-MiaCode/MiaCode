@@ -1,37 +1,18 @@
-#include "QuickShellPreviewCompositeSurface.h"
+#include "app/quick_shell/QuickShellPreviewCompositeSurface.h"
 
-#include "MainEntrypoints.h"
-#include "app/WindowVisibilityDiagnostics.h"
-#include "preview/quick_scene/PreviewQuickHudLayer.h"
-#include "preview/quick_scene/PreviewQuickSceneRoot.h"
+#include "app/platform/PlatformDiagnostics.h"
+#include "app/platform/WindowVisibilityDiagnostics.h"
 #include "preview/runtime/PreviewRuntime.h"
-#include "preview/runtime/PreviewStageMediaHost.h"
+#include "preview/stage_media/PreviewStageMediaHost.h"
+#include <QQuickItem>
 #include <QQuickView>
 #include <QSurfaceFormat>
 #include <QUrl>
 #include <QVariant>
-#include <QtQml/qqml.h>
-
-namespace {
-
-void ensureQuickShellPreviewTypesRegistered()
-{
-    static bool registered = false;
-    if (registered) {
-        return;
-    }
-    qmlRegisterType<PreviewQuickSceneRoot>("MiaCode.Preview", 1, 0, "PreviewQuickSceneRoot");
-   qmlRegisterType<PreviewQuickHudLayer>("MiaCode.Preview", 1, 0, "PreviewQuickHudLayer");
-   registered = true;
-}
-
-}  // namespace
 
 QuickShellPreviewCompositeSurface::QuickShellPreviewCompositeSurface(QObject* parent)
     : QObject(parent)
 {
-    ensureQuickShellPreviewTypesRegistered();
-
     view_ = new QQuickView();
 
     // P4.3 — bind the composite view's QRhi through the unified high-performance
@@ -54,10 +35,8 @@ QuickShellPreviewCompositeSurface::QuickShellPreviewCompositeSurface(QObject* pa
     view_->setFormat(format);
     view_->setColor(QColor(QStringLiteral("#000000")));
     view_->setResizeMode(QQuickView::SizeRootObjectToView);
-    view_->setPersistentGraphics(true);
-    view_->setPersistentSceneGraph(true);
     // Occlusion / minimize transitions for the preview surface, plus a one-shot record of
-    // the two lines above: persistent graphics means hiding or minimizing this window does
+    // Qt's default persistence: persistent graphics means hiding or minimizing this window does
     // NOT release its GPU resources. On the reported 2 GB MX450 — shared with an NVENC
     // encoder and the root window — that is load-bearing context for reading the VRAM
     // gauge, so the log states it rather than leaving the reader to infer it.
@@ -72,7 +51,7 @@ QuickShellPreviewCompositeSurface::QuickShellPreviewCompositeSurface(QObject* pa
             bindRootObject();
         }
     });
-    view_->setSource(QUrl(QStringLiteral("qrc:/quick_shell/qml/QuickShellPreviewSurface.qml")));
+    view_->setSource(QUrl(QStringLiteral("qrc:/preview/runtime/qml/PreviewSurface.qml")));
     if (view_->status() == QQuickView::Ready) {
         bindRootObject();
     }

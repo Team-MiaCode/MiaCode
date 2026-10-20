@@ -69,7 +69,6 @@ QString buildTouchToken(const TouchTokenParts& parts, bool hasBreak, bool hasEx,
 QString buildNoteToken(const NoteTokenParts& parts, bool hasBreak, bool hasEx);
 QString buildSlideToken(const SlideTokenParts& parts);
 QChar rotateLaneChar(QChar lane, int steps);
-QString rotateSlideCoreOutsideBrackets(const QString& text, int steps);
 
 // Subdivision TU
 SelectionEdgeSplit splitSelectionEdges(const QString& input);

@@ -1,0 +1,2217 @@
+#include "common/LocalizedText.h"
+
+#include "app/ui/document/ChartTransformCommands.h"
+#include "core/chart/transform/ChartBatchTransform.h"
+#include "core/chart/transform/ChartNormalization.h"
+#include "core/chart/selection/ChartSelectionBeatSummary.h"
+#include "app/ui/document/DocumentModel.h"
+#include "app/ui/preferences/LocaleService.h"
+
+#include "editor/BookmarkCommentSyntax.h"
+
+#include "app/services/UiRequestService.h"
+#include "app/services/ChartBannerData.h"
+#include "core/chart/ChartAssetPaths.h"
+#include "common/DebugLog.h"
+#include "app/services/Id3TagReader.h"
+#include "app/services/ProjectPreferences.h"
+#include "core/chart/document/SimaiDocument.h"
+
+#include <algorithm>
+#include <functional>
+
+#include <QDateTime>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QStandardPaths>
+#include <QImage>
+#include <QImageReader>
+#include <QJsonObject>
+#include <QJsonValue>
+#include <QRegularExpression>
+#include <QSaveFile>
+#include <QSet>
+#include <QVariantMap>
+#include <QCoreApplication>
+#include <QUuid>
+#include <memory>
+
+
+namespace miacode::ui {
+namespace {
+
+constexpr const char* kUnifiedDesignerPrefKey = "unified_designer_enabled";
+
+void writeUnifiedDesignerPreference(const QString& chartPath, bool enabled)
+{
+    if (chartPath.isEmpty()) return;
+    QJsonObject preferences = miacode::project_preferences::load(chartPath);
+    preferences[QLatin1String(kUnifiedDesignerPrefKey)] = enabled;
+    miacode::project_preferences::save(chartPath, preferences);
+}
+
+// 保存 / 放弃 / 取消, in button order. Ids match what the prompts branch on.
+QVariantList unsavedSectionChoices()
+{
+    const auto choice = [](const char* id, const char* labelKey, const char* role) {
+        return QVariantMap{
+            {QStringLiteral("id"), QLatin1String(id)},
+            {QStringLiteral("label"), miacode::localizedText(labelKey).variant()},
+            {QStringLiteral("role"), QLatin1String(role)},
+        };
+    };
+    return QVariantList{
+        choice("save", "action.save", "accept"),
+        choice("discard", "action.discard", "destructive"),
+        choice("cancel", "action.cancel", "reject"),
+    };
+}
+
+miacode::LocalizedText dropCreateTitle()
+{
+    return miacode::localizedText("drop_chart.preview.create_title");
+}
+
+miacode::LocalizedText dropOpenOrCreateTitle()
+{
+    return miacode::localizedText("drop_chart.preview.title");
+}
+
+QString cleanChartFolderName(QString name)
+{
+    name = name.trimmed();
+    name.replace(QRegularExpression(QStringLiteral("[<>:\"/\\\\|?*\\x00-\\x1f]")), QStringLiteral("_"));
+    while (name.endsWith(QLatin1Char('.')) || name.endsWith(QLatin1Char(' '))) {
+        name.chop(1);
+    }
+    const QString device = name.section(QLatin1Char('.'), 0, 0).toUpper();
+    const bool reservedDevice = QSet<QString>{QStringLiteral("CON"), QStringLiteral("PRN"),
+                                              QStringLiteral("AUX"), QStringLiteral("NUL")}.contains(device);
+    const bool numberedDevice = (device.startsWith(QStringLiteral("COM"))
+                                 || device.startsWith(QStringLiteral("LPT")))
+        && device.size() == 4 && device.at(3) >= QLatin1Char('1') && device.at(3) <= QLatin1Char('9');
+    if (reservedDevice || numberedDevice) {
+        name.prepend(QLatin1Char('_'));
+    }
+    name = name.left(80).trimmed();
+    while (name.endsWith(QLatin1Char('.')) || name.endsWith(QLatin1Char(' '))) {
+        name.chop(1);
+    }
+    return name;
+}
+
+void applyId3Metadata(SimaiDocument& document, const QString& audioPath)
+{
+    const miacode::id3::Tag tag = miacode::id3::readTagFromFile(audioPath);
+    if (!tag.title.trimmed().isEmpty()) {
+        document.title = tag.title.trimmed();
+    }
+    if (!tag.artist.trimmed().isEmpty()) {
+        document.artist = tag.artist.trimmed();
+    }
+}
+
+QString uniqueChartFolder(const QString& parentDirectory, const QString& folder)
+{
+    QString target = QDir(parentDirectory).filePath(folder);
+    int suffix = 2;
+    while (QFileInfo::exists(target)) {
+        target = QDir(parentDirectory).filePath(
+            QStringLiteral("%1 (%2)").arg(folder).arg(suffix++));
+    }
+    return target;
+}
+
+QVariantMap dropChoice(const char* id, const char* labelKey, const char* role)
+{
+    return QVariantMap{
+        {QStringLiteral("id"), QLatin1String(id)},
+        {QStringLiteral("label"), miacode::localizedText(labelKey).variant()},
+        {QStringLiteral("role"), QLatin1String(role)},
+    };
+}
+
+QVariantList existingChartChoices()
+{
+    return QVariantList{
+        dropChoice("open", "action.open", "accept"),
+        dropChoice("overwrite", "drop_chart.overwrite", "destructive"),
+        dropChoice("cancel", "action.cancel", "reject"),
+    };
+}
+
+QVariantList createChartChoices()
+{
+    return QVariantList{
+        dropChoice("create", "action.new", "accept"),
+        dropChoice("cancel", "action.cancel", "reject"),
+    };
+}
+
+QVariantList createFolderChoices()
+{
+    return QVariantList{
+        dropChoice("create_folder", "drop_chart.preview.create_folder", "accept"),
+        dropChoice("cancel", "action.cancel", "reject"),
+    };
+}
+
+miacode::LocalizedText dropCreateHereText(const QString& path)
+{
+    return miacode::localizedText("drop_chart.preview.create_here").arg(QDir::toNativeSeparators(path));
+}
+
+QString plannedDroppedChartFolder(const QString& audioPath)
+{
+    const QFileInfo audioInfo(audioPath);
+    QString title = audioInfo.completeBaseName();
+    if (audioInfo.suffix().compare(QStringLiteral("mp3"), Qt::CaseInsensitive) == 0) {
+        const auto tag = miacode::id3::readTagFromFile(audioInfo.absoluteFilePath());
+        if (!tag.title.trimmed().isEmpty()) {
+            title = tag.title.trimmed();
+        }
+    }
+    QString folder = cleanChartFolderName(title);
+    if (folder.isEmpty()) {
+        folder = QStringLiteral("Untitled");
+    }
+    return uniqueChartFolder(audioInfo.absolutePath(), folder);
+}
+
+}  // namespace
+
+
+DocumentModel::DocumentModel(
+    miacode::ShellNotifications& notifications, miacode::ChartWorkspace& workspace,
+    miacode::ChartWorkspaceFileService& fileService,
+    miacode::AnalysisService& analysisService,
+    miacode::UiRequestService& uiRequests,
+    miacode::DocumentBridge*& bridgeSlot,
+    miacode::PreviewSurface*& previewSlot, QObject* parent)
+    : QObject(parent)
+    , notifications_(&notifications)
+    , workspace_(&workspace)
+    , fileService_(&fileService)
+    , analysisService_(&analysisService)
+    , uiRequests_(&uiRequests)
+    , bridgeSlot_(&bridgeSlot)
+    , previewSlot_(&previewSlot)
+{
+
+    connect(&miacode::LocaleService::instance(), &miacode::LocaleService::languageChanged,
+            this, [this](const QString&) {
+        emit localeLabelsChanged();
+        emit metadataChanged();
+        emit currentFilePathChanged();
+        emit documentTitleChanged();
+        emit currentDifficultyChanged();
+        emit difficultiesChanged();
+        emit bookmarksChanged();
+    });
+    metadataSaveTimer_.setSingleShot(true);
+    connect(&metadataSaveTimer_, &QTimer::timeout, this, [this] {
+        saveMetadataImmediately();
+    });
+    bridge()->setDocumentSaveHandler([this](const QString& path) {
+        return saveToPath(path);
+    });
+    bridge()->setLeaveDocumentHandler(
+        [this](std::function<void(bool)> onDecided) { requestLeaveDocument(std::move(onDecided)); });
+    bridge()->setChartTextHandler([this](const QString& text) {
+        if (workspace_ == nullptr) return false;
+        setChartText(text);
+        return chartText() == text;
+    });
+    // Publish the initial workspace identity, including the welcome state with
+    // no document, so later navigation values carry the workspace revision.
+    refreshUnifiedDesignerState();
+    publishWorkspaceCommit(WorkspaceCommitKind::Incremental);
+    refreshDocumentState();
+    connect(workspace_, &miacode::ChartWorkspace::changed, this, [this](quint64) {
+        if (suppressWorkspaceChanged_) return;
+        publishWorkspaceCommit(WorkspaceCommitKind::Incremental);
+    });
+    connect(analysisService_, &miacode::AnalysisService::snapshotChanged,
+            this, [this](int, quint64) {
+                refreshDocumentState();
+                emit syntaxIssuesChanged();
+                emit documentStateChanged();
+            });
+    connect(notifications_, &miacode::ShellNotifications::documentReplaced, this, [this] {
+        // A chart may be replaced by the backend directly (startup, root
+        // ChartDrop, native File/Open, recovery), not only through this QML
+        // facade.  Some replacement routes finalize their dirty/revision
+        // state after loadDocument() returns, so defer the projection until
+        // that transaction has fully committed.  QML then receives one
+        // coherent snapshot for the title, source editor, difficulty tabs,
+        // and derived bookmark list rather than a new chart with old state.
+        QMetaObject::invokeMethod(this, [this] {
+            adoptBackendDocumentReplacement();
+            // A desktop report says the editor keeps showing the outgoing
+            // chart after a switch while the timeline and preview media follow
+            // the incoming one. Nothing in the log records document identity,
+            // so this pins what the QML projection publishes at the moment of
+            // replacement; SourceEditor logs what it ends up showing.
+            miacode::debug_log::appendLine(
+                miacode::debug_log::Channel::Runtime,
+                QStringLiteral("editor/document_replaced"),
+                QStringLiteral("path=%1 difficulty=%2 revision=%3 chart_chars=%4 difficulties=%5")
+                    .arg(bridge() != nullptr ? bridge()->filePath() : QString())
+                    .arg(currentDifficultyId())
+                    .arg(documentRevision_)
+                    .arg(chartText().size())
+                    .arg(workspace_ != nullptr
+                             ? workspace_->document().difficultyIds().size() : -1));
+        }, Qt::QueuedConnection);
+    });
+}
+
+DocumentModel::~DocumentModel()
+{
+    if (bridge() != nullptr) {
+        bridge()->setDocumentSaveHandler({});
+        bridge()->setChartTextHandler({});
+        bridge()->setLeaveDocumentHandler({});
+    }
+}
+
+QString DocumentModel::chartText() const
+{
+    if (workspace_ == nullptr) return {};
+    const SimaiDifficultyData* difficulty =
+        workspace_->document().difficulty(currentDifficultyId());
+    return difficulty != nullptr ? difficulty->chart : QString();
+}
+
+void DocumentModel::setChartText(const QString& value)
+{
+    if (workspace_ == nullptr || chartText() == value) return;
+    if (!runWorkspaceMutation([&] {
+            return workspace_->replaceActiveDifficultyChart(value).accepted;
+        })) {
+        return;
+    }
+    publishWorkspaceCommit(WorkspaceCommitKind::ChartText);
+}
+
+QString DocumentModel::metadataTitle() const
+{
+    return documentField(miacode::ChartWorkspaceDocumentField::Title);
+}
+QString DocumentModel::metadataArtist() const
+{
+    return documentField(miacode::ChartWorkspaceDocumentField::Artist);
+}
+QString DocumentModel::metadataFirst() const
+{
+    return documentField(miacode::ChartWorkspaceDocumentField::First);
+}
+QString DocumentModel::metadataDesigner() const
+{
+    return documentField(miacode::ChartWorkspaceDocumentField::Designer);
+}
+QString DocumentModel::metadataVideoPath() const
+{
+    return documentField(miacode::ChartWorkspaceDocumentField::VideoPath);
+}
+QString DocumentModel::metadataCoverPath() const { return metadataCoverPath_; }
+QUrl DocumentModel::metadataCoverSource() const { return metadataCoverSource_; }
+
+QVariantMap DocumentModel::difficultyCardTemplate() const
+{
+    return miacode::chart_banner::loadTemplate();
+}
+
+QVariantMap DocumentModel::difficultyCardTrack(int difficultyId) const
+{
+    if (!hasDocument() || workspace_->document().difficulty(difficultyId) == nullptr) return {};
+    const auto snapshot = workspace_->snapshot();
+    if (difficultyCardId_ != difficultyId || difficultyCardRevision_ != snapshot.revision
+        || difficultyCardGeneration_ != snapshot.documentOpenGeneration) {
+        difficultyCardTrack_ = introBannerTrackMap(
+            miacode::chart_banner::forDifficulty(workspace_->document(), difficultyId));
+        difficultyCardId_ = difficultyId;
+        difficultyCardRevision_ = snapshot.revision;
+        difficultyCardGeneration_ = snapshot.documentOpenGeneration;
+    }
+    return difficultyCardTrack_;
+}
+QString DocumentModel::metadataResolvedVideoPath() const { return metadataResolvedVideoPath_; }
+bool DocumentModel::metadataHasVideo() const { return !metadataResolvedVideoPath_.isEmpty(); }
+
+void DocumentModel::refreshMetadataMedia(bool force)
+{
+    const QString chartPath = currentFilePath();
+    const QString videoField = metadataVideoPath();
+    if (!force && metadataMediaChartPath_ == chartPath && metadataMediaVideoField_ == videoField) return;
+    metadataMediaChartPath_ = chartPath;
+    metadataMediaVideoField_ = videoField;
+
+    QString coverPath = miacode::chart_assets::resolveBackgroundMediaPath(chartPath, false);
+    QImageReader coverReader(coverPath);
+    if (!coverPath.isEmpty() && !coverReader.canRead()) coverPath.clear();
+    QUrl coverSource;
+    if (!coverPath.isEmpty()) {
+        coverSource = QUrl::fromLocalFile(coverPath);
+        coverSource.setQuery(QString::number(QFileInfo(coverPath).lastModified().toMSecsSinceEpoch()));
+    }
+    QString videoPath = miacode::chart_assets::resolveChartVideoPath(chartPath, videoField);
+    if (!miacode::chart_assets::isVideoBackgroundPath(videoPath)) {
+        const QStringList candidates = mediaService_.existingCandidates(
+            chartPath, miacode::ChartMediaService::Kind::Video);
+        videoPath = candidates.isEmpty() ? QString() : candidates.constFirst();
+    }
+    if (metadataCoverPath_ == coverPath && metadataCoverSource_ == coverSource
+        && metadataResolvedVideoPath_ == videoPath) return;
+    metadataCoverPath_ = coverPath;
+    metadataCoverSource_ = coverSource;
+    metadataResolvedVideoPath_ = videoPath;
+    emit metadataMediaChanged();
+}
+
+QString DocumentModel::metadataClockCount() const
+{
+    if (workspace_ == nullptr) return {};
+    for (const SimaiRawField& field : workspace_->document().extraFields) {
+        if (field.key.compare(QStringLiteral("clock_count"), Qt::CaseInsensitive) == 0)
+            return field.value;
+    }
+    return {};
+}
+QString DocumentModel::metadataExtraText() const
+{
+    if (workspace_ == nullptr) return {};
+    if (!metadataExtraDraft_.isNull()) return metadataExtraDraft_;
+    QVector<SimaiRawField> fields;
+    for (const SimaiRawField& field : workspace_->document().extraFields) {
+        if (field.key.compare(QStringLiteral("clock_count"), Qt::CaseInsensitive) != 0)
+            fields.append(field);
+    }
+    return SimaiDocument::serializeRawFields(fields);
+}
+QString DocumentModel::metadataExtraError() const
+{
+    return metadataExtraError_.isEmpty() ? QString() : qtTrId("metadata.extra_field_format");
+}
+bool DocumentModel::metadataNeedsAttention() const
+{
+    return !metadataAttentionItems().isEmpty();
+}
+QString DocumentModel::metadataAttentionText() const
+{
+    const QStringList items = metadataAttentionItems();
+    return items.isEmpty() ? QString()
+        : qtTrId("metadata.needs_attention").arg(items.join(QStringLiteral("、")));
+}
+QStringList DocumentModel::metadataAttentionItems() const
+{
+    QStringList items;
+    if (metadataTitle().trimmed().isEmpty())
+        items.append(qtTrId("metadata.field.title"));
+    if (metadataArtist().trimmed().isEmpty())
+        items.append(qtTrId("metadata.field.artist"));
+    if (metadataDesigner().trimmed().isEmpty())
+        items.append(qtTrId("metadata.field.des"));
+    if (!miacode::chart_assets::hasChartBackgroundMedia(currentFilePath(), metadataVideoPath()))
+        items.append(qtTrId("metadata.field.cover"));
+    return items;
+}
+QString DocumentModel::wholeBpm() const
+{
+    if (workspace_ == nullptr) return {};
+    for (const SimaiRawField& field : workspace_->document().extraFields) {
+        if (field.key.compare(QStringLiteral("wholebpm"), Qt::CaseInsensitive) == 0) {
+            return field.value.trimmed();
+        }
+    }
+    return {};
+}
+bool DocumentModel::unifiedDesignerEnabled() const { return unifiedDesignerEnabled_; }
+
+QVariantList DocumentModel::designerSlots() const
+{
+    QVariantList result;
+    if (workspace_ == nullptr) return result;
+    for (int id = 1; id <= 7; ++id) {
+        result.append(QVariantMap{
+            {QStringLiteral("id"), id},
+            {QStringLiteral("name"), SimaiDocument::difficultyName(id)},
+            {QStringLiteral("designer"), workspace_->document().designerForSlot(id)},
+            {QStringLiteral("hasChart"), workspace_->document().difficulty(id) != nullptr},
+        });
+    }
+    return result;
+}
+
+void DocumentModel::setMetadataTitle(const QString& value)
+{
+    if (workspace_ == nullptr) return;
+    if (!runWorkspaceMutation([&] {
+            return workspace_->updateDocumentField(
+                miacode::ChartWorkspaceDocumentField::Title, value);
+        })) return;
+    publishWorkspaceCommit(WorkspaceCommitKind::Incremental);
+}
+void DocumentModel::setMetadataArtist(const QString& value)
+{
+    if (workspace_ == nullptr) return;
+    if (!runWorkspaceMutation([&] {
+            return workspace_->updateDocumentField(
+                miacode::ChartWorkspaceDocumentField::Artist, value);
+        })) return;
+    publishWorkspaceCommit(WorkspaceCommitKind::Incremental);
+}
+void DocumentModel::setMetadataFirst(const QString& value)
+{
+    if (workspace_ == nullptr) return;
+    if (!runWorkspaceMutation([&] {
+            return workspace_->updateDocumentField(
+                miacode::ChartWorkspaceDocumentField::First, value);
+        })) return;
+    publishWorkspaceCommit(WorkspaceCommitKind::Incremental);
+}
+void DocumentModel::setMetadataDesigner(const QString& value)
+{
+    if (workspace_ == nullptr) return;
+    if (!runWorkspaceMutation([&] {
+            return workspace_->updateDocumentField(
+                miacode::ChartWorkspaceDocumentField::Designer, value);
+        })) return;
+    publishWorkspaceCommit(WorkspaceCommitKind::Incremental);
+}
+void DocumentModel::setMetadataVideoPath(const QString& value)
+{
+    if (workspace_ == nullptr) return;
+    if (!runWorkspaceMutation([&] {
+            return workspace_->updateDocumentField(
+                miacode::ChartWorkspaceDocumentField::VideoPath, value);
+        })) return;
+    publishWorkspaceCommit(WorkspaceCommitKind::Incremental);
+}
+void DocumentModel::setMetadataClockCount(const QString& value)
+{
+    if (workspace_ == nullptr) return;
+    if (!runWorkspaceMutation([&] {
+            return workspace_->upsertExtraField(QStringLiteral("clock_count"), value);
+        })) return;
+    publishWorkspaceCommit(WorkspaceCommitKind::Incremental);
+}
+void DocumentModel::setMetadataExtraText(const QString& value)
+{
+    if (workspace_ == nullptr || !hasDocument()) return;
+    miacode::ChartWorkspaceResult result;
+    if (!runWorkspaceMutation([&] {
+            result = workspace_->replaceExtraFields(value, metadataClockCount());
+            return result.accepted;
+        })) {
+        metadataExtraDraft_ = value;
+        metadataExtraDraftOpenGeneration_ = documentOpenGeneration();
+        metadataExtraError_ = qtTrId("metadata.extra_field_format");
+        emitDocumentStateChanged(WorkspaceCommitKind::Incremental);
+        return;
+    }
+    metadataExtraDraft_ = QString();
+    metadataExtraError_.clear();
+    publishWorkspaceCommit(WorkspaceCommitKind::Incremental);
+}
+
+void DocumentModel::requestMetadataAudio(std::function<void(const QString&)> onSelected)
+{
+    if (uiRequests_ == nullptr) return;
+    miacode::FileRequest request;
+    request.title = miacode::localizedText("track_metadata.read_from_audio");
+    // The chart's own track when it is the MP3 this picker reads, so the usual
+    // pick is one keypress; otherwise the chart's folder. Never the chart
+    // itself: preselecting maidata.txt would offer the one file it must not read.
+    const QString chartPath = currentFilePath();
+    const QString trackPath = miacode::chart_assets::resolveTrackPath(chartPath);
+    if (QFileInfo(trackPath).suffix().compare(QStringLiteral("mp3"), Qt::CaseInsensitive) == 0) {
+        request.startPath = trackPath;
+    } else if (!chartPath.isEmpty()) {
+        request.startPath = QFileInfo(chartPath).absolutePath();
+    }
+    request.nameFilters = {
+        miacode::localizedText("track_metadata.metadata_audio_file_filter"),
+        miacode::localizedText("qml.all_files"),
+    };
+    uiRequests_->requestFile(request, [callback = std::move(onSelected)](const QString& path) {
+        if (callback && !path.trimmed().isEmpty()) callback(QDir::cleanPath(path));
+    });
+}
+
+void DocumentModel::loadAudioInfoFromFile()
+{
+    requestMetadataAudio([this](const QString& audioPath) {
+        if (uiRequests_ == nullptr) return;
+        const miacode::LocalizedText title = miacode::localizedText("track_metadata.read_from_audio");
+        const miacode::id3::Tag tag = miacode::id3::readTagFromFile(audioPath);
+        if (!tag.valid) {
+            uiRequests_->postNotice(miacode::NoticeSeverity::Information, title,
+                miacode::localizedText("track_metadata.no_id3v2_tag_was_found"));
+            return;
+        }
+        if (!tag.title.trimmed().isEmpty()) setMetadataTitle(tag.title.trimmed());
+        if (!tag.artist.trimmed().isEmpty()) setMetadataArtist(tag.artist.trimmed());
+        const QString chartPath = currentFilePath();
+        if (tag.pictureBytes.isEmpty() || chartPath.isEmpty()) {
+            uiRequests_->postNotice(miacode::NoticeSeverity::Information, title,
+                miacode::localizedText("metadata.audio_tags_loaded"));
+            return;
+        }
+        QImage cover;
+        if (!cover.loadFromData(tag.pictureBytes)) {
+            uiRequests_->postNotice(
+                miacode::NoticeSeverity::Warning,
+                title,
+                miacode::localizedText("track_metadata.failed_to_decode_embedded_cover")
+                    .arg(tag.pictureMimeType));
+            return;
+        }
+
+        const QString bgPath = QDir(QFileInfo(chartPath).absolutePath()).filePath(
+            QStringLiteral("bg.jpg"));
+        const QStringList existingCovers = mediaService_.existingCandidates(
+            chartPath, miacode::ChartMediaService::Kind::Image);
+        const QString existingBgPath = existingCovers.isEmpty()
+            ? QString() : existingCovers.constFirst();
+        const bool hasExistingCover = !existingCovers.isEmpty();
+        if (hasExistingCover) {
+            uiRequests_->requestConfirmation(
+                title,
+                miacode::localizedText("track_metadata.background_image_exists_overwrite"),
+                miacode::localizedText("action.yes"),
+                [this, cover, bgPath, existingBgPath, title](bool accepted) {
+                    if (accepted) writeExtractedCover(cover, bgPath, existingBgPath, title);
+                });
+            return;
+        }
+        writeExtractedCover(cover, bgPath, existingBgPath, title);
+    });
+}
+
+void DocumentModel::writeExtractedCover(
+    const QImage& cover, const QString& bgPath, const QString& existingBgPath,
+    const miacode::LocalizedText& title)
+{
+    if (uiRequests_ == nullptr) return;
+    if (preview() != nullptr) preview()->prepareForMediaFileOperation();
+    QString backupPath;
+    if (!existingBgPath.isEmpty()) {
+        backupPath = miacode::chart_media_import::nextBackupPath(existingBgPath);
+        if (!QFile::rename(existingBgPath, backupPath)) {
+            if (preview() != nullptr) preview()->refreshMediaAfterFileOperation();
+            uiRequests_->postNotice(
+                miacode::NoticeSeverity::Error, title,
+                miacode::localizedText("track_metadata.failed_to_write_bg_jpg"));
+            return;
+        }
+    }
+
+    QSaveFile output(bgPath);
+    output.setDirectWriteFallback(false);
+    const bool written = output.open(QIODevice::WriteOnly)
+        && cover.save(&output, "JPG", 92)
+        && output.commit();
+    if (!written) {
+        output.cancelWriting();
+        QFile::remove(bgPath);
+        if (!backupPath.isEmpty()) QFile::rename(backupPath, existingBgPath);
+        if (preview() != nullptr) preview()->refreshMediaAfterFileOperation();
+        uiRequests_->postNotice(
+            miacode::NoticeSeverity::Error, title,
+            miacode::localizedText("track_metadata.failed_to_write_bg_jpg"));
+        return;
+    }
+    if (preview() != nullptr) preview()->refreshMediaAfterFileOperation();
+    refreshMetadataMedia(true);
+    uiRequests_->postNotice(
+        miacode::NoticeSeverity::Information,
+        title,
+        miacode::localizedText(existingBgPath.isEmpty() ? "track_metadata.wrote_bg_jpg_from_the" : "track_metadata.overwrote_bg_jpg_with_embedded"));
+}
+
+void DocumentModel::importChartBackgroundImage()
+{
+    requestChartMediaImport(miacode::ChartMediaService::Kind::Image);
+}
+
+void DocumentModel::importChartBackgroundVideo()
+{
+    requestChartMediaImport(miacode::ChartMediaService::Kind::Video);
+}
+
+void DocumentModel::removeChartPv()
+{
+    if (uiRequests_ == nullptr || workspace_ == nullptr) return;
+    const QString chartPath = currentFilePath();
+    if (chartPath.isEmpty()) {
+        uiRequests_->postNotice(
+            miacode::NoticeSeverity::Warning,
+            miacode::localizedText("metadata.field.background_video"),
+            miacode::localizedText("media_tools.open_or_save_a_chart"));
+        return;
+    }
+    uiRequests_->requestConfirmation(
+        miacode::localizedText("track_metadata.delete_pv"),
+        miacode::localizedText("track_metadata.delete_pv_confirm"),
+        miacode::localizedText("action.yes"),
+        [this, chartPath](bool accepted) {
+            if (!accepted || workspace_ == nullptr || uiRequests_ == nullptr) return;
+            if (preview() != nullptr) preview()->prepareForMediaFileOperation();
+            const auto result = mediaService_.removePv(chartPath, metadataVideoPath());
+            if (!result.ok) {
+                if (preview() != nullptr) preview()->refreshMediaAfterFileOperation();
+                uiRequests_->postNotice(
+                    miacode::NoticeSeverity::Error,
+                    miacode::localizedText("track_metadata.delete_pv"),
+                    miacode::localizedText("track_metadata.failed_to_remove_media")
+                        .arg(result.errorCode));
+                return;
+            }
+            const bool videoFieldChanged = !metadataVideoPath().isEmpty();
+            setMetadataVideoPath(QString());
+            if (!videoFieldChanged) refreshMetadataMedia(true);
+            if (preview() != nullptr) preview()->refreshMediaAfterFileOperation();
+            uiRequests_->postNotice(
+                miacode::NoticeSeverity::Information,
+                miacode::localizedText("track_metadata.delete_pv"),
+                miacode::localizedText("track_metadata.deleted_pv"));
+        });
+}
+
+void DocumentModel::requestChartMediaImport(miacode::ChartMediaService::Kind kind)
+{
+    if (uiRequests_ == nullptr || workspace_ == nullptr) return;
+    const QString chartPath = currentFilePath();
+    if (chartPath.isEmpty()) {
+        uiRequests_->postNotice(
+            miacode::NoticeSeverity::Warning,
+            miacode::localizedText("metadata.field.background_video"),
+            miacode::localizedText("media_tools.open_or_save_a_chart"));
+        return;
+    }
+
+    const bool video = kind == miacode::ChartMediaService::Kind::Video;
+    miacode::FileRequest request;
+    request.title = miacode::localizedText(video ? "track_metadata.import_background_video" : "track_metadata.import_file");
+    request.startPath = QFileInfo(chartPath).absolutePath();
+    request.nameFilters = {
+        miacode::localizedText(video ? "track_metadata.video_file_filter" : "track_metadata.image_file_filter"),
+        miacode::localizedText("qml.all_files"),
+    };
+    uiRequests_->requestFile(request, [this, kind](const QString& sourcePath) {
+        if (sourcePath.trimmed().isEmpty() || uiRequests_ == nullptr) return;
+        if (!miacode::ChartMediaService::sourceIsSupported(sourcePath, kind)) {
+            uiRequests_->postNotice(
+                miacode::NoticeSeverity::Warning,
+                miacode::localizedText("track_metadata.unsupported_media_file"),
+                kind == miacode::ChartMediaService::Kind::Image
+                    ? miacode::localizedText("track_metadata.failed_to_read_image")
+                    : miacode::localizedText("track_metadata.unsupported_media_file"));
+            return;
+        }
+        const QString target = miacode::ChartMediaService::targetPath(
+            currentFilePath(), sourcePath, kind);
+        bool replacesExisting = false;
+        for (const QString& candidate : miacode::ChartMediaService::existingCandidates(
+                 currentFilePath(), kind)) {
+            if (miacode::ChartMediaService::isConflictingCandidate(
+                    candidate, sourcePath, target)) {
+                replacesExisting = true;
+                break;
+            }
+        }
+        if (!replacesExisting) {
+            applyChartMediaImport(sourcePath, kind);
+            return;
+        }
+        const bool replacingVideo = kind == miacode::ChartMediaService::Kind::Video;
+        uiRequests_->requestConfirmation(
+            miacode::localizedText(replacingVideo ? "track_metadata.import_background_video" : "track_metadata.import_file"),
+            miacode::localizedText(replacingVideo ? "track_metadata.background_video_exists_overwrite" : "track_metadata.background_image_exists_overwrite"),
+            miacode::localizedText("action.yes"),
+            [this, sourcePath, kind](bool accepted) {
+                if (accepted) applyChartMediaImport(sourcePath, kind);
+            });
+    });
+}
+
+void DocumentModel::applyChartMediaImport(
+    const QString& sourcePath, miacode::ChartMediaService::Kind kind)
+{
+    if (workspace_ == nullptr || uiRequests_ == nullptr) return;
+    const QString chartPath = currentFilePath();
+    if (preview() != nullptr) preview()->prepareForMediaFileOperation();
+    const auto result = mediaService_.importMedia(chartPath, sourcePath, kind);
+    if (!result.ok) {
+        if (preview() != nullptr) preview()->refreshMediaAfterFileOperation();
+        uiRequests_->postNotice(
+            miacode::NoticeSeverity::Error,
+            miacode::localizedText("track_metadata.failed_to_import_media"),
+            miacode::localizedText("track_metadata.failed_to_import_media")
+                .arg(result.errorCode));
+        return;
+    }
+    const bool videoFieldChanged = kind == miacode::ChartMediaService::Kind::Video
+        && metadataVideoPath() != QStringLiteral("pv.mp4");
+    if (kind == miacode::ChartMediaService::Kind::Video) {
+        setMetadataVideoPath(QStringLiteral("pv.mp4"));
+    }
+    if (!videoFieldChanged) refreshMetadataMedia(true);
+    if (preview() != nullptr) preview()->refreshMediaAfterFileOperation();
+    const bool video = kind == miacode::ChartMediaService::Kind::Video;
+    if (!result.warnings.isEmpty()) {
+        uiRequests_->postNotice(
+            miacode::NoticeSeverity::Warning,
+            miacode::localizedText("track_metadata.import_file"),
+            result.warnings.join(QLatin1Char('\n')));
+    }
+    uiRequests_->postNotice(
+        miacode::NoticeSeverity::Information,
+        miacode::localizedText(video ? "track_metadata.import_background_video" : "track_metadata.import_file"),
+        miacode::localizedText(video ? "track_metadata.imported_background_video" : "track_metadata.imported_background_image")
+            .arg(result.targetPath));
+}
+
+QString DocumentModel::documentTitle() const
+{
+    if (!hasDocument()) return QString();
+    const QString title = documentField(miacode::ChartWorkspaceDocumentField::Title);
+    const QString chartTitle = title.trimmed().isEmpty() ? currentFileName() : title;
+    const QString difficulty = currentDifficultyId() > 0 ? currentDifficultyLabel() : QString();
+    return difficulty.isEmpty() ? chartTitle
+        : QStringLiteral("%1 — %2").arg(chartTitle, difficulty);
+}
+bool DocumentModel::hasDocument() const
+{
+    return workspace_ != nullptr && workspace_->snapshot().hasDocument;
+}
+QString DocumentModel::currentFilePath() const
+{
+    return workspace_ != nullptr ? workspace_->snapshot().filePath : QString();
+}
+QString DocumentModel::currentFileName() const
+{
+    return currentFilePath().isEmpty()
+        ? qtTrId("document.untitled")
+        : QFileInfo(currentFilePath()).fileName();
+}
+QString DocumentModel::currentDifficultyName() const
+{
+    return SimaiDocument::difficultyName(currentDifficultyId());
+}
+QString DocumentModel::currentDifficultyLabel() const
+{
+    const QString name = currentDifficultyName();
+    const QString level = currentDifficultyLevel().trimmed();
+    return level.isEmpty() ? name : QStringLiteral("%1 %2").arg(name, level);
+}
+int DocumentModel::currentDifficultyId() const { return presentationState_.activeDifficultyId; }
+
+QVariantList DocumentModel::difficulties() const
+{
+    QVariantList result;
+    if (workspace_ == nullptr) return result;
+    for (int id : workspace_->document().difficultyIds()) {
+        const QString name = SimaiDocument::difficultyName(id);
+        const QString level = difficultyField(
+            id, miacode::ChartWorkspaceDifficultyField::Level);
+        const QString designer = difficultyField(
+            id, miacode::ChartWorkspaceDifficultyField::Designer);
+        result.append(QVariantMap{
+            {QStringLiteral("id"), id},
+            {QStringLiteral("name"), name},
+            {QStringLiteral("level"), level},
+            {QStringLiteral("designer"), designer},
+            {QStringLiteral("label"), level.trimmed().isEmpty()
+                ? name : QStringLiteral("%1 %2").arg(name, level)},
+        });
+    }
+    return result;
+}
+
+QVariantList DocumentModel::availableDifficulties() const
+{
+    QVariantList result;
+    const QVector<int> existingIds = workspace_ != nullptr
+        ? workspace_->document().difficultyIds() : QVector<int>();
+    for (int id = 1; id <= 7; ++id) {
+        if (!existingIds.contains(id)) {
+            result.append(QVariantMap{
+                {QStringLiteral("id"), id},
+                {QStringLiteral("label"), SimaiDocument::difficultyName(id)},
+            });
+        }
+    }
+    return result;
+}
+
+QString DocumentModel::currentDifficultyLevel() const
+{
+    return difficultyField(
+        currentDifficultyId(), miacode::ChartWorkspaceDifficultyField::Level);
+}
+QString DocumentModel::currentDifficultyDesigner() const
+{
+    return difficultyField(
+        currentDifficultyId(), miacode::ChartWorkspaceDifficultyField::Designer);
+}
+QString DocumentModel::currentDifficultyOffset() const
+{
+    return metadataFirst();
+}
+bool DocumentModel::currentDifficultyLevelMissing() const
+{
+    return currentDifficultyId() > 0 && currentDifficultyLevel().trimmed().isEmpty();
+}
+void DocumentModel::setCurrentDifficultyLevel(const QString& value)
+{
+    if (workspace_ == nullptr) return;
+    if (!runWorkspaceMutation([&] {
+            return workspace_->updateDifficultyField(
+                currentDifficultyId(), miacode::ChartWorkspaceDifficultyField::Level,
+                value);
+        })) {
+        return;
+    }
+    publishWorkspaceCommit(WorkspaceCommitKind::Incremental);
+}
+void DocumentModel::setCurrentDifficultyDesigner(const QString& value)
+{
+    if (workspace_ == nullptr) return;
+    const bool changed = runWorkspaceMutation([&] {
+        return workspace_->updateDifficultyField(
+                  currentDifficultyId(), miacode::ChartWorkspaceDifficultyField::Designer,
+                  value);
+    });
+    if (!changed) return;
+    publishWorkspaceCommit(WorkspaceCommitKind::Incremental);
+}
+void DocumentModel::setCurrentDifficultyOffset(const QString& value)
+{
+    setMetadataFirst(value);
+}
+
+QVariantList DocumentModel::syntaxIssues() const
+{
+    const miacode::ui::DocumentValidationProjection& snapshot = validationSnapshot_;
+    QVariantList result;
+    result.reserve(snapshot.issues.size() + (currentDifficultyLevelMissing() ? 1 : 0));
+    for (const miacode::ui::DocumentValidationProjectionIssue& issue : snapshot.issues) {
+        result.append(QVariantMap{
+            {QStringLiteral("line"), issue.line},
+            {QStringLiteral("column"), issue.column},
+            {QStringLiteral("endColumn"), issue.endColumn},
+            {QStringLiteral("severity"),
+             issue.severity == miacode::ui::DocumentValidationIssueSeverity::Warning
+                 ? QStringLiteral("warning")
+                 : QStringLiteral("error")},
+            {QStringLiteral("message"), issue.message},
+            {QStringLiteral("code"), issue.code},
+            {QStringLiteral("difficultyId"), presentationState_.activeDifficultyId},
+            {QStringLiteral("revision"), QVariant::fromValue<qulonglong>(presentationState_.validationRevision)},
+        });
+    }
+    if (currentDifficultyLevelMissing() && snapshot.available) {
+        result.append(QVariantMap{
+            {QStringLiteral("line"), 0},
+            {QStringLiteral("column"), 0},
+            {QStringLiteral("endColumn"), 0},
+            {QStringLiteral("severity"), QStringLiteral("warning")},
+            {QStringLiteral("message"), qtTrId("validation.difficulty_level_missing")},
+            {QStringLiteral("code"), QStringLiteral("missing_difficulty_level")},
+            {QStringLiteral("difficultyId"), presentationState_.activeDifficultyId},
+            {QStringLiteral("revision"), QVariant::fromValue<qulonglong>(presentationState_.validationRevision)},
+        });
+    }
+    return result;
+}
+int DocumentModel::syntaxIssueCount() const
+{
+    return validationSnapshot_.issues.size() + (currentDifficultyLevelMissing() ? 1 : 0);
+}
+int DocumentModel::syntaxErrorCount() const
+{
+    return validationSnapshot_.errorCount;
+}
+int DocumentModel::syntaxWarningCount() const
+{
+    return validationSnapshot_.warningCount + (currentDifficultyLevelMissing() ? 1 : 0);
+}
+int DocumentModel::parsedNoteCount() const
+{
+    return validationSnapshot_.parsedNoteCount;
+}
+qulonglong DocumentModel::documentRevision() const { return presentationState_.documentRevision; }
+qulonglong DocumentModel::documentOpenGeneration() const
+{
+    return workspace_ != nullptr ? workspace_->snapshot().documentOpenGeneration : 0;
+}
+qulonglong DocumentModel::validationRevision() const { return presentationState_.validationRevision; }
+bool DocumentModel::validationPending() const { return presentationState_.validationPending; }
+bool DocumentModel::validationAvailable() const { return presentationState_.validationAvailable; }
+bool DocumentModel::dirty() const
+{
+    return presentationState_.dirty;
+}
+QStringList DocumentModel::dirtyEditorKeys() const
+{
+    return presentationState_.dirtyEditorKeys;
+}
+qulonglong DocumentModel::bookmarkGeneration() const { return bookmarkGeneration_; }
+
+QVariantList DocumentModel::recentDocuments()
+{
+    return bridge() != nullptr ? bridge()->recentDocumentEntries() : QVariantList{};
+}
+
+void DocumentModel::removeRecentDocument(const QString& path)
+{
+    if (bridge() != nullptr) {
+        bridge()->removeRecentDocument(path);
+    }
+}
+
+QVariantList DocumentModel::backupDocuments()
+{
+    return bridge() != nullptr ? bridge()->backupDocumentEntries() : QVariantList{};
+}
+
+void DocumentModel::restoreBackup(const QString& path)
+{
+    if (bridge() != nullptr) {
+        bridge()->restoreBackupDocument(path);
+    }
+}
+
+void DocumentModel::createDocumentFromPickedAudio()
+{
+    miacode::UiRequestService* const requests = uiRequests_;
+    if (requests == nullptr || fileService_ == nullptr) {
+        return;
+    }
+    QStringList patterns;
+    for (const QString& extension : miacode::chart_assets::supportedTrackFileExtensions()) {
+        patterns << QStringLiteral("*.%1").arg(extension);
+    }
+    miacode::FileRequest request;
+    request.title = miacode::localizedText("document.choose_audio");
+    request.nameFilters = {
+        miacode::localizedText("document.audio_files_filter").arg(patterns.join(QLatin1Char(' '))),
+        miacode::localizedText("qml.all_files"),
+    };
+    requests->requestFile(request, [this](const QString& audioPath) {
+        if (!audioPath.trimmed().isEmpty()) {
+            createChartBesideAudio(QDir::cleanPath(audioPath));
+        }
+    });
+}
+
+void DocumentModel::handleDroppedFile(const QString& path, std::function<void()> finished)
+{
+    const auto done = [finished = std::move(finished)]() {
+        if (finished) {
+            finished();
+        }
+    };
+    const QString normalized = QDir::cleanPath(path);
+    if (miacode::chart_assets::isChartDocumentPath(normalized)) {
+        requestLeaveDocument([this, normalized, done](bool mayLeave) {
+            if (mayLeave) {
+                openFile(QUrl::fromLocalFile(normalized));
+            }
+            done();
+        });
+        return;
+    }
+    if (miacode::chart_assets::isSupportedTrackFilePath(normalized)) {
+        handleDroppedAudio(normalized, done);
+        return;
+    }
+    done();
+}
+
+void DocumentModel::handleDroppedAudio(const QString& audioPath, std::function<void()> finished)
+{
+    miacode::UiRequestService* const requests = uiRequests_;
+    if (requests == nullptr) {
+        finished();
+        return;
+    }
+
+    const QFileInfo audioInfo(audioPath);
+    const QString directory = audioInfo.absolutePath();
+    const bool sourceIsTrack = miacode::chart_assets::isTrackFileName(audioInfo.fileName());
+    const QString existingTrack = miacode::chart_assets::resolveTrackPathForDirectory(directory);
+    const bool hasOtherTrack = !existingTrack.isEmpty()
+        && QFileInfo(existingTrack).absoluteFilePath().compare(
+               audioInfo.absoluteFilePath(), Qt::CaseInsensitive) != 0;
+
+    if (!sourceIsTrack && hasOtherTrack) {
+        const QString targetDirectory = plannedDroppedChartFolder(audioPath);
+        requests->requestChoice(
+            dropCreateTitle(),
+            miacode::LocalizedText(QStringLiteral("%1\n\n%2"))
+                .arg(miacode::localizedText("drop_chart.preview.single_track")
+                         .arg(QFileInfo(existingTrack).fileName()),
+                     dropCreateHereText(targetDirectory)),
+            createFolderChoices(),
+            QStringLiteral("cancel"),
+            [this, audioPath, targetDirectory, finished](const QString& choiceId) {
+                if (choiceId == QLatin1String("create_folder")) {
+                    createDroppedChartInNewFolder(audioPath, targetDirectory, finished);
+                    return;
+                }
+                finished();
+            });
+        return;
+    }
+
+    const QString maidataPath = QDir(directory).filePath(QStringLiteral("maidata.txt"));
+    if (QFileInfo::exists(maidataPath)) {
+        requests->requestChoice(
+            dropOpenOrCreateTitle(),
+            miacode::localizedText("drop_chart.preview.existing_project")
+                .arg(QDir::toNativeSeparators(directory)),
+            existingChartChoices(),
+            QStringLiteral("cancel"),
+            [this, audioPath, maidataPath, finished](const QString& choiceId) {
+                if (choiceId == QLatin1String("open")) {
+                    requestLeaveDocument([this, maidataPath, finished](bool mayLeave) {
+                        if (mayLeave) {
+                            openFile(QUrl::fromLocalFile(maidataPath));
+                        }
+                        finished();
+                    });
+                    return;
+                }
+                if (choiceId == QLatin1String("overwrite")) {
+                    leaveThenCreateDroppedChart(audioPath, true, finished);
+                    return;
+                }
+                finished();
+            });
+        return;
+    }
+
+    requests->requestChoice(
+        dropCreateTitle(),
+        dropCreateHereText(directory),
+        createChartChoices(),
+        QStringLiteral("cancel"),
+        [this, audioPath, finished](const QString& choiceId) {
+            if (choiceId == QLatin1String("create")) {
+                leaveThenCreateDroppedChart(audioPath, false, finished);
+                return;
+            }
+            finished();
+        });
+}
+
+void DocumentModel::leaveThenCreateDroppedChart(const QString& audioPath, bool overwriteExisting,
+                                                std::function<void()> finished)
+{
+    requestLeaveDocument([this, audioPath, overwriteExisting, finished](bool mayLeave) {
+        if (!mayLeave) {
+            finished();
+            return;
+        }
+
+        const QFileInfo audioInfo(audioPath);
+        QString trackPath = audioInfo.absoluteFilePath();
+        if (!miacode::chart_assets::isTrackFileName(audioInfo.fileName())) {
+            const QString renamed = audioInfo.absoluteDir().filePath(
+                QStringLiteral("track.%1").arg(audioInfo.suffix().toLower()));
+            if (QFileInfo::exists(renamed)
+                && QFileInfo(renamed).absoluteFilePath().compare(
+                       audioInfo.absoluteFilePath(), Qt::CaseInsensitive) != 0) {
+                if (uiRequests_ != nullptr) {
+                    uiRequests_->postNotice(
+                        miacode::NoticeSeverity::Error,
+                        miacode::localizedText("document.new_failed"),
+                        miacode::localizedText("document.cannot_replace")
+                            .arg(QDir::toNativeSeparators(renamed)));
+                }
+                finished();
+                return;
+            }
+            if (!QFile::rename(audioInfo.absoluteFilePath(), renamed)) {
+                if (uiRequests_ != nullptr) {
+                    uiRequests_->postNotice(
+                        miacode::NoticeSeverity::Error,
+                        miacode::localizedText("document.new_failed"),
+                        miacode::localizedText("document.cannot_write")
+                            .arg(QDir::toNativeSeparators(renamed)));
+                }
+                finished();
+                return;
+            }
+            trackPath = renamed;
+        }
+        createChartBesideAudio(trackPath, overwriteExisting);
+        finished();
+    });
+}
+
+void DocumentModel::createDroppedChartInNewFolder(const QString& audioPath,
+                                                  const QString& targetDirectory,
+                                                  std::function<void()> finished)
+{
+    const QFileInfo audioInfo(audioPath);
+    const QString trackPath = QDir(targetDirectory).filePath(
+        QStringLiteral("track.%1").arg(audioInfo.suffix().toLower()));
+    if (!QDir().mkpath(targetDirectory) || !QFile::copy(audioInfo.absoluteFilePath(), trackPath)) {
+        if (uiRequests_ != nullptr) {
+            uiRequests_->postNotice(
+                miacode::NoticeSeverity::Error,
+                miacode::localizedText("document.new_failed"),
+                miacode::localizedText("document.cannot_write").arg(QDir::toNativeSeparators(trackPath)));
+        }
+        finished();
+        return;
+    }
+    leaveThenCreateDroppedChart(trackPath, false, finished);
+}
+
+void DocumentModel::createChartBesideAudio(const QString& audioPath, bool overwriteExisting)
+{
+    miacode::UiRequestService* const requests = uiRequests_;
+    if (requests == nullptr) {
+        return;
+    }
+    // The chart is created where the audio already lives — beside it, not in a
+    // folder made for it. A chart IS its folder, and the audio's folder is
+    // already that folder as far as the user is concerned.
+    const QString targetPath =
+        QFileInfo(audioPath).absoluteDir().filePath(QStringLiteral("maidata.txt"));
+    if (overwriteExisting || !QFileInfo::exists(targetPath)) {
+        ensureTrackCopyThenCreate(audioPath, targetPath);
+        return;
+    }
+    requests->requestConfirmation(
+        miacode::localizedText("document.file_already_exists"),
+        miacode::localizedText("document.maidata_txt_already_exists_in"),
+        miacode::localizedText("action.yes"),
+        [this, audioPath, targetPath](bool accepted) {
+            if (accepted) {
+                ensureTrackCopyThenCreate(audioPath, targetPath);
+            }
+        });
+}
+
+void DocumentModel::ensureTrackCopyThenCreate(
+    const QString& audioPath, const QString& targetPath)
+{
+    miacode::UiRequestService* const requests = uiRequests_;
+    const QFileInfo audioInfo(audioPath);
+    const QString extension = audioInfo.suffix().toLower();
+    const QString trackName = QStringLiteral("track.%1").arg(extension);
+
+    // Already named track.<ext>: nothing to copy, and copying would mean
+    // copying a file onto itself.
+    if (audioInfo.fileName().compare(trackName, Qt::CaseInsensitive) == 0) {
+        createEmptyDocumentAt(targetPath, audioPath);
+        return;
+    }
+
+    const QString trackPath = audioInfo.absoluteDir().filePath(trackName);
+    const auto copyThenCreate = [this, audioPath, trackPath, targetPath, requests]() {
+        if (QFileInfo::exists(trackPath) && !QFile::remove(trackPath)) {
+            if (requests != nullptr) {
+                requests->postNotice(
+                    miacode::NoticeSeverity::Error, miacode::localizedText("document.new_failed"),
+                    miacode::localizedText("document.cannot_replace").arg(QDir::toNativeSeparators(trackPath)));
+            }
+            return;
+        }
+        if (!QFile::copy(audioPath, trackPath)) {
+            if (requests != nullptr) {
+                requests->postNotice(
+                    miacode::NoticeSeverity::Error, miacode::localizedText("document.new_failed"),
+                    miacode::localizedText("document.cannot_write").arg(QDir::toNativeSeparators(trackPath)));
+            }
+            return;
+        }
+        // The engine resolves a track by trying track.mp3, .wav, .flac, .ogg in
+        // that order, so a copy landing on a later extension while an earlier
+        // one exists would leave the chart playing the other file. Say so
+        // rather than let it be discovered during playback.
+        const QString resolved = miacode::chart_assets::resolveTrackPathForDirectory(
+            QFileInfo(trackPath).absolutePath());
+        if (requests != nullptr && !resolved.isEmpty()
+            && QFileInfo(resolved) != QFileInfo(trackPath)) {
+            requests->postNotice(
+                miacode::NoticeSeverity::Warning, miacode::localizedText("document.track_may_differ"),
+                miacode::localizedText("document.existing_track_preferred")
+                    .arg(QFileInfo(resolved).fileName(), QFileInfo(trackPath).fileName()));
+        }
+        createEmptyDocumentAt(targetPath, audioPath);
+    };
+
+    if (!QFileInfo::exists(trackPath)) {
+        copyThenCreate();
+        return;
+    }
+    if (requests == nullptr) {
+        return;
+    }
+    requests->requestConfirmation(
+        miacode::localizedText("document.file_already_exists"),
+        miacode::localizedText("document.replace_existing_confirm")
+            .arg(trackName, audioInfo.fileName()),
+        miacode::localizedText("action.yes"),
+        [copyThenCreate](bool accepted) {
+            if (accepted) {
+                copyThenCreate();
+            }
+        });
+}
+
+void DocumentModel::createEmptyDocumentAt(const QString& targetPath, const QString& sourceAudioPath)
+{
+    miacode::UiRequestService* const requests = uiRequests_;
+    if (fileService_ == nullptr) {
+        return;
+    }
+    SimaiDocument document = SimaiDocument::createEmpty();
+    applyId3Metadata(document, sourceAudioPath);
+    if (!fileService_->createEmptyDocument(targetPath, document).accepted) {
+        if (requests != nullptr) {
+            requests->postNotice(
+                miacode::NoticeSeverity::Error,
+                miacode::localizedText("document.file_already_exists"),
+                miacode::localizedText("document.cannot_write_file").arg(QDir::toNativeSeparators(targetPath)));
+        }
+        return;
+    }
+    // Written, then opened the same way any chart is: the workspace parses it
+    // and takes the fresh file as its save point, so a new document starts
+    // clean rather than dirty-on-arrival.
+    if (!openFile(QUrl::fromLocalFile(targetPath))) {
+        return;
+    }
+    if (bridge() != nullptr) {
+        bridge()->noteRecentDocument(targetPath);
+    }
+}
+
+void DocumentModel::closeDocument()
+{
+    if (!hasDocument() || workspace_ == nullptr) return;
+    if (!finishPendingEdits()) return;
+    if (!runWorkspaceMutation([&] { return workspace_->closeDocument().accepted; })) return;
+    const bool wasUnified = unifiedDesignerEnabled_;
+    unifiedDesignerEnabled_ = false;
+    publishWorkspaceCommit(WorkspaceCommitKind::Open, true);
+    if (wasUnified) emit unifiedDesignerEnabledChanged();
+}
+
+bool DocumentModel::saveDifficultySection(int difficultyId)
+{
+    if (!hasDocument() || fileService_ == nullptr) return false;
+    if (!finishPendingEdits()) return false;
+    if (workspace_->isNetPreview()) { saveSectionOrAskForPath(0, {}); return true; }
+    if (!runWorkspaceMutation([&] { return fileService_->save(difficultyId).accepted; })) {
+        uiRequests_->postNotice(miacode::NoticeSeverity::Error,
+            miacode::localizedText("document.save_failed"), miacode::localizedText("document.cannot_write_chart"));
+        return false;
+    }
+    publishWorkspaceCommit(WorkspaceCommitKind::SavePoint);
+    return true;
+}
+
+bool DocumentModel::revertDifficultyChart(int difficultyId)
+{
+    if (workspace_ == nullptr || !SimaiDocument::isDifficultyId(difficultyId)) return false;
+    if (!runWorkspaceMutation([&] {
+            return workspace_->revertDifficultyChart(difficultyId).accepted;
+        })) {
+        return false;
+    }
+    publishWorkspaceCommit(WorkspaceCommitKind::SourceReplacement);
+    return true;
+}
+
+bool DocumentModel::openFile(const QUrl& fileUrl)
+{
+    return openFileWithOrigin(fileUrl, ChartDocumentOrigin::Local);
+}
+
+QJsonObject DocumentModel::documentIdentity() const
+{
+    if (workspaceId_.isEmpty()) workspaceId_ = QUuid::createUuid().toString(QUuid::Id128);
+    return {{"workspaceId", workspaceId_}, {"documentOpenGeneration", QString::number(documentOpenGeneration())},
+        {"revision", QString::number(documentRevision())}, {"dirty", dirty()}, {"hasDocument", hasDocument()},
+        {"origin", workspace_->isNetPreview() ? "net_preview" : "local"}};
+}
+
+net::NetEnginePort::Cancel DocumentModel::openNetPreview(const QString& path, const QJsonObject& expected,
+                                                       net::NetEnginePort::Done done)
+{
+    const auto completion = std::make_shared<net::NetEnginePort::Done>(std::move(done));
+    const auto finish = [completion](net::NetTaskResult result) {
+        if (!*completion) return;
+        auto callback = std::move(*completion);
+        callback(std::move(result));
+    };
+    const auto matches = [this, expected] {
+        const auto identity = documentIdentity();
+        return identity.value("workspaceId") == expected.value("expectedWorkspaceId")
+            && identity.value("documentOpenGeneration") == expected.value("expectedDocumentOpenGeneration")
+            && identity.value("revision") == expected.value("expectedRevision");
+    };
+    const auto failure = [](const QString& code) { return QJsonObject{{"code", code}, {"message", code}, {"retryable", false}}; };
+    if (!matches()) { finish({{}, failure("document.stale")}); return {}; }
+    requestLeaveDocument([this, path, expected, completion, finish, failure](bool accepted) {
+        if (!*completion) return;
+        if (!accepted) { finish({{}, failure("job.cancelled")}); return; }
+        const auto identity = documentIdentity();
+        if (identity.value("workspaceId") != expected.value("expectedWorkspaceId")
+            || identity.value("documentOpenGeneration") != expected.value("expectedDocumentOpenGeneration") || dirty()) {
+            finish({{}, failure("document.stale")}); return;
+        }
+        if (!openFileWithOrigin(QUrl::fromLocalFile(path), ChartDocumentOrigin::NetPreview)) {
+            finish({{}, failure("file.read_failed")}); return;
+        }
+        finish({QJsonObject{{"previewRef", expected.value("previewRef")}, {"document", documentIdentity()}}, {}});
+    });
+    return [finish, failure] { finish({{}, failure("job.cancelled")}); };
+}
+
+bool DocumentModel::openFileWithOrigin(const QUrl& fileUrl, ChartDocumentOrigin origin)
+{
+    const QString path = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
+    if (fileService_ == nullptr) return false;
+    miacode::ChartWorkspaceFileResult result;
+    if (!runWorkspaceMutation([&] {
+            result = fileService_->open(path, origin);
+            return result.accepted;
+        })) {
+        uiRequests_->postNotice(miacode::NoticeSeverity::Error,
+            miacode::localizedText("dialog.open_startup_target.missing.title"), miacode::localizedText("document.cannot_open_chart"));
+        return false;
+    }
+    if (!result.issues.isEmpty()) {
+        miacode::debug_log::appendLine(
+            miacode::debug_log::Channel::Runtime,
+            QStringLiteral("editor/document_open"),
+            QStringLiteral("reason=open_file issues=%1 path=%2 error=%3")
+                .arg(result.issues.size())
+                .arg(path)
+                .arg(result.error));
+    }
+    if (bridge() != nullptr) {
+        runWorkspaceMutation([&] {
+            bridge()->reconcileUnifiedDocumentDesigner(
+                miacode::DocumentBridge::UnifiedDesignerReconcileReason::DocumentOpened);
+            return true;
+        });
+    }
+    refreshUnifiedDesignerState();
+    publishWorkspaceCommit(
+        WorkspaceCommitKind::Open, true, result.usedSystemEncoding);
+    return true;
+}
+
+void DocumentModel::requestLeaveDocument(std::function<void(bool)> onDecided)
+{
+    requestLeaveSection(0, std::move(onDecided));
+}
+
+void DocumentModel::requestLeaveCurrentField(std::function<void(bool)> onDecided)
+{
+    // 页面导航保留工作区中的修改，提交当前输入后切换视图。
+    const bool accepted = workspace_ != nullptr && !closeDecisionPending_ && finishPendingEdits();
+    if (onDecided) onDecided(accepted);
+}
+
+void DocumentModel::saveSectionOrAskForPath(
+    int difficultyId, std::function<void(bool)> onSaved)
+{
+    if (!hasDocument()) {
+        if (onSaved) onSaved(false);
+        return;
+    }
+    if (!finishPendingEdits()) {
+        if (onSaved) onSaved(false);
+        return;
+    }
+    const auto finish = [onSaved = std::move(onSaved)](bool saved) {
+        if (onSaved) onSaved(saved);
+    };
+    if (fileService_ == nullptr || workspace_ == nullptr) {
+        finish(false);
+        return;
+    }
+    if (!workspace_->snapshot().filePath.isEmpty() && !workspace_->isNetPreview()) {
+        const bool saved = runWorkspaceMutation(
+            [&] { return fileService_->save(difficultyId).accepted; });
+        if (saved) {
+            writeUnifiedDesignerPreference(currentFilePath(), unifiedDesignerEnabled_);
+            publishWorkspaceCommit(WorkspaceCommitKind::SavePoint);
+        } else {
+            uiRequests_->postNotice(miacode::NoticeSeverity::Error,
+                miacode::localizedText("document.save_failed"), miacode::localizedText("document.cannot_write_chart"));
+        }
+        finish(saved);
+        return;
+    }
+
+    miacode::UiRequestService* const requests = uiRequests_;
+    if (requests == nullptr) {
+        finish(false);
+        return;
+    }
+    miacode::FileRequest request;
+    request.title = miacode::localizedText("action.save_as");
+    request.saveMode = true;
+    if (workspace_->isNetPreview()) request.startPath = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
+    request.nameFilters = {miacode::localizedText("qml.simai_files_txt_simai"), miacode::localizedText("qml.all_files_2")};
+    const qulonglong generation = documentGeneration_;
+    requests->requestFile(request, [this, difficultyId, generation, finish](const QString& path) {
+        if (generation != documentGeneration_ || path.trimmed().isEmpty()) {
+            // Cancelling the pick cancels the save, which cancels whatever the
+            // save was a step of. Nothing was written.
+            finish(false);
+            return;
+        }
+        // 首次保存遵守请求范围，其他难度的修改保留在工作区。
+        if (!finishPendingEdits()) { finish(false); return; }
+        const bool saved = runWorkspaceMutation(
+            [&] { return fileService_->saveAs(path, difficultyId).accepted; });
+        if (saved) {
+            writeUnifiedDesignerPreference(currentFilePath(), unifiedDesignerEnabled_);
+            publishWorkspaceCommit(WorkspaceCommitKind::SavePoint);
+        } else {
+            uiRequests_->postNotice(miacode::NoticeSeverity::Error,
+                miacode::localizedText("document.save_failed"), miacode::localizedText("document.cannot_write_chart"));
+        }
+        finish(saved);
+    });
+}
+
+bool DocumentModel::saveMetadataImmediately()
+{
+    metadataSaveTimer_.stop();
+    if (!metadataExtraDraft_.isNull()) return false;
+    if (workspace_ && workspace_->isNetPreview()) return true;
+    if (closeDecisionPending_) return true;
+    if (workspace_ == nullptr || !workspace_->metadataDirty()
+        || currentFilePath().isEmpty()) return true;
+    if (fileService_ == nullptr || !runWorkspaceMutation([&] {
+            return fileService_->save(miacode::ChartWorkspace::MetadataSection).accepted;
+        })) {
+        uiRequests_->postNotice(miacode::NoticeSeverity::Error,
+            miacode::localizedText("document.save_failed"), miacode::localizedText("document.cannot_write_chart"));
+        return false;
+    }
+    writeUnifiedDesignerPreference(currentFilePath(), workspace_->unifiedDesignerEnabled());
+    publishWorkspaceCommit(WorkspaceCommitKind::SavePoint);
+    return true;
+}
+
+bool DocumentModel::finishPendingEdits()
+{
+    emit editingFinishedRequested();
+    if (metadataExtraDraft_.isNull()) return true;
+    if (uiRequests_ != nullptr) {
+        uiRequests_->postNotice(miacode::NoticeSeverity::Error,
+            miacode::localizedText("qml.other_fields"),
+            miacode::localizedText("metadata.extra_field_format"));
+    }
+    return false;
+}
+
+void DocumentModel::requestCloseDifficulty(int difficultyId)
+{
+    if (!SimaiDocument::isDifficultyId(difficultyId)) return;
+    requestLeaveSection(difficultyId, [this, difficultyId](bool mayClose) {
+        if (mayClose) emit difficultyCloseAccepted(difficultyId);
+    });
+}
+
+void DocumentModel::requestLeaveSection(int difficultyId, std::function<void(bool)> onDecided)
+{
+    if (closeDecisionPending_ || workspace_ == nullptr) {
+        if (onDecided) onDecided(false);
+        return;
+    }
+    closeDecisionPending_ = true;
+    metadataSaveTimer_.stop();
+    const auto finish = [this, onDecided = std::move(onDecided)](bool mayLeave) {
+        closeDecisionPending_ = false;
+        if (workspace_ != nullptr && metadataExtraDraft_.isNull() && !workspace_->isNetPreview()
+            && workspace_->metadataDirty() && !currentFilePath().isEmpty()) {
+            metadataSaveTimer_.start();
+        }
+        if (onDecided) onDecided(mayLeave);
+    };
+    if (!finishPendingEdits()) { finish(false); return; }
+    const auto snapshot = workspace_->snapshot();
+    const bool wholeDocument = difficultyId == 0;
+    if (!wholeDocument && workspace_->document().difficulty(difficultyId) == nullptr) {
+        finish(false);
+        return;
+    }
+    const bool dirty = wholeDocument ? snapshot.dirty : snapshot.dirtyDifficultyIds.contains(difficultyId);
+    if (!dirty) {
+        finish(true);
+        return;
+    }
+    if (uiRequests_ == nullptr) {
+        finish(false);
+        return;
+    }
+    const qulonglong generation = documentGeneration_;
+    const auto revision = workspace_->snapshot().revision;
+    uiRequests_->requestChoice(
+        miacode::localizedText(wholeDocument ? "dialog.unsaved_changes.title" : "dialog.unsaved_tab_changes.title"),
+        wholeDocument ? miacode::localizedText("dialog.unsaved_changes.message")
+                      : miacode::localizedText("dialog.unsaved_tab_changes.message")
+                            .arg(SimaiDocument::difficultyName(difficultyId)),
+        unsavedSectionChoices(),
+        QStringLiteral("cancel"),
+        [this, difficultyId, wholeDocument, generation, revision, finish](const QString& choiceId) {
+            if (generation != documentGeneration_ || revision != workspace_->snapshot().revision) {
+                finish(false);
+                return;
+            }
+            if (choiceId == QLatin1String("save")) {
+                saveSectionOrAskForPath(difficultyId, finish);
+                return;
+            }
+            if (choiceId == QLatin1String("discard")) {
+                finish(wholeDocument ? discardChanges() : revertDifficultyChart(difficultyId));
+                return;
+            }
+            finish(false);
+        });
+}
+
+bool DocumentModel::wholeSourceEditorActive() const { return wholeSourceEditorActive_; }
+
+void DocumentModel::setWholeSourceEditorActive(bool active)
+{
+    if (wholeSourceEditorActive_ == active) return;
+    wholeSourceEditorActive_ = active;
+    emit wholeSourceEditorActiveChanged();
+}
+
+int DocumentModel::saveSectionDifficultyId() const
+{
+    if (workspace_ == nullptr) return 0;
+    if (wholeSourceEditorActive_) return miacode::ChartWorkspace::MetadataSection;
+    const int active = workspace_->snapshot().activeDifficultyId;
+    return active > 0 ? active : miacode::ChartWorkspace::MetadataSection;
+}
+
+bool DocumentModel::save()
+{
+    if (!hasDocument()) return false;
+    if (!finishPendingEdits()) return false;
+    if (workspace_->isNetPreview()) { saveSectionOrAskForPath(0, {}); return true; }
+    if (fileService_ == nullptr) return false;
+    const int sectionId = saveSectionDifficultyId();
+    if (!runWorkspaceMutation([&] {
+            return fileService_->save(sectionId).accepted;
+        })) {
+        uiRequests_->postNotice(miacode::NoticeSeverity::Error,
+            miacode::localizedText("document.save_failed"), miacode::localizedText("document.cannot_write_chart"));
+        return false;
+    }
+    writeUnifiedDesignerPreference(currentFilePath(), unifiedDesignerEnabled_);
+    publishWorkspaceCommit(WorkspaceCommitKind::SavePoint);
+    return true;
+}
+
+bool DocumentModel::saveWholeDocument()
+{
+    if (!hasDocument()) return false;
+    if (!finishPendingEdits()) return false;
+    if (workspace_->isNetPreview()) { saveSectionOrAskForPath(0, {}); return true; }
+    if (fileService_ == nullptr) return false;
+    if (!runWorkspaceMutation([&] { return fileService_->save(0).accepted; })) {
+        uiRequests_->postNotice(miacode::NoticeSeverity::Error,
+            miacode::localizedText("document.save_failed"), miacode::localizedText("document.cannot_write_chart"));
+        return false;
+    }
+    writeUnifiedDesignerPreference(currentFilePath(), unifiedDesignerEnabled_);
+    publishWorkspaceCommit(WorkspaceCommitKind::SavePoint);
+    return true;
+}
+bool DocumentModel::saveAs(const QUrl& fileUrl)
+{
+    if (!hasDocument()) return false;
+    const QString path = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
+    const bool saved = saveToPath(path);
+    if (saved) {
+        writeUnifiedDesignerPreference(currentFilePath(), unifiedDesignerEnabled_);
+    }
+    return saved;
+}
+bool DocumentModel::discardChanges()
+{
+    if (workspace_ == nullptr) return false;
+    // Discard must restore the in-memory save point, rather than reopening the
+    // file. Reopening would create a new load transaction and would make the
+    // close path depend on the still-unsettled v1 unified-designer semantics.
+    if (!runWorkspaceMutation([&] {
+            return workspace_->revertDifficultyChart(0).accepted;
+        })) {
+        return false;
+    }
+    reconcileUnifiedDesignerAfterSourceReplacement();
+    refreshUnifiedDesignerState();
+    publishWorkspaceCommit(WorkspaceCommitKind::SourceReplacement, true);
+    return true;
+}
+void DocumentModel::selectDifficulty(int id)
+{
+    if (workspace_ == nullptr) return;
+    if (!runWorkspaceMutation([&] { return workspace_->selectDifficulty(id); })) return;
+    publishWorkspaceCommit(WorkspaceCommitKind::DifficultySelection);
+}
+bool DocumentModel::addDifficulty(int id)
+{
+    if (workspace_ == nullptr) return false;
+    if (!finishPendingEdits()) return false;
+    if (!runWorkspaceMutation([&] { return workspace_->addDifficulty(id); })) return false;
+    publishWorkspaceCommit(WorkspaceCommitKind::Structure);
+    saveSectionOrAskForPath(id, {});
+    return true;
+}
+bool DocumentModel::removeDifficulty(int id)
+{
+    if (workspace_ == nullptr) return false;
+    if (!runWorkspaceMutation([&] { return workspace_->removeDifficulty(id); })) return false;
+    publishWorkspaceCommit(WorkspaceCommitKind::Structure);
+    return true;
+}
+int DocumentModel::chartPosition(int line, int column) const
+{
+    const QString text = chartText();
+    if (positionIndexRevision_ != documentRevision_ || positionIndexGeneration_ != documentGeneration_
+        || positionIndexDifficulty_ != currentDifficultyId()) {
+        positionLineStarts_ = {0};
+        for (int i = 0; i < text.size(); ++i)
+            if (text[i] == QLatin1Char('\n')) positionLineStarts_.append(i + 1);
+        positionIndexRevision_ = documentRevision_;
+        positionIndexGeneration_ = documentGeneration_;
+        positionIndexDifficulty_ = currentDifficultyId();
+    }
+    const int row = qMax(0, line - 1);
+    if (row >= positionLineStarts_.size()) return text.size();
+    const int position = positionLineStarts_[row];
+    return qBound(position, position + qMax(0, column - 1), int(text.size()));
+}
+bool DocumentModel::applyDesignerSlots(
+    const QVariantList& slotValues, bool unified, const QString& canonicalName)
+{
+    if (workspace_ == nullptr) return false;
+    QVector<QPair<int, QString>> designerValues;
+    for (const QVariant& value : slotValues) {
+        const QVariantMap entry = value.toMap();
+        const int id = entry.value(QStringLiteral("id")).toInt();
+        if (id < 1 || id > 7) continue;
+        designerValues.append(qMakePair(id, entry.value(QStringLiteral("designer")).toString()));
+    }
+    const bool changed = runWorkspaceMutation([&] {
+        return bridge() != nullptr
+            ? bridge()->applyDocumentDesignerSlots(designerValues, unified, canonicalName)
+            : applyDesignerSlotsWithoutBridge(designerValues, unified, canonicalName);
+    });
+    if (changed) {
+        publishWorkspaceCommit(WorkspaceCommitKind::Incremental);
+        if (bridge() == nullptr)
+            writeUnifiedDesignerPreference(currentFilePath(), unifiedDesignerEnabled_);
+    }
+    return changed;
+}
+
+void DocumentModel::reconcileUnifiedDesignerAfterSourceReplacement()
+{
+    if (bridge() == nullptr) {
+        if (workspace_ != nullptr && workspace_->unifiedDesignerEnabled()
+            && !workspace_->document().isUnifiedDesignerTriviallySafe()) {
+            workspace_->setUnifiedDesignerEnabled(false);
+        }
+        return;
+    }
+    runWorkspaceMutation([&] {
+        bridge()->reconcileUnifiedDocumentDesigner(
+            miacode::DocumentBridge::UnifiedDesignerReconcileReason::SourceReplaced);
+        return true;
+    });
+}
+
+bool DocumentModel::applyDesignerSlotsWithoutBridge(
+    const QVector<QPair<int, QString>>& slotValues, bool unified, const QString& canonicalName)
+{
+    const bool modeWas = workspace_->unifiedDesignerEnabled();
+    if (modeWas) workspace_->setUnifiedDesignerEnabled(false);
+    bool changed = false;
+    for (const QPair<int, QString>& slot : slotValues) {
+        changed = workspace_->setDesignerForSlot(slot.first, slot.second) || changed;
+    }
+    if (unified) {
+        workspace_->setUnifiedDesignerEnabled(true);
+        changed = workspace_->unifyDesigners(canonicalName) || changed;
+    }
+    return changed || modeWas != unified;
+}
+
+void DocumentModel::logEditorDocumentState(const QString& reason, int difficultyId,
+                                              qulonglong revision, int shownChars)
+{
+    miacode::debug_log::appendLine(
+        miacode::debug_log::Channel::Runtime,
+        QStringLiteral("editor/document_shown"),
+        QStringLiteral("reason=%1 difficulty=%2 revision=%3 shown_chars=%4 "
+                       "projected_difficulty=%5 projected_revision=%6 projected_chars=%7")
+            .arg(reason)
+            .arg(difficultyId)
+            .arg(revision)
+            .arg(shownChars)
+            .arg(currentDifficultyId())
+            .arg(documentRevision_)
+            .arg(chartText().size()));
+}
+
+QVariantList DocumentModel::bookmarksForDifficulty(int difficultyId) const
+{
+    if (bookmarkCache_.contains(difficultyId)) return bookmarkCache_.value(difficultyId);
+    QVariantList bookmarks;
+    if (workspace_ == nullptr) return bookmarks;
+    const SimaiDifficultyData* difficulty = workspace_->document().difficulty(difficultyId);
+    if (difficulty == nullptr) return bookmarks;
+    const QStringList lines = difficulty->chart.split(QLatin1Char('\n'));
+    for (int index = 0; index < lines.size(); ++index) {
+        const auto bookmark = miacode::editor::parseBookmarkComment(lines.at(index));
+        // Control comments (a bare 拍号, or an empty `||`) are chart data, not
+        // sections, so the outline skips them the way the Widgets one did.
+        if (!bookmark.has_value() || bookmark->control) {
+            continue;
+        }
+        bookmarks.append(QVariantMap{
+            {QStringLiteral("line"), index + 1},
+            {QStringLiteral("title"), bookmark->title},
+        });
+    }
+    bookmarkCache_.insert(difficultyId, bookmarks);
+    return bookmarks;
+}
+
+void DocumentModel::setEditorBookmarks(int difficultyId, const QVariantList& bookmarks)
+{
+    const bool changed = bookmarkCache_.value(difficultyId) != bookmarks;
+    bookmarkCache_.insert(difficultyId, bookmarks);
+    if (changed) {
+        ++bookmarkGeneration_;
+        emit bookmarksChanged();
+    }
+}
+
+void DocumentModel::navigateToBookmark(int difficultyId, int line)
+{
+    if (difficultyId <= 0 || line <= 0) {
+        return;
+    }
+    if (difficultyId != currentDifficultyId()) {
+        selectDifficulty(difficultyId);
+    }
+    if (difficultyId != currentDifficultyId()) {
+        return;
+    }
+    QMetaObject::invokeMethod(this, [this, difficultyId, line] {
+        if (bridge() != nullptr && difficultyId == currentDifficultyId()) {
+            bridge()->requestEditorNavigation(line, 1, line, 1, false, true, true);
+        }
+    }, Qt::QueuedConnection);
+}
+
+bool DocumentModel::runWorkspaceMutation(const std::function<bool()>& mutate)
+{
+    suppressWorkspaceChanged_ = true;
+    const bool ok = mutate();
+    suppressWorkspaceChanged_ = false;
+    return ok;
+}
+
+void DocumentModel::publishWorkspaceCommit(
+    WorkspaceCommitKind kind, bool replacement, bool usedSystemEncoding)
+{
+    Q_UNUSED(usedSystemEncoding);
+    if (workspace_ == nullptr) return;
+    if (!closeDecisionPending_ && kind != WorkspaceCommitKind::SavePoint && workspace_->metadataDirty()
+        && !currentFilePath().isEmpty() && !workspace_->isNetPreview()) {
+        // 同一事件中的字段修改合并为一次写入，覆盖页面与运行时入口。
+        metadataSaveTimer_.start();
+    }
+    if (replacement) {
+        metadataExtraDraft_ = QString();
+        metadataExtraError_.clear();
+        ++documentGeneration_;
+    }
+    if (kind != WorkspaceCommitKind::ChartText) refreshUnifiedDesignerState();
+    emitDocumentStateChanged(kind);
+    if (replacement) emit documentReplaced();
+}
+
+void DocumentModel::emitDocumentStateChanged(WorkspaceCommitKind kind)
+{
+    refreshDocumentState();
+    if (kind == WorkspaceCommitKind::ChartText) emit chartTextChanged();
+    if (kind != WorkspaceCommitKind::ChartText) {
+        refreshMetadataMedia(kind == WorkspaceCommitKind::Open
+            || kind == WorkspaceCommitKind::SourceReplacement);
+    }
+    if (kind != WorkspaceCommitKind::SavePoint && kind != WorkspaceCommitKind::ChartText) {
+        bookmarkCache_.clear();
+        emit chartTextChanged();
+        emit metadataChanged();
+        emit unifiedDesignerEnabledChanged();
+        emit currentDifficultyChanged();
+        emit difficultiesChanged();
+        emit currentDifficultyFieldsChanged();
+        ++bookmarkGeneration_;
+        emit bookmarksChanged();
+    }
+    emit documentTitleChanged();
+    emit currentFilePathChanged();
+    emit dirtyChanged();
+    emit dirtyEditorKeysChanged();
+    emit syntaxIssuesChanged();
+    emit documentStateChanged();
+}
+
+void DocumentModel::refreshDocumentState()
+{
+    const miacode::ChartWorkspaceSnapshot workspaceSnapshot =
+        workspace_ != nullptr ? workspace_->snapshot()
+                              : miacode::ChartWorkspaceSnapshot();
+    if (metadataExtraDraftOpenGeneration_ != workspaceSnapshot.documentOpenGeneration) {
+        metadataExtraDraft_ = QString();
+        metadataExtraError_.clear();
+    }
+    validationSnapshot_ = analysisService_ != nullptr
+        ? miacode::ui::projectDocumentValidation(
+              analysisService_->snapshot(), workspaceSnapshot.activeDifficultyId,
+              workspaceSnapshot.revision)
+        : miacode::ui::DocumentValidationProjection();
+    documentRevision_ = workspaceSnapshot.revision;
+    miacode::ui::DocumentPresentationInput input;
+    input.activeDifficultyId = workspaceSnapshot.activeDifficultyId;
+    input.dirty = workspaceSnapshot.dirty || !metadataExtraDraft_.isNull();
+    input.metadataDirty = !metadataExtraDraft_.isNull()
+        || (workspace_ != nullptr && workspace_->metadataDirty());
+    input.dirtyDifficultyIds = workspaceSnapshot.dirtyDifficultyIds;
+    input.documentRevision = documentRevision_;
+    input.validation = validationSnapshot_;
+    presentationState_ = miacode::ui::projectDocumentPresentation(input);
+}
+
+bool DocumentModel::saveToPath(const QString& path)
+{
+    if (!hasDocument() || fileService_ == nullptr || path.trimmed().isEmpty()) return false;
+    if (!finishPendingEdits()) return false;
+    if (!runWorkspaceMutation([&] { return fileService_->saveAs(path, 0).accepted; })) {
+        uiRequests_->postNotice(miacode::NoticeSeverity::Error,
+            miacode::localizedText("document.save_failed"), miacode::localizedText("document.cannot_write_chart"));
+        return false;
+    }
+    publishWorkspaceCommit(WorkspaceCommitKind::SavePoint);
+    return true;
+}
+
+void DocumentModel::adoptBackendDocumentReplacement()
+{
+    ++documentGeneration_;
+    refreshUnifiedDesignerState();
+    emitDocumentStateChanged(WorkspaceCommitKind::Open);
+    emit documentReplaced();
+}
+
+void DocumentModel::refreshUnifiedDesignerState()
+{
+    unifiedDesignerEnabled_ = workspace_ != nullptr && workspace_->unifiedDesignerEnabled();
+}
+
+QString DocumentModel::documentField(
+    miacode::ChartWorkspaceDocumentField field) const
+{
+    if (workspace_ == nullptr) return {};
+    const SimaiDocument& document = workspace_->document();
+    switch (field) {
+    case miacode::ChartWorkspaceDocumentField::Title:
+        return document.title;
+    case miacode::ChartWorkspaceDocumentField::Artist:
+        return document.artist;
+    case miacode::ChartWorkspaceDocumentField::First:
+        return document.first;
+    case miacode::ChartWorkspaceDocumentField::Designer:
+        return document.designer;
+    case miacode::ChartWorkspaceDocumentField::VideoPath:
+        return document.videoPath;
+    }
+    return {};
+}
+
+QString DocumentModel::difficultyField(
+    int difficultyId, miacode::ChartWorkspaceDifficultyField field) const
+{
+    if (workspace_ == nullptr) return {};
+    const SimaiDifficultyData* difficulty = workspace_->document().difficulty(difficultyId);
+    if (difficulty == nullptr) return {};
+    switch (field) {
+    case miacode::ChartWorkspaceDifficultyField::Level:
+        return difficulty->level;
+    case miacode::ChartWorkspaceDifficultyField::Designer:
+        return difficulty->designer;
+    }
+    return {};
+}
+
+namespace {
+
+miacode::chart_transform::ChartNormalizationOptions normalizeOptionsFromVariant(
+    const QVariantMap& options)
+{
+    miacode::chart_transform::ChartNormalizationOptions parsed;
+    parsed.startAtNewMeasure = true;
+    parsed.reduceTo384Grid = options.value(QStringLiteral("reduceTo384Grid"), true).toBool();
+    parsed.sectionMeasureCount = options.value(QStringLiteral("sectionMeasureCount"), 4).toInt();
+    // The Widgets dialog derived this from the sectioning choice rather than
+    // carrying it separately; keeping it derived stops QML producing a
+    // combination the engine never saw from that path.
+    parsed.splitEveryFourMeasures = parsed.sectionMeasureCount == 4;
+    const QString syntax = options.value(QStringLiteral("syntax")).toString().trimmed().toLower();
+    parsed.syntax = syntax == QStringLiteral("hinata") || syntax == QStringLiteral("compact_single_line")
+        ? miacode::chart_transform::ChartNormalizationSyntax::CompactSingleLine
+        : miacode::chart_transform::ChartNormalizationSyntax::SegmentPreserving;
+    return parsed;
+}
+
+}  // namespace
+
+QStringList DocumentModel::chartTransformIds() const
+{
+    QStringList ids;
+    for (const miacode::ui::ChartTransformSpec& spec : miacode::ui::chartTransformSpecs()) {
+        ids.append(spec.id);
+    }
+    return ids;
+}
+
+QVariantList DocumentModel::chartTransformMenu() const
+{
+    QVariantList rows;
+    for (const miacode::ui::ChartTransformSpec& spec : miacode::ui::chartTransformSpecs()) {
+        rows.append(QVariantMap{
+            {QStringLiteral("id"), spec.id},
+            {QStringLiteral("labelKey"), spec.labelKey},
+            {QStringLiteral("label"), qtTrId(spec.labelKey.toUtf8().constData())},
+            {QStringLiteral("section"), spec.section},
+        });
+    }
+    return rows;
+}
+
+QString DocumentModel::chartTransformMoreLabel() const
+{
+    return qtTrId("action.transform.more");
+}
+
+miacode::editor::SimaiTextEditResult DocumentModel::transformChartSelection(
+    const QString& text, int anchor, int position, const QString& opId) const
+{
+    miacode::editor::SimaiTextEditResult result;
+    result.transaction.anchor = anchor;
+    result.transaction.position = position;
+
+    const int begin = qBound(0, qMin(anchor, position), text.size());
+    const int end = qBound(begin, qMax(anchor, position), text.size());
+    if (begin >= end) {
+        // Chart transforms target the selected range.
+        result.error = QStringLiteral("no_selection");
+        return result;
+    }
+
+    const auto specs = miacode::ui::chartTransformSpecs();
+    const auto spec = std::find_if(specs.cbegin(), specs.cend(),
+                                   [&opId](const miacode::ui::ChartTransformSpec& candidate) {
+                                       return candidate.id == opId;
+                                   });
+    if (spec == specs.cend()) {
+        result.error = QStringLiteral("unknown_transform");
+        return result;
+    }
+
+    const QString selected = text.mid(begin, end - begin);
+    int changed = 0;
+    QString replacement;
+    if (spec->apply) {
+        replacement = spec->apply(selected, {text.left(begin), text.mid(end)}, &changed);
+    } else {
+        const QString transformedFull =
+            opId == QStringLiteral("transform.reset_tap_notes")
+                ? miacode::chart_transform::resetTapNotesInSelection(text, begin, end, &changed)
+                : miacode::chart_transform::clearCompleteElementsInSelection(text, begin, end, &changed);
+        // The transform rewrites the whole text; the selection's new extent is
+        // whatever is left once the untouched tail is accounted for.
+        const int untouchedSuffix = text.size() - end;
+        replacement = transformedFull.mid(begin, transformedFull.size() - untouchedSuffix - begin);
+    }
+
+    result.consumed = true;
+
+    if (replacement == selected) {
+        return result;
+    }
+
+    const int transformedEnd = begin + replacement.size();
+    const bool forward = position >= anchor;
+    result.transaction.hasEdit = true;
+    result.transaction.replacementStart = begin;
+    result.transaction.replacementEnd = end;
+    result.transaction.replacementText = replacement;
+    result.transaction.anchor = forward ? begin : transformedEnd;
+    result.transaction.position = forward ? transformedEnd : begin;
+    return result;
+}
+
+QVariantMap DocumentModel::selectionBeatSummary(
+    const QString& text, int anchor, int position) const
+{
+    if (anchor == position) return {{QStringLiteral("totalCommaCount"), 0},
+        {QStringLiteral("parts"), QVariantList{}}, {QStringLiteral("exact"), true}};
+    selectionBeatIndex_.setText(text);
+    const auto summary = selectionBeatIndex_.summarize(anchor, position);
+    QVariantList parts;
+    for (const miacode::chart_selection::ChartSelectionBeatPart& part : summary.parts) {
+        parts.append(QVariantMap{
+            {QStringLiteral("count"), part.count},
+            {QStringLiteral("denominator"), part.denominator},
+        });
+    }
+    return QVariantMap{
+        {QStringLiteral("totalCommaCount"), summary.totalCommaCount},
+        {QStringLiteral("parts"), parts},
+        {QStringLiteral("exact"), summary.exact},
+    };
+}
+
+miacode::editor::SimaiTextEditResult DocumentModel::normalizeChartSelection(
+    const QString& text, int anchor, int position, const QVariantMap& options) const
+{
+    miacode::editor::SimaiTextEditResult result;
+    result.transaction.anchor = anchor;
+    result.transaction.position = position;
+
+    const int begin = qBound(0, qMin(anchor, position), text.size());
+    const int end = qBound(begin, qMax(anchor, position), text.size());
+    // An empty selection targets the whole chart.
+    const int selectionStart = begin == end ? 0 : begin;
+    const int selectionEnd = begin == end ? text.size() : end;
+
+    const auto normalized = miacode::chart_transform::normalizeChartSelectionText(
+        text,
+        selectionStart,
+        selectionEnd,
+        miacode::simai::buildTimingMetadata(workspace_->document()),
+        normalizeOptionsFromVariant(options));
+    if (!normalized.ok) {
+        result.error = normalized.errorMessage;
+        return result;
+    }
+
+    const QString replacement = miacode::chart_transform::composeNormalizedSelectionReplacement(
+        text, selectionStart, selectionEnd, normalized.text);
+    result.consumed = true;
+    if (replacement == text.mid(selectionStart, selectionEnd - selectionStart)) {
+        // The selected range matches the normalization output.
+        return result;
+    }
+
+    const int transformedEnd = selectionStart + replacement.size();
+    const bool forward = position >= anchor;
+    result.transaction.hasEdit = true;
+    result.transaction.replacementStart = selectionStart;
+    result.transaction.replacementEnd = selectionEnd;
+    result.transaction.replacementText = replacement;
+    result.transaction.anchor = forward ? selectionStart : transformedEnd;
+    result.transaction.position = forward ? transformedEnd : selectionStart;
+    return result;
+}
+
+QVariantMap DocumentModel::normalizeOptions() const
+{
+    QVariantMap map;
+    if (bridge() == nullptr) {
+        return map;
+    }
+    const auto options = bridge()->normalizationOptions();
+    map.insert(QStringLiteral("reduceTo384Grid"), options.reduceTo384Grid);
+    map.insert(QStringLiteral("sectionMeasureCount"), options.sectionMeasureCount);
+    map.insert(
+        QStringLiteral("syntax"),
+        options.syntax == miacode::chart_transform::ChartNormalizationSyntax::CompactSingleLine
+            ? QStringLiteral("compact_single_line")
+            : QStringLiteral("segment_preserving"));
+    return map;
+}
+
+void DocumentModel::setNormalizeOptions(const QVariantMap& options)
+{
+    if (bridge() == nullptr) {
+        return;
+    }
+    bridge()->setNormalizationOptions(normalizeOptionsFromVariant(options));
+}
+
+QVariantList DocumentModel::normalizeGridOptions() const
+{
+    const auto row = [](bool on, const char* key) {
+        QVariantMap option;
+        option.insert(QStringLiteral("value"), on);
+        option.insert(QStringLiteral("label"), qtTrId(key));
+        return QVariant(option);
+    };
+    return QVariantList{
+        row(true, "preferences.on"),
+        row(false, "preferences.off"),
+    };
+}
+
+QVariantList DocumentModel::normalizeSectionOptions() const
+{
+    const auto row = [](int measures, const char* key) {
+        QVariantMap option;
+        option.insert(QStringLiteral("value"), measures);
+        option.insert(QStringLiteral("label"), qtTrId(key));
+        return QVariant(option);
+    };
+    return QVariantList{
+        row(4, "document.chart_section_every_4_measures"),
+        row(2, "document.chart_section_every_2_measures"),
+        row(0, "document.chart_section_none"),
+    };
+}
+
+QVariantList DocumentModel::normalizeSyntaxOptions() const
+{
+    const auto row = [](const QString& token, const QString& label) {
+        QVariantMap option;
+        option.insert(QStringLiteral("value"), token);
+        option.insert(QStringLiteral("label"), label);
+        return QVariant(option);
+    };
+    return QVariantList{
+        row(QStringLiteral("segment_preserving"),
+            qtTrId("dialog.normalize.segment_preserving")),
+        row(QStringLiteral("compact_single_line"),
+            qtTrId("dialog.normalize.compact_single_line")),
+    };
+}
+
+} // namespace miacode::ui

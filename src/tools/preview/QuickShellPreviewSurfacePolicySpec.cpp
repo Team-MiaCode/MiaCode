@@ -1,19 +1,9 @@
 #include <QCoreApplication>
-#include <QFile>
 #include <QTextStream>
 
 #include "app/quick_shell/QuickShellPreviewSurfacePolicy.h"
 
 namespace {
-
-QString readSource(const QString& relativePath)
-{
-    QFile file(QStringLiteral(MIACODE_SOURCE_ROOT) + QLatin1Char('/') + relativePath);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        return QString();
-    }
-    return QString::fromUtf8(file.readAll());
-}
 
 bool require(bool condition, const QString& message, QTextStream& err)
 {
@@ -47,93 +37,6 @@ bool verifyPolicy(QTextStream& err)
     return true;
 }
 
-bool verifyChartDropUsesQsgOnly(QTextStream& err)
-{
-    const QString bootstrap = readSource(QStringLiteral("src/app/quick_shell/QuickShellBootstrap.cpp"));
-    const QString mainWindowHeader = readSource(QStringLiteral("src/app/mainwindow/MainWindow.h"));
-    return require(
-               bootstrap.contains(QStringLiteral("ui/ChartDropOverlay.h")),
-               QStringLiteral("audio drop must keep the QuickShell overlay"),
-               err)
-        && require(
-            bootstrap.contains(QStringLiteral("syncChartDropOverlay")),
-            QStringLiteral("audio drop must keep the QuickShell overlay lifecycle"),
-            err)
-        && require(
-            !bootstrap.contains(QStringLiteral("PreviewDCompSurface")),
-            QStringLiteral("QuickShell audio drop must not restore the removed DComp surface"),
-            err)
-        && require(
-            !bootstrap.contains(QStringLiteral("createInProcessPreviewSurface")),
-            QStringLiteral("QuickShell audio drop must stay on the QSG render path"),
-            err)
-        && require(
-            mainWindowHeader.contains(QStringLiteral("chartDropOverlayVisibleChanged")),
-            QStringLiteral("audio drop must retain the MainWindow overlay signal"),
-            err);
-}
-
-bool verifyExplicitStartupTargetSkipsSessionRestore(QTextStream& err)
-{
-    const QString bootstrap = readSource(QStringLiteral("src/app/quick_shell/QuickShellBootstrap.cpp"));
-    const QString frameBootstrap =
-        readSource(QStringLiteral("src/app/mainwindow/sections/frame/MainWindow.FrameBootstrapFinalize.cpp"));
-    const QString documentFlow =
-        readSource(QStringLiteral("src/app/mainwindow/sections/document/MainWindow.DocumentFlow.cpp"));
-    return require(
-               bootstrap.contains(QStringLiteral("!startupOpenTarget.trimmed().isEmpty()")),
-               QStringLiteral("QuickShell must tell MainWindow when an explicit startup target is pending"),
-               err)
-        && require(
-            frameBootstrap.contains(
-                QStringLiteral("!explicitStartupOpenPending && restoreLastSessionFile()")),
-            QStringLiteral("an explicit startup target must take precedence over last-session restoration"),
-            err)
-        && require(
-            documentFlow.contains(QStringLiteral("refreshRecentFilesMenu(recentFilesMenu_)")),
-            QStringLiteral("opening an explicit startup target must refresh the current recent-files menu"),
-            err);
-}
-
-bool verifyProtectedProportionalPreviewResize(QTextStream& err)
-{
-    const QString qml = readSource(QStringLiteral("src/app/quick_shell/qml/QuickShellMain.qml"));
-    const QString metrics = readSource(QStringLiteral("src/app/ui/WindowParityMetrics.h"));
-    return require(
-               qml.contains(QStringLiteral(
-                   "previewPaneAvailableWidth(totalWidth) - contentPaneMinWidth()")),
-               QStringLiteral("manual preview sizing must reserve the live content minimum"),
-               err)
-        && require(
-            qml.contains(QStringLiteral(
-                "previewPaneAvailableWidth(totalWidth) * ratio")),
-            QStringLiteral("saved preview sizing must use the content+preview split area"),
-            err)
-        && require(
-            qml.contains(QStringLiteral(
-                "previewPaneRatioForWidth(previewPaneWidth, boundedWidth)")),
-            QStringLiteral("preview drag persistence must exclude sidebar and splitter widths"),
-            err)
-        && require(
-            qml.contains(QStringLiteral(
-                "Layout.minimumWidth: contentPaneMinWidth()")),
-            QStringLiteral("the central content column must retain its structural minimum"),
-            err)
-        && require(
-            qml.contains(QStringLiteral(
-                "const minWidth = Math.min(previewPaneMinWidth(), maxWidth)")),
-            QStringLiteral("transient undersized windows must prioritize the content minimum"),
-            err)
-        && require(
-            !qml.contains(QStringLiteral("preview_pane_user_resize_released")),
-            QStringLiteral("window shrink must clamp rather than discard the user split"),
-            err)
-        && require(
-            metrics.contains(QStringLiteral("kEmbeddedPreviewPanelPreferredWidthMax")),
-            QStringLiteral("the 900px preview width must be documented as an automatic preference"),
-            err);
-}
-
 }  // namespace
 
 int main(int argc, char* argv[])
@@ -142,10 +45,7 @@ int main(int argc, char* argv[])
     QTextStream err(stderr);
     QTextStream out(stdout);
 
-    if (!verifyPolicy(err)
-        || !verifyChartDropUsesQsgOnly(err)
-        || !verifyExplicitStartupTargetSkipsSessionRestore(err)
-        || !verifyProtectedProportionalPreviewResize(err)) {
+    if (!verifyPolicy(err)) {
         return 1;
     }
 

@@ -1,0 +1,368 @@
+#pragma once
+
+#include "common/LogEmissionPolicy.h"
+#include "core/video/PreviewVideoGeometryConfig.h"
+#include "core/video/PreviewRenderSettings.h"
+#include "preview/stage_media/PvMemoryDiagnostics.h"
+
+#include <QElapsedTimer>
+#include <QMetaObject>
+#include <QObject>
+#include <QPointer>
+#include <QVector>
+#include <QUrl>
+#include <QString>
+
+class QVideoSink;
+// Desktop preview decode backend: FFmpeg via QtAVPlayer (vendored under
+// third_party/QtAVPlayer).
+// QVideoFrame is included (not just forward-declared) because lastVideoFrame_
+// is held by value for frame-replay when a VideoOutput attaches late.
+#include <QVideoFrame>
+class QAVPlayer;
+
+class PreviewStageMediaHost : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(bool hasResolvedMedia READ hasResolvedMedia NOTIFY mediaStateChanged)
+    Q_PROPERTY(bool hasVideoMedia READ hasVideoMedia NOTIFY mediaStateChanged)
+    Q_PROPERTY(bool chartHasVideoBackground READ chartHasVideoBackground NOTIFY mediaStateChanged)
+    Q_PROPERTY(bool hidePv READ hidePv WRITE setHidePv NOTIFY hidePvChanged)
+    Q_PROPERTY(bool mediaVisible READ mediaVisible WRITE setMediaVisible NOTIFY mediaVisibilityChanged)
+    Q_PROPERTY(QUrl imageSource READ imageSource NOTIFY imageSourceChanged)
+    Q_PROPERTY(int backgroundScaleMode READ backgroundScaleMode WRITE setBackgroundScaleModeValue NOTIFY backgroundScaleModeChanged)
+    Q_PROPERTY(double layoutSquareScale READ layoutSquareScale WRITE setLayoutSquareScale NOTIFY layoutSquareScaleChanged)
+    Q_PROPERTY(bool videoPlaybackActive READ videoPlaybackActive NOTIFY diagnosticsChanged)
+    Q_PROPERTY(bool hasVideoFrame READ hasVideoFrame NOTIFY diagnosticsChanged)
+    Q_PROPERTY(double currentPlaybackSecond READ currentPlaybackSecond NOTIFY diagnosticsChanged)
+    Q_PROPERTY(double clockDeltaSeconds READ clockDeltaSeconds NOTIFY diagnosticsChanged)
+    Q_PROPERTY(qint64 videoFrameAgeMs READ videoFrameAgeMs NOTIFY diagnosticsChanged)
+
+public:
+    enum class MediaKind {
+        None,
+        Image,
+        Video,    // FFmpeg/QtAVPlayer-backed on every desktop platform
+    };
+    Q_ENUM(MediaKind)
+
+    explicit PreviewStageMediaHost(QObject* parent = nullptr);
+    ~PreviewStageMediaHost() override;
+
+    void initializeBackendObjects();
+    Q_INVOKABLE void attachVideoOutputObject(QObject* videoOutputObject);
+    Q_INVOKABLE void attachVideoOutputObjects(QObject* videoOutputObject, QObject* innerVideoOutputObject);
+    Q_INVOKABLE void detachVideoOutputObject(QObject* videoOutputObject);
+    Q_INVOKABLE void detachVideoOutputObjects(QObject* videoOutputObject, QObject* innerVideoOutputObject);
+
+    bool hasResolvedMedia() const;
+    bool hasVideoMedia() const;
+    bool chartHasVideoBackground() const;
+    bool hidePv() const;
+    void setHidePv(bool hide);
+    void setMissingMediaFallbackEnabled(bool enabled);
+    bool mediaVisible() const;
+    void setMediaVisible(bool visible);
+    QUrl imageSource() const;
+    // Resolved video file path. Empty when not in Video mode. Returned
+    // as a local file path (not a QUrl) since the only consumer is the
+    // out-of-process worker projector which converts to a SerialString
+    // for IPC.
+    QString resolvedVideoPath() const;
+    int backgroundScaleMode() const;
+    void setBackgroundScaleModeValue(int mode);
+    void setBackgroundScaleMode(PreviewBackgroundScaleMode mode);
+    double layoutSquareScale() const;
+    void setLayoutSquareScale(double scale);
+
+    // Phase 4c — `chartVideoOverridePath` is the raw `&video=` value
+    // from `SimaiDocument::videoPath`. When non-empty, it overrides
+    // the sibling-filename heuristic (bg.mp4 / pv.mp4) for video
+    // resolution. Empty string preserves legacy behaviour.
+    void setChartPath(const QString& chartPath,
+                      const QString& chartVideoOverridePath = QString());
+
+    void setPlaybackRate(double rate);
+    void setTimelineOffsetSeconds(double seconds);
+    void setPlaybackTransactionId(quint64 transactionId);
+    void preparePlaybackStart(double seconds, quint64 transactionId);
+    void commitPreparedPlaybackStart(double currentTimelineSecond);
+    void cancelPreparedPlaybackStart(quint64 transactionId = 0);
+    bool hasPreparedPlaybackStart(quint64 transactionId) const;
+    void setPlayheadSeconds(double seconds);
+    void submitPausedSeek(double seconds, quint64 generation);
+    void startPlayback(double seconds);
+    void syncPlayback(double seconds);
+    void pausePlayback();
+    void shutdownForAppExit();
+
+    // Deterministically close the decoder's OS file handle on the currently
+    // loaded pv/bg video, so an in-app media tool can rename/replace that very
+    // file on Windows (where a file held open for read by FFmpeg's avio cannot
+    // be renamed/removed -> "pv占用" / ERROR_SHARING_VIOLATION). A plain
+    // clearMedia() is NOT enough: it drops only the outer sink's frame and
+    // unloads the demuxer ASYNCHRONOUSLY (the QAVPlayer survives, still holding
+    // its QAVFormatContext ref), so the handle can still be open when the caller
+    // renames the file. This drops every retained decoded frame (both sinks +
+    // lastVideoFrame_) and DESTROYS the player so ~QAVPlayer joins its
+    // demux/decode threads and releases the format context synchronously —
+    // avformat_close_input has run by the time this returns. The backend is
+    // rebuilt lazily on the next load (initializeBackendObjects).
+    bool releaseDecoderForFileReplace();
+
+    double currentPlaybackSecond() const;
+    bool videoPlaybackActive() const;
+    bool hasVideoFrame() const;
+    double clockDeltaSeconds() const;
+    qint64 videoFrameAgeMs() const;
+    qint64 videoFrameCountTotal() const;
+    double videoFrameRateEstimate() const;
+    double videoFrameIntervalAvgMs() const;
+    double videoFrameIntervalMaxMs() const;
+    qint64 videoFrameStallCount() const;
+    bool videoFrameStalled() const;
+    // Called by the preview-present watchdog when the first playback frame has
+    // not presented for an abnormally long time.  In a --debug Windows/QtAV
+    // run this emits one bounded breakdown of the two-device D3D11 bridge;
+    // elsewhere it is a no-op.
+    void noteFirstPlaybackRenderStall(quint64 transactionId,
+                                      qint64 presentWaitMs,
+                                      double visualSecond,
+                                      double audioSecond);
+    Q_INVOKABLE void reportImageLoadFailure(const QUrl& source);
+    void setObservedPlayheadSecond(double second);
+    QString debugMediaTypeName() const;
+
+    // Video decode-mode preference (硬件渲染 / 软件渲染 toggle). false = the
+    // platform hardware decoder (D3D11VA on Windows, VideoToolbox on macOS),
+    // true = FFmpeg CPU decode. Hot-switchable at
+    // RUNTIME with no app restart: when a PV is loaded this reloads it in place on
+    // the same QAVPlayer (reusing the sink, restoring position + play state);
+    // otherwise it just takes effect on the next load. The persisted user
+    // preference is owned by MainWindow and pushed here; the dev env override
+    // MIACODE_PREVIEW_FORCE_SOFTWARE_VIDEO still wins on top.
+    void setVideoDecodePreference(bool preferSoftware);
+    bool videoDecodePrefersSoftware() const { return videoDecodePreferSoftware_; }
+    bool videoDecodeUsesSoftware() const;
+    QString videoDecodeDescription() const;
+
+signals:
+    void mediaStateChanged();
+    void hidePvChanged();
+    void mediaVisibilityChanged();
+    void imageSourceChanged();
+    void backgroundScaleModeChanged();
+    void layoutSquareScaleChanged();
+    void playbackPositionChanged(double seconds);
+    void playbackStartPrepared(double seconds, quint64 transactionId);
+    void pausedSeekCompleted(double seconds, quint64 generation);
+    void diagnosticsChanged();
+
+private:
+    using PvMemoryBoundary = miacode::preview::pv_memory::BoundaryReason;
+
+    void clearMedia();
+    void reloadCurrentMediaPreservingPlayback();
+    QString resolveMediaPath(const QString& chartPath) const;
+    QString resolveStageMediaPath(const QString& chartPath, const QString& chartVideoOverridePath) const;
+    void loadImageMedia(const QString& path);
+    void loadVideoMedia(const QString& path);
+    void bindVideoOutput();
+    void schedulePreparedPlaybackTimeout(quint64 transactionId, qint64 targetMs);
+    void schedulePausedSeekTimeout(quint64 generation, qint64 targetMs);
+    void updateClockDelta();
+    // The inner-circle VideoOutput is only rendered in InnerCircleFitOuterFill
+    // (background scale mode 3); in every other mode it is bound but invisible,
+    // so feeding it decoded frames buys nothing and retains a decode-pool
+    // surface. True only when a distinct inner sink exists AND that mode is on.
+    bool innerVideoSinkActive() const;
+    // What refreshInnerVideoSinkForScaleMode() actually did, so the scale-mode log
+    // line can state the outcome instead of the intent — "entered mode 3 but there
+    // was no retained frame to prime" and "primed with the current frame" are the
+    // two halves of the "wrong first frame after switching" report, and only the
+    // callee can tell them apart.
+    enum class InnerVideoSinkRefresh {
+        None,     // no distinct inner sink, or entering the mode with no retained frame
+        Primed,   // retained frame pushed, so the mode shows the current frame at once
+        Cleared,  // frame released, so the sink stops pinning a decode-pool surface
+    };
+    // Push the retained frame into the inner sink so a mid-playback switch into
+    // InnerCircleFitOuterFill shows the current frame without waiting for the
+    // next decode; clear it when leaving the mode so nothing stays pinned.
+    InnerVideoSinkRefresh refreshInnerVideoSinkForScaleMode();
+    // QtAVPlayer frame path: a decoded QAVVideoFrame (already converted to a
+    // QVideoFrame and tagged with its presentation pts in seconds) is pushed
+    // to the QML sink here and used to settle the paused-seek /
+    // prepared-start handshakes by pts.
+    void handleDecodedVideoFrame(const QVideoFrame& frame, double ptsSeconds, double durationSeconds, quint64 sourceGeneration);
+    // 暂停 seek 由送入显示端的视频帧确认；播放准备允许位置通知确认。
+    void settlePendingSeekAcks(double mediaSecondStart, double mediaSecondEnd, bool frameDelivered = true);
+    // One-shot fallback: if platform hardware decode reports InvalidMedia,
+    // re-open the source forcing FFmpeg software decode before giving up.
+    void maybeRetryWithSoftwareDecode();
+    // Hot-switch the currently-loaded PV's decode mode in place on the same
+    // QAVPlayer (stop -> setInputVideoCodec -> reload -> seek -> restore play
+    // state). Same in-place reload as the software fallback, but driven by the
+    // user's hardware/software preference and bidirectional. No app restart.
+    void reloadVideoDecodeInPlace();
+    // HW-decode diagnostics:
+    // drain the QtAVPlayer copy-path cumulative counters into one runtime-log line on a
+    // low-frequency cadence (seek / end-of-media). No-op off the QtAVPlayer/Windows path.
+    void emitHwDecodeDiagSummary(const char* reason);
+    // Classify a backend EndOfMedia event and, when it is
+    // stale, put the PV back on screen instead of leaving it frozen on the frame
+    // that happened to be last. Never touches the main transport: a PV that really
+    // ended stays subordinate.
+    void handleVideoEndOfMedia(bool wasPlaybackActive);
+    bool tryRecoverFromStaleEndOfMedia(double targetSecond);
+    void resetStaleEndOfMediaRecovery();
+    void beginFirstPlaybackRenderTrace();
+    void emitFirstPlaybackRenderTrace();
+    void resetVideoFrameDiagnostics();
+    bool updateVideoFrameStallState(bool logTransition);
+    qint64 currentVideoFrameAgeForDiagnosticsMs() const;
+    qint64 videoFrameStallThresholdMs() const;
+    miacode::preview::pv_memory::Observation pvMemoryObservation(bool includeProcess) const;
+    void emitPvMemoryRecords(const QVector<miacode::preview::pv_memory::Record>& records);
+    void beginPvMemorySource();
+    void observePvMemoryFrame(const QVideoFrame& frame,
+                              const miacode::preview::pv_memory::ImageConversionFact& conversion);
+    void recordPvMemoryBoundary(PvMemoryBoundary reason);
+    void clearPvMemorySource();
+    void latePvMemoryNoMedia();
+    void postClearPvMemoryCheckpoint(quint64 clearEpoch, qint64 delayMs);
+    void schedulePvMemoryPeriodicSample();
+    void destroyPvMemorySource();
+
+    MediaKind mediaKind_ = MediaKind::None;
+    // 硬件/软件渲染 preference: false = platform hardware decode (default), true =
+    // FFmpeg CPU decode. Set by MainWindow from the persisted user preference; read in
+    // initializeBackendObjects (initial/rebuild decode choice) and applied live by
+    // setVideoDecodePreference / reloadVideoDecodeInPlace.
+    bool videoDecodePreferSoftware_ = false;
+    QString chartPath_;
+    QString mediaPath_;
+    // Phase 4c — last-set raw `&video=` value. Part of the setChartPath skip key.
+    QString chartVideoOverridePath_;
+    // Content stamp (size:mtime) of the resolved media, so setChartPath skips a
+    // re-decode only when the path, the override AND the file content are all
+    // unchanged — a same-named clip with new bytes still forces a reload.
+    QString mediaStamp_;
+    QUrl imageSource_;
+    bool mediaVisible_ = true;
+    bool hidePv_ = false;
+    bool missingMediaFallbackEnabled_ = false;
+    PreviewBackgroundScaleMode backgroundScaleMode_ = PreviewBackgroundScaleMode::FillCrop;
+    double layoutSquareScale_ = miacode::preview_video::kLayoutSquareScaleDefault;
+    // FFmpeg decode backend. setSpeed() runs inside QtAVPlayer's own decode
+    // loop (no Qt converter rebuild) so rate changes never race the QSG
+    // texture sampler. The video's own audio track is intentionally never
+    // played (song audio is BASS-owned).
+    QAVPlayer* player_ = nullptr;
+    QMetaObject::Connection videoFrameConnection_;
+    QMetaObject::Connection seekedConnection_;
+    bool videoBackendLoaded_ = false;
+    bool softwareDecodeFallbackTried_ = false;
+    double lastFramePtsSeconds_ = -1.0;
+    double lastFrameDurationSeconds_ = 0.0;
+    // Latest decoded frame, replayed into the QML sink when a VideoOutput
+    // attaches after decoding has already produced frames (e.g. paused bg).
+    QVideoFrame lastVideoFrame_;
+    QPointer<QObject> videoOutputObject_;
+    QPointer<QObject> innerVideoOutputObject_;
+    QPointer<QVideoSink> videoSink_;
+    QPointer<QVideoSink> innerVideoSink_;
+    quint64 videoSourceGeneration_ = 0;
+    double timelineOffsetSeconds_ = 0.0;
+    double playbackRate_ = 1.0;
+    miacode::diagnostics::PlaybackRateLogGate playbackRateLogGate_;
+    int syncVideoFrameBeaconBudget_ = 0;
+    int syncMediaStatusBeaconBudget_ = 0;
+    quint64 playbackTransactionId_ = 0;
+    qint64 preparedPlaybackTargetMs_ = -1;
+    double preparedPlaybackTargetSecond_ = 0.0;
+    quint64 preparedPlaybackTransaction_ = 0;
+    bool preparedPlaybackPending_ = false;
+    bool preparedPlaybackReady_ = false;
+    // A ready notification can be a timeout/recovery fallback. Only this bit
+    // proves that the current decoder actually reached the prepared target.
+    bool preparedPlaybackLandingConfirmed_ = false;
+    double lastTimelineSecond_ = 0.0;
+    qint64 lastSeekMs_ = -1;
+    // HW-decode diag: seek-landing latency clock + one-shot flag, read at the first
+    // displayed frame after QAVPlayer::seeked to emit the preview/seek_landing line.
+    QElapsedTimer seekCatchupTimer_;
+    bool seekLatencyPending_ = false;
+    qint64 pausedSeekTargetMs_ = -1;
+    double pausedSeekTargetSecond_ = 0.0;
+    quint64 pausedSeekGeneration_ = 0;
+    bool pausedSeekCompletionPending_ = false;
+    quint64 preparedPlaybackTimeoutSerial_ = 0;
+    quint64 pausedSeekTimeoutSerial_ = 0;
+    bool videoPlaybackActive_ = false;
+    bool transportPlaying_ = false;
+    bool videoPlaybackPendingStart_ = false;
+    double observedPlayheadSecond_ = 0.0;
+    double clockDeltaSeconds_ = 0.0;
+    QElapsedTimer videoFrameElapsed_;
+    QElapsedTimer videoPlaybackActiveElapsed_;
+    QVector<double> videoFrameIntervalsMs_;
+    int videoFrameIntervalWriteIndex_ = 0;
+    int videoFrameIntervalCount_ = 0;
+    double videoFrameIntervalSumMs_ = 0.0;
+    double videoFrameIntervalMaxMs_ = 0.0;
+    qint64 videoFrameIntervalSampleCount_ = 0;
+    qint64 videoFrameCountTotal_ = 0;
+    qint64 videoFrameStallCount_ = 0;
+    bool videoFrameStalled_ = false;
+    // Stale-EndOfMedia recovery budget, reset per loaded media (audit §5.2). Bounded
+    // and escalating: a cheap seek+resume first, a full in-place reload after that,
+    // then give up and keep the last frame so a genuinely broken file cannot put the
+    // preview into a reload loop.
+    int staleEndOfMediaRecoveries_ = 0;
+    // Set between the recovery seek and its `seeked` acknowledgement. QAVPlayer::play()
+    // re-seeks to 0 while its end-of-file latch is still set, so the resume has to wait
+    // for the seek to land or it would restart the PV from the beginning.
+    bool staleEndOfMediaResumePending_ = false;
+    quint64 staleEndOfMediaResumeSerial_ = 0;
+    double staleEndOfMediaResumeSecond_ = 0.0;
+    // Snapshot taken exactly as a newly loaded video's first prepared playback
+    // commits.  QtAVPlayer's bridge counters are process-wide atomics, so this
+    // lets a first-play watchdog report only the work caused after that commit.
+    struct FirstPlaybackBridgeTrace {
+        bool armed = false;
+        bool reported = false;
+        bool reportPending = false;
+        quint64 transactionId = 0;
+        qint64 presentWaitMs = 0;
+        double visualSecond = 0.0;
+        double audioSecond = 0.0;
+        quint64 copiedTwoDevice = 0;
+        quint64 texturesCreated = 0;
+        quint64 acquireTimeouts = 0;
+        quint64 copyFailures = 0;
+        quint64 bridgeSamples = 0;
+        quint64 bridgeTotalUs = 0;
+        quint64 sourceSetupSamples = 0;
+        quint64 sourceSetupTotalUs = 0;
+        quint64 destinationSetupSamples = 0;
+        quint64 destinationSetupTotalUs = 0;
+        quint64 sourceTextureCreateSamples = 0;
+        quint64 sourceTextureCreateTotalUs = 0;
+        quint64 destinationTextureCreateSamples = 0;
+        quint64 destinationTextureCreateTotalUs = 0;
+        quint64 sharedResourceOpenSamples = 0;
+        quint64 sharedResourceOpenTotalUs = 0;
+        quint64 sourceAcquireSamples = 0;
+        quint64 sourceAcquireTotalUs = 0;
+        quint64 destinationAcquireSamples = 0;
+        quint64 destinationAcquireTotalUs = 0;
+    };
+    FirstPlaybackBridgeTrace firstPlaybackBridgeTrace_;
+    QElapsedTimer firstPlaybackBridgeTraceElapsed_;
+    miacode::preview::pv_memory::Diagnostics pvMemoryDiagnostics_;
+    QElapsedTimer pvMemoryElapsed_;
+    bool pvMemoryPeriodicTimerArmed_ = false;
+    quint64 pvMemoryPeriodicTimerEpoch_ = 0;
+    bool shuttingDown_ = false;
+};

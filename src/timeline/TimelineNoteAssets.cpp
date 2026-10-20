@@ -5,8 +5,8 @@
 #include <QPainter>
 #include <QTransform>
 
-#include "common/AssetPaths.h"
-#include "common/PreviewSkinConfig.h"
+#include "core/video/AssetPaths.h"
+#include "core/video/PreviewSkinConfig.h"
 
 namespace {
 

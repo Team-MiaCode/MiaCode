@@ -1,8 +1,8 @@
 #include "core/scene/PreviewJudgeOverlayShared.h"
 
-#include "common/MuriConfig.h"
+#include "core/analysis/MuriConfig.h"
 #include "core/scene/PreviewSceneMath.h"
-#include "timeline/TimelineData.h"
+#include "core/chart/model/TimelineData.h"
 
 #include <QStringList>
 #include <QtMath>
@@ -178,10 +178,9 @@ bool buildJudgeOverlayStraightPlacement(
     }
     const QPointF tangent = slideEndTangentLogical(marker);
     const qreal tangentAngleDegrees = qRadiansToDegrees(qAtan2(tangent.y(), tangent.x()));
-    // The two exactly vertical straight slides need opposite handedness:
-    // 8->5 (+90 degrees) uses the left sprite while 4->1 (-90 degrees) uses
-    // the right sprite. Keep the -90 degree boundary in the right-handed
-    // half-plane and the +90 degree boundary out of it.
+    // The exactly vertical straight slides need opposite handedness: 8->5
+    // (+90 degrees) uses the left sprite, while 4->1 (-90 degrees) uses the
+    // right sprite.
     const bool shouldUseRightImage =
         tangentAngleDegrees >= -90.0 && tangentAngleDegrees < 90.0;
     const QPointF laneUnit = laneUnitVector(qBound(1, marker.endLane, 8));

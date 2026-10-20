@@ -45,17 +45,41 @@ Item {
     property real chartFrameBgBrightness: 0.8   // 0..1; MultiEffect.brightness = this − 1
     property real chartFrameDiskDiameter: 0.0   // ring diameter / square side (0 = no disk)
     property string activeChartFrameKey: ""      // only this chart frame hosts the live scene
+    // Editor only: while the active chart frame plays, its PV disk plays the PV
+    // file silently instead of showing the still (chartFramePvSource empty = no PV).
+    property url chartFramePvSource: ""
+    property bool chartFramePlaying: false
+    property real activeChartFrameSeconds: 0
     // §4 — which layer wears the selection chrome (any kind, incl. the card). Driven
     // two-way: C++ pushes it (list / inspector selection → blue box moves), and a
-    // canvas tap / drag pushes it back via chartSceneBinder.selectLayerKey. The
+    // canvas tap / drag pushes it back via selectionBinder.selectLayerKey. The
     // editor's selectedIndex is DERIVED from this (key-based → reorder/add/remove safe).
     property string selectedKey: ""
+    property int layerPreviewRevision: 0
+
+    function layerPreviewItem(key, revision) {
+        for (let i = 0; i < layerRepeater.count; ++i) {
+            const item = layerRepeater.itemAt(i)
+            if (item && item.ld && item.ld.key === key)
+                return item.previewItem
+        }
+        return null
+    }
     property bool editable: true            // false in the export render (no chrome/handlers)
-    // A2 — the CoverComposerView (live path only) sets this so the chart-frame
-    // layer can host a LIVE PreviewQuickSceneRoot instead of the static grab Image:
+    // The v2 page provides the QML-facing cover session as the binder facade for
+    // the one active live chart scene; export rendering leaves it null and uses
+    // the cached still image.
+    property var selectionBinder: null
+    // The page uses this callback to route canvas selection to its inspector tab.
+    // Selection itself remains owned by selectionBinder.
+    property var layerSelectionCallback: null
+    // A2 — a live-only consumer can set this so the chart-frame layer hosts a
+    // PreviewQuickSceneRoot instead of the static grab Image:
     // scrubbing/playback then only moves the shared playhead (zero readback). Stays
     // null in the export render, where the static grab Image is used instead.
     property var chartSceneBinder: null
+    readonly property bool liveChartSceneBound:
+        chartSceneBinder !== null && chartSceneBinder.liveChartSceneBound === true
 
     // ---- Editor state ----
     // Derived from selectedKey so reordering / adding / removing layers never points
@@ -102,20 +126,6 @@ Item {
         return denom > 0 ? cardNativeW(t) / denom : (420.0 / 690.0)
     }
 
-    readonly property var cardTemplate: {
-        var t = coverTemplate
-        if (!t || !t.card) return t
-        var c = JSON.parse(JSON.stringify(t))
-        var tabTop = tabTopNative(c)
-        var contentH = c.card.nativeHeight - tabTop
-        if (contentH > 0) {
-            c.card.heightRatio = c.card.nativeHeight / contentH
-            c.card.topMargin = (-tabTop) / contentH
-        }
-        c.transparentBackground = true   // card layer is always transparent; bg is its own layer
-        return c
-    }
-
     // ---- background helpers (read from template, defaults match the card) ----
     function dimColor() {
         return (coverTemplate && coverTemplate.background && coverTemplate.background.dimColor)
@@ -132,20 +142,31 @@ Item {
     // ---- card drop-shadow helpers (template.cardShadow) ----
     function cardShadowColor() {
         return (coverTemplate && coverTemplate.cardShadow && coverTemplate.cardShadow.color)
-                ? coverTemplate.cardShadow.color : "#99000000"
+                ? coverTemplate.cardShadow.color : "#B8000000"
     }
     function cardShadowBlur() {
         return (coverTemplate && coverTemplate.cardShadow && coverTemplate.cardShadow.blur !== undefined)
-                ? coverTemplate.cardShadow.blur : 0.6
+                ? coverTemplate.cardShadow.blur : 0.8
     }
     function cardShadowOffsetY() {
         return (coverTemplate && coverTemplate.cardShadow && coverTemplate.cardShadow.offsetY !== undefined)
-                ? coverTemplate.cardShadow.offsetY : 14
+                ? coverTemplate.cardShadow.offsetY : 5.3
+    }
+    function cardShadowBlurMax() {
+        return (coverTemplate && coverTemplate.cardShadow && coverTemplate.cardShadow.blurMax !== undefined)
+                ? coverTemplate.cardShadow.blurMax : 48
+    }
+    function cardShadowScale() {
+        return (coverTemplate && coverTemplate.cardShadow && coverTemplate.cardShadow.scale !== undefined)
+                ? coverTemplate.cardShadow.scale : 1.02
     }
 
     readonly property url backdropSourceUrl:
         backgroundMode === 1 ? backgroundImage
                              : (backgroundMode === 0 ? jacketImage : "")
+    // Canvas transparency does not remove an image background selected for a frame.
+    readonly property url chartFrameBackgroundSourceUrl:
+        backgroundMode === 1 ? backgroundImage : jacketImage
 
     // ---- per-layer pixel geometry helpers (used by selection chrome) ----
     function layerContentH(l) { return (l ? l.sizeFraction : 0.85) * canvas.height }
@@ -168,8 +189,22 @@ Item {
         var s = p.toString()
         if (s.length === 0) return ""
         if (s.indexOf("://") >= 0) return s
-        if (s.charAt(0) === "/") return "file://" + encodeURI(s)
-        return "file:///" + encodeURI(s)   // Windows drive path (C:/…)
+        // encodeURI leaves '#' and '?' alone, which would cut "Song #2/bg.png"
+        // at a fragment.
+        var encoded = encodeURI(s).replace(/#/g, "%23").replace(/\?/g, "%3F")
+        if (s.charAt(0) === "/") return "file://" + encoded
+        return "file:///" + encoded   // Windows drive path (C:/…)
+    }
+
+    function selectLayerKey(key) {
+        if (!key)
+            return
+        if (canvas.layerSelectionCallback)
+            canvas.layerSelectionCallback.call(canvas, key)
+        if (canvas.selectionBinder)
+            canvas.selectionBinder.selectLayerKey(key)
+        else if (canvas.chartSceneBinder)
+            canvas.chartSceneBinder.selectLayerKey(key)
     }
     // Text-layer font: the layer's custom fontPath (absolute) if set, else the
     // bundled Heavy display font.
@@ -227,9 +262,10 @@ Item {
     function dragLayerAt(px, py) {
         if (pointInSelectionScaleHandle(px, py))
             return null
-        if (selectedLayer && !selectedLayer.locked && pointInLayer(selectedLayer, px, py))
-            return selectedLayer
-        return topHitLayerAt(px, py)
+        var layer = topHitLayerAt(px, py)
+        // A locked top layer still owns the hit. It may be selected, but a
+        // drag must not tunnel through it to a visually lower layer.
+        return layer && !layer.locked ? layer : null
     }
     function hitKeyAt(px, py) {
         var l = topHitLayerAt(px, py)
@@ -240,6 +276,11 @@ Item {
             ? coverLayout.layers[selectedIndex] : null
 
     function clearGuides() { guideX = -1; guideY = -1 }
+
+    function commitGeometry() {
+        if (canvas.selectionBinder && canvas.selectionBinder.commitActiveLayerGeometry)
+            canvas.selectionBinder.commitActiveLayerGeometry()
+    }
 
     // Clamp a proposed CENTRE so at least 25% of a `size`-wide layer stays inside
     // [0, span] — a layer can never be dragged fully off the clipped canvas and
@@ -274,8 +315,7 @@ Item {
         enabled: canvas.editable
         gesturePolicy: TapHandler.WithinBounds
         onTapped: {
-            if (canvas.chartSceneBinder)
-                canvas.chartSceneBinder.selectLayerKey(canvas.hitKeyAt(point.position.x, point.position.y))
+            canvas.selectLayerKey(canvas.hitKeyAt(point.position.x, point.position.y))
         }
     }
 
@@ -298,30 +338,32 @@ Item {
         onActiveChanged: {
             if (active) {
                 dragLayer = canvas.dragLayerAt(
-                        centroid.scenePressPosition.x,
-                        centroid.scenePressPosition.y)
+                        centroid.position.x,
+                        centroid.position.y)
                 if (!dragLayer) {
                     dragLayer = null
                     return
                 }
-                if (canvas.chartSceneBinder)
-                    canvas.chartSceneBinder.selectLayerKey(dragLayer.key)
+                canvas.selectLayerKey(dragLayer.key)
                 startNx = dragLayer.nx
                 startNy = dragLayer.ny
                 // Reference the delta from the centroid AT ACTIVATION, not the
                 // press: a DragHandler only activates AFTER the cursor passes the
                 // drag threshold, so press-referenced movement would jump.
-                grabSceneX = centroid.scenePosition.x
-                grabSceneY = centroid.scenePosition.y
+                grabSceneX = centroid.position.x
+                grabSceneY = centroid.position.y
             } else {
+                var hadDragLayer = dragLayer !== null
                 dragLayer = null
                 canvas.clearGuides()
+                if (hadDragLayer)
+                    canvas.commitGeometry()
             }
         }
         onCentroidChanged: {
             if (!active || !dragLayer) return
-            var dx = centroid.scenePosition.x - grabSceneX
-            var dy = centroid.scenePosition.y - grabSceneY
+            var dx = centroid.position.x - grabSceneX
+            var dy = centroid.position.y - grabSceneY
             var w = canvas.layerContentW(dragLayer)
             var h = canvas.layerContentH(dragLayer)
             var cx = startNx * canvas.width + dx
@@ -359,6 +401,7 @@ Item {
         visible: !canvas.transparentBg && !canvas.blurEnabled
                  && source.toString().length > 0 && status === Image.Ready
         asynchronous: false
+        cache: false
         smooth: true
         mipmap: true
     }
@@ -387,9 +430,12 @@ Item {
     // ===================== Draggable layers =====================
     Repeater {
         id: layerRepeater
+        onItemAdded: canvas.layerPreviewRevision++
+        onItemRemoved: canvas.layerPreviewRevision++
         model: canvas.coverLayout ? canvas.coverLayout.layers : 0
         delegate: Item {
             id: layerItem
+            readonly property alias previewItem: content
             required property var modelData
             required property int index
             readonly property var ld: modelData       // CoverLayer
@@ -415,11 +461,24 @@ Item {
             readonly property bool showsImageDiskBg:
                 isChartFrame && layerItem.frameBgMode === "image"
                 && canvas.chartFrameDiskDiameter > 0
-                && canvas.backdropSourceUrl.toString().length > 0
+                && canvas.chartFrameBackgroundSourceUrl.toString().length > 0
             readonly property bool showsTransparentDiskBg:
                 isChartFrame && layerItem.frameBgMode === "transparent"
                 && canvas.chartFrameDiskDiameter > 0
                 && layerItem.frameBgTransparency < 1.0
+            // PV mode: the PV frame at this layer's chart time (pv/<key> in the
+            // "coverchart" provider) takes the image mode's place in the disk.
+            readonly property bool showsPvDiskBg:
+                isChartFrame && (layerItem.frameBgMode === "pv" || layerItem.frameBgMode === "pvFit")
+                && canvas.chartFrameDiskDiameter > 0
+                && layerItem.ld && layerItem.ld.pvFrameRevision >= 0
+            readonly property bool showsMediaDiskBg: showsImageDiskBg || showsPvDiskBg
+            // "pvFit": the preview's Fit (完整显示) on the square frame — the whole
+            // PV inside the square over black, clipped by the disk like the rest.
+            readonly property bool fitsPvIntoFrame: showsPvDiskBg && layerItem.frameBgMode === "pvFit"
+            readonly property bool hostsPvVideo:
+                showsPvDiskBg && canvas.editable && layerItem.isActiveChartFrame
+                && canvas.chartFramePvSource.toString().length > 0
 
             width: canvas.layerContentW(ld)
             height: canvas.layerContentH(ld)
@@ -429,46 +488,119 @@ Item {
             visible: ld ? ld.visible : true
             opacity: layerItem.isChartFrame ? 1.0 : (ld && ld.opacity !== undefined ? ld.opacity : 1.0)
 
-            // Card content, optionally drop-shadowed via a layer effect on the
-            // content ONLY (so the selection chrome is never rasterised with it).
-            // The shadow applies in EVERY background mode — over a backdrop, and
-            // in Transparent mode where it casts a soft shadow onto the alpha PNG.
+            // Card halo. The shadow applies in EVERY background mode — over a
+            // backdrop, and in Transparent mode where it casts a soft shadow onto
+            // the alpha PNG. It is drawn from a hidden texture copy of the
+            // content, BEHIND the content, instead of as a layer effect on the
+            // content: a layer would rasterise the card into a texture that is
+            // then resampled at the layer's fractional device-pixel position,
+            // blurring its text. MultiEffect has no shadow-only mode, so it also
+            // draws its copy of the card; the crisp card on top covers it.
+            readonly property bool castsCardShadow: layerItem.isCard && canvas.cardShadowEnabled
+            ShaderEffectSource {
+                id: cardShadowSource
+                anchors.fill: content
+                sourceItem: layerItem.castsCardShadow ? content : null
+                hideSource: false
+                live: true
+                visible: false
+            }
+            MultiEffect {
+                anchors.fill: content
+                visible: layerItem.castsCardShadow
+                source: cardShadowSource
+                shadowEnabled: true
+                shadowColor: canvas.cardShadowColor()
+                // Scale the shadow blur radius by the card's px-per-native scale
+                // (the SAME factor as the offset below) so softness, offset and
+                // geometry all track output resolution → preview == export.
+                blurMax: Math.max(2, Math.round(canvas.cardShadowBlurMax() * layerItem.height
+                                  / canvas.cardContentNativeH(canvas.coverTemplate)))
+                shadowBlur: canvas.cardShadowBlur()
+                shadowScale: canvas.cardShadowScale()
+                // offsetY is card-native px; scale into wrapper px.
+                shadowVerticalOffset: canvas.cardShadowOffsetY()
+                                      * (layerItem.height / canvas.cardContentNativeH(canvas.coverTemplate))
+                shadowHorizontalOffset: 0
+                autoPaddingEnabled: true
+            }
+
             Item {
                 id: content
                 anchors.fill: parent
-                layer.enabled: layerItem.isCard && canvas.cardShadowEnabled
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: canvas.cardShadowColor()
-                    // Scale the shadow blur radius by the card's px-per-native scale
-                    // (the SAME factor as the offset below) so softness, offset and
-                    // geometry all track output resolution → preview == export.
-                    blurMax: Math.max(2, Math.round(64 * layerItem.height
-                                      / canvas.cardContentNativeH(canvas.coverTemplate)))
-                    shadowBlur: canvas.cardShadowBlur()
-                    // offsetY is card-native px; scale into wrapper px.
-                    shadowVerticalOffset: canvas.cardShadowOffsetY()
-                                          * (layerItem.height / canvas.cardContentNativeH(canvas.coverTemplate))
-                    shadowHorizontalOffset: 0
-                    autoPaddingEnabled: true
-                }
                 // B1 — chart-frame inner-ring background, BEHIND the overlay. The
-                // crisp cover background, circular-masked to the playfield disk and
+                // crisp cover background (PV mode: the PV frame at the layer's chart
+                // time), circular-masked to the playfield disk and
                 // dimmed (MultiEffect.brightness); only the BG is masked, so the
                 // overlay (notes/ring/effects) still extends across the square as in
                 // A2. Hidden for the card layer / transparent bg. The source Image is
                 // a native texture provider while hidden; the circular mask is
                 // captured via ShaderEffectSource (the repo's proven hideSource
                 // pattern, cf. IntroOverlay.qml). Declared first → paints behind.
-                Image {
-                    id: chartBgDiskImage
+                // The disk media as one item, so the circular mask covers all of it.
+                Item {
+                    id: chartBgDiskContent
                     anchors.fill: parent
+                    readonly property real mediaAspect: chartBgDiskImage.implicitHeight > 0
+                        ? chartBgDiskImage.implicitWidth / chartBgDiskImage.implicitHeight : 16 / 9
+
+                    Rectangle {
+                        anchors.fill: parent
+                        visible: layerItem.fitsPvIntoFrame
+                        color: "#000000"
+                    }
+                    // The media at its own aspect, centred: covering the square
+                    // (fill, the square crops it evenly) or inside it (fit).
+                    Item {
+                        id: chartBgDiskMedia
+                        anchors.centerIn: parent
+                        readonly property real aspect: chartBgDiskContent.mediaAspect
+                        width: parent.width * (layerItem.fitsPvIntoFrame ? Math.min(1, aspect) : Math.max(1, aspect))
+                        height: parent.height * (layerItem.fitsPvIntoFrame ? Math.min(1, 1 / aspect) : Math.max(1, 1 / aspect))
+
+                        Image {
+                            id: chartBgDiskImage
+                            anchors.fill: parent
+                            source: !layerItem.isChartFrame ? ""
+                                    : layerItem.showsPvDiskBg
+                                      ? ("image://coverchart/pv/" + layerItem.ld.key + "?r=" + layerItem.ld.pvFrameRevision)
+                                      : canvas.chartFrameBackgroundSourceUrl
+                            fillMode: Image.Stretch
+                            asynchronous: false
+                            cache: false
+                            smooth: true
+                            mipmap: true
+                        }
+                        // Silent PV playback over the still while the frame plays.
+                        Loader {
+                            anchors.fill: parent
+                            active: layerItem.hostsPvVideo
+                            source: "CoverPvVideo.qml"
+                            onLoaded: {
+                                item.source = Qt.binding(() => canvas.chartFramePvSource)
+                                item.seconds = Qt.binding(() => canvas.activeChartFrameSeconds)
+                                item.playing = Qt.binding(() => canvas.chartFramePlaying)
+                                item.stillRevision = Qt.binding(() => layerItem.ld ? layerItem.ld.pvFrameRevision : -1)
+                            }
+                        }
+                        // Brightness = the SAME multiplicative dim the realtime preview's
+                        // 内圈亮度 uses (stage-background draws black at alpha 1−brightness
+                        // → media × brightness). MultiEffect.brightness is ADDITIVE
+                        // (crushes dark pixels straight to black) so it is NOT used here.
+                        Rectangle {
+                            anchors.fill: parent
+                            color: "#000000"
+                            opacity: Math.max(0, Math.min(1, 1.0 - layerItem.frameBgBrightness))
+                        }
+                    }
+                }
+                ShaderEffectSource {
+                    id: chartBgDiskContentTex
+                    anchors.fill: parent
+                    sourceItem: chartBgDiskContent
+                    hideSource: true
+                    live: true
                     visible: false
-                    source: layerItem.isChartFrame ? canvas.backdropSourceUrl : ""
-                    fillMode: Image.PreserveAspectCrop
-                    asynchronous: false
-                    smooth: true
-                    mipmap: true
                 }
                 Item {
                     id: chartBgDiskMaskContent
@@ -492,25 +624,11 @@ Item {
                 }
                 MultiEffect {
                     anchors.fill: parent
-                    visible: layerItem.showsImageDiskBg
-                    source: chartBgDiskImage
+                    visible: layerItem.showsMediaDiskBg
+                    source: chartBgDiskContentTex
                     maskEnabled: true
                     maskSource: chartBgDiskMaskTex
                     maskThresholdMin: 0.5
-                }
-                // Brightness = the SAME multiplicative dim the realtime preview's
-                // 内圈亮度 uses (stage-background draws black at alpha 1−brightness
-                // → media × brightness). MultiEffect.brightness is ADDITIVE
-                // (crushes dark pixels straight to black) so it is NOT used here.
-                Rectangle {
-                    visible: layerItem.showsImageDiskBg
-                    anchors.centerIn: parent
-                    width: canvas.chartFrameDiskDiameter * parent.width
-                    height: width
-                    radius: width / 2
-                    antialiasing: true
-                    color: "#000000"
-                    opacity: Math.max(0, Math.min(1, 1.0 - layerItem.frameBgBrightness))
                 }
                 Rectangle {
                     visible: layerItem.showsTransparentDiskBg
@@ -541,16 +659,27 @@ Item {
                             && layerItem.isActiveChartFrame
                             && layerItem.ld && layerItem.ld.visible
                     sourceComponent: liveChartComponent
-                    // Only ever BIND (the active frame's loader is the one that has an
-                    // item). Never unbind on item==null: when a second frame is added
-                    // the Repeater rebuilds every delegate, and an old loader's unload
-                    // would otherwise clear the binding the NEW active frame just made
-                    // (order isn't guaranteed) → the active frame renders blank and you
-                    // only see the first frame's still. The bound root is a QPointer, so
-                    // it self-nulls when the loader genuinely unloads it.
-                    onItemChanged: {
-                        if (canvas.chartSceneBinder && item)
-                            canvas.chartSceneBinder.bindLiveChartScene(item)
+                    property var boundItem: null
+                    property var boundBinder: null
+                    function syncLiveChartBinding() {
+                        var nextBinder = canvas.chartSceneBinder
+                        if (boundBinder && boundItem
+                                && (boundBinder !== nextBinder || boundItem !== item)
+                                && boundBinder.unbindLiveChartScene)
+                            boundBinder.unbindLiveChartScene(boundItem)
+                        if (!item)
+                            return
+                        boundBinder = nextBinder
+                        boundItem = item
+                        if (boundBinder && boundItem && boundBinder.bindLiveChartScene)
+                            boundBinder.bindLiveChartScene(boundItem)
+                    }
+                    onItemChanged: syncLiveChartBinding()
+                    Connections {
+                        target: canvas
+                        function onChartSceneBinderChanged() {
+                            liveChartLoader.syncLiveChartBinding()
+                        }
                     }
                 }
                 // Static grab still: a square playfield grab served by the
@@ -561,7 +690,8 @@ Item {
                 Image {
                     anchors.fill: parent
                     opacity: layerItem.ld && layerItem.ld.opacity !== undefined ? layerItem.ld.opacity : 1.0
-                    visible: layerItem.isChartFrame && !liveChartLoader.active
+                    visible: layerItem.isChartFrame
+                             && !(layerItem.isActiveChartFrame && canvas.liveChartSceneBound)
                              && layerItem.ld && layerItem.ld.imageRevision >= 0
                     source: (layerItem.isChartFrame && layerItem.ld && layerItem.ld.imageRevision >= 0)
                             ? ("image://coverchart/" + layerItem.ld.key + "?r=" + layerItem.ld.imageRevision)
@@ -634,9 +764,9 @@ Item {
             TapHandler {
                 enabled: canvas.editable
                 onTapped: {
-                    if (canvas.chartSceneBinder) {
+                    if (canvas.selectionBinder || canvas.chartSceneBinder) {
                         var p = layerItem.mapToItem(canvas, point.position.x, point.position.y)
-                        canvas.chartSceneBinder.selectLayerKey(canvas.hitKeyAt(p.x, p.y))
+                        canvas.selectLayerKey(canvas.hitKeyAt(p.x, p.y))
                     }
                 }
             }
@@ -648,7 +778,10 @@ Item {
         id: cardComponent
         MaimaiBannerCard {
             anchors.fill: parent
-            externalTemplate: canvas.cardTemplate
+            cacheStaticImages: true
+            cacheDynamicImages: false
+            externalTemplate: canvas.coverTemplate
+            fitToContent: true
             trackOverrides: canvas.trackOverrides
             jacketImage: canvas.jacketImage
             revealStartFrame: -1
@@ -658,12 +791,17 @@ Item {
 
     // Live chart-frame scene (edit mode, A2). A bare PreviewQuickSceneRoot whose
     // layer flags / shared frame state are wired in C++ by
-    // CoverComposerView::bindLiveChartScene (overlay layers only over transparent).
+    // A live scene binding (overlay layers only over transparent).
     // anchors.fill tracks the layer's drag/scale.
     Component {
         id: liveChartComponent
         PreviewQuickSceneRoot {
             anchors.fill: parent
+            // The scene is a paint-only child of the editable layer. Leaving the
+            // preview root enabled would let its QQuickItem mouse grab swallow
+            // the parent canvas' tap/drag handlers before they can select/move
+            // this layer.
+            enabled: false
             // The export grab clips overlay geometry to its square framebuffer
             // (SceneFrameRenderer renders into a side×side window). Clip the live
             // scene to the same square box so out-of-bounds effects (fireworks /
@@ -728,17 +866,19 @@ Item {
             property real startHeightPx: 0
             onActiveChanged: {
                 if (active && scaleHandle.l) {
-                    grabSceneY = centroid.scenePosition.y
+                    grabSceneY = centroid.position.y
                     startHeightPx = scaleHandle.l.sizeFraction * canvas.height
                 } else {
                     canvas.clearGuides()
+                    if (!active)
+                        canvas.commitGeometry()
                 }
             }
             onCentroidChanged: {
                 if (!active || !scaleHandle.l) return
                 // The layer scales about its centre, so the bottom handle tracks the
                 // cursor 1:1 while the height changes by 2× the cursor's vertical delta.
-                var dy = centroid.scenePosition.y - grabSceneY
+                var dy = centroid.position.y - grabSceneY
                 var newH = Math.max(canvas.height * 0.05, startHeightPx + 2 * dy)
                 scaleHandle.l.sizeFraction = newH / canvas.height
             }

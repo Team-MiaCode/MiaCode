@@ -1,3 +1,5 @@
+#include <QString>
+#include "app/platform/ProcessIdentityFields.h"
 #include <QCoreApplication>
 #include <QFile>
 #include <QMetaObject>
@@ -53,6 +55,49 @@ QString readLogFile(const QString& path)
 
 }  // namespace
 
+namespace process_identity {
+
+int verifyProcessIdentity()
+{
+    QTextStream err(stderr);
+    QTextStream out(stdout);
+
+    using miacode::app::entry::formatProcessIdentityBuildFields;
+    bool ok = true;
+    ok &= require(
+        formatProcessIdentityBuildFields(
+            QStringLiteral("1.1.0-beta.7"),
+            QStringLiteral("677a962574bd"),
+            QStringLiteral("0"))
+            == QStringLiteral(
+                "version=1.1.0-beta.7 git_revision=677a962574bd git_dirty=0"),
+        QStringLiteral("clean build fields"),
+        err);
+    ok &= require(
+        formatProcessIdentityBuildFields(
+            QStringLiteral("1.1.0-beta.7"),
+            QStringLiteral("677a962574bd"),
+            QStringLiteral("1"))
+            .endsWith(QStringLiteral("git_dirty=1")),
+        QStringLiteral("dirty build fields"),
+        err);
+    ok &= require(
+        formatProcessIdentityBuildFields(
+            QStringLiteral("1.1.0-beta.7"),
+            QStringLiteral("unknown"),
+            QStringLiteral("unknown"))
+            .endsWith(QStringLiteral("git_revision=unknown git_dirty=unknown")),
+        QStringLiteral("source archive build fields"),
+        err);
+
+    if (ok) {
+        out << "Process identity fields spec passed." << Qt::endl;
+    }
+    return ok ? 0 : 1;
+}
+
+}
+
 int main(int argc, char* argv[])
 {
     QTemporaryDir logDir;
@@ -61,6 +106,7 @@ int main(int argc, char* argv[])
     }
     qputenv("MIACODE_LOG_DIR", logDir.path().toUtf8());
     QCoreApplication app(argc, argv);
+    if (process_identity::verifyProcessIdentity() != 0) return 1;
     QTextStream err(stderr);
     QTextStream out(stdout);
     bool ok = true;
@@ -88,7 +134,8 @@ int main(int argc, char* argv[])
     miacode::debug_options::setDebugModeEnabled(true);
     ok &= require(miacode::debug_log::initializePvMemoryLogSession(),
                   QStringLiteral("PV-memory session initializes in debug mode"), err);
-    miacode::debug_log::shutdownAsyncLogWriter();
+    ok &= require(miacode::debug_log::flushAsyncLogWriter(),
+                  QStringLiteral("PV-memory session log flushes before reading"), err);
     const QString pvMemoryLog = readLogFile(pvMemoryOverridePath);
     const QRegularExpression pvMemorySessionRecord(
         QStringLiteral(
@@ -115,6 +162,8 @@ int main(int argc, char* argv[])
     miacode::debug_log::trimDebugSessionLogsForStartup();
     ok &= require(miacode::debug_log::initializePvMemoryLogSession(),
                   QStringLiteral("PV-memory startup session resets the default log"), err);
+    ok &= require(miacode::debug_log::flushAsyncLogWriter(),
+                  QStringLiteral("PV-memory startup session flushes before reading"), err);
     const QString defaultPvMemoryLog = readLogFile(defaultPvMemoryLogPath);
     ok &= require(pvMemorySessionRecord.match(defaultPvMemoryLog).hasMatch()
                       && defaultPvMemoryLog.contains(defaultPvMemoryLogPath)
@@ -164,28 +213,18 @@ int main(int argc, char* argv[])
     ok &= require(resourceGaugeTimers(&app).size() == 1,
                   QStringLiteral("install is idempotent"), err);
 
-    // The baseline sample is POSTED, not taken inline: install runs just after the
-    // QApplication constructor, and on Windows the sample opens a DXGI factory, which loads
-    // the vendor graphics driver DLLs -- doing that on the GUI thread before Qt initialises
-    // its own RHI is the hazard this branch already disabled the D3D11 startup probe for.
-    //
-    // Hence this processEvents(): without it the baseline never runs and the assertion
-    // below fails. That is the only leverage this spec has on the deferral. It cannot also
-    // assert the negative ("install emitted nothing yet"), because the async writer keeps
-    // its QFile handle open and buffered, so a mid-run read of the log observes nothing
-    // either way -- an attempted negative assertion here passed against a deliberately
-    // reverted, inline implementation, i.e. it could not fail. Rather than keep a green
-    // check that proves nothing, the guard against reverting to an inline first sample is
-    // the comment at the call site, not this spec.
+    ok &= require(miacode::debug_log::flushAsyncLogWriter(),
+                  QStringLiteral("resource log flushes before the first event-loop turn"), err);
+    ok &= require(!readRuntimeLog().contains(QStringLiteral("action=sample sample=0")),
+                  QStringLiteral("installation defers the baseline sample until the event loop"), err);
     QCoreApplication::processEvents();
 
     if (timer != nullptr) {
         QMetaObject::invokeMethod(timer, "timeout", Qt::DirectConnection);
     }
 
-    // The async writer intentionally keeps QFile handles buffered. Permanent
-    // shutdown closes them so this separate reader observes the complete bytes.
-    miacode::debug_log::shutdownAsyncLogWriter();
+    ok &= require(miacode::debug_log::flushAsyncLogWriter(),
+                  QStringLiteral("resource samples flush before reading"), err);
     const QString log = readRuntimeLog();
     ok &= require(log.contains(QStringLiteral("[runtime/idle/resource_gauge]"))
                       && log.contains(QStringLiteral("action=sample sample=0")),
@@ -246,6 +285,7 @@ int main(int argc, char* argv[])
                       && unknownPayload.contains(QStringLiteral("local_over_budget=0")),
                   QStringLiteral("unqueried adapter degrades without false alarms"), err);
 
+    miacode::debug_log::shutdownAsyncLogWriter();
     miacode::debug_options::setDebugModeEnabled(false);
     qunsetenv("MIACODE_LOG_DIR");
 

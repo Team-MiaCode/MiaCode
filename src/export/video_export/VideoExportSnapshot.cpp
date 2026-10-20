@@ -1,0 +1,562 @@
+#include "export/video_export/VideoExportSnapshot.h"
+#include "export/video_export/VideoExportRuntimePolicy.h"
+
+#include "core/chart/document/SimaiDocument.h"
+#include "core/chart/parser/SimaiParser.h"
+#include "core/chart/document/ChartClockCount.h"
+#include "core/chart/ChartAssetPaths.h"
+#include "core/chart/model/TimelineMarkerOffset.h"
+#include "core/analysis/MuriAnalyzer.h"
+
+#include <QDir>
+#include <QFileInfo>
+#include <QtMath>
+
+namespace {
+
+using miacode::timeline::offset::NonFiniteHandling;
+using miacode::timeline::offset::parsedFirstSeconds;
+using miacode::timeline::offset::shiftedNoteMarkers;
+
+// backgroundScaleModeToken moved to core/video/PreviewRenderSettings.h (same tokens,
+// unchanged) so the preview runtime's scale-mode diagnostics name the modes the same
+// way this snapshot serialises them.
+
+QString outlineVariantToken(PreviewOutlineVariant variant)
+{
+    switch (variant) {
+    case PreviewOutlineVariant::Point:
+        return QStringLiteral("point");
+    case PreviewOutlineVariant::JudgeArea:
+        return QStringLiteral("judge_area");
+    case PreviewOutlineVariant::JudgeAreaLabeled:
+        return QStringLiteral("judge_area_labeled");
+    case PreviewOutlineVariant::Line:
+    default:
+        return QStringLiteral("line");
+    }
+}
+
+PreviewOutlineVariant outlineVariantFromToken(const QString& token)
+{
+    const QString normalized = token.trimmed().toLower();
+    if (normalized == QLatin1String("point")) {
+        return PreviewOutlineVariant::Point;
+    }
+    if (normalized == QLatin1String("judge_area")
+        || normalized == QLatin1String("judgearea")
+        || normalized == QLatin1String("area")) {
+        return PreviewOutlineVariant::JudgeArea;
+    }
+    if (normalized == QLatin1String("judge_area_labeled")
+        || normalized == QLatin1String("judgearea_labeled")
+        || normalized == QLatin1String("judge_area_numbered")
+        || normalized == QLatin1String("numbered_area")
+        || normalized == QLatin1String("area_labeled")) {
+        return PreviewOutlineVariant::JudgeAreaLabeled;
+    }
+    return PreviewOutlineVariant::Line;
+}
+
+QString videoExportPresetToken(VideoExportPreset preset)
+{
+    switch (preset) {
+    case VideoExportPreset::HighQuality:
+        return QStringLiteral("high_quality");
+    case VideoExportPreset::Fast:
+    default:
+        return QStringLiteral("fast");
+    }
+}
+
+VideoExportPreset videoExportPresetFromToken(const QString& token)
+{
+    if (token.compare(QStringLiteral("high_quality"), Qt::CaseInsensitive) == 0) {
+        return VideoExportPreset::HighQuality;
+    }
+    if (token.compare(QStringLiteral("high_compression"), Qt::CaseInsensitive) == 0) {
+        return VideoExportPreset::HighQuality;
+    }
+    if (token.compare(QStringLiteral("fast"), Qt::CaseInsensitive) == 0) {
+        return VideoExportPreset::Fast;
+    }
+    // Unknown/missing token -> the safe default (synchronous readback, no
+    // tearing), matching the dialog's default export-quality choice.
+    return VideoExportPreset::HighQuality;
+}
+
+VideoExportSizePreset videoExportSizePresetFromToken(const QString& token)
+{
+    if (token.compare(QStringLiteral("compact"), Qt::CaseInsensitive) == 0) {
+        return VideoExportSizePreset::Compact;
+    }
+    if (token.compare(QStringLiteral("ultra_compact"), Qt::CaseInsensitive) == 0) {
+        return VideoExportSizePreset::UltraCompact;
+    }
+    if (token.compare(QStringLiteral("ultra_compact_with_pv"), Qt::CaseInsensitive) == 0) {
+        return VideoExportSizePreset::UltraCompactWithPv;
+    }
+    return VideoExportSizePreset::Standard;
+}
+
+PreviewBackgroundScaleMode backgroundScaleModeFromToken(const QString& token)
+{
+    const QString normalized = token.trimmed().toLower();
+    if (normalized == QLatin1String("fit") || normalized == QLatin1String("contain")) {
+        return PreviewBackgroundScaleMode::FitContain;
+    }
+    if (normalized == QLatin1String("square_fit")
+        || normalized == QLatin1String("square-fit")
+        || normalized == QLatin1String("square_fill")
+        || normalized == QLatin1String("square-fill")
+        || normalized == QLatin1String("square")) {
+        return PreviewBackgroundScaleMode::SquareFitContain;
+    }
+    if (normalized == QLatin1String("inner_circle_fit_outer_fill")
+        || normalized == QLatin1String("inner-circle-fit-outer-fill")
+        || normalized == QLatin1String("inner_fit_outer_fill")
+        || normalized == QLatin1String("inner-fit-outer-fill")
+        || normalized == QLatin1String("circle_fit_outer_fill")
+        || normalized == QLatin1String("circle-fit-outer-fill")
+        || normalized == QLatin1String("inner_circle_fit")
+        || normalized == QLatin1String("inner-circle-fit")) {
+        return PreviewBackgroundScaleMode::InnerCircleFitOuterFill;
+    }
+    return PreviewBackgroundScaleMode::FillCrop;
+}
+
+QString renderModeToken(RenderMode mode)
+{
+    return ::muriRenderModeToken(mode);
+}
+
+RenderMode renderModeFromToken(const QString& token)
+{
+    return ::muriRenderModeFromToken(token);
+}
+
+QString jsonString(const QJsonObject& object, const char* key)
+{
+    return object.value(QLatin1String(key)).toString();
+}
+
+}  // namespace
+
+QJsonObject VideoExportSnapshot::toJson() const
+{
+    QJsonObject root;
+    root.insert(QStringLiteral("schema"), schema);
+    root.insert(QStringLiteral("job_id"), jobId);
+    root.insert(QStringLiteral("created_at_utc"), createdAtUtc);
+
+    QJsonObject chart;
+    chart.insert(QStringLiteral("text_utf8"), chartTextUtf8);
+    chart.insert(QStringLiteral("difficulty_id"), difficultyId);
+    chart.insert(QStringLiteral("difficulty_name"), difficultyName);
+    chart.insert(QStringLiteral("original_chart_path"), originalChartPath);
+    chart.insert(QStringLiteral("project_dir"), projectDir);
+    root.insert(QStringLiteral("chart"), chart);
+
+    QJsonObject hudFonts;
+    for (int area = 0; area < static_cast<int>(hudFontSettings.paths.size()); ++area) {
+        hudFonts.insert(QString::number(area), hudFontSettings.paths[area]);
+    }
+    root.insert(QStringLiteral("hud_fonts"), hudFonts);
+
+    QJsonObject resources;
+    resources.insert(QStringLiteral("track_path"), trackPath);
+    resources.insert(QStringLiteral("background_media_path"), backgroundMediaPath);
+    resources.insert(QStringLiteral("skin_dir"), skinDirectory);
+    resources.insert(QStringLiteral("outline_image_path"), outlineImagePath);
+    root.insert(QStringLiteral("resources"), resources);
+
+    QJsonObject render;
+    render.insert(QStringLiteral("background_brightness_outer"), backgroundBrightnessOuter);
+    render.insert(QStringLiteral("background_brightness_inner"), backgroundBrightnessInner);
+    render.insert(QStringLiteral("layout_square_scale"), layoutSquareScale);
+    render.insert(QStringLiteral("smooth_brightness"), smoothBrightness);
+    render.insert(QStringLiteral("outline_variant"), outlineVariantToken(outlineVariant));
+    render.insert(QStringLiteral("background_scale_mode"), QString::fromLatin1(backgroundScaleModeToken(backgroundScaleMode)));
+    render.insert(QStringLiteral("tap_flow_speed"), tapFlowSpeed);
+    render.insert(QStringLiteral("touch_flow_speed"), touchFlowSpeed);
+    render.insert(QStringLiteral("slide_earlier_second_and_text_on_top"), slideEarlierSecondAndTextOnTop);
+    render.insert(QStringLiteral("tap_judge_text_distance"), QString::fromLatin1(tapJudgeTextDistanceToken(tapJudgeTextDistance)));
+    render.insert(QStringLiteral("judge_effect_style"), QString::fromLatin1(judgeEffectStyleToken(judgeEffectStyle)));
+    render.insert(QStringLiteral("render_mode"), renderModeToken(muriRenderOptions.renderMode));
+    render.insert(QStringLiteral("show_slide_tracks"), muriRenderOptions.showSlideTracks);
+    render.insert(QStringLiteral("show_judge_markers"), muriRenderOptions.showJudgeMarkers);
+    render.insert(QStringLiteral("show_touch_trail"), muriRenderOptions.showTouchTrail);
+    render.insert(
+        QStringLiteral("show_chart_review_slide_judge_overlay"),
+        muriRenderOptions.showChartReviewSlideJudgeOverlay
+    );
+    render.insert(
+        QStringLiteral("show_chart_review_tap_judge_overlay"),
+        muriRenderOptions.showChartReviewTapJudgeOverlay
+    );
+    render.insert(
+        QStringLiteral("show_chart_review_break_judge_overlay"),
+        muriRenderOptions.showChartReviewBreakJudgeOverlay
+    );
+    render.insert(
+        QStringLiteral("show_chart_review_touch_judge_overlay"),
+        muriRenderOptions.showChartReviewTouchJudgeOverlay
+    );
+    render.insert(QStringLiteral("wifi_need_c"), muriRenderOptions.wifiNeedC);
+    render.insert(QStringLiteral("hand_radius_px"), muriRenderOptions.handRadiusPx);
+    render.insert(QStringLiteral("static_tap_on_slide_threshold_seconds"), staticTapOnSlideThresholdSeconds);
+    render.insert(QStringLiteral("show_timestamp"), showTimestamp);
+    render.insert(QStringLiteral("show_object_stats_hud"), showObjectStatsHud);
+    render.insert(QStringLiteral("show_chart_info_hud"), showChartInfoHud);
+    render.insert(QStringLiteral("clock_count_enabled"), clockCountEnabled);
+    render.insert(
+        QStringLiteral("center_display_mode"),
+        QString::fromLatin1(miacode::preview_gameplay::centerDisplayModeToken(centerDisplayMode))
+    );
+    render.insert(QStringLiteral("skin_wait_ms"), skinLoadWaitMs);
+    root.insert(QStringLiteral("render"), render);
+
+    root.insert(QStringLiteral("audio"), audioSettings.toJson());
+    root.insert(QStringLiteral("timing"), timingSettings.toJson());
+
+    QJsonObject exportObject;
+    exportObject.insert(QStringLiteral("start_seconds"), exportStartSeconds);
+    exportObject.insert(QStringLiteral("duration_seconds"), contentDurationSeconds);
+    exportObject.insert(QStringLiteral("output_width"), outputWidth);
+    exportObject.insert(QStringLiteral("output_height"), outputHeight);
+    exportObject.insert(QStringLiteral("fps"), fps);
+    exportObject.insert(QStringLiteral("audio_bitrate_kbps"), audioBitrateKbps);
+    exportObject.insert(QStringLiteral("preset"), videoExportPresetToken(preset));
+    exportObject.insert(
+        QStringLiteral("size_preset"),
+        miacode::video_export::videoExportSizePresetToken(sizePreset));
+    exportObject.insert(QStringLiteral("full_range_export"), fullRangeExport);
+    exportObject.insert(QStringLiteral("output_path"), outputPath);
+    exportObject.insert(QStringLiteral("output_mode"), videoExportOutputModeToken(outputMode));
+    root.insert(QStringLiteral("export"), exportObject);
+
+    QJsonObject introObject;
+    introObject.insert(QStringLiteral("enabled"), intro.enabled);
+    introObject.insert(QStringLiteral("title"), intro.title);
+    introObject.insert(QStringLiteral("artist"), intro.artist);
+    introObject.insert(QStringLiteral("designer"), intro.designer);
+    introObject.insert(QStringLiteral("level"), intro.level);
+    introObject.insert(QStringLiteral("difficulty"), intro.difficulty);
+    introObject.insert(QStringLiteral("bpm"), intro.bpm);
+    introObject.insert(QStringLiteral("mode"), intro.mode);
+    introObject.insert(QStringLiteral("lv_render_mode"), intro.lvRenderMode);
+    introObject.insert(QStringLiteral("jacket_path"), intro.jacketPath);
+    introObject.insert(QStringLiteral("background_mode"), intro.backgroundMode);
+    introObject.insert(QStringLiteral("background_custom_path"), intro.customBackgroundPath);
+    introObject.insert(QStringLiteral("background_blur"), intro.blurBackground);
+    introObject.insert(QStringLiteral("card_shadow"), intro.cardShadow);
+    introObject.insert(QStringLiteral("font_display_path"), intro.fontDisplayPath);
+    introObject.insert(QStringLiteral("font_body_path"), intro.fontBodyPath);
+    introObject.insert(QStringLiteral("pv_preview"), intro.pvPreview);
+    introObject.insert(QStringLiteral("pv_preview_start_seconds"), intro.pvPreviewStartSeconds);
+    if (!introSoundFileName.trimmed().isEmpty()) {
+        introObject.insert(QStringLiteral("sound_file"), QFileInfo(introSoundFileName).fileName());
+    }
+    root.insert(QStringLiteral("intro"), introObject);
+    return root;
+}
+
+bool VideoExportSnapshot::fromJson(
+    const QJsonObject& object,
+    VideoExportSnapshot* snapshot,
+    QString* errorMessage
+)
+{
+    if (snapshot == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("snapshot output is null");
+        }
+        return false;
+    }
+
+    VideoExportSnapshot parsed;
+    parsed.schema = object.value(QStringLiteral("schema")).toString(parsed.schema);
+    if (parsed.schema != QLatin1String("miacode_export_snapshot_v1")) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("unsupported export snapshot schema");
+        }
+        return false;
+    }
+
+    parsed.jobId = object.value(QStringLiteral("job_id")).toString();
+    parsed.createdAtUtc = object.value(QStringLiteral("created_at_utc")).toString();
+
+    const QJsonObject chart = object.value(QStringLiteral("chart")).toObject();
+    parsed.chartTextUtf8 = chart.value(QStringLiteral("text_utf8")).toString();
+    parsed.difficultyId = chart.value(QStringLiteral("difficulty_id")).toInt();
+    parsed.difficultyName = chart.value(QStringLiteral("difficulty_name")).toString();
+    parsed.originalChartPath = chart.value(QStringLiteral("original_chart_path")).toString();
+    parsed.projectDir = chart.value(QStringLiteral("project_dir")).toString();
+
+    const QJsonObject hudFonts = object.value(QStringLiteral("hud_fonts")).toObject();
+    for (int area = 0; area < static_cast<int>(parsed.hudFontSettings.paths.size()); ++area) {
+        parsed.hudFontSettings.paths[area] = hudFonts.value(QString::number(area)).toString();
+    }
+
+    const QJsonObject resources = object.value(QStringLiteral("resources")).toObject();
+    parsed.trackPath = jsonString(resources, "track_path");
+    parsed.backgroundMediaPath = jsonString(resources, "background_media_path");
+    parsed.skinDirectory = jsonString(resources, "skin_dir");
+    parsed.outlineImagePath = jsonString(resources, "outline_image_path");
+
+    const QJsonObject render = object.value(QStringLiteral("render")).toObject();
+    parsed.backgroundBrightnessOuter =
+        render.value(QStringLiteral("background_brightness_outer")).toDouble(parsed.backgroundBrightnessOuter);
+    parsed.backgroundBrightnessInner =
+        render.value(QStringLiteral("background_brightness_inner")).toDouble(parsed.backgroundBrightnessInner);
+    parsed.layoutSquareScale =
+        render.value(QStringLiteral("layout_square_scale")).toDouble(parsed.layoutSquareScale);
+    parsed.smoothBrightness =
+        render.value(QStringLiteral("smooth_brightness")).toBool(parsed.smoothBrightness);
+    parsed.outlineVariant =
+        outlineVariantFromToken(render.value(QStringLiteral("outline_variant")).toString());
+    parsed.backgroundScaleMode =
+        backgroundScaleModeFromToken(render.value(QStringLiteral("background_scale_mode")).toString());
+    const double legacyFlowSpeed = render.value(QStringLiteral("note_flow_speed")).toDouble(
+        miacode::preview_gameplay::kPreviewTimingDefaultFlowSpeed
+    );
+    parsed.tapFlowSpeed = render.value(QStringLiteral("tap_flow_speed")).toDouble(
+        render.contains(QStringLiteral("note_flow_speed")) ? legacyFlowSpeed : parsed.tapFlowSpeed
+    );
+    parsed.touchFlowSpeed = render.value(QStringLiteral("touch_flow_speed")).toDouble(
+        render.contains(QStringLiteral("note_flow_speed")) ? legacyFlowSpeed : parsed.touchFlowSpeed
+    );
+    parsed.slideEarlierSecondAndTextOnTop =
+        render.value(QStringLiteral("slide_earlier_second_and_text_on_top"))
+            .toBool(parsed.slideEarlierSecondAndTextOnTop);
+    parsed.tapJudgeTextDistance = tapJudgeTextDistanceFromToken(
+        render.value(QStringLiteral("tap_judge_text_distance")).toString(
+            QString::fromLatin1(tapJudgeTextDistanceToken(parsed.tapJudgeTextDistance))));
+    parsed.judgeEffectStyle = judgeEffectStyleFromToken(
+        render.value(QStringLiteral("judge_effect_style")).toString(
+            QString::fromLatin1(judgeEffectStyleToken(parsed.judgeEffectStyle))));
+    parsed.muriRenderOptions.renderMode =
+        renderModeFromToken(render.value(QStringLiteral("render_mode")).toString());
+    parsed.muriRenderOptions.showSlideTracks =
+        render.value(QStringLiteral("show_slide_tracks")).toBool(parsed.muriRenderOptions.showSlideTracks);
+    parsed.muriRenderOptions.showJudgeMarkers =
+        render.value(QStringLiteral("show_judge_markers")).toBool(parsed.muriRenderOptions.showJudgeMarkers);
+    parsed.muriRenderOptions.showTouchTrail =
+        render.value(QStringLiteral("show_touch_trail")).toBool(parsed.muriRenderOptions.showTouchTrail);
+    parsed.muriRenderOptions.showChartReviewSlideJudgeOverlay =
+        render.value(QStringLiteral("show_chart_review_slide_judge_overlay"))
+            .toBool(parsed.muriRenderOptions.showChartReviewSlideJudgeOverlay);
+    parsed.muriRenderOptions.showChartReviewTapJudgeOverlay =
+        render.value(QStringLiteral("show_chart_review_tap_judge_overlay"))
+            .toBool(parsed.muriRenderOptions.showChartReviewTapJudgeOverlay);
+    parsed.muriRenderOptions.showChartReviewBreakJudgeOverlay =
+        render.value(QStringLiteral("show_chart_review_break_judge_overlay"))
+            .toBool(parsed.muriRenderOptions.showChartReviewBreakJudgeOverlay);
+    parsed.muriRenderOptions.showChartReviewTouchJudgeOverlay =
+        render.value(QStringLiteral("show_chart_review_touch_judge_overlay"))
+            .toBool(parsed.muriRenderOptions.showChartReviewTouchJudgeOverlay);
+    parsed.muriRenderOptions.wifiNeedC =
+        render.value(QStringLiteral("wifi_need_c")).toBool(parsed.muriRenderOptions.wifiNeedC);
+    parsed.muriRenderOptions.handRadiusPx = miacode::muri::normalizedHandRadiusPx(
+        render.value(QStringLiteral("hand_radius_px")).toInt(parsed.muriRenderOptions.handRadiusPx));
+    parsed.muriRenderOptions.excludeTouchFromMultiTouch = true;
+    parsed.staticTapOnSlideThresholdSeconds =
+        render.value(QStringLiteral("static_tap_on_slide_threshold_seconds"))
+            .toDouble(parsed.staticTapOnSlideThresholdSeconds);
+    parsed.showTimestamp =
+        render.value(QStringLiteral("show_timestamp")).toBool(parsed.showTimestamp);
+    parsed.showObjectStatsHud =
+        render.value(QStringLiteral("show_object_stats_hud")).toBool(parsed.showObjectStatsHud);
+    parsed.showChartInfoHud =
+        render.value(QStringLiteral("show_chart_info_hud")).toBool(parsed.showChartInfoHud);
+    parsed.clockCountEnabled =
+        render.value(QStringLiteral("clock_count_enabled")).toBool(parsed.clockCountEnabled);
+    parsed.centerDisplayMode = miacode::preview_gameplay::centerDisplayModeFromToken(
+        render.value(QStringLiteral("center_display_mode")).toString(
+            QString::fromLatin1(miacode::preview_gameplay::centerDisplayModeToken(parsed.centerDisplayMode))));
+    parsed.skinLoadWaitMs =
+        render.value(QStringLiteral("skin_wait_ms")).toInt(parsed.skinLoadWaitMs);
+
+    parsed.audioSettings = PreviewAudioSettings::fromJson(object.value(QStringLiteral("audio")).toObject());
+    parsed.audioSettings.normalize();
+    parsed.timingSettings = PreviewTimingSettings::fromJson(object.value(QStringLiteral("timing")).toObject());
+    parsed.timingSettings.normalize();
+
+    const QJsonObject exportObject = object.value(QStringLiteral("export")).toObject();
+    parsed.exportStartSeconds = exportObject.value(QStringLiteral("start_seconds")).toDouble(parsed.exportStartSeconds);
+    parsed.contentDurationSeconds = exportObject.value(QStringLiteral("duration_seconds")).toDouble(parsed.contentDurationSeconds);
+    parsed.outputWidth = exportObject.value(QStringLiteral("output_width")).toInt(parsed.outputWidth);
+    parsed.outputHeight = exportObject.value(QStringLiteral("output_height")).toInt(parsed.outputHeight);
+    parsed.fps = exportObject.value(QStringLiteral("fps")).toInt(parsed.fps);
+    parsed.audioBitrateKbps = exportObject.value(QStringLiteral("audio_bitrate_kbps"))
+                                  .toInt(parsed.audioBitrateKbps);
+    parsed.preset = videoExportPresetFromToken(exportObject.value(QStringLiteral("preset")).toString());
+    parsed.sizePreset = videoExportSizePresetFromToken(
+        exportObject.value(QStringLiteral("size_preset")).toString());
+    parsed.fullRangeExport = exportObject.value(QStringLiteral("full_range_export")).toBool(parsed.fullRangeExport);
+    parsed.outputPath = exportObject.value(QStringLiteral("output_path")).toString();
+    parsed.outputMode = videoExportOutputModeFromToken(exportObject.value(QStringLiteral("output_mode")).toString());
+
+    const QJsonObject introObject = object.value(QStringLiteral("intro")).toObject();
+    parsed.intro.enabled = introObject.value(QStringLiteral("enabled")).toBool(parsed.intro.enabled);
+    parsed.intro.title = introObject.value(QStringLiteral("title")).toString();
+    parsed.intro.artist = introObject.value(QStringLiteral("artist")).toString();
+    parsed.intro.designer = introObject.value(QStringLiteral("designer")).toString();
+    parsed.intro.level = introObject.value(QStringLiteral("level")).toString();
+    parsed.intro.difficulty = introObject.value(QStringLiteral("difficulty")).toString(parsed.intro.difficulty);
+    parsed.intro.bpm = introObject.value(QStringLiteral("bpm")).toString();
+    parsed.intro.mode = introObject.value(QStringLiteral("mode")).toString(parsed.intro.mode);
+    parsed.intro.lvRenderMode = introObject.value(QStringLiteral("lv_render_mode")).toString(parsed.intro.lvRenderMode);
+    parsed.intro.jacketPath = introObject.value(QStringLiteral("jacket_path")).toString();
+    parsed.intro.backgroundMode =
+        introObject.value(QStringLiteral("background_mode")).toString(parsed.intro.backgroundMode);
+    parsed.intro.customBackgroundPath =
+        introObject.value(QStringLiteral("background_custom_path")).toString();
+    parsed.intro.blurBackground =
+        introObject.value(QStringLiteral("background_blur")).toBool(parsed.intro.blurBackground);
+    parsed.intro.cardShadow =
+        introObject.value(QStringLiteral("card_shadow")).toBool(parsed.intro.cardShadow);
+    parsed.intro.fontDisplayPath =
+        introObject.value(QStringLiteral("font_display_path")).toString();
+    parsed.intro.fontBodyPath =
+        introObject.value(QStringLiteral("font_body_path")).toString();
+    parsed.intro.pvPreview =
+        introObject.value(QStringLiteral("pv_preview")).toBool(parsed.intro.pvPreview);
+    parsed.intro.pvPreviewStartSeconds = qMax(
+        0.0, introObject.value(QStringLiteral("pv_preview_start_seconds")).toDouble(parsed.intro.pvPreviewStartSeconds));
+    parsed.introSoundFileName = QFileInfo(introObject.value(QStringLiteral("sound_file")).toString()).fileName();
+
+    if (parsed.chartTextUtf8.isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("chart snapshot text is empty");
+        }
+        return false;
+    }
+    if (!SimaiDocument::isDifficultyId(parsed.difficultyId)) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("difficulty_id is invalid");
+        }
+        return false;
+    }
+    if (parsed.outputPath.trimmed().isEmpty()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("output path is empty");
+        }
+        return false;
+    }
+
+    *snapshot = parsed;
+    return true;
+}
+
+bool buildVideoExportTaskFromSnapshot(
+    const VideoExportSnapshot& snapshot,
+    VideoExportTask* task,
+    QString* errorMessage
+)
+{
+    if (task == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("task output is null");
+        }
+        return false;
+    }
+
+    const SimaiDocument document = SimaiDocument::fromText(snapshot.chartTextUtf8);
+    const SimaiDifficultyData* difficulty = document.difficulty(snapshot.difficultyId);
+    if (difficulty == nullptr) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("snapshot difficulty is missing in chart text");
+        }
+        return false;
+    }
+
+    const miacode::simai::SimaiTimingMetadata timingMetadata = miacode::simai::buildTimingMetadata(document);
+    const SimaiParseResult nativeResult = SimaiParser::parseForTimeline(
+        difficulty->chart,
+        timingMetadata);
+    bool firstOk = false;
+    const double firstSeconds = parsedFirstSeconds(document.first, &firstOk);
+    if (!firstOk) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("snapshot contains an invalid &first value");
+        }
+        return false;
+    }
+
+    VideoExportTask built;
+    built.hudFontSettings = snapshot.hudFontSettings;
+    built.outputPath = snapshot.outputPath;
+    built.outputMode = snapshot.outputMode;
+    built.chartPath = snapshot.originalChartPath;
+    built.backgroundMediaPath = miacode::chart_assets::resolvePreferredBackgroundMediaPath(
+        snapshot.originalChartPath,
+        snapshot.backgroundMediaPath
+    );
+    built.trackPath = snapshot.trackPath;
+    built.skinDirectory = snapshot.skinDirectory;
+    built.noteMarkers =
+        shiftedNoteMarkers(nativeResult.noteMarkers, firstSeconds, NonFiniteHandling::Propagate);
+    built.audioSettings = snapshot.audioSettings;
+    built.audioSettings.normalize();
+    built.timingSettings = snapshot.timingSettings;
+    built.timingSettings.normalize();
+    built.backgroundBrightnessOuter = snapshot.backgroundBrightnessOuter;
+    built.backgroundBrightnessInner = snapshot.backgroundBrightnessInner;
+    built.layoutSquareScale = snapshot.layoutSquareScale;
+    built.smoothBrightness = snapshot.smoothBrightness;
+    built.outlineVariant = snapshot.outlineVariant;
+    built.outlineImagePath = snapshot.outlineImagePath;
+    built.backgroundScaleMode = snapshot.backgroundScaleMode;
+    built.tapFlowSpeed = snapshot.tapFlowSpeed;
+    built.touchFlowSpeed = snapshot.touchFlowSpeed;
+    built.slideEarlierSecondAndTextOnTop = snapshot.slideEarlierSecondAndTextOnTop;
+    built.tapJudgeTextDistance = snapshot.tapJudgeTextDistance;
+    built.judgeEffectStyle = snapshot.judgeEffectStyle;
+    built.muriRenderOptions = snapshot.muriRenderOptions;
+    built.staticTapOnSlideThresholdSeconds = snapshot.staticTapOnSlideThresholdSeconds;
+    built.exportStartSeconds = qMax(0.0, snapshot.exportStartSeconds);
+    built.contentDurationSeconds = qMax(0.0, snapshot.contentDurationSeconds);
+    built.outputWidth = snapshot.outputWidth;
+    built.outputHeight = snapshot.outputHeight;
+    built.fps = snapshot.fps;
+    built.audioBitrateKbps = qBound(96, snapshot.audioBitrateKbps, 320);
+    built.preset = snapshot.preset;
+    built.sizePreset = snapshot.sizePreset;
+    built.fullRangeExport = snapshot.fullRangeExport;
+    built.showTimestamp = snapshot.showTimestamp;
+    built.showObjectStatsHud = snapshot.showObjectStatsHud;
+    built.showChartInfoHud = snapshot.showChartInfoHud;
+    // Reconstruct chart metadata from the parsed SimaiDocument so the
+    // out-of-process worker can populate the chart info HUD without
+    // shipping the strings separately. Per-difficulty designer takes
+    // precedence over the document-level &des field; the difficulty
+    // label is composed from the short name + per-difficulty level.
+    built.chartTitle = document.title;
+    built.chartArtist = document.artist;
+    built.chartDesigner = document.effectiveDesignerForSlot(snapshot.difficultyId);
+    const QString diffShortName = SimaiDocument::difficultyShortName(snapshot.difficultyId);
+    const QString diffLevel = difficulty->level.trimmed();
+    if (!diffShortName.isEmpty() || !diffLevel.isEmpty()) {
+        built.chartDifficultyLabel = QStringLiteral("%1 %2")
+            .arg(diffShortName, diffLevel)
+            .trimmed();
+    }
+    built.intro = snapshot.intro;
+    built.introSoundFileName = snapshot.introSoundFileName;
+    built.centerDisplayMode = snapshot.centerDisplayMode;
+    built.skinLoadWaitMs = qBound(0, snapshot.skinLoadWaitMs, 20000);
+    // The clock_count VALUE is always derived from the chart; the count-in on/off
+    // is a separate flag the snapshot carries (the video dialog's checkbox). The
+    // audio render plan gates the ticks on clockCountEnabled.
+    built.clockCount = miacode::chart_clock::clockCountFromDocument(document);
+    built.clockCountEnabled = snapshot.clockCountEnabled;
+    built.clockBpm = miacode::chart_clock::clockBpmForChart(document, difficulty->chart);
+    built.muriAnalysisReport = MuriAnalyzer::analyze(
+        built.noteMarkers,
+        built.muriRenderOptions,
+        built.staticTapOnSlideThresholdSeconds);
+
+    *task = built;
+    return true;
+}

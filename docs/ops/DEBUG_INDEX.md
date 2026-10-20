@@ -1,13 +1,5 @@
 # Debug Index
 
-This document is the current user-facing index for MiaCode debug mode, log files, and preview/export diagnostics after the Qt Quick migration.
-
-> Reconciled against the code on 2026-08-10: **86 live `MIACODE_*` environment flags across 26 files**, including the four the idle-freeze diagnostics added — `MIACODE_UI_HANG_ACTIVE_PHASE_MS`, `MIACODE_UI_HANG_IDLE_HEARTBEAT_MS`, `MIACODE_ENABLE_DIAG_D3D11`, `MIACODE_ENABLE_DIAG_MODULE_LIST`.
->
-> Recount rather than trusting that number: `grep -rhoE '"MIACODE_[A-Z0-9_]+"' src --include="*.cpp" --include="*.h" | sort -u` yields 101 quoted literals, of which 86 are live env flags — subtract `MIACODE_SOURCE_ROOT` (a CMake compile definition) and the fourteen retired flags that survive only inside `kRetiredFlags` in `src/tools/debug_index/DebugFlagIndexSpec.cpp`. The drift guard `ctest -R debug_flag_index_spec` is the real enforcement — it fails if a flag read in `src/` is missing from this doc or a flag named here is no longer read. Its own summary reports a **larger** total (96) because its regex also counts the build-time compile definitions and hang-watchdog macros listed under "Other `MIACODE_*` tokens" below; that number is not the env-flag count.
->
-> When you add/remove a flag, update this index (and `.codex/skills/miacode-dev-guide/references/debug-flags.md`).
-
 ## Debug Entry Points
 
 - Preferred CLI switch: `--debug`
@@ -20,7 +12,8 @@ This document is the current user-facing index for MiaCode debug mode, log files
 - Windows focused diagnostic helpers retained in the public repo:
   - `Start_MiaCode_SoftwareVideoDecode.bat`
   - `Start_MiaCode_QtPluginDiag.bat`
-  - `Start_MiaCode_IdleFreezeRepro.ps1` — launches the real `app\MiaCode.exe` in a timestamped evidence directory with an explicit `GpuBound` / `GpuOff` profile; see [Windows 空闲冻结复现与取证指南](WINDOWS_IDLE_FREEZE_REPRO_ZH.md)
+  - `Start_MiaCode_IdleFreezeRepro.ps1` — launches the real `app\MiaCode.exe` in a timestamped evidence directory with an explicit `GpuBound` / `GpuOff` profile
+  - `first_play_probe/Run_FirstPlayProbe.bat` — tests whether the first Play is dead until restart. It checks whether `BASS_CONFIG_DEV_DEFAULT` can still be set after `BASS_Init(0)`, then runs guided repro rounds with `--debug` on a copy of a chart that has no waveform cache, and zips the verdicts and logs
 
 Inside debug mode, runtime, audio, export, startup-timing, preview-profile, and PV-memory outputs are enabled unless they are individually disabled.
 Outside debug mode, the export log still keeps a concise stage/failure summary so users can report export issues without reproducing under `--debug`.
@@ -60,13 +53,6 @@ Crash breadcrumb path note:
 - `miacode_startup_beacon_<pid>.txt` and `miacode_op_chain_<pid>.log` are resolved at process startup from `MIACODE_OPLOG_SHADOW_PATH`, then `MIACODE_LOG_DIR`, then `%TEMP%`.
 - Binding a chart-local `.miacode/logs/` directory later does not rebind those already-captured crash breadcrumb paths yet.
 - When a project log dir is bound while runtime debug output or `MIACODE_PREVIEW_HUD_PAINT_DIAG=1` is active, the runtime log writes `logging/crash_breadcrumb_hint` with the current PID plus `startup_beacon_hint` and `op_chain_hint`.
-- Longer-term work should rebind or mirror the crash shadow safely; the current line is a path signpost so investigations do not only check the chart log directory.
-
-BPM/latency crash capture:
-
-- `runtime/latency/entry` is a sparse, always-on phase trail emitted only by explicit BPM/latency actions. It distinguishes the Tools-menu and metadata-card entry sources, then brackets page switching, sandbox installation, SFX preparation, synthetic-chart build/parse, preview and timeline publication, and BPM/offset decoding and detection.
-- Every phase carries current private memory; relevant phases add BPM, duration, chart/note/envelope counts, decoder backend, and detection results.
-- The same phase is synchronously mirrored into `miacode_startup_beacon_<pid>.txt`. When a hard crash cuts off the asynchronous runtime log, the last `latency/entry` line in the beacon is the authoritative completed boundary. `miacode_op_chain_<pid>.log` additionally identifies the active latency function/sub-stage when the Windows crash handler runs.
 
 Path overrides:
 
@@ -83,6 +69,7 @@ Path overrides:
 Other logging knobs:
 
 - `MIACODE_SKIP_ASYNCLOG_FLUSH` — skip the async-log flush on shutdown (diagnostics only).
+- `MIACODE_SKIP_CRASH_HANDLER` — skip `crash_recovery::install()` (SIGSEGV / SEH / terminate hooks). Use with Windows LocalDumps so an access violation stays `0xC0000005` and writes a dump; MinGW's SIGSEGV handler otherwise ends the process without WER.
 
 ## PV Memory Diagnostic
 
@@ -101,24 +88,6 @@ describe the existing preview image conversion; in particular,
 `to_image_output_bytes_estimate` is an accumulated output-size estimate, not
 allocator ownership or proof that those bytes remain live.
 
-This is an internal diagnostic. It does not enumerate or sample
-`VTDecoderXPCService` or any other external process, log PV filenames or frame
-content, add a frame mapping/readback, or add PV-memory records to the runtime
-or audio logs.
-
-Use the records to rank a capture in this order:
-
-1. Investigate existing per-frame `toImage()` churn when successful conversions
-   and current-process footprint rise together.
-2. If conversion activity is low or absent, investigate `QMediaPlayer` or
-   output-sink lifetime when memory grows during playback or has not settled by
-   `post_clear_15s` after `no_media`.
-3. Compare output attach/detach boundaries for VideoOutput or scene-graph
-   last-frame retention when the remaining playback counters are stable.
-4. Consider persistent Quick graphics resources only when a preview surface is
-   hidden/shown or remains retained after stop; it is not the leading
-   explanation for steady-playback growth.
-
 C++ hang-watchdog instrumentation macros, not environment variables:
 
 - `MIACODE_HANG_PHASE`
@@ -128,20 +97,13 @@ C++ hang-watchdog instrumentation macros, not environment variables:
 Freeze / contention diagnostics (debug mode only; the probes below are on by default in debug mode, but four flags tune or gate them — `MIACODE_UI_HANG_ACTIVE_PHASE_MS`, `MIACODE_UI_HANG_IDLE_HEARTBEAT_MS`, `MIACODE_ENABLE_DIAG_D3D11`, `MIACODE_ENABLE_DIAG_MODULE_LIST`):
 
 - `startup/process_identity` records the product `version`, build `git_revision`, `git_dirty`, and real executable identity so transient packages can be mapped precisely.
-- `ui/hang_watchdog` samples the GUI heartbeat every `250 ms`; it reports a marked phase after about `2 s` or an unmarked idle heartbeat stall after about `5 s` using a durable fatal-grade runtime record. Both timeouts are overridable per run — see `MIACODE_UI_HANG_ACTIVE_PHASE_MS` / `MIACODE_UI_HANG_IDLE_HEARTBEAT_MS`; the defaults are too coarse for a stall of only a couple of seconds. The watchdog deliberately performs no GUI-thread handle duplication, suspension, symbol initialization, stack walking, or process termination.
-- **If `miacode_durable_fallback_<pid>.log` exists, read it next to the runtime log.** Fatal-grade lines take a durable synchronous path that holds the log mutex across an open/write/flush/close; that wait is bounded at `2 s`, and a line that cannot get the lock in time is written to this per-process file instead. The file existing means some thread held the mutex longer than that — a stalled disk or a disconnected network share — and that those lines are **missing from the normal log**. It is a separate file on purpose: a writer that just failed to acquire the mutex must not append to the file the mutex guards. Without the bound, the hang watchdog reporting a frozen GUI thread would block on its own first line, so the freeze report never landed at all.
-- **A GUI stall shorter than the hang thresholds still gets a row.** `ui/hang_watchdog` `action=gui_thread_stall` opens with `edge=began` as soon as the heartbeat is `1000 ms` stale and closes with `edge=ended stall_ms=` when the GUI thread comes back, correlated by `episode=`. This exists because the hang thresholds leave a dead band: a stall between `2 s` (active-phase, and only inside a *marked* phase — ordinary playback marks none) and `5 s` (idle heartbeat) produced **no watchdog rows at all**, which is exactly where the observed audio-device-switch freezes landed (`2075 ms` and `4683 ms` in one capture). `stall_ms` is measured between two GUI-thread heartbeat timestamps, so it is the time the GUI thread actually went unserviced, not the `500 ms`-quantised window the watchdog noticed it in. Info level, never carries a stack — `edge=began` is written immediately so the fact survives a kill mid-stall. The threshold is a fixed constant, not an env flag. A stall that keeps going past the hang thresholds produces these rows *and* the `gui_thread_stale` ones.
+- `ui/hang_watchdog` 每 `250 ms` 采样 GUI 心跳，活动阶段超时约 `2 s`、空闲心跳超时约 `5 s` 时记录持久日志。阈值由 `MIACODE_UI_HANG_ACTIVE_PHASE_MS` / `MIACODE_UI_HANG_IDLE_HEARTBEAT_MS` 设置。
+- 日志锁等待超过 `2 s` 时，持久日志写入 `miacode_durable_fallback_<pid>.log`。
+- GUI 心跳停顿达到 `1000 ms` 时，`action=gui_thread_stall` 记录 `edge=began`；恢复时记录 `edge=ended stall_ms=`。记录以 `episode=` 关联，`stall_ms` 取两次 GUI 心跳的时间差。超过超时阈值时另记录 `gui_thread_stale`。
 - `idle/resource_gauge` writes sample `0` immediately and then process counters about every `30 s`.
-- `idle/vram_gauge` runs on the same `30 s` tick: one `action=adapter_scan` line with `adapter_count`, then one `action=sample` line per DXGI adapter with `local_budget_mb` / `local_usage_mb` / `nonlocal_*` and the derived `local_over_budget` / `nonlocal_over_budget`. Per-adapter because MiaCode straddles two GPUs on the reported hardware (root window on the high-performance adapter, preview composite on the default one) and `over_budget=1` is the DXGI-eviction cliff that explains order-of-magnitude playback collapse. Empty on non-Windows; the scan line is still written so "probe ran, no adapters" is distinguishable from "diagnostics absent".
+- `idle/vram_gauge` runs on the same `30 s` tick: one `action=adapter_scan` line with `adapter_count`, then one `action=sample` line per DXGI adapter with `local_budget_mb` / `local_usage_mb` / `nonlocal_*` and the derived `local_over_budget` / `nonlocal_over_budget`.
 - `window/visibility` records occlusion / minimize / expose transitions for the default QSG path — `surface=root_window|preview_composite`, `from` / `to` visibility, `exposed`, `minimized`, `occluded`, and `occluded_for_ms` on the transition back out. Transition-triggered, never per frame. `action=graphics_persistence` states once that the preview composite surface keeps `persistent_graphics` / `persistent_scene_graph`, i.e. minimizing does **not** release its GPU resources.
-- `windows/environment_event` records registered Windows display-power, system power, session lock/unlock, display-change, and device-change notifications. Its fatal-grade records are a durability mechanism, not a claim that each environment event is fatal.
 - Audio channel `bass_audio_health` / `bass_audio_stall` cover preview audio underruns — see the audio-log notes below.
-
-Other `MIACODE_*` tokens seen by the source-index guard but not runtime flags:
-
-- `MIACODE_GIT_REVISION` / `MIACODE_GIT_DIRTY` — CMake-generated build identity macros embedded in `startup/process_identity`.
-- `MIACODE_HAS_BASS_AUDIO` — build-time compile definition for BASS support.
-- `MIACODE_EXTENSION_DEV_PATHS` — test-only environment literal used by `ExtensionManifestSpec`; production extension discovery does not read it.
 
 ## Category Gates
 
@@ -169,8 +131,8 @@ something goes wrong. The per-category gates above are snapshot into atomics at
 - **High-performance GPU hint (P2):** `MiaCode.exe` and `MiaCodeLauncher.exe` export the `NvOptimusEnablement` / `AmdPowerXpressRequestHighPerformance` symbols so hybrid-graphics laptops prefer the discrete GPU. This is a process-level *preference*, not a precise adapter binding — Windows Graphics Settings / vendor control panels can still override it. Confirmed by the `startup/gpu_hint` runtime log.
 - **Root Quick GPU binding:** root-window `fromAdapter` binding is now default ON. Set `MIACODE_GPU_BIND_HIGH_PERFORMANCE=0` / `off` / `false` to keep Qt's platform-default adapter as a rollback. The preview composite remains never `fromAdapter`-bound.
 - Export PBO diagnostics now describe the headless Quick export session, not a removed legacy renderer.
-- Background **PV/BG video decoding** in realtime preview and the export preview dialog uses **QtAVPlayer (FFmpeg)** on Windows, macOS, and Linux. This is selected at **build time** by the `MIACODE_USE_QTAVPLAYER` compile macro. Windows uses D3D11VA, macOS uses VideoToolbox/Metal, and Linux uses VA-API through DRM/EGL. `MIACODE_FFMPEG_DEV_DIR` selects the Windows/macOS SDK; Linux developer builds resolve FFmpeg and VA-API through pkg-config. `MIACODE_PREVIEW_FORCE_SOFTWARE_VIDEO=1` explicitly selects software decode; hardware decoding is the default. The host keeps the selected mode when decoding reports an error. The export *encoder output* remains the standalone `ffmpeg` filtergraph.
-- `MIACODE_BUILD_DEV_TOOLS` is the **CMake configure option** (not an environment flag) that builds the developer spec/eval executables and registers them with CTest (`cmake -D MIACODE_BUILD_DEV_TOOLS=ON`; `scripts/build/build-win.ps1` turns it on for Debug configs). Some dev tools mention it in comments (e.g. `src/tools/latency/LatencyBatchTest.cpp`), which is why it appears in this index — it has no runtime effect in a shipped build.
+- Background **PV/BG video decoding** in realtime preview (and therefore the export preview dialog) uses **QtAVPlayer (FFmpeg)** on Windows, macOS, and Linux instead of Qt Multimedia's `QMediaPlayer`. Windows uses D3D11VA; macOS uses VideoToolbox with QtAVPlayer's Metal bridge; Linux uses VA-API through DRM/EGL. `MIACODE_FFMPEG_DEV_DIR` is the Windows/macOS CMake/package SDK-root input (Windows is provisioned by `scripts/ffmpeg/ensure-windows-ffmpeg-dev.ps1`; macOS packaging resolves an explicit SDK). Linux uses the host FFmpeg and libva via pkg-config. `MIACODE_PREVIEW_FORCE_SOFTWARE_VIDEO=1` is an explicit fallback on all three platforms, but hardware decoding is the default. The export *encoder output* is unaffected (still the standalone `ffmpeg` filtergraph). On `InvalidMedia` the preview backend retries once forcing FFmpeg software decode (`preview/stage_media action=video_software_fallback`).
+- `MIACODE_BUILD_DEV_TOOLS` is the **CMake configure option** (not an environment flag) that builds the developer spec/eval executables and registers them with CTest (`cmake -D MIACODE_BUILD_DEV_TOOLS=ON`; `scripts/build/build-win.ps1` turns it on for Debug configs). Some dev tools mention it in comments (e.g. `src/devtools/LatencyOffsetBatch.cpp`), which is why it appears in this index — it has no runtime effect in a shipped build.
 - `MIACODE_SIMAI_REPRO_CHART` is a **CTest/dev-tool-only** parser-spec repro hook. When set to a `maidata.txt` path containing `&inote_5=`, `simai_parser_spec` parses that real chart as an optional local corpus check; unset keeps the public spec deterministic. It has no runtime effect in `MiaCode.exe`.
 
 Relevant export backend toggles:
@@ -217,11 +179,11 @@ Encoder selection/tuning:
 - `MIACODE_EXPORT_X264_PRESET`
 - `MIACODE_EXPORT_X264_CRF`
 - `MIACODE_EXPORT_X264_BFRAMES`
-- `MIACODE_EXPORT_VAAPI_DEVICE` — Linux only; override the DRM render node used for `h264_vaapi` / `hevc_vaapi` export (default auto-picks `/dev/dri/renderD128` or the first `renderD*`). Empty/missing path drops VAAPI from the candidate list.
 
 FFmpeg binary + extra readback toggle:
 
 - `MIACODE_FFMPEG` / `MIACODE_FFMPEG_PATH` — override the ffmpeg executable path used by export (and the dialog's ffmpeg probe).
+- `MIACODE_EXPORT_VAAPI_DEVICE` — Linux VAAPI encode DRM render node (`/dev/dri/renderD*`). Unset uses `renderD128`, then `renderD129`, then the first `renderD*` node.
 - `MIACODE_EXPORT_DISABLE_PBO_READBACK=1` — extra PBO-readback opt-out, narrower than `MIACODE_EXPORT_DISABLE_OFFSCREEN_PBO`.
 - `MIACODE_EXPORT_PREMULTIPLIED_PIPE=0` — restore straight-RGBA CPU conversion for Fast D3D11 export. Unset/default keeps premultiplied RGBA and uses FFmpeg `overlay alpha=premultiplied`; HighQuality and OpenGL remain straight RGBA.
 
@@ -229,11 +191,11 @@ Render-session backend (P5 — hidden, diagnostic):
 
 - `MIACODE_EXPORT_RENDER_BACKEND` — `d3d11_qrhi` (default) | `opengl` | `auto`. Selects the offscreen chart-render session for CLI export and the export worker. The default `d3d11_qrhi` path puts the export process on the Direct3D11 Qt Quick graphics API and drives `PreviewQuickD3D11ExportSession` (device created on the P3-policy adapter via `QQuickGraphicsDevice::fromDeviceAndContext`, `QQuickRenderTarget::fromD3D11Texture` R8G8B8A8 target, three-texture staging-ring CopyResource+Map readback). Init failure auto-falls back to the OpenGL session (`render_backend_fallback` export-log line: `fallback_from=d3d11_qrhi fallback_to=opengl reason=…`). `opengl` is the explicit rollback path. `auto` is currently identical to `d3d11_qrhi`. Windows-only; unknown values keep OpenGL. Selected backend, adapter LUID and readback mode appear in the `render_backend` export-log summary line; `render_stage_timing_summary` reports state/polish/sync/submit averages.
 
-## GPU Device Policy (P3/P4 — hidden, diagnostic)
+## GPU Device Policy
 
-Internal high-performance GPU device-policy skeleton (`src/common/GpuDevicePolicy.*`, namespace `miacode::gpu`; provider `src/app/gpu_device_provider.cpp`). These are **hidden developer/support overrides**, not surfaced in the settings UI. **P3** **resolves + logs** the preferred adapter (`startup/gpu_policy` runtime log, gated on `--debug`); adapter enumeration is read-only DXGI (`IDXGIFactory6::EnumAdapterByGpuPreference` high-performance ordering, software adapters skipped) — no device creation. The GUI forwards the raw request to the export worker via env so both processes log a matching policy. **P4** can then actually **bind** the root Quick window to the resolved adapter via `QQuickGraphicsDevice::fromAdapter` (Qt owns the device) — logged at `startup/gpu_provider`, verified by the `quick_shell/device` actual-adapter probe.
+Internal high-performance GPU device-policy skeleton (`src/common/GpuDevicePolicy.*`, namespace `miacode::gpu`; provider `src/app/platform/gpu_device_provider.cpp`). These are **hidden developer/support overrides**, not surfaced in the settings UI. **P3** **resolves + logs** the preferred adapter (`startup/gpu_policy` runtime log, gated on `--debug`); Windows adapter enumeration uses read-only DXGI (`IDXGIFactory6::EnumAdapterByGpuPreference` high-performance ordering, software adapters skipped), while Metal/Vulkan/OpenGL platforms use their normal platform-managed selection. The GUI forwards the raw request to the export worker via env so both processes log a matching policy. **P4** can then actually **bind** the Windows root Quick window to the resolved adapter via `QQuickGraphicsDevice::fromAdapter` (Qt owns the device) — logged at `startup/gpu_provider`, verified by the `quick_shell/device` actual-device probes for both the root and preview windows.
 
-- `MIACODE_GPU_POLICY` — `auto_high_performance` (default) | `platform_default` | `software`. Selects the internal device policy. The `--gpu-policy=<value>` CLI flag takes precedence over this env var. `auto_high_performance` resolves to the first DXGI high-performance hardware adapter's LUID; on failure it falls back to `platform_default` and logs the reason.
+- `MIACODE_GPU_POLICY` — `auto_high_performance` (default) | `platform_default` | `software`. Selects the internal device policy. The `--gpu-policy=<value>` CLI flag takes precedence over this env var. On Windows, `auto_high_performance` resolves to the first DXGI high-performance hardware adapter's LUID; enumeration failure falls back to `platform_default` and logs the reason. Other platforms resolve the default request to their normal platform-managed adapter selection without reporting a failure.
 - `MIACODE_GPU_ADAPTER_LUID` — `<high>:<low>` (each hex `0x…` or decimal). Forces the policy to `adapter_luid` and A/B-selects a specific DXGI adapter by LUID. The `--gpu-adapter-luid=<high>:<low>` CLI flag takes precedence. An unknown / illegal LUID never blocks startup — the policy falls back to `platform_default` and logs `fallback_reason=adapter_luid_not_found_among_hw_adapters`.
 - `MIACODE_GPU_BIND_HIGH_PERFORMANCE` — **P4 master gate, default ON.** Binds the **root** Quick window to the resolved high-performance adapter (`fromAdapter`) when the RHI is D3D11, the policy yields a hardware LUID, and it **differs** from the default adapter (else redundant → skipped). Set `MIACODE_GPU_BIND_HIGH_PERFORMANCE=0` / `off` / `false` to keep Qt's default adapter. The **preview composite** (video surface) is never `fromAdapter`-bound — it keeps Qt's default adapter (or the H2 `MIACODE_PREVIEW_SINGLE_D3D11_DEVICE` path) to preserve the QtAVPlayer D3D11VA same-adapter video bridge.
 
@@ -245,9 +207,11 @@ Still active:
 
 - `MIACODE_PREVIEW_SFX_DIR`
 - `MIACODE_TRACK_PATH`
-- `MIACODE_BASS_BGM_RATE_MODE` (Windows/macOS/Linux BASS preview BGM; unset defaults to pitch-preserving BASS_FX `tempo`, while `rate_transpose` / `transpose` / `source_time` / `accurate` switches to source-time-priority rate transpose for A/B listening)
-- `MIACODE_BASS_BGM_TEMPO_PRESET` (Windows/macOS/Linux BASS preview BGM, only when tempo mode is active; BASS_FX window presets: unset = `compact40`, `stock` = plugin default, `auto` = `0/0/8`, `tight20` = `20/8/4`, `balanced30` = `30/10/6`, `compact40` = `40/15/8`, `smooth60` = `60/20/8`, `wide82` = `82/28/8`)
-- `MIACODE_BASS_BGM_TEMPO_PARAMS` (Windows/macOS/Linux BASS preview BGM, only when tempo mode is active; overrides preset with custom `sequence_ms,seek_ms,overlap_ms`, accepting comma, slash, semicolon, pipe, `x`, or spaces as separators)
+- `MIACODE_BASS_BGM_RATE_MODE` (Windows/macOS BASS preview BGM; unset defaults to pitch-preserving BASS_FX `tempo`, while `rate_transpose` / `transpose` / `source_time` / `accurate` switches to source-time-priority rate transpose for A/B listening)
+- `MIACODE_BASS_BGM_TEMPO_PRESET` (Windows/macOS BASS preview BGM, only when tempo mode is active; BASS_FX window presets: unset = `compact40`, `stock` = plugin default, `auto` = `0/0/8`, `tight20` = `20/8/4`, `balanced30` = `30/10/6`, `compact40` = `40/15/8`, `smooth60` = `60/20/8`, `wide82` = `82/28/8`)
+- `MIACODE_BASS_BGM_TEMPO_PARAMS` (Windows/macOS BASS preview BGM, only when tempo mode is active; overrides preset with custom `sequence_ms,seek_ms,overlap_ms`, accepting comma, slash, semicolon, pipe, `x`, or spaces as separators)
+- `MIACODE_BASS_MASTER_BUFFER_MS` (Windows/macOS BASS preview master mixer; default `0`, valid range `0..500` ms. Set `0` together with `MIACODE_BASS_MIXER_THREADS=8` to reproduce the former zero-buffer configuration for A/B. Invalid or non-finite values fall back to `0`. On the reproduction hardware, every nonzero value tested so far produces incorrect audio and is diagnostic-only; do not treat read-back or scheduler compensation as audible validation.)
+- `MIACODE_BASS_MIXER_THREADS` (Windows/macOS BASS preview master mixer; default `4`, valid range `1..16`. Invalid values fall back to `4`. The former value `8` remains available only as an A/B override.)
 - `MIACODE_PREVIEW_FRAME_PACING_DIAG` (`1` enables low-noise `preview/frame_pacing` diagnostics. Combined with `--debug`, it also enables the first-PV-play two-device bridge trace and its per-frame timing counters.)
 - `MIACODE_PREVIEW_HUD_PAINT_DIAG` (`1` enables focused `PreviewQuickHudLayer` / HUD painter crash breadcrumbs in the runtime log. It force-writes `preview/hud_state` GUI-thread HUD mutations and `preview/hud_paint` render-thread paint stages, including a flushed `draw_text_before` line before each HUD `QPainter::drawText` call. It also allows the project-log binding `logging/crash_breadcrumb_hint` signpost to be written without global `--debug`.)
 - `MIACODE_PREVIEW_FRAME_PACING_DIAG_SAMPLE_MS`
@@ -256,49 +220,19 @@ Still active:
 - `MIACODE_UI_HANG_ACTIVE_PHASE_MS` (default `2000`; how long a marked GUI phase may stay active before `ui/hang_watchdog` reports. Read once when the watchdog installs and echoed in `action=installed`, so a capture always states the thresholds that produced it. Non-positive or unparsable falls back to the default.)
 - `MIACODE_UI_HANG_IDLE_HEARTBEAT_MS` (default `5000`; how long the GUI heartbeat may stop, with no phase marked, before `ui/hang_watchdog` reports. Lower this to promote a short stall to a fatal-grade watchdog record. Since `action=gui_thread_stall` landed, a sub-threshold stall is always logged with its duration, so this no longer decides whether a short freeze is *visible*.)
 - `MIACODE_PREVIEW_FIXED_TIMER_HIGH_RES`
-- `MIACODE_PREVIEW_REJECT_NEGATIVE_HS` (default off; opt-OUT escape hatch — negative HS `<HS*-N>` is ON by default. `1` restores the strict stance where the parser rejects `hs <= 0` (Q7). Read once at app boot into `SimaiNativeParser::setAllowNegativeHsEnabled`. By default negative HS parses and the preview/export renderer flies tap / star / each-line notes inward from OUTSIDE the judgement ring (hold / touch / slide take the HS magnitude, never reverse); zero is always rejected. Inherited by the CLI export-worker subprocess so preview and export agree. Off-canvas reverse spawn relies on the playfield clip..)
-- `MIACODE_PREVIEW_FORCE_SOFTWARE_VIDEO` (`1` forces QtAVPlayer to decode preview video in software instead of the selected platform hardware decoder — D3D11VA on Windows, VideoToolbox on macOS. It remains a diagnostic/workaround for the Windows green NV12-padding artifact on videos whose dimensions aren't 16-aligned, e.g. 300×300; hardware textures are allocated at the macroblock-aligned coded size and the uninitialized padding samples as pure green.)
+- `MIACODE_PREVIEW_REJECT_NEGATIVE_HS` (default off; opt-OUT escape hatch — negative HS `<HS*-N>` is ON by default. `1` restores the strict stance where the parser rejects `hs <= 0` (Q7). Read once at app boot into `SimaiParser::setAllowNegativeHsEnabled`. By default negative HS parses and the preview/export renderer flies tap / star / each-line notes inward from OUTSIDE the judgement ring (hold / touch / slide take the HS magnitude, never reverse); zero is always rejected. Inherited by the CLI export-worker subprocess so preview and export agree. Off-canvas reverse spawn relies on the playfield clip..)
+- `MIACODE_PREVIEW_FORCE_SOFTWARE_VIDEO` (`1` forces QtAVPlayer to decode preview video in software instead of the selected platform hardware decoder — D3D11VA on Windows, VideoToolbox on macOS, VA-API on Linux. It remains a diagnostic/workaround for the Windows green NV12-padding artifact on videos whose dimensions aren't 16-aligned, e.g. 300×300; hardware textures are allocated at the macroblock-aligned coded size and the uninitialized padding samples as pure green.)
 - `MIACODE_PREVIEW_SINGLE_D3D11_DEVICE` (default off; `1` enables H2 single-device preview decode — share ONE video-capable, multithread-protected `ID3D11Device` between the QtAVPlayer/FFmpeg D3D11VA decoder and the preview `QQuickView`'s QRhi, eliminating the per-frame cross-device keyed-mutex texture bridge and its render-thread `AcquireSync(INFINITE)` freeze that garbles/stalls preview on Intel/Arc iGPUs. Experimental, needs GUI acceptance on an affected iGPU; every step falls back to the legacy two-device bridge on failure, so the worst case is "no change". Confirm via the `media_backend … single_device=1` log line.)
 - `MIACODE_PREVIEW_DUMP_HWFRAMES` (default `0`=off; requires `--debug`. `N` = read back + stat-classify the first N D3D11VA decoder NV12 surfaces per "arm" (an arm = playback start; re-armed on each seek) to localize the hardware-decode green/garble bug. Render-thread bounded readback: Maps a STAGING copy of the decoder DPB slot (single-device path) or the bridge output (two-device path), computes NV12-domain stats (`y_mean`, `y_rowdelta` garbage proxy, `uv_zero`/`uv_neutral`, interior-vs-edge zeroed-chroma = green) + coded-vs-display size, and emits ONE `preview/hwframe` line per readback with a verdict `hint`. **No image files are written** — the stat line is the decisive output. Zero cost when `0` (single relaxed-atomic load+compare per frame, no env read on the hot path). ⚠ Repro precondition: integrated GPUs default to software decode, so to exercise the buggy hardware path launch with `MIACODE_PREVIEW_FORCE_SOFTWARE_VIDEO=0` [+ `MIACODE_PREVIEW_SINGLE_D3D11_DEVICE=1` for the H2 path].. The decode-path summary lands in `preview/hwdecode_summary`, seek catch-up in `preview/seek_landing`.)
 - `MIACODE_PREVIEW_D3D11_DEBUG_LAYER` (default off; requires `--debug`. `1` adds `D3D11_CREATE_DEVICE_DEBUG` to the H2 shared device (`PreviewSharedD3D11Device::createSharedDevice`) so the D3D11 debug layer's typed-SRV / NV12 PlaneSlice warnings (the decisive H-FMT signal) and resource-not-ready / device-removed errors (H-DEC) are pumped into `preview/hwframe_d3d11dbg` on the low-frequency summary cadence. Falls back to no-debug creation if the SDK debug layer isn't installed. Only the *imported* H2 device needs this; for the legacy two-device path set the Qt env `QSG_RHI_DEBUG_LAYER=1` instead, since that device is created by Qt's QRhi.)
 - `MIACODE_PREVIEW_HWDECODE_COMPLETION_WAIT` (default **off** — RESERVED / experimental; **not** `--debug`-gated. Was the §10 "completion-order" fix attempt: before the copy reads the DPB slot, `qavhwdevice_d3d11.cpp` (`copyToShared` two-device + `copyTextureSameDevice` single-device) issues an `ID3D11Query(EVENT)` + `Flush` + bounded ~100ms spin to force the decode GPU work to complete. ⚠ It did **NOT** resolve the post-seek green on the user's Intel Arc 130T (A/B verified), so it is now **off by default** — the user-facing fix is the 硬件渲染/软件渲染 preference (default hardware; switch to software on an affected iGPU, hot-switchable, no restart). The mechanism is kept as env-gated reserved code (a legitimate D3D11 sync that may help on other hardware): set `MIACODE_PREVIEW_HWDECODE_COMPLETION_WAIT=1` to re-enable. Active state shows in `preview/hwdecode_summary … completion_waits=` / `preview/hwframe … completion_wait=`. Published via `qavSetPreviewHwDecodeFixConfig`.)
 - `MIACODE_PREVIEW_HWDECODE_DROP_CORRUPT` (default off; **not** `--debug`-gated. **Safety net** (secondary) for the same green/garble bug: when on, the D3D11VA copy path drops any decoded frame FFmpeg flagged corrupt/decode-error (`AV_FRAME_FLAG_CORRUPT` or `AVFrame::decode_error_flags != 0`) instead of sampling it, so the RHI holds the previous good frame (a brief freeze beats a green flash). Free — reads existing AVFrame flags, no GPU readback. Default off because it only helps if the driver/decoder actually reports those flags for the green frames (unverified) and because dropping on benign concealment flags could over-discard. First confirm via the `preview/hwframe … decode_err= corrupt=` dump fields and the `preview/hwdecode_summary frames_decode_error=` counter that FFmpeg flags the green frames, then set `MIACODE_PREVIEW_HWDECODE_DROP_CORRUPT=1`. Published via `qavSetPreviewHwDecodeFixConfig`; drops counted in `preview/hwdecode_summary corrupt_dropped=`.)
 - `MIACODE_PREVIEW_VISUAL_LOOKAHEAD_VSYNCS` (default `1.0`; biases visual playhead forward by N display intervals to compensate for render→present pipeline latency, `0` disables, range `[0, 4]`)
-- `MIACODE_PREVIEW_QSG_RENDER_TIMING` (`1` to capture Qt scene-graph timings into the runtime log under `preview/qsg_timing` — diagnoses stutter that lives outside the offscreen renderer)
+- `MIACODE_PREVIEW_QSG_RENDER_TIMING` (`1` enables Qt scene-graph timings on standard error through Qt’s standard message handler — diagnoses stutter that lives outside the offscreen renderer)
 - `MIACODE_TIMELINE_HOTPATH_DIAG`
-- `MIACODE_PREVIEW_DISABLE_DONT_CREATE_NATIVE_WIDGET_SIBLINGS`
 - `MIACODE_PREVIEW_DIAG_COMPARE_DUMP_FRAMES`
 - `MIACODE_PREVIEW_DIAG_COMPARE_DUMP_MAX_SAMPLES`
 - `MIACODE_PREVIEW_DIAG_COMPARE_DUMP_DIR`
-
-Startup default:
-
-- The embedded realtime preview now enables `Qt::AA_DontCreateNativeWidgetSiblings` by default before `QApplication` construction.
-- This is the current workaround for Windows black-screen regressions around `QQuickView` hosted through `QWidget::createWindowContainer()` when native dialogs or sibling native windows appear.
-- Use `MIACODE_PREVIEW_DISABLE_DONT_CREATE_NATIVE_WIDGET_SIBLINGS=1` only for regression A/B.
-- The old debug-only enable snippet `MIACODE_PREVIEW_DONT_CREATE_NATIVE_WIDGET_SIBLINGS=1` is now redundant because the workaround is already on by default.
-
-Retired from the main app:
-
-- The old native-dialog WinEvent hook and related `window/native*` investigation traces are no longer built into `MiaCode.exe`.
-- If Windows dialog investigation needs to return, it must live in a separate dev-only tool and must not ship in the release `dist/` package.
-
-Retired with the old preview renderer and not recommended anymore (no longer read by any code):
-
-- `MIACODE_ENABLE_PYGAME_PREVIEW`
-- `MIACODE_PREVIEW_DIAG_COMPARE_VIDEO_FALLBACK_EVERY`
-- `MIACODE_PREVIEW_DIAG_COMPARE_PRESENT_EVERY`
-- `MIACODE_PREVIEW_SESSION_SCRIPT` (was a preview session-script hook; gone)
-- `MIACODE_DISABLE_GL_DEBUG_MESSAGES` (GL debug-message gate; gone)
-- `MIACODE_SKIP_DIAG_D3D11` (skipped the startup D3D11 diagnostic probe back when that probe ran by default. The probe is now opt-in behind `MIACODE_ENABLE_DIAG_D3D11`, which made the skip unreachable unless an operator enabled and disabled the same probe in one run, so the enable flag is the single control.)
-- The DirectComposition / D3D11 render backend flags, all retired together on 2026-08-07 when `src/render/` and `src/sources/` were deleted. Every one of them cascaded off `MIACODE_PREVIEW_USE_DCOMP`, which had defaulted to off since beta34, so removing the backend made all six unreachable. The in-process QSG path is now the only preview and timeline renderer:
-  - `MIACODE_PREVIEW_USE_DCOMP` (parent opt-in; created the DComp-backed chart preview popup)
-  - `MIACODE_TIMELINE_USE_DCOMP` (DComp pipeline for the timeline pane, via `TimelineRenderView`)
-  - `MIACODE_PREVIEW_DCOMP_TOPLEVEL_HWND` (hosted DComp in an owned top-level HWND)
-  - `MIACODE_PREVIEW_DCOMP_PER_PIXEL_ALPHA` (per-pixel-alpha `WS_EX_NOREDIRECTIONBITMAP` popup)
-  - `MIACODE_PREVIEW_DCOMP_EXCLUSIVE` (made DComp the sole chart renderer)
-  - `MIACODE_PREVIEW_DCOMP_QUIESCE_QSG` (skipped QSG repaint subscriptions while DComp was active)
-- `MIACODE_PREVIEW_VISUAL_SMOOTHING` (gated visual-clock smoothing, which bounded the per-frame visual playhead delta so BASS-master-mixer cursor jitter could not reach the rendered scene. The G1 wall-clock flip made `qtPreviewElapsed_` the master timeline — monotonic and rate-correct by construction — so `applyVisualClockSmoothing` was collapsed to exactly its old smoothing-disabled branch and the gate was dropped with it. The flag had been a no-op ever since. The lookahead-vsync shift that survives in that function was always outside this gate and has its own `MIACODE_PREVIEW_VISUAL_LOOKAHEAD_VSYNCS` control.)
 
 Preview diagnostics now split these timing sources instead of reporting a single ambiguous FPS number:
 
@@ -321,11 +255,11 @@ Preview diagnostics now split these timing sources instead of reporting a single
   - `external_stage_media.video_frame_*` rows now include aggregate external-video frame rate, interval, and stall counts
 - runtime log:
   - `preview/frame_pacing` is off by default and turns on with `MIACODE_PREVIEW_FRAME_PACING_DIAG=1`; normal request/tick/present samples are capped by `MIACODE_PREVIEW_FRAME_PACING_DIAG_SAMPLE_MS` while watchdog, fixed timer present-miss/hard-resync, and large-step events log immediately. With `--debug`, the same flag also enables `preview/first_playback_bridge_trace` plus its per-frame two-device bridge timing counters; without both switches those counters are off.
-  - `preview/quick_scene action=render_frame_profile` (needs `MIACODE_PREVIEW_FRAME_PACING_DIAG=1`) splits `render_submit_ms` into `resource_prep_ms` (beforeRendering → beforeRenderPassRecording: QRhi texture/buffer uploads, resource creation, swap-chain image acquire), `pass_record_ms` (the render pass itself — where a first-use graphics pipeline / shader variant is built by the driver) and `submit_tail_ms`. Before this split the first-play stall was a single opaque `render_submit_ms`, which is why `docs/audit/PREVIEW_FIRST_PLAY_RENDER_STALL_HANDOFF_AUDIT_ZH.md` §5.1 could not name the blocking phase. `na` means the frame did not emit that signal.
+  - `preview/quick_scene action=render_frame_profile` (needs `MIACODE_PREVIEW_FRAME_PACING_DIAG=1`) splits `render_submit_ms` into `resource_prep_ms` (beforeRendering → beforeRenderPassRecording: QRhi texture/buffer uploads, resource creation, swap-chain image acquire), `pass_record_ms` (the render pass itself — where a first-use graphics pipeline / shader variant is built by the driver) and `submit_tail_ms`. `na` means the frame did not emit that signal.
   - `preview/quick_scene action=render_stall_context` is written once per scene-graph lifetime for the first frame whose `render_submit_ms >= 250`; `dominant=resource_prep|pass_record|submit_tail` is the verdict, so a capture that lost its sampled profile lines still carries it. Render-thread only — no DXGI work happens there.
   - `preview/quick_scene action=layer_first_draw` (same flag) records the FIRST frame in which each preview layer produced a node — i.e. the frame that compiles that layer's material pipeline and uploads its textures. It is emitted from `updatePaintNode`, so it lands immediately before that same frame's `render_frame_profile`: a `layer_first_draw` directly ahead of a multi-hundred-millisecond `pass_record_ms` names the layer whose first use paid for the stall (audit §5.4).
   - `preview/first_playback_bridge_trace action=render_stall_vram` follows `action=render_stall` with one `formatAdapterVideoMemoryPayload` row per DXGI adapter, so the stall sample carries this process's VRAM budget/usage (`local_over_budget=1` is the alarm). GUI thread, once per trace.
-  - `quick_shell/device` now also carries `umd_driver_version=` (the graphics user-mode driver build, via `IDXGIAdapter::CheckInterfaceSupport`) and `feature_level=`. Nothing else in the log names the driver build, which is the first question asked of any first-submit stall report.
+  - `quick_shell/device` records the actual device for the root and preview Quick windows. D3D11/D3D12 report the DXGI adapter, Metal and Vulkan report the native device name, OpenGL reports `GL_RENDERER`, and software rendering is explicit. D3D11 also carries `umd_driver_version=` and `feature_level=`.
   - `preview/stage_media action=end_of_media_classified` is written for every backend `EndOfMedia`. `eom_class=natural` means the decoder reached the media's own duration (a legitimately short PV — keep the last frame, never touch the main transport); `eom_class=stale` means EndOfMedia arrived with substantial media left, the audit §5.2 signature (121 s clip, EndOfMedia at 1.4 s, last pts 1.267 s); `unknown` means duration or decode progress was unavailable and nothing is done. The `demux_eof_*` fields carry the FFmpeg-side provenance: `demux_eof_averror` counts ends that came from `AVERROR_EOF`, `demux_eof_avio` counts ends that came only from `avio_feof()` — which FFmpeg also latches after a failed byte read — and `demux_last_avio_error` is `AVIOContext::error` at that moment. A stale end with `demux_eof_avio` incremented and a non-zero `demux_last_avio_error` is an I/O failure wearing an end-of-stream costume.
   - `preview/stage_media action=stale_end_of_media_recover` / `…_resumed` / `…_resume_timeout` / `…_exhausted` trace the bounded recovery for a stale end: `strategy=seek_resume` for the first attempts (a seek clears FFmpeg's AVIO end-of-file latch, and the resume waits for the `seeked` acknowledgement because `QAVPlayer::play()` restarts from zero while that latch is set), `strategy=reload` for the last, then the PV keeps its last frame rather than looping. The main transport is never stopped on any path.
   - `preview/stage_media action=commit_prepared_playback` now also reports `frames_before_commit=` / `video_prewarmed=`, i.e. whether the video pipeline had already been exercised when the user pressed play or the renderer is being handed a new material on the frame being waited on (audit §5.4).
@@ -343,9 +277,13 @@ Preview diagnostics now split these timing sources instead of reporting a single
   - `preview/audio_device` (Audio channel, BASS platforms only) records an output-device configuration change: `change=output_list|default_output|output_list_and_default`, the before/after device counts, and the before/after default-output ids. Qt re-notifies on plain re-enumeration, so a row is written only when the sorted device list or the default id actually differs. A row while the preview is playing freezes GUI/video at its captured wall second before it enqueues the reserved worker pause, then emits `preview/playback action=pause_audio_device_change` and the normal `pause_exact` sequence. The matching completion is accepted only for the current playback generation, transaction, and first pause token; it stays paused until explicit Play. A row while already paused stands alone by design.
   - Windows hardware acceptance for repeated output-device switches and shutdown during an
     in-flight change remains outstanding when verification is performed from the macOS worktree.
-  - BASS `bass_sfx_scheduler action=anchor` records a chart/decode-position anchor.
+  - BASS `bass_sfx_scheduler action=anchor` records a chart/decode-position anchor, with the master decode cursor it was taken at (`decode_pos`), what it armed (`armed_group_idx`, `armed_action`) and how far ahead of the cursor that sync sits (`armed_lead_ms`). `inline=N skipped=M` count groups the anchor's own arm pass had to play or skip inline (see the next item). A session with a positive `armed_lead_ms` and no later `bass_sfx_mixer_trigger` for `armed_group_idx` was killed after the anchor, not by it.
   - BASS `bass_sfx_scheduler action=disarm` is retained unless it proves a no-op
-    (`was_active=0 had_sync=0 group_idx=-1`).
+    (`was_active=0 had_sync=0 group_idx=-1`). It also carries the chain counters (`triggered`, `inline`, `skipped`, `watchdog`, `deferred`); they are cumulative for the backend's lifetime, so diff them against the previous disarm to read one session's chain health.
+  - **The SFX chain can only die by arming a sync at or behind the master decode cursor** (measured against the bundled BASS: such a sync is never delivered; one a single sample ahead fires exactly; syncs armed from inside the callback fire even inside the current mix block). Every arm site therefore verifies the armed target against the live cursor and, when it is already behind, plays the group inline and re-arms the next one: `bass_sfx_mixer_trigger … inline=1 source=anchor|callback|deferred|watchdog late_us=…`. A group past the 150 ms catch-up window is skipped instead: `bass_sfx_scheduler action=skip reason=sync_dead_on_arm group_idx=… late_ms=… source=…`. Both rows are normal in small numbers right after an anchor or a deferred replay; a steady stream of them means the cursor is repeatedly ahead of what the chain arms (a wrong anchor, a stalled worker).
+  - `bass_sfx_scheduler action=recover reason=…` is the per-tick chain watchdog (run from every `DrainEvents` / `SyncBackgroundTrack` command and the 1 Hz health tick). `reason=missed_sync` — our state said armed but the cursor is past the target by more than the 20 ms dispatch grace: the group is played inline (`inline=1`) or skipped (`skipped=1`) and the next one re-armed from the existing anchor (`rearmed=1`). `reason=deferred_sync_late` — a callback that lost the scheduler mutex handed its fired sync to the worker, which found it more than 150 ms stale; the cursor is moved past the live position and the chain re-armed. `reason=nothing_armed` — the scheduler was active with groups remaining and no sync armed; no known path produces this, so its appearance names a state bug precisely. `reason=clock_divergence sched_chart=… ref_chart=… delta_ms=…` — the scheduler's own clock (anchor + decode cursor) disagreed with the GUI's chart second by more than one second over three consecutive ticks and the session was re-anchored to the GUI second; nothing inside the chain can cause this, so it points at a mixer-clock discontinuity outside it (device re-initialisation, position jump). None of the recoveries moves the anchor except `clock_divergence`.
+  - `bass_status` chain fields, readable in one row: `sched_active` (0 = the GUI drain fallback owns note sounds), `sched_chart` (the scheduler's clock) and `sched_delta_ms` (`sched_chart - auth`, normally within stall drift of ~100 ms), `decode_pos`, `armed_sync` (0 = nothing armed) and `armed_lead_ms` (target minus cursor: positive and shrinking while healthy, negative = dead), `next_due_ms` (next group relative to `sched_chart`: strongly negative while `last_trigger_age_ms` keeps growing and `master_running=1` is a dead chain), `deferred_sync` (a handle waiting for the worker), and the cumulative `inline`/`skipped`/`watchdog`/`deferred_count`. A capture in which these fields stay healthy while the user reports missing note sounds moves the search to the voice path (`played=(none)`, `bass_err` rows) or out of the audio backend entirely.
+  - `bass_engine_ready` reports requested/effective master buffer and mixer-thread values plus set/read-back and override-validity fields. `bass_sfx_mixer_deferred reason=scheduler_busy` means the real-time callback refused to wait for the scheduler mutex and handed that one sync to `PreviewAudioWorker`; the eventual trigger/drop row carries `deferred=1`. `bass_sfx_mixer_diag_drop` reports overflow of the diagnostic-only callback ring and does not mean an SFX action was dropped.
   - Ordinary `preview/stage_media action=playback_rate` rows are edge-triggered by `(rate, media
     kind)` and reset on a chart/media change. `playback_rate_deferred`, `playback_rate_flushed`, and
     error records remain independent evidence.
@@ -371,9 +309,8 @@ Preview diagnostics now split these timing sources instead of reporting a single
 
 ## Render Path Toggles (diagnostics / A·B only)
 
-The in-process Qt Quick (QSG) path is the default and the only one needed for normal use; both realtime preview and export run through it. The toggles below select alternate render topologies for diagnostics and are **off by default**.
+预览与导出共用 Qt Quick/QSG 场景。以下开关用于诊断，默认关闭。
 
-The DirectComposition / D3D11 preview and timeline backend was **removed on 2026-08-07**. `src/render/` and `src/sources/` are gone, along with all six `MIACODE_*_DCOMP*` flags (see the retired list above). The QSG path is now the only render path; there is no alternate backend to A/B against.
 
 - `MIACODE_PREVIEW_QSG_FULL_DISABLE` — force QSG to the software/basic path (GPU-contention isolation test).
 - `MIACODE_PREVIEW_FORCE_BASIC_RENDER_LOOP` — force `QSG_RENDER_LOOP=basic` at startup.
@@ -382,20 +319,20 @@ The DirectComposition / D3D11 preview and timeline backend was **removed on 2026
 
 ## Misc / Platform
 
-- `MIACODE_LANG` — force UI language (overrides system locale; `app/ui/UiText.cpp`).
+- `MIACODE_LANG` — force UI language (overrides preferences / system locale; applied by `LocaleService` via QTranslator, hot-swappable from preferences).
 - `MIACODE_DISABLE_MMCSS` — opt out of MMCSS pro-audio thread scheduling (Windows; `common/Mmcss.cpp`).
 - `MIACODE_DISPLAY_VERSION_STRING` — override the displayed version string.
 - `MIACODE_SKIP_PREFLIGHT` — skip the launcher preflight checks (`wrapper/MiaCodeLauncher.cpp`).
+
+## Spec 输出
+
+- `MIACODE_HUD_SPEC_OUTPUT`：指定 HUD 字体 Spec 的图片输出目录。
 
 ## Useful Workflows
 
 Launch the default Quick Shell app in debug mode:
 
 - `MiaCode.exe --debug`
-
-Launch the legacy Qt native widget shell in debug mode:
-
-- `MiaCode.exe --qt-native --debug`
 
 Force export logging into a local directory:
 
@@ -417,11 +354,6 @@ Force export PBO on:
 - `set MIACODE_EXPORT_ENABLE_OFFSCREEN_PBO=1`
 - PBO readback is already on by default; this only forces the default back on after inherited env cleanup or an explicit `ENABLE=0`.
 
-Opt out of the default embedded-preview native-sibling workaround for regression A/B:
-
-- `set MIACODE_PREVIEW_DISABLE_DONT_CREATE_NATIVE_WIDGET_SIBLINGS=1`
-- `MiaCode.exe --debug`
-
 Enable the Windows fixed-FPS timer-resolution A/B path:
 
 - `set MIACODE_PREVIEW_FIXED_TIMER_HIGH_RES=1`
@@ -440,8 +372,8 @@ Enable the Windows fixed-FPS timer-resolution A/B path:
 - runtime/debug orchestration:
   - `src/app/mainwindow/MainWindow.cpp`
 - export logging:
-  - `src/tools/video_export/VideoExportController.cpp`
+  - `src/export/video_export/VideoExportController.cpp`
 - Quick export session:
-  - `src/preview/runtime/PreviewQuickExportSession.cpp`
+  - `src/export/session/PreviewQuickExportSession.cpp`
 
-For architecture details, see `docs/specs/preview/PREVIEW_RUNTIME_EXPORT_ARCHITECTURE_SPEC.md`.
+For architecture details, see `docs/specs/preview/CURRENT_RENDER_EXPORT_CONTRACT_ZH.md`.

@@ -1,6 +1,6 @@
-#include "Mmcss.h"
+#include "common/Mmcss.h"
 
-#include "DebugOptions.h"
+#include "common/DebugOptions.h"
 
 #include <QMutex>
 #include <QMutexLocker>

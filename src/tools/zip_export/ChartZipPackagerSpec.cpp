@@ -4,7 +4,7 @@
 // excluded, and an out-of-folder &video= target is skipped. Reads the
 // resulting zip back with miniz to assert on real archive entries.
 
-#include "ChartZipPackager.h"
+#include "media_tools/zip_export/ChartZipPackager.h"
 
 #include <miniz.h>
 

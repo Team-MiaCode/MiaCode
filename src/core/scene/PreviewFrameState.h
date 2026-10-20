@@ -8,18 +8,16 @@
 
 #include <limits>
 #include <memory>
+#include <utility>
 
-#include "common/PreviewGameplayConfig.h"
-#include "common/PreviewVideoGeometryConfig.h"
-#include "common/MuriRenderOptions.h"
-#include "common/MuriTypes.h"
+#include "core/video/PreviewGameplayConfig.h"
+#include "core/video/PreviewVideoGeometryConfig.h"
+#include "core/analysis/MuriRenderOptions.h"
+#include "core/analysis/MuriTypes.h"
 #include "core/scene/PreviewProgressStatsCache.h"
+#include "core/scene/PreviewHudState.h"
 #include "core/video/PreviewRenderSettings.h"
-#include "timeline/TimelineData.h"
-
-#ifdef HAVE_QT_MULTIMEDIA
-#include <QVideoFrame>
-#endif
+#include "core/chart/model/TimelineData.h"
 
 namespace miacode::preview::scene {
 
@@ -170,6 +168,26 @@ enum class PreviewExternalStageMediaType {
     Video = 2,
 };
 
+// Opaque, shared handle to the platform video frame a stage-media producer
+// published (a QVideoFrame on desktop). Scene state only records whether one is
+// present; the producer and any renderer that understands the payload own its
+// type, so scene math never depends on QtMultimedia.
+class PreviewVideoFrameHandle
+{
+public:
+    PreviewVideoFrameHandle() = default;
+    explicit PreviewVideoFrameHandle(std::shared_ptr<const void> payload)
+        : payload_(std::move(payload))
+    {
+    }
+
+    bool isValid() const { return static_cast<bool>(payload_); }
+    const std::shared_ptr<const void>& payload() const { return payload_; }
+
+private:
+    std::shared_ptr<const void> payload_;
+};
+
 struct PreviewMediaFrameState {
     QImage mediaFrame;
     QImage retainedVideoFallbackFrame;
@@ -177,9 +195,7 @@ struct PreviewMediaFrameState {
     quint64 stageMediaSerial = 0;
     bool resolvedStageImageCacheable = false;
     double resolvedStageImageToImageMs = 0.0;
-#ifdef HAVE_QT_MULTIMEDIA
-    QVideoFrame videoFrame;
-#endif
+    PreviewVideoFrameHandle videoFrame;
     bool stageMediaAvailable = false;
     PreviewStageMediaPresentationMode presentationMode = PreviewStageMediaPresentationMode::InternalLayer;
     PreviewExternalStageMediaType externalMediaType = PreviewExternalStageMediaType::None;
@@ -193,6 +209,7 @@ struct PreviewMediaFrameState {
     double externalVideoFrameIntervalMaxMs = 0.0;
     qint64 externalVideoFrameStallCount = 0;
     bool externalVideoFrameStalled = false;
+    QString externalVideoDecodeDesc;
 };
 
 struct PreviewAssetState {
@@ -215,10 +232,6 @@ struct PreviewRenderState {
     bool showTimestamp = true;
     bool showObjectStatsHud = false;
     bool showChartInfoHud = false;
-    bool fixHudTextLayout = false;
-    // Presentation-only switch exposed to extensions. It controls the judge
-    // effect layers without changing note judgment or firework-note visuals.
-    bool showJudgeEffects = true;
     // Presentation-only switch exposed to extensions. Mine semantics remain
     // intact while their dedicated sprites/guides are replaced by normal art.
     bool useMineSkin = true;
@@ -227,6 +240,7 @@ struct PreviewRenderState {
 };
 
 struct PreviewFrameState {
+    PreviewHudFontSettings hudFontSettings;
     QVector<TimelineNoteMarker> noteMarkers;
     std::shared_ptr<const PreviewProgressStatsCache> progressStatsCache;
     MuriAnalysisReport muriAnalysisReport;
@@ -261,6 +275,7 @@ struct PreviewFrameState {
     // kept only to stay independent of any future scene-time clamping.
     double hudPlayheadSecondsOverride = std::numeric_limits<double>::quiet_NaN();
     quint64 sceneContentRevision = 0;
+    quint64 sceneStorageGeneration = 0;
     double fpsDisplay = 0.0;
     double tickFpsDisplay = 0.0;
     double updateRequestFpsDisplay = 0.0;

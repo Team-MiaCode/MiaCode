@@ -1,11 +1,13 @@
 #pragma once
 
+#include <array>
+
 #include <QFont>
 #include <QString>
 #include <QStringList>
 #include <QVector>
 
-#include "timeline/TimelineData.h"
+#include "core/chart/model/TimelineData.h"
 
 namespace miacode::preview::scene {
 
@@ -38,22 +40,39 @@ enum class PreviewHudFontArea {
     DebugInfo,
 };
 
+// Empty paths select the area's bundled font; configuration belongs to a scene/task.
+struct PreviewHudFontSettings {
+    std::array<QString, 5> paths;
+    bool operator==(const PreviewHudFontSettings&) const = default;
+    QString path(PreviewHudFontArea area) const { return paths[static_cast<int>(area)]; }
+};
+
+struct PreviewHudFontAreaChoice {
+    PreviewHudFontArea area;
+    const char* labelKey;
+    const char* sample;
+};
+
 PreviewHudStats computePreviewHudStats(const QVector<TimelineNoteMarker>& noteMarkers, double second);
 QString formatPreviewHudTimeLabel(double seconds);
-QFont previewHudTimestampFont(int pointSize, QFont::Weight weight = QFont::Medium);
-QFont previewHudMonoFont(int pointSize, QFont::Weight weight = QFont::Medium);
-QString previewHudFontDisplayName();
-void setPreviewHudCustomFontPath(const QString& fontPath);
-QString previewHudCustomFontPath(PreviewHudFontArea area);
+QString previewHudFontFamilyForFile(const QString& path);
+QFont previewHudDefaultFontForArea(
+    PreviewHudFontArea area,
+    int pointSize,
+    QFont::Weight weight = QFont::Medium);
 QFont previewHudTimestampFontForArea(
+    const PreviewHudFontSettings& settings,
     PreviewHudFontArea area,
     int pointSize,
     QFont::Weight weight = QFont::Medium);
 QFont previewHudMonoFontForArea(
+    const PreviewHudFontSettings& settings,
     PreviewHudFontArea area,
     int pointSize,
     QFont::Weight weight = QFont::Medium);
-QString previewHudFontDisplayName(PreviewHudFontArea area);
-void setPreviewHudCustomFontPath(PreviewHudFontArea area, const QString& fontPath);
+QVector<PreviewHudFontAreaChoice> previewHudFontAreaChoices();
+int previewHudFontAreaId(PreviewHudFontArea area);
+PreviewHudFontArea previewHudFontAreaFromId(int areaId);
+int previewHudFontAreaIndex(PreviewHudFontArea area);
 
 }  // namespace miacode::preview::scene

@@ -9,7 +9,7 @@
 #include <QTextStream>
 #include <QWindow>
 
-#include "app/WindowVisibilityDiagnostics.h"
+#include "app/platform/WindowVisibilityDiagnostics.h"
 
 namespace {
 

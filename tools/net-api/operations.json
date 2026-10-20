@@ -1,0 +1,1694 @@
+{
+  "apiVersion": "1.0",
+  "basePath": "/api/v1",
+  "schemaVersion": "1.0.0",
+  "operations": [
+    {
+      "id": "api.capabilities",
+      "summary": "查询宿主能力与适配器状态",
+      "owner": "app/services/api/ApiDispatcher",
+      "method": "GET",
+      "path": "/capabilities",
+      "requestSchema": "EmptyRequest",
+      "resultSchema": "CapabilitySet",
+      "async": false,
+      "scopes": {
+        "allOf": [
+          "api.read"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": false,
+      "idempotency": "natural",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC17"
+      ],
+      "featureIds": [
+        "F44",
+        "F50"
+      ]
+    },
+    {
+      "id": "net.providers.list",
+      "summary": "列出在线谱面平台",
+      "owner": "app/services/net/NetService",
+      "method": "GET",
+      "path": "/net/providers",
+      "requestSchema": "EmptyRequest",
+      "resultSchema": "ProviderList",
+      "async": false,
+      "scopes": {
+        "allOf": [
+          "net.read"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": false,
+      "idempotency": "natural",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC17"
+      ],
+      "featureIds": [
+        "F44",
+        "F50"
+      ]
+    },
+    {
+      "id": "net.probes.create",
+      "summary": "探测平台连通性",
+      "owner": "app/services/net/NetService",
+      "method": "POST",
+      "path": "/net/probes",
+      "requestSchema": "ProviderRequest",
+      "resultSchema": "JobHandle",
+      "jobKind": "net.probe",
+      "jobResultSchema": "ProbeResult",
+      "async": true,
+      "scopes": {
+        "allOf": [
+          "net.read"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": true,
+      "idempotency": "optional",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC05"
+      ],
+      "featureIds": [
+        "F11"
+      ]
+    },
+    {
+      "id": "net.queries.create",
+      "summary": "创建谱面查询任务",
+      "owner": "app/services/net/NetService",
+      "method": "POST",
+      "path": "/net/queries",
+      "requestSchema": "ChartQueryRequest",
+      "resultSchema": "JobHandle",
+      "jobKind": "net.query",
+      "jobResultSchema": "QueryHandle",
+      "async": true,
+      "scopes": {
+        "allOf": [
+          "net.read"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": true,
+      "idempotency": "optional",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC01",
+        "TC02",
+        "TC03",
+        "TC04"
+      ],
+      "featureIds": [
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F06",
+        "F07",
+        "F08",
+        "F09",
+        "F10"
+      ]
+    },
+    {
+      "id": "net.queries.results",
+      "summary": "读取不可变查询结果分页",
+      "owner": "app/services/net/NetService",
+      "method": "GET",
+      "path": "/net/queries/{queryRef}",
+      "requestSchema": "QueryPageRequest",
+      "resultSchema": "ChartPage",
+      "async": false,
+      "scopes": {
+        "allOf": [
+          "net.read"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": false,
+      "idempotency": "natural",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC03",
+        "TC17"
+      ],
+      "featureIds": [
+        "F08",
+        "F44",
+        "F50"
+      ]
+    },
+    {
+      "id": "net.downloads.create",
+      "summary": "下载谱面资源并按 manifest 发布",
+      "owner": "app/services/net/NetService",
+      "method": "POST",
+      "path": "/net/downloads",
+      "requestSchema": "DownloadRequest",
+      "resultSchema": "JobHandle",
+      "jobKind": "net.download",
+      "jobResultSchema": "DownloadBatchResult",
+      "async": true,
+      "scopes": {
+        "allOf": [
+          "net.download",
+          "files.write"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": true,
+      "idempotency": "required",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC06",
+        "TC07",
+        "TC08"
+      ],
+      "featureIds": [
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16",
+        "F17",
+        "F18",
+        "F19",
+        "F20",
+        "F21",
+        "F35"
+      ]
+    },
+    {
+      "id": "net.uploads.scan",
+      "summary": "扫描授权目录并生成上传计划",
+      "owner": "app/services/net/NetService",
+      "method": "POST",
+      "path": "/net/upload-plans",
+      "requestSchema": "ScanRequest",
+      "resultSchema": "JobHandle",
+      "jobKind": "net.upload_scan",
+      "jobResultSchema": "UploadPlan",
+      "async": true,
+      "scopes": {
+        "allOf": [
+          "net.upload",
+          "files.read"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": true,
+      "idempotency": "optional",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC11"
+      ],
+      "featureIds": [
+        "F27",
+        "F28",
+        "F29",
+        "F30"
+      ]
+    },
+    {
+      "id": "net.uploads.create",
+      "summary": "按冻结计划与顺序上传",
+      "owner": "app/services/net/NetService",
+      "method": "POST",
+      "path": "/net/uploads",
+      "requestSchema": "UploadRequest",
+      "resultSchema": "JobHandle",
+      "jobKind": "net.upload",
+      "jobResultSchema": "UploadBatchResult",
+      "async": true,
+      "scopes": {
+        "allOf": [
+          "net.upload",
+          "net.accounts.use",
+          "files.read"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": true,
+      "idempotency": "required",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC12",
+        "TC13",
+        "TC14",
+        "TC15"
+      ],
+      "featureIds": [
+        "F31",
+        "F32",
+        "F33",
+        "F34",
+        "F35",
+        "F36",
+        "F37",
+        "F38",
+        "F39",
+        "F40",
+        "F41",
+        "F42"
+      ]
+    },
+    {
+      "id": "net.accounts.login",
+      "summary": "创建隔离账号会话",
+      "owner": "app/services/net/NetService",
+      "method": "POST",
+      "path": "/net/accounts",
+      "requestSchema": "AccountLoginRequest",
+      "resultSchema": "JobHandle",
+      "jobKind": "net.login",
+      "jobResultSchema": "AccountDescriptor",
+      "async": true,
+      "scopes": {
+        "allOf": [
+          "net.accounts.manage"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": true,
+      "idempotency": "none",
+      "secretFields": [
+        "password"
+      ],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC12",
+        "TC15"
+      ],
+      "featureIds": [
+        "F31",
+        "F32",
+        "F33",
+        "F34",
+        "F35",
+        "F36",
+        "F42"
+      ]
+    },
+    {
+      "id": "net.accounts.list",
+      "summary": "列出主体可使用的账号",
+      "owner": "app/services/net/NetService",
+      "method": "GET",
+      "path": "/net/accounts",
+      "requestSchema": "EmptyRequest",
+      "resultSchema": "AccountList",
+      "async": false,
+      "scopes": {
+        "allOf": [
+          "net.accounts.use"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": false,
+      "idempotency": "natural",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC12",
+        "TC15"
+      ],
+      "featureIds": [
+        "F31",
+        "F32",
+        "F33",
+        "F34",
+        "F35",
+        "F36",
+        "F42"
+      ]
+    },
+    {
+      "id": "net.accounts.logout",
+      "summary": "撤销账号并取消关联传输",
+      "owner": "app/services/net/NetService",
+      "method": "DELETE",
+      "path": "/net/accounts/{accountRef}",
+      "requestSchema": "AccountRefRequest",
+      "resultSchema": "ReleaseResult",
+      "async": false,
+      "scopes": {
+        "allOf": [
+          "net.accounts.manage"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": true,
+      "idempotency": "natural",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC12",
+        "TC14"
+      ],
+      "featureIds": [
+        "F33",
+        "F34",
+        "F35",
+        "F36",
+        "F40",
+        "F41"
+      ]
+    },
+    {
+      "id": "net.previews.prepare",
+      "summary": "准备在线预览缓存",
+      "owner": "app/services/net/NetService",
+      "method": "POST",
+      "path": "/net/previews",
+      "requestSchema": "PreviewPrepareRequest",
+      "resultSchema": "JobHandle",
+      "jobKind": "net.preview_prepare",
+      "jobResultSchema": "PreviewHandle",
+      "async": true,
+      "scopes": {
+        "allOf": [
+          "net.preview"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": true,
+      "idempotency": "optional",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC09"
+      ],
+      "featureIds": [
+        "F22",
+        "F23"
+      ]
+    },
+    {
+      "id": "net.previews.open",
+      "summary": "校验文档身份并打开预览",
+      "owner": "app/services/net/NetService",
+      "method": "POST",
+      "path": "/net/previews/{previewRef}/open",
+      "requestSchema": "PreviewOpenRequest",
+      "resultSchema": "JobHandle",
+      "jobKind": "net.preview_open",
+      "jobResultSchema": "PreviewOpenResult",
+      "async": true,
+      "scopes": {
+        "allOf": [
+          "net.preview",
+          "document.replace"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": true,
+      "idempotency": "required",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC10"
+      ],
+      "featureIds": [
+        "F22",
+        "F24",
+        "F25"
+      ]
+    },
+    {
+      "id": "net.previews.release",
+      "summary": "释放预览租约",
+      "owner": "app/services/net/NetService",
+      "method": "DELETE",
+      "path": "/net/previews/{previewRef}",
+      "requestSchema": "PreviewRefRequest",
+      "resultSchema": "ReleaseResult",
+      "async": false,
+      "scopes": {
+        "allOf": [
+          "net.preview"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": true,
+      "idempotency": "natural",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC09"
+      ],
+      "featureIds": [
+        "F22",
+        "F23"
+      ]
+    },
+    {
+      "id": "document.snapshot",
+      "summary": "读取当前文档身份",
+      "owner": "app/services/api/ApiDispatcher",
+      "method": "GET",
+      "path": "/document/snapshot",
+      "requestSchema": "EmptyRequest",
+      "resultSchema": "DocumentIdentity",
+      "async": false,
+      "scopes": {
+        "allOf": [
+          "document.read"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": false,
+      "idempotency": "natural",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC10"
+      ],
+      "featureIds": [
+        "F22",
+        "F24",
+        "F25"
+      ]
+    },
+    {
+      "id": "net.settings.get",
+      "summary": "读取 Net 偏好",
+      "owner": "app/services/net/NetService",
+      "method": "GET",
+      "path": "/net/settings",
+      "requestSchema": "EmptyRequest",
+      "resultSchema": "NetSettings",
+      "async": false,
+      "scopes": {
+        "allOf": [
+          "net.settings.read"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": false,
+      "idempotency": "natural",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "planned",
+      "adapters": {
+        "internal": false,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC20"
+      ],
+      "featureIds": [
+        "F01",
+        "F10",
+        "F26",
+        "F30",
+        "F43"
+      ]
+    },
+    {
+      "id": "net.settings.update",
+      "summary": "更新 Net 偏好",
+      "owner": "app/services/net/NetService",
+      "method": "PATCH",
+      "path": "/net/settings",
+      "requestSchema": "NetSettingsPatch",
+      "resultSchema": "NetSettings",
+      "async": false,
+      "scopes": {
+        "allOf": [
+          "net.settings.write"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": true,
+      "idempotency": "natural",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "planned",
+      "adapters": {
+        "internal": false,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC20"
+      ],
+      "featureIds": [
+        "F01",
+        "F10",
+        "F26",
+        "F30",
+        "F43"
+      ]
+    },
+    {
+      "id": "jobs.list",
+      "summary": "列出主体任务",
+      "owner": "app/services/jobs/JobRegistry",
+      "method": "GET",
+      "path": "/jobs",
+      "requestSchema": "JobListRequest",
+      "resultSchema": "JobPage",
+      "async": false,
+      "scopes": {
+        "allOf": [
+          "jobs.read"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": false,
+      "idempotency": "natural",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC08",
+        "TC17"
+      ],
+      "featureIds": [
+        "F15",
+        "F17",
+        "F18",
+        "F20",
+        "F21",
+        "F35",
+        "F44",
+        "F50"
+      ]
+    },
+    {
+      "id": "jobs.get",
+      "summary": "读取任务快照",
+      "owner": "app/services/jobs/JobRegistry",
+      "method": "GET",
+      "path": "/jobs/{jobId}",
+      "requestSchema": "JobRefRequest",
+      "resultSchema": "JobSnapshot",
+      "async": false,
+      "scopes": {
+        "allOf": [
+          "jobs.read"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": false,
+      "idempotency": "natural",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC08",
+        "TC17"
+      ],
+      "featureIds": [
+        "F15",
+        "F17",
+        "F18",
+        "F20",
+        "F21",
+        "F35",
+        "F44",
+        "F50"
+      ]
+    },
+    {
+      "id": "jobs.items",
+      "summary": "读取任务项目分页",
+      "owner": "app/services/jobs/JobRegistry",
+      "method": "GET",
+      "path": "/jobs/{jobId}/items",
+      "requestSchema": "ItemPageRequest",
+      "resultSchema": "ItemPage",
+      "async": false,
+      "scopes": {
+        "allOf": [
+          "jobs.read"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": false,
+      "idempotency": "natural",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC08",
+        "TC17"
+      ],
+      "featureIds": [
+        "F15",
+        "F17",
+        "F18",
+        "F20",
+        "F21",
+        "F35",
+        "F44",
+        "F50"
+      ]
+    },
+    {
+      "id": "jobs.events",
+      "summary": "增量读取任务事件",
+      "owner": "app/services/jobs/JobRegistry",
+      "method": "GET",
+      "path": "/jobs/{jobId}/events",
+      "requestSchema": "EventPageRequest",
+      "resultSchema": "EventPage",
+      "async": false,
+      "scopes": {
+        "allOf": [
+          "jobs.read"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": false,
+      "idempotency": "natural",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC08",
+        "TC17"
+      ],
+      "featureIds": [
+        "F15",
+        "F17",
+        "F18",
+        "F20",
+        "F21",
+        "F35",
+        "F44",
+        "F50"
+      ]
+    },
+    {
+      "id": "jobs.cancel",
+      "summary": "请求取消任务",
+      "owner": "app/services/jobs/JobRegistry",
+      "method": "POST",
+      "path": "/jobs/{jobId}/cancel",
+      "requestSchema": "JobRefRequest",
+      "resultSchema": "JobSnapshot",
+      "async": false,
+      "scopes": {
+        "allOf": [
+          "jobs.control"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": true,
+      "idempotency": "natural",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "internal",
+      "adapters": {
+        "internal": true,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC08",
+        "TC17"
+      ],
+      "featureIds": [
+        "F15",
+        "F17",
+        "F18",
+        "F20",
+        "F21",
+        "F35",
+        "F44",
+        "F50"
+      ]
+    },
+    {
+      "id": "jobs.resume",
+      "summary": "按版本与解除条件恢复阻塞任务",
+      "owner": "app/services/jobs/JobRegistry",
+      "method": "POST",
+      "path": "/jobs/{jobId}/resume",
+      "requestSchema": "ResumeRequest",
+      "resultSchema": "JobSnapshot",
+      "async": false,
+      "scopes": {
+        "allOf": [
+          "jobs.control"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "inherit_job",
+      "mutates": true,
+      "idempotency": "required",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "planned",
+      "adapters": {
+        "internal": false,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC08",
+        "TC13",
+        "TC14"
+      ],
+      "featureIds": [
+        "F15",
+        "F17",
+        "F18",
+        "F20",
+        "F21",
+        "F35",
+        "F36",
+        "F37",
+        "F38",
+        "F39",
+        "F40",
+        "F41"
+      ]
+    },
+    {
+      "id": "jobs.retry",
+      "summary": "为可安全重试项目创建子任务",
+      "owner": "app/services/jobs/JobRegistry",
+      "method": "POST",
+      "path": "/jobs/{jobId}/retry",
+      "requestSchema": "RetryRequest",
+      "resultSchema": "JobHandle",
+      "jobKind": "inherit_parent_kind",
+      "jobResultSchema": "InheritedJobResult",
+      "async": true,
+      "scopes": {
+        "allOf": [
+          "jobs.control"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "inherit_job",
+      "mutates": true,
+      "idempotency": "required",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "planned",
+      "adapters": {
+        "internal": false,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC08",
+        "TC14"
+      ],
+      "featureIds": [
+        "F15",
+        "F17",
+        "F18",
+        "F20",
+        "F21",
+        "F35",
+        "F40",
+        "F41"
+      ]
+    },
+    {
+      "id": "jobs.diagnostics",
+      "summary": "读取脱敏任务诊断",
+      "owner": "app/services/jobs/JobRegistry",
+      "method": "GET",
+      "path": "/jobs/{jobId}/diagnostics",
+      "requestSchema": "JobRefRequest",
+      "resultSchema": "DiagnosticSummary",
+      "async": false,
+      "scopes": {
+        "allOf": [
+          "jobs.read",
+          "diagnostics.read"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": false,
+      "idempotency": "natural",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "planned",
+      "adapters": {
+        "internal": false,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC15"
+      ],
+      "featureIds": [
+        "F31",
+        "F32",
+        "F42"
+      ]
+    },
+    {
+      "id": "files.grants.request",
+      "summary": "请求本机目录授权",
+      "owner": "app/services/files/FileAccessService",
+      "method": "POST",
+      "path": "/files/grants",
+      "requestSchema": "FileGrantRequest",
+      "resultSchema": "JobHandle",
+      "jobKind": "files.grant",
+      "jobResultSchema": "FileGrant",
+      "async": true,
+      "scopes": {
+        "allOf": [],
+        "anyOf": [
+          "files.read",
+          "files.write"
+        ]
+      },
+      "authorizationRule": "file_purpose",
+      "mutates": true,
+      "idempotency": "optional",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "planned",
+      "adapters": {
+        "internal": false,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC06",
+        "TC16"
+      ],
+      "featureIds": [
+        "F12",
+        "F13",
+        "F16",
+        "F46",
+        "F47"
+      ]
+    },
+    {
+      "id": "files.artifacts.content",
+      "summary": "读取授权产物内容",
+      "owner": "app/services/files/FileAccessService",
+      "method": "GET",
+      "path": "/files/artifacts/{artifactRef}/content",
+      "requestSchema": "ArtifactRefRequest",
+      "resultSchema": "BinaryContent",
+      "async": false,
+      "scopes": {
+        "allOf": [
+          "files.read"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": false,
+      "idempotency": "natural",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "planned",
+      "adapters": {
+        "internal": false,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC06",
+        "TC16"
+      ],
+      "featureIds": [
+        "F12",
+        "F13",
+        "F16",
+        "F46",
+        "F47"
+      ]
+    },
+    {
+      "id": "network.targets.request",
+      "summary": "请求网络目标授权",
+      "owner": "app/services/network/HttpService",
+      "method": "POST",
+      "path": "/network/target-grants",
+      "requestSchema": "TargetGrantRequest",
+      "resultSchema": "JobHandle",
+      "jobKind": "network.target_grant",
+      "jobResultSchema": "TargetGrant",
+      "async": true,
+      "scopes": {
+        "allOf": [
+          "network.targets.manage"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": true,
+      "idempotency": "optional",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "planned",
+      "adapters": {
+        "internal": false,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC18"
+      ],
+      "featureIds": [
+        "F44",
+        "F45",
+        "F46",
+        "F47",
+        "F48",
+        "F49",
+        "F50"
+      ]
+    },
+    {
+      "id": "network.http.fetch",
+      "summary": "向授权目标执行文本 GET",
+      "owner": "app/services/network/HttpService",
+      "method": "POST",
+      "path": "/network/fetch",
+      "requestSchema": "HttpFetchRequest",
+      "resultSchema": "JobHandle",
+      "jobKind": "network.fetch",
+      "jobResultSchema": "HttpTextResult",
+      "async": true,
+      "scopes": {
+        "allOf": [
+          "network.http"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "target_grant",
+      "mutates": true,
+      "idempotency": "optional",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "planned",
+      "adapters": {
+        "internal": false,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC18"
+      ],
+      "featureIds": [
+        "F44",
+        "F45",
+        "F46",
+        "F47",
+        "F48",
+        "F49",
+        "F50"
+      ]
+    },
+    {
+      "id": "network.http.download",
+      "summary": "向授权目标执行流式文件 GET",
+      "owner": "app/services/network/HttpService",
+      "method": "POST",
+      "path": "/network/downloads",
+      "requestSchema": "HttpDownloadRequest",
+      "resultSchema": "JobHandle",
+      "jobKind": "network.download",
+      "jobResultSchema": "HttpDownloadResult",
+      "async": true,
+      "scopes": {
+        "allOf": [
+          "network.http",
+          "files.write"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "target_grant",
+      "mutates": true,
+      "idempotency": "required",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "planned",
+      "adapters": {
+        "internal": false,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC06",
+        "TC18"
+      ],
+      "featureIds": [
+        "F12",
+        "F13",
+        "F16",
+        "F44",
+        "F45",
+        "F46",
+        "F47",
+        "F48",
+        "F49",
+        "F50"
+      ]
+    },
+    {
+      "id": "network.proxy.get",
+      "summary": "读取请求域代理",
+      "owner": "app/services/network/ProxyService",
+      "method": "GET",
+      "path": "/network/proxy/{profileId}",
+      "requestSchema": "ProxyRefRequest",
+      "resultSchema": "ProxyProfile",
+      "async": false,
+      "scopes": {
+        "allOf": [
+          "network.proxy.read"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": false,
+      "idempotency": "natural",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "planned",
+      "adapters": {
+        "internal": false,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC18"
+      ],
+      "featureIds": [
+        "F44",
+        "F45",
+        "F46",
+        "F47",
+        "F48",
+        "F49",
+        "F50"
+      ]
+    },
+    {
+      "id": "network.proxy.set",
+      "summary": "更新请求域代理",
+      "owner": "app/services/network/ProxyService",
+      "method": "PUT",
+      "path": "/network/proxy/{profileId}",
+      "requestSchema": "ProxyProfileRequest",
+      "resultSchema": "JobHandle",
+      "jobKind": "network.proxy_update",
+      "jobResultSchema": "ProxyProfile",
+      "async": true,
+      "scopes": {
+        "allOf": [
+          "network.proxy.manage"
+        ],
+        "anyOf": []
+      },
+      "authorizationRule": "static",
+      "mutates": true,
+      "idempotency": "optional",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "planned",
+      "adapters": {
+        "internal": false,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC18"
+      ],
+      "featureIds": [
+        "F44",
+        "F45",
+        "F46",
+        "F47",
+        "F48",
+        "F49",
+        "F50"
+      ]
+    },
+    {
+      "id": "gateway.pairings.create",
+      "summary": "在配对窗口创建挑战",
+      "owner": "app/runtime/api/LocalGateway",
+      "method": "POST",
+      "path": "/pairings",
+      "requestSchema": "PairingRequest",
+      "resultSchema": "PairingChallenge",
+      "async": false,
+      "scopes": {
+        "allOf": [],
+        "anyOf": []
+      },
+      "authorizationRule": "pairing_window",
+      "mutates": true,
+      "idempotency": "none",
+      "secretFields": [],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "planned",
+      "adapters": {
+        "internal": false,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC16"
+      ],
+      "featureIds": [
+        "F46",
+        "F47"
+      ]
+    },
+    {
+      "id": "gateway.pairings.exchange",
+      "summary": "兑换用户批准的客户端令牌",
+      "owner": "app/runtime/api/LocalGateway",
+      "method": "POST",
+      "path": "/pairings/{pairingRef}/exchange",
+      "requestSchema": "PairingExchangeRequest",
+      "resultSchema": "PairingResult",
+      "async": false,
+      "scopes": {
+        "allOf": [],
+        "anyOf": []
+      },
+      "authorizationRule": "pairing_challenge",
+      "mutates": true,
+      "idempotency": "none",
+      "secretFields": [
+        "clientSecret"
+      ],
+      "schemaVersion": "1.0.0",
+      "introducedIn": "1.0",
+      "deprecated": null,
+      "implementation": "planned",
+      "adapters": {
+        "internal": false,
+        "http": false,
+        "cli": false
+      },
+      "platforms": {
+        "windows": "unverified",
+        "macos": "unverified",
+        "linux": "unverified",
+        "android": "adapter_required",
+        "ios": "adapter_required",
+        "wasm": "adapter_required"
+      },
+      "acceptance": [
+        "TC16"
+      ],
+      "featureIds": [
+        "F46",
+        "F47"
+      ]
+    }
+  ],
+  "verifiedOn": "2026-10-10"
+}

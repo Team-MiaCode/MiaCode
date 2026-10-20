@@ -1,9 +1,9 @@
 #pragma once
 
-#include "PreviewAudioBackend.h"
-#include "PreviewAudioSettings.h"
-#include "common/PreviewTimingSettings.h"
-#include "timeline/TimelineData.h"
+#include "audio/PreviewAudioBackend.h"
+#include "audio/PreviewAudioSettings.h"
+#include "core/video/PreviewTimingSettings.h"
+#include "core/chart/model/TimelineData.h"
 
 #include <QString>
 #include <QVector>
@@ -163,7 +163,6 @@ struct PreviewAudioSnapshot {
     int nativeErrorCode = 0;
     quint64 workerThreadId = 0;
     PreviewAudioHealthSample healthSample;
-    PlaybackClockSample playbackClock;
 };
 
 struct CommandPolicy {

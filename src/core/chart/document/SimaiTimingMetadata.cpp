@@ -1,4 +1,4 @@
-#include "SimaiTimingMetadata.h"
+#include "core/chart/document/SimaiTimingMetadata.h"
 
 #include <QRegularExpression>
 

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "PreviewAudioDeviceCutoff.h"
-#include "PreviewAudioWorker.h"
+#include "audio/PreviewAudioDeviceCutoff.h"
+#include "audio/PreviewAudioWorker.h"
 
 #include <atomic>
 #include <chrono>
@@ -125,7 +125,6 @@ public:
     quint64 playbackGeneration() const noexcept;
     quint64 assetGeneration() const noexcept;
     double authoritativePlaybackSecond() const;
-    double playbackClockSecond(double fallbackSecond, double rate) const;
     void stopSfxVoices();
     double syncPreviewPlaybackClockTransaction(double fallbackSecond);
     void resetCursor(double second, bool includeCurrentSecond);
@@ -194,8 +193,6 @@ private:
     std::mutex workerLifecycleMutex_;
     std::shared_ptr<CallbackState> callbackState_;
     mutable std::mutex snapshotMutex_;
-    // Only sampled from the GUI owner, independently of worker snapshot delivery.
-    mutable miacode::preview_audio::PlaybackClockFollower playbackClockFollower_;
     miacode::preview_audio::PreviewAudioSnapshot lastSnapshot_;
     std::atomic_bool acceptingCommands_{true};
     std::atomic<quint64> playbackGeneration_{1};

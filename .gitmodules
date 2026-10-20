@@ -1,0 +1,4 @@
+[submodule "third_party/ScintillaQuick"]
+	path = third_party/ScintillaQuick
+	url = https://github.com/imakris/ScintillaQuick.git
+	update = checkout
