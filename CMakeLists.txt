@@ -645,6 +645,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/components/AppSlider.qml
     src/app/ui/components/AppScrollBar.qml
     src/app/ui/components/AppMenu.qml
+    src/app/ui/components/MajnetActionsMenu.qml
     src/app/ui/components/AppMenuAction.qml
     src/app/ui/components/FloatingCard.qml
     src/app/ui/components/WindowBackground.qml
@@ -764,6 +765,7 @@ set(MIACODE_UI_ICON_FILES
     src/app/ui/resources/icons/more-fill.svg
     src/app/ui/resources/icons/folder-open.svg
     src/app/ui/resources/icons/folder-arrow-right.svg
+    src/app/ui/resources/icons/globe.svg
     src/app/ui/resources/icons/save.svg
     src/app/ui/resources/icons/save-multiple.svg
     src/app/ui/resources/icons/undo.svg

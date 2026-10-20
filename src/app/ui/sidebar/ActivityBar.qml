@@ -1,5 +1,4 @@
 import QtQuick
-import QtQml.Models
 import QtQuick.Controls
 import QtQuick.Controls.impl as ControlsImpl
 import MiaCode.UI
@@ -10,6 +9,7 @@ Rectangle {
     property string activeView: "chart"
     property bool documentAvailable: true
     property bool netEnabled: false
+    property bool networkActive: false
     property bool toolsAvailable: true
     property bool chartEditorAvailable: true
     property bool normalizationEnabled: true
@@ -48,6 +48,15 @@ Rectangle {
             onClicked: root.viewRequested("export")
         }
         ActivityButton {
+            id: majnetButton
+            objectName: "majnetActivityButton"
+            iconSource: Qt.resolvedUrl("icons/globe.svg")
+            tooltip: qsTrId("net.ui.majnet")
+            enabled: root.netEnabled
+            selected: root.networkActive || majnetPopup.active
+            onClicked: majnetPopup.popup(majnetButton, majnetButton.width, 0)
+        }
+        ActivityButton {
             id: toolsButton
             iconSource: Qt.resolvedUrl("icons/tools.svg")
             filledIconSource: Qt.resolvedUrl("icons/tools-fill.svg")
@@ -63,21 +72,18 @@ Rectangle {
         }
     }
 
+    // Keep the left navigation entry and the top-level Majnet menu identical.
+    MajnetActionsMenu {
+        id: majnetPopup
+        actionsEnabled: root.netEnabled
+        onDownloadRequested: root.toolRequested("net-download")
+        onUploadRequested: root.toolRequested("net-upload")
+    }
+
     AppMenu {
         id: toolsPopup
         hugContent: true
 
-        Instantiator {
-            model: root.netEnabled ? ["net-download", "net-upload"] : []
-            delegate: AppMenuAction {
-                required property string modelData
-                text: qsTrId(modelData === "net-download" ? "net.ui.download_page" : "net.ui.upload_page")
-                enabled: root.toolsAvailable
-                onTriggered: root.toolRequested(modelData)
-            }
-            onObjectAdded: (index, object) => toolsPopup.insertAction(index, object)
-            onObjectRemoved: (index, object) => toolsPopup.removeAction(object)
-        }
         AudioProcessingMenu {
             enabled: root.toolsAvailable
             documentAvailable: root.documentAvailable

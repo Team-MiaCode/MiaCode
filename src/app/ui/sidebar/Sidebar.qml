@@ -77,6 +77,7 @@ Item {
         anchors.bottom: parent.bottom
         activeView: root.viewState.activeSidebarView
         documentAvailable: root.documentSession.hasDocument
+        networkActive: root.viewState.netEditorActive
         toolsAvailable: true
         chartEditorAvailable: root.documentSession.hasDocument
             && root.documentSession.currentDifficultyId > 0 && !root.pages.overlayActive

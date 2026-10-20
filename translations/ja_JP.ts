@@ -2707,6 +2707,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Tools(&amp;T)</source>
         <translation>道具(&amp;T)</translation>
     </message>
+    <message id="menu.majnet_n">
+        <source>Majnet(&amp;N)</source>
+        <translation>Majnet(&amp;N)</translation>
+    </message>
     <message id="menu.transform">
         <source>Modify(&amp;M)</source>
         <translation>編集(&amp;M)</translation>
@@ -4223,6 +4227,10 @@ Error: %1</source>
     <message id="net.ui.download_page">
         <source>Majdata Net</source>
         <translation>譜面ダウンロード</translation>
+    </message>
+    <message id="net.ui.majnet">
+        <source>Majnet</source>
+        <translation>Majnet</translation>
     </message>
     <message id="net.ui.uploader">
         <source>Uploader</source>

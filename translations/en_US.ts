@@ -2707,6 +2707,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Tools(&amp;T)</source>
         <translation>Tools(&amp;T)</translation>
     </message>
+    <message id="menu.majnet_n">
+        <source>Majnet(&amp;N)</source>
+        <translation>Majnet(&amp;N)</translation>
+    </message>
     <message id="menu.transform">
         <source>Modify(&amp;M)</source>
         <translation>Modify(&amp;M)</translation>
@@ -4223,6 +4227,10 @@ Error: %1</translation>
     <message id="net.ui.download_page">
         <source>Majdata Net</source>
         <translation>Chart download</translation>
+    </message>
+    <message id="net.ui.majnet">
+        <source>Majnet</source>
+        <translation>Majnet</translation>
     </message>
     <message id="net.ui.uploader">
         <source>Uploader</source>

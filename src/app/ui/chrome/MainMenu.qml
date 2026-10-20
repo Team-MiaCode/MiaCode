@@ -36,8 +36,8 @@ Item {
     readonly property int overflowButtonWidth: 30
     readonly property real fullWidth: fileButton.implicitWidth + editButton.implicitWidth
         + adjustButton.implicitWidth + toolsButton.implicitWidth + previewButton.implicitWidth
-        + extrasButton.implicitWidth
-    property int visibleCount: 6
+        + majnetButton.implicitWidth + extrasButton.implicitWidth
+    property int visibleCount: 7
     property bool layoutReady: false
     property var _activeMenu: null
 
@@ -55,11 +55,11 @@ Item {
     }
 
     function topButtons() {
-        return [fileButton, editButton, adjustButton, toolsButton, previewButton, extrasButton]
+        return [fileButton, editButton, adjustButton, toolsButton, previewButton, majnetButton, extrasButton]
     }
 
     function topMenus() {
-        return [fileMenu, editMenu, adjustMenu, toolsMenu, previewMenu, extrasMenu]
+        return [fileMenu, editMenu, adjustMenu, toolsMenu, previewMenu, majnetMenu, extrasMenu]
     }
 
     function nativeMenus() {
@@ -255,9 +255,15 @@ Item {
             menuIndex: 4
         }
         TopLevelItem {
+            id: majnetButton
+            menu: majnetMenu
+            menuIndex: 5
+            enabled: root.commandsEnabled && root.commands.netEnabled
+        }
+        TopLevelItem {
             id: extrasButton
             menu: extrasMenu
-            menuIndex: 5
+            menuIndex: 6
         }
         IconButton {
             id: moreButton
@@ -265,7 +271,7 @@ Item {
             width: root.overflowButtonWidth
             y: (root.height - height) / 2
             height: Math.min(Theme.controlMinHeight, root.height)
-            visible: root.visibleCount < 6
+            visible: root.visibleCount < 7
             iconSource: Qt.resolvedUrl("icons/more.svg")
             filledIconSource: Qt.resolvedUrl("icons/more-fill.svg")
             iconWidth: 16
@@ -469,17 +475,6 @@ Item {
         AppMenu {
             id: toolsMenu
             title: root.menuTitle(qsTrId("menu.tools"))
-            Instantiator {
-                model: root.commands.netEnabled ? ["net-download", "net-upload"] : []
-                delegate: AppMenuAction {
-                    required property string modelData
-                    text: qsTrId(modelData === "net-download" ? "net.ui.download_page" : "net.ui.upload_page")
-                    enabled: root.commandsEnabled
-                    onTriggered: modelData === "net-download" ? root.commands.netRequested() : root.commands.netUploadRequested()
-                }
-                onObjectAdded: (index, object) => toolsMenu.insertAction(index, object)
-                onObjectRemoved: (index, object) => toolsMenu.removeAction(object)
-            }
             AppMenuAction {
                 text: qsTrId("dialog.unsaved_field_changes.field.metadata")
                 enabled: root.commandsEnabled && root.toolCommandsEnabled
@@ -507,6 +502,14 @@ Item {
                          && root.normalizationEnabled && root.commands.canNormalize
                 onTriggered: root.commands.normalizeChartRequested()
             }
+        }
+
+        MajnetActionsMenu {
+            id: majnetMenu
+            title: root.menuTitle(qsTrId("menu.majnet_n"))
+            actionsEnabled: root.commandsEnabled && root.commands.netEnabled
+            onDownloadRequested: root.commands.netRequested()
+            onUploadRequested: root.commands.netUploadRequested()
         }
 
         AppMenu {
