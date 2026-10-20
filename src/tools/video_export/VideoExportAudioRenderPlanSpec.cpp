@@ -252,8 +252,9 @@ bool verifyPvPreviewIntroPlan(QTextStream& err)
                  QStringLiteral("PV preview music should play the segment from output 0 into the wipe"), err)) {
         return false;
     }
-    if (!require(intro.fadeOutSeconds > miacode::intro::kPvPreviewAudioTailSeconds,
-                 QStringLiteral("PV preview fade-out should straddle the hard cut"), err)) {
+    if (!require(qAbs(intro.fadeOutSeconds - 3.0) <= 1e-6
+                     && qAbs(intro.durationSeconds - intro.fadeOutSeconds - 4.75) <= 1e-6,
+                 QStringLiteral("PV preview music fades for 3 s, starting at 4.75 s before the wipe"), err)) {
         return false;
     }
     if (!require(intro.fadeInSeconds > 0.0 && intro.fadeOutSeconds > 0.0

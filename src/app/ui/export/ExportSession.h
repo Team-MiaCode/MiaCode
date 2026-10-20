@@ -77,6 +77,7 @@ class ExportSession final : public QObject, public miacode::ExportPagePort
     // and is remembered per chart; the segment length is fixed.
     Q_PROPERTY(bool introPvPreview READ introPvPreview WRITE setIntroPvPreview NOTIFY introChanged)
     Q_PROPERTY(double introPvStartSeconds READ introPvStartSeconds WRITE setIntroPvStartSeconds NOTIFY introChanged)
+    Q_PROPERTY(double introPvBrightness READ introPvBrightness WRITE setIntroPvBrightness NOTIFY introChanged)
     Q_PROPERTY(double introPvSegmentSeconds READ introPvSegmentSeconds CONSTANT)
     // How long the segment's music plays into the intro (it fades out under the wipe).
     Q_PROPERTY(double introPvMusicSeconds READ introPvMusicSeconds CONSTANT)
@@ -163,6 +164,7 @@ public:
     QString introFontBodyPath() const { return task_.intro.fontBodyPath; }
     bool introPvPreview() const { return task_.intro.pvPreview; }
     double introPvStartSeconds() const { return task_.intro.pvPreviewStartSeconds; }
+    double introPvBrightness() const { return task_.intro.pvPreviewBrightness; }
     double introPvSegmentSeconds() const;
     double introPvMusicSeconds() const;
     bool introPvVideoAvailable() const;
@@ -250,6 +252,7 @@ public:
     void setIntroFontBodyPath(const QString& path);
     void setIntroPvPreview(bool value);
     void setIntroPvStartSeconds(double seconds);
+    void setIntroPvBrightness(double value);
     void setIntroPvSegmentDragging(bool dragging);
     void setIntroAuditionLoop(bool loop);
     void setIntroSoundIndex(int index);
