@@ -4817,63 +4817,6 @@ Error: %1</source>
         <source>The prepended PV exceeds its size budget or the 20 MB limit.</source>
         <translation>插入黑屏后的 PV 超出体积预算或 20 MB 上限。</translation>
     </message>
-</context>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<context>
-    <name>BatchCoverExport</name>
     <message id="dialog.batch_export.cover_preset">
         <source>Cover preset</source>
         <translation>封面预设</translation>

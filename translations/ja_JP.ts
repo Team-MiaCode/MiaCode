@@ -4817,63 +4817,6 @@ Error: %1</source>
         <source>The prepended PV exceeds its size budget or the 20 MB limit.</source>
         <translation>黒画面を追加した PV がサイズ予算または 20 MB の上限を超えています。</translation>
     </message>
-</context>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<context>
-    <name>BatchCoverExport</name>
     <message id="dialog.batch_export.cover_preset">
         <source>Cover preset</source>
         <translation>カバープリセット</translation>

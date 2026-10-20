@@ -4817,63 +4817,6 @@ Error: %1</translation>
         <source>The prepended PV exceeds its size budget or the 20 MB limit.</source>
         <translation>The prepended PV exceeds its size budget or the 20 MB limit.</translation>
     </message>
-</context>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<context>
-    <name>BatchCoverExport</name>
     <message id="dialog.batch_export.cover_preset">
         <source>Cover preset</source>
         <translation>Cover preset</translation>
