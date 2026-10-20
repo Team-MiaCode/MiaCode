@@ -309,6 +309,14 @@ miacode_add_dev_tool(file_dialog_preferences_spec TEST
     INCLUDES src
 )
 
+miacode_add_dev_tool(startup_arguments_spec TEST
+    SOURCES
+        src/tools/services/StartupArgumentsSpec.cpp
+        src/app/StartupArguments.h
+    LIBS Qt6::Core
+    INCLUDES src
+)
+
 miacode_add_dev_tool(export_preferences_spec TEST
     SOURCES src/tools/services/ExportPreferencesSpec.cpp
     LIBS miacode_export Qt6::Core
