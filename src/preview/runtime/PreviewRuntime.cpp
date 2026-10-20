@@ -1068,7 +1068,11 @@ void PreviewRuntime::reset(bool releaseStorage)
     frameState_.muriAnalysisReport = MuriAnalysisReport();
     frameState_.playheadSeconds = 0.0;
     frameState_.hudPlayheadSecondsOverride = std::numeric_limits<double>::quiet_NaN();
-    frameState_.sceneContentRevision = 0;
+    // Advance, never rewind: without a storage-generation bump a rewound revision
+    // lets the next content reach a revision some PreviewQuickSceneRoot already
+    // cached for other markers, and that root's prepared cache skips the rebuild
+    // (issue #48: notes vanish while the statistics stay correct).
+    frameState_.sceneContentRevision += 1;
     // Restore the invariant "armed-but-not-done ⇒ exactly one synthetic in
     // noteMarkers, centred on fireworkWarmupCenterSecond_". The clear above drops
     // it, and refreshFireworkWarmupForPlayheadChange() no longer re-adds it on
