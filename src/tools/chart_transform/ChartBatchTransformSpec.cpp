@@ -2322,6 +2322,21 @@ void runInlineSpecs(QTextStream& err, int* failed)
     }
 
     {
+        const miacode::simai::SimaiTimingMetadata timingMetadata =
+            miacode::simai::buildTimingMetadataFromRawText(QStringLiteral("&whole_time_signature=3/4"), true);
+        const miacode::chart_transform::ChartNormalizationResult normalized =
+            miacode::chart_transform::normalizeChartText(QStringLiteral(",,,,,,\nE"), timingMetadata);
+        expectTrue(normalized.ok, QStringLiteral("normalize whole chart accepts metadata-driven default time signatures"), failed, err);
+        expectEqual(
+            normalized.text,
+            QStringLiteral("{16},,,, ,,,, ,,,,\n{16},,,, ,,,, ,,,,\nE"),
+            QStringLiteral("normalize whole chart uses metadata-driven 3/4 measure boundaries"),
+            failed,
+            err
+        );
+    }
+
+    {
         // An <HS*N> change applies from the next note. Mid-measure directives
         // used to be emitted after the whole measure line, handing the notes
         // after them the previous HS.
@@ -2351,21 +2366,6 @@ void runInlineSpecs(QTextStream& err, int* failed)
             }
         }
         SimaiParser::setAllowNegativeHsEnabled(previousNegativeHs);
-    }
-
-    {
-        const miacode::simai::SimaiTimingMetadata timingMetadata =
-            miacode::simai::buildTimingMetadataFromRawText(QStringLiteral("&whole_time_signature=3/4"), true);
-        const miacode::chart_transform::ChartNormalizationResult normalized =
-            miacode::chart_transform::normalizeChartText(QStringLiteral(",,,,,,\nE"), timingMetadata);
-        expectTrue(normalized.ok, QStringLiteral("normalize whole chart accepts metadata-driven default time signatures"), failed, err);
-        expectEqual(
-            normalized.text,
-            QStringLiteral("{16},,,, ,,,, ,,,,\n{16},,,, ,,,, ,,,,\nE"),
-            QStringLiteral("normalize whole chart uses metadata-driven 3/4 measure boundaries"),
-            failed,
-            err
-        );
     }
 
     {
