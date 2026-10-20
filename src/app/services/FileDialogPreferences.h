@@ -10,7 +10,7 @@
 namespace miacode::file_dialog_preferences {
 
 enum class Purpose {
-    IntroSound, IntroFont, CoverFont, HudFont, CoverLayout, PvBatchRoot,
+    IntroSound, IntroFont, CoverFont, HudFont, CoverLayout, PvBatchRoot, NewChartAudio,
 };
 
 enum class ChartPurpose {
@@ -26,6 +26,7 @@ inline QString key(Purpose purpose)
     case Purpose::HudFont: return QStringLiteral("hud_font");
     case Purpose::CoverLayout: return QStringLiteral("cover_layout");
     case Purpose::PvBatchRoot: return QStringLiteral("pv_batch_root");
+    case Purpose::NewChartAudio: return QStringLiteral("new_chart_audio");
     }
     return {};
 }

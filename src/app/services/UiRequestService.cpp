@@ -129,6 +129,13 @@ QString UiRequestService::requestFileSelection(const FileRequest& request, Files
     payload.insert(QStringLiteral("selectFolder"), request.selectFolder);
     payload.insert(QStringLiteral("selectMultiple"), request.selectMultiple);
     addStartLocation(request, payload);
+    // The shell reuses one dialog per window: a request that names no folder
+    // would otherwise open wherever the previous, unrelated pick ended.
+    if (!payload.contains(QStringLiteral("startFolder"))) {
+        const QFileInfo fallback(defaultStartFolder_ ? defaultStartFolder_() : QString());
+        payload.insert(QStringLiteral("startFolder"), QUrl::fromLocalFile(
+            fallback.isAbsolute() && fallback.isDir() ? fallback.absoluteFilePath() : QDir::homePath()));
+    }
     filePresentations_.insert(requestId, payload);
     emit fileRequested(requestId, presentation(payload));
     return requestId;
@@ -274,6 +281,11 @@ void UiRequestService::cancelFileRequest(const QString& requestId)
 void UiRequestService::setNativeFolderPicker(NativeFolderPicker picker)
 {
     nativeFolderPicker_ = std::move(picker);
+}
+
+void UiRequestService::setDefaultStartFolder(StartFolderProvider provider)
+{
+    defaultStartFolder_ = std::move(provider);
 }
 
 void UiRequestService::openNativeFolders(const QString& requestId, QObject* parentWindow)

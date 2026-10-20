@@ -23,7 +23,7 @@ int main(int argc, char** argv)
         {"file_dialogs", QJsonObject{{"future_purpose", "preserved"}}}}}});
     const QList<Purpose> purposes{Purpose::IntroSound,
         Purpose::IntroFont, Purpose::CoverFont, Purpose::HudFont,
-        Purpose::CoverLayout, Purpose::PvBatchRoot};
+        Purpose::CoverLayout, Purpose::PvBatchRoot, Purpose::NewChartAudio};
     for (const auto purpose : purposes) {
         const QString directory = temp.filePath(history::key(purpose));
         QDir().mkpath(directory);

@@ -121,9 +121,12 @@ bool verifyCancellationAndUnknownIds(QTextStream& err)
     return ok;
 }
 
-QVariantMap requestPayload(const miacode::FileRequest& request)
+QVariantMap requestPayload(const miacode::FileRequest& request,
+                           const QString& defaultStartFolder = QString())
 {
     miacode::UiRequestService service;
+    if (!defaultStartFolder.isEmpty())
+        service.setDefaultStartFolder([defaultStartFolder] { return defaultStartFolder; });
     QSignalSpy requested(&service, &miacode::UiRequestService::fileRequested);
     service.requestFile(request, [](const QString&) {});
     return requested.isEmpty() ? QVariantMap() : requested.at(0).at(1).toMap();
@@ -183,9 +186,9 @@ bool verifyStartLocation(QTextStream& err)
 
     save.startPath = QStringLiteral("cover-layout.miacover");
     payload = requestPayload(save);
-    ok &= require(!payload.contains(QStringLiteral("startFolder"))
+    ok &= require(localPathOf(payload, "startFolder") == QDir::homePath()
                       && localPathOf(payload, "startFile") == QStringLiteral("cover-layout.miacover"),
-                  QStringLiteral("a bare save name is proposed without inventing a folder, "
+                  QStringLiteral("a bare save name opens in the default folder "
                                  "and is never read as a host name"),
                   err);
 
@@ -199,8 +202,22 @@ bool verifyStartLocation(QTextStream& err)
 
     folder.startPath = QString();
     payload = requestPayload(folder);
-    ok &= require(!payload.contains(QStringLiteral("startFolder")),
-                  QStringLiteral("no start path leaves the location to the platform"), err);
+    ok &= require(localPathOf(payload, "startFolder") == QDir::homePath(),
+                  QStringLiteral("no start path and no default opens the home folder, "
+                                 "never the previous pick's folder"), err);
+
+    payload = requestPayload(folder, chartDir);
+    ok &= require(localPathOf(payload, "startFolder") == chartDir,
+                  QStringLiteral("no start path opens the installed default folder"), err);
+
+    payload = requestPayload(folder, QDir(chartDir).filePath(QStringLiteral("gone")));
+    ok &= require(localPathOf(payload, "startFolder") == QDir::homePath(),
+                  QStringLiteral("a default folder that no longer exists falls back to home"), err);
+
+    open.startPath = chartDir;
+    payload = requestPayload(open, root.path());
+    ok &= require(localPathOf(payload, "startFolder") == chartDir,
+                  QStringLiteral("an explicit start path wins over the default folder"), err);
 
 #ifdef Q_OS_WIN
     save.startPath = QStringLiteral("C:/charts/song/out.mp4");

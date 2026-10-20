@@ -27,7 +27,8 @@ struct FileRequest {
     // take either a directory, opened with nothing selected, or a file, whose
     // directory is opened with the file preselected — an existing one for an
     // open dialog, possibly a new one (or a bare name) for a save dialog.
-    // Empty is allowed and means "let the platform choose".
+    // Empty opens the default start folder (setDefaultStartFolder), never the
+    // folder a previous, unrelated pick happened to end in.
     QString startPath;
     LocalizedTextList nameFilters;
     bool saveMode = false;
@@ -55,6 +56,7 @@ public:
     using NativeFolderPicker = std::function<void(QObject* lifetime, QObject* parentWindow,
                                                  const QString& title, const QUrl& startFolder,
                                                  NativeFolderResult onResolved)>;
+    using StartFolderProvider = std::function<QString()>;
     // true when the viewer chose the notice's extra action.
     using NoticeCallback = std::function<void(bool actionChosen)>;
     // The id of the button that was pressed, or the request's dismissChoiceId
@@ -68,6 +70,9 @@ public:
     QString requestFiles(const FileRequest& request, FilesCallback onResolved);
     // Installed by the desktop UI; the request boundary remains QtCore-only.
     void setNativeFolderPicker(NativeFolderPicker picker);
+    // Where a request without a usable startPath opens; the home folder when
+    // unset or when it names no existing directory.
+    void setDefaultStartFolder(StartFolderProvider provider);
 
     // Fire-and-forget message. Nothing is waiting on the viewer's dismissal.
     void postNotice(NoticeSeverity severity,
@@ -143,6 +148,7 @@ private:
     QHash<QString, QVariantMap> noticePresentations_;
     QHash<QString, FilesCallback> pendingFileRequests_;
     NativeFolderPicker nativeFolderPicker_;
+    StartFolderProvider defaultStartFolder_;
     QHash<QString, QPointer<QObject>> nativeFolderLifetimes_;
     QHash<QString, NoticeCallback> pendingNotices_;
     struct PendingChoice {

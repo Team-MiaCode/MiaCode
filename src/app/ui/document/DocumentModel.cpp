@@ -1011,12 +1011,17 @@ void DocumentModel::createDocumentFromPickedAudio()
     }
     miacode::FileRequest request;
     request.title = miacode::localizedText("document.choose_audio");
+    request.startPath = miacode::file_dialog_preferences::recentDirectory(
+        miacode::file_dialog_preferences::Purpose::NewChartAudio,
+        fileDialogLocation(false).value(QStringLiteral("folder")).toUrl().toLocalFile());
     request.nameFilters = {
         miacode::localizedText("document.audio_files_filter").arg(patterns.join(QLatin1Char(' '))),
         miacode::localizedText("qml.all_files"),
     };
     requests->requestFile(request, [this](const QString& audioPath) {
         if (!audioPath.trimmed().isEmpty()) {
+            miacode::file_dialog_preferences::rememberFile(
+                miacode::file_dialog_preferences::Purpose::NewChartAudio, audioPath);
             createChartBesideAudio(QDir::cleanPath(audioPath));
         }
     });

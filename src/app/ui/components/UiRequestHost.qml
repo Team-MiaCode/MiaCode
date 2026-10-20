@@ -30,6 +30,8 @@ Item {
     width: 0
     height: 0
 
+    // Every request carries startFolder (UiRequestService supplies a default),
+    // so the shared dialogs never reopen in the previous pick's folder.
     // startFolder / startFile arrive as URLs built by UiRequestService with
     // QUrl::fromLocalFile. Never rebuild them from startPath here: "file://" +
     // "C:/..." names host "c", and the dialog stalls on that SMB lookup.
@@ -41,8 +43,7 @@ Item {
             }
             root.activeFolderRequestId = requestId
             root.folderRequest = request
-            if (request.startFolder)
-                folderDialog.currentFolder = request.startFolder
+            folderDialog.currentFolder = request.startFolder
             folderDialog.open()
             return
         }
@@ -53,8 +54,7 @@ Item {
         fileDialog.fileMode = request.saveMode ? FileDialog.SaveFile
                             : request.selectMultiple ? FileDialog.OpenFiles : FileDialog.OpenFile
         fileDialog.selectedFile = ""
-        if (request.startFolder)
-            fileDialog.currentFolder = request.startFolder
+        fileDialog.currentFolder = request.startFolder
         if (request.startFile)
             fileDialog.selectedFile = request.startFile
         fileDialog.open()
