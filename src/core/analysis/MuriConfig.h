@@ -12,6 +12,8 @@ constexpr int kStaticTapOnSlideThresholdMaxMs = 250;
 constexpr int kStaticTapOnSlideThresholdDefaultMs = 200;
 constexpr int kStaticTapOnSlideThresholdStepMs = 5;
 constexpr double kReleaseDelaySeconds = 3.0 / kJudgeTps;
+// MaiMuriDX treats holds lasting at most one 60 Hz frame as tap actions.
+constexpr double kFakeHoldDurationSeconds = 3.0 / kJudgeTps;
 constexpr double kExtraPadDownDelaySeconds = 9.0 / kJudgeTps;
 constexpr double kTapCriticalSeconds = 3.0 / kJudgeTps;
 constexpr double kTapAvailableSeconds = 27.0 / kJudgeTps;
