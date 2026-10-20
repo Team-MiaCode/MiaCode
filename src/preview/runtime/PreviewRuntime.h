@@ -363,6 +363,8 @@ private:
     // pipeline build had not actually happened yet.
     std::atomic<quint64> fireworkLayerDrawSignal_{0};
     quint64 fireworkWarmupArmDrawSignal_ = 0;
+    QElapsedTimer nonFinitePlayheadLogTimer_;
+    quint64 nonFinitePlayheadIgnoredCount_ = 0;
     bool requestedShowObjectStatsHud_ = false;
     bool suppressObjectStatsHud_ = false;
     bool requestedShowDebugInfo_ = false;
