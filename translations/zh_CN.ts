@@ -4789,10 +4789,6 @@ Error: %1</source>
         <source>Set to current value</source>
         <translation>设为当前值</translation>
     </message>
-    <message id="dialog.video_export.range.play_clip">
-        <source>Play Range</source>
-        <translation>播放区间</translation>
-    </message>
     <message id="dialog.video_export.output_mode">
         <source>Output Format</source>
         <translation>输出格式</translation>
