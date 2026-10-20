@@ -11,7 +11,7 @@ Qt 6 / C++ / QML 谱面编辑、预览和导出工具。
   `src/core/scene/`、`src/core/video/`：预览与导出共享的场景数学和配置。
 - `src/audio/`（BASS 后端在 `audio/bass/`）、`src/preview/`（舞台媒体在 `preview/stage_media/`）、`src/timeline/`：音频、QSG 预览、时间轴。
 - `src/export/`：视频/封面导出与导出会话；`src/media_tools/`：PV 压缩、ZIP、网络；`src/common/`：日志、诊断等基础设施。
-- `src/tools/`：规格；`src/devtools/`：命令行诊断入口。
+- `src/tools/`：规格；`src/devtools/`：命令行诊断入口；`src/batch_cleaner/`：独立的谱面批处理程序，只依赖 chart，复用主题与通用控件但不改动主程序。
 - 每个目录属于一个静态库，库与依赖方向见 `docs/specs/architecture/MODULE_LAYERING_CURRENT_ZH.md`；
   include 写成以 `src` 为根的完整路径，下层库只经端口取得偏好等宿主能力。
 

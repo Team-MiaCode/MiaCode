@@ -75,6 +75,7 @@ set(MIACODE_APP_ICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/app.ico" CACHE
 set(MIACODE_MACOS_APP_ICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/icons/app.icns" CACHE FILEPATH "Optional application icon (.icns) for macOS bundles")
 option(MIACODE_BUILD_DEV_TOOLS "Build developer helper tools" OFF)
 option(MIACODE_BUILD_APP "Build the desktop application and its platform dependencies" ON)
+option(MIACODE_BUILD_BATCH_CLEANER "Build the standalone batch chart cleanup tool" ON)
 option(MIACODE_PREVIEW_MULTIMEDIA "Enable QVideoFrame input in the shared preview" ${MIACODE_BUILD_APP})
 
 # External preview hosts configure only the chart/scene/Quick dependency closure.
@@ -1152,6 +1153,10 @@ if (WIN32)
     if (EXISTS "${MIACODE_APP_ICON}" AND DEFINED MIACODE_APP_RC)
         target_sources(MiaCodeLauncher PRIVATE "${MIACODE_APP_RC}")
     endif()
+endif()
+
+if (MIACODE_BUILD_BATCH_CLEANER)
+    include(cmake/BatchCleaner.cmake)
 endif()
 
 if (MIACODE_BUILD_DEV_TOOLS)

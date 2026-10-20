@@ -4,6 +4,7 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
@@ -2281,6 +2282,55 @@ void runInlineSpecs(QTextStream& err, int* failed)
         const miacode::chart_transform::ChartNormalizationResult normalized =
             miacode::chart_transform::normalizeChartText(QStringLiteral("@\nE"));
         expectTrue(!normalized.ok, QStringLiteral("normalize whole chart blocks charts with syntax errors"), failed, err);
+    }
+
+    {
+        // `{995}` fine offsets beside `{12}` need a common subdivision in the
+        // millions without 1/384 alignment; normalization must refuse quickly
+        // instead of rendering every slot.
+        const QString fine = QStringLiteral(",").repeated(83);
+        const QString chart = QStringLiteral("(193){4}1,2,3,4,\n{8},6/5,7/4,,\n{12}3,\n{995}4") + fine + QStringLiteral("\n{12}3,6,\n{995}5")
+            + fine + QStringLiteral("\n{12}6,\n{4}1,2,3,4,\nE");
+        miacode::chart_transform::ChartNormalizationOptions exact;
+        exact.reduceTo384Grid = false;
+        QElapsedTimer timer;
+        timer.start();
+        const miacode::chart_transform::ChartNormalizationResult normalized =
+            miacode::chart_transform::normalizeChartText(chart, miacode::simai::SimaiTimingMetadata(), exact);
+        expectTrue(!normalized.ok && !normalized.errorMessage.isEmpty(),
+                   QStringLiteral("normalize whole chart refuses subdivisions above its cap"), failed, err);
+        expectTrue(timer.elapsed() < 5000,
+                   QStringLiteral("normalize whole chart rejects oversized subdivisions promptly"), failed, err);
+    }
+
+    {
+        // Durations outside the 384 family keep their exact text unless 1/384
+        // alignment is on; ordinary measures used to approximate them anyway.
+        const QString chart = QStringLiteral(
+            "(120){16}1-5[20:2],,,,,,,,,,,,,,,,\n{16}3-7[15:2],,,,2h[20:3],,,,,,,,,,,,\nE");
+        miacode::chart_transform::ChartNormalizationOptions exact;
+        exact.reduceTo384Grid = false;
+        const miacode::chart_transform::ChartNormalizationResult kept =
+            miacode::chart_transform::normalizeChartText(chart, miacode::simai::SimaiTimingMetadata(), exact);
+        expectTrue(kept.ok && kept.text.contains(QStringLiteral("1-5[20:2]"))
+                       && kept.text.contains(QStringLiteral("3-7[15:2]"))
+                       && kept.text.contains(QStringLiteral("2h[20:3]")),
+                   QStringLiteral("normalize without 1/384 alignment keeps non-384 durations verbatim"), failed, err);
+        const SimaiParseResult before = SimaiParser::parseForTimeline(chart);
+        const SimaiParseResult after = SimaiParser::parseForTimeline(kept.text);
+        bool sameEnds = before.noteMarkers.size() == after.noteMarkers.size();
+        for (int i = 0; sameEnds && i < before.noteMarkers.size(); ++i) {
+            sameEnds = qAbs(before.noteMarkers.at(i).endSecond - after.noteMarkers.at(i).endSecond) <= 1e-6;
+        }
+        expectTrue(sameEnds, QStringLiteral("normalize without 1/384 alignment keeps hold and slide end times"),
+                   failed, err);
+
+        miacode::chart_transform::ChartNormalizationOptions aligned;
+        aligned.reduceTo384Grid = true;
+        const miacode::chart_transform::ChartNormalizationResult snapped =
+            miacode::chart_transform::normalizeChartText(chart, miacode::simai::SimaiTimingMetadata(), aligned);
+        expectTrue(snapped.ok && !snapped.text.contains(QStringLiteral("[20:2]")),
+                   QStringLiteral("normalize with 1/384 alignment still approximates non-384 durations"), failed, err);
     }
 
     {

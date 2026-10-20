@@ -291,3 +291,11 @@ miacode_add_dev_tool(media_prepend_policy_spec TEST
     LIBS miacode_media_tools Qt6::Core
     INCLUDES src
 )
+
+miacode_add_dev_tool(batch_cleanup_core_spec TEST
+    SOURCES
+        src/tools/batch_cleaner/BatchCleanupCoreSpec.cpp
+        src/batch_cleaner/BatchCleanupCore.cpp
+    LIBS miacode_chart Qt6::Core Qt6::Gui
+    INCLUDES src
+)
