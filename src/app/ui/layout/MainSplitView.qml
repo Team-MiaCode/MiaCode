@@ -468,6 +468,17 @@ Item {
             onMediaToolRequested: toolId => root.mediaToolRequested(toolId)
         }
 
+        // Behind the split, so a fractional device pixel at the divider shows
+        // the panel surface instead of the wallpaper. Kept out of the
+        // SplitView background so it cannot intercept handle hover.
+        Rectangle {
+            x: workspaceSplit.x
+            y: workspaceSplit.y
+            width: workspaceSplit.width
+            height: workspaceSplit.height
+            color: Theme.surfaceColor(Theme.colors.background.panel)
+        }
+
         SplitView {
             id: workspaceSplit
             orientation: Qt.Horizontal
