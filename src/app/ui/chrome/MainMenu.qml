@@ -639,6 +639,13 @@ Item {
             }
             AppMenuSeparator {}
             AppMenuAction {
+                objectName: "previewRenderModeMenuAction"
+                text: qsTrId("menu.preview_rendering_mode")
+                enabled: root.commandsEnabled && root.commands.renderModeMenuAvailable
+                onTriggered: root.commands.renderModeMenuRequested()
+            }
+            AppMenuSeparator {}
+            AppMenuAction {
                 text: qsTrId("action.audio_settings")
                 enabled: root.commandsEnabled
                 onTriggered: root.commands.audioSettingsRequested()

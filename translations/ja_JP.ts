@@ -3583,6 +3583,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Preview rendering mode</source>
         <translation>プレビューレンダリングモード</translation>
     </message>
+    <message id="menu.preview_rendering_mode">
+        <source>Rendering Mode</source>
+        <translation>レンダリングモード</translation>
+    </message>
     <message id="qml.open_simai_file">
         <source>Open Simai file</source>
         <translation>Simai ファイルを開く</translation>

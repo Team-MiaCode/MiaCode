@@ -28,6 +28,9 @@ Rectangle {
     readonly property alias cornerSourceItem: heading
     readonly property Item transportItem: transport
     readonly property Item renderModeItem: renderModeButton
+    // The 预览 → 渲染模式 menu entry stands in for a click on the button, so it
+    // is available exactly when the button can be clicked.
+    readonly property bool renderModeMenuAvailable: renderModeButton.visible && renderModeButton.enabled
 
     // Export page still uses the backend ratio. Edit mode defaults to 1:1;
     // free aspect sizes the surface to the live stage geometry.
@@ -42,6 +45,14 @@ Rectangle {
 
     color: Theme.surfaceColor(Theme.colors.background.panel)
     clip: true
+
+    function toggleRenderModeMenu() {
+        if (renderModeMenu.active) {
+            renderModeMenu.close()
+            return
+        }
+        renderModeMenu.openAt(renderModeButton)
+    }
 
     function closeMenus() {
         renderModeMenu.close()
@@ -76,13 +87,7 @@ Rectangle {
             Accessible.role: Accessible.Button
             Accessible.name: qsTrId("qml.preview_rendering_mode")
             Accessible.description: root.previewSession.renderModeLabel
-            onClicked: {
-                if (renderModeMenu.active) {
-                    renderModeMenu.close()
-                    return
-                }
-                renderModeMenu.openAt(renderModeButton)
-            }
+            onClicked: root.toggleRenderModeMenu()
 
             contentItem: Text {
                 id: renderModeLabelText

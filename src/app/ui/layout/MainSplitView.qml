@@ -35,6 +35,7 @@ Item {
     readonly property Item difficultyFieldsItem: editorPane.difficultyFieldsItem
     readonly property Item transportItem: preview.transportItem
     readonly property Item renderModeItem: preview.renderModeItem
+    readonly property bool renderModeMenuAvailable: preview.renderModeMenuAvailable
     readonly property bool previewDetached: root.preferences.previewDetached
     readonly property Item settingsDialogParent: root.previewDetached
         ? detachedPreviewWindow.Overlay.overlay : root.Overlay.overlay
@@ -159,6 +160,16 @@ Item {
 
     function applyChartTransform(opId) {
         return editorPane.applyChartTransform(opId)
+    }
+
+    function toggleRenderModeMenu() {
+        if (!preview.renderModeMenuAvailable)
+            return
+        if (root.previewDetached) {
+            detachedPreviewWindow.raise()
+            detachedPreviewWindow.requestActivate()
+        }
+        preview.toggleRenderModeMenu()
     }
 
     function detachPreview() {

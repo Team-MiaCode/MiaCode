@@ -120,6 +120,7 @@ Item {
         canPaste: root.editorCommandsAvailable && splitView.canPaste
         canTransform: root.editorCommandsAvailable && splitView.canTransform
         canNormalize: root.editorCommandsAvailable && splitView.normalizationAvailable
+        renderModeMenuAvailable: splitView.renderModeMenuAvailable
         onExitRequested: root.requestClose()
         onUndoRequested: root.undo()
         onRedoRequested: root.redo()
@@ -168,6 +169,8 @@ Item {
         }
         onAudioSettingsRequested: audioSettingsDialog.open()
         onPreviewSettingsRequested: previewSettingsDialog.open()
+        // Let the menu finish closing before the dropdown takes the popup layer.
+        onRenderModeMenuRequested: Qt.callLater(splitView.toggleRenderModeMenu)
         onPreviewRateStepRequested: direction => {
             if (root.chartEditorActive)
                 root.previewSession.adjustRate(direction)
