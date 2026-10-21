@@ -118,8 +118,6 @@ public:
 
 private:
     QString preamble_;
-    // Earlier inote values precede the effective chart when serialized.
-    QMap<int, QVector<QString>> precedingCharts_;
     QMap<int, SimaiDifficultyData> difficulties_;
     // `&des_N` names for slots that have no chart. Kept disjoint from
     // difficulties_ (a slot is in one map or the other, never both) so a
