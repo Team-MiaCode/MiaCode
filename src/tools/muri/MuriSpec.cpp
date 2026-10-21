@@ -11,6 +11,7 @@
 #include "core/analysis/MuriAnalyzer.h"
 #include "core/analysis/MuriAnalyzerInternal.h"
 #include "core/analysis/MuriRuntimeModelBuilder.h"
+#include "core/analysis/MuriSlideWifiJudge.h"
 #include "core/analysis/MuriPanelEntries.h"
 #include "core/analysis/MuriStaticChecker.h"
 
@@ -267,9 +268,69 @@ int main(int argc, char** argv)
             MuriRenderOptions options;
             options.handRadiusPx = radius;
             const auto report = MuriAnalyzer::analyze(parsed.noteMarkers, options);
-            expect(countDiagnostics(report.diagnostics, MuriKind::SlideTooFast) == 1,
-                QStringLiteral("B6 can advance the B6/A6 area even at hand radius %1").arg(radius));
+            expect(countDiagnostics(report.diagnostics, MuriKind::SlideTooFast) == 0,
+                QStringLiteral("one B6 release cannot advance both repeated areas at hand radius %1").arg(radius));
         }
+
+        const auto repeated = analyzeChart(QStringLiteral(
+            "(150){16}5-8[8:1],,,,5V74[8:1],,4,,E"));
+        expect(repeated.parsed.ok, QStringLiteral("repeated B6 release repro parses"));
+        expect(countDiagnostics(repeated.report.diagnostics, MuriKind::SlideTooFast) == 0,
+            QStringLiteral("repeated B6 release does not skip A7 and early-clear the slide"));
+        const auto ordinary = analyzeChart(QStringLiteral(
+            "(150){16}5-8[8:1],,,,7-4[8:1],,4,,E"));
+        expect(countDiagnostics(ordinary.report.diagnostics, MuriKind::SlideTooFast) == 1,
+            QStringLiteral("ordinary B5 activation still permits a legitimate skip"));
+    }
+
+    {
+        using namespace miacode::muri::detail;
+        const auto simulatePresses = [](const QString& shape, bool reenterB6, bool duplicate) {
+            auto parsed = SimaiParser::parseForTimeline(QStringLiteral("(150){4}%1[8:1],,,E").arg(shape));
+            auto markers = parsed.noteMarkers;
+            if (duplicate) {
+                auto second = markers.constFirst();
+                second.sourceCol += 100;
+                markers.append(second);
+            }
+            QVector<JudgeableSimpleNote> presses;
+            const auto press = [&](const QString& pad, double start, double end) {
+                JudgeableSimpleNote note;
+                note.type = QStringLiteral("tap");
+                note.pad = pad;
+                note.markerKey = QStringLiteral("sensor_%1").arg(presses.size());
+                note.momentSecond = start;
+                note.pressEndSecond = end;
+                presses.append(note);
+            };
+            if (shape == QLatin1String("5V74")) {
+                press(QStringLiteral("A5"), 0.0, 0.02);
+                press(QStringLiteral("B6"), 0.04, 0.08);
+                if (reenterB6) {
+                    press(QStringLiteral("B6"), 0.12, 0.14);
+                }
+            } else {
+                press(QStringLiteral("A1"), 0.0, 0.02);
+                press(QStringLiteral("A3"), 0.0, 0.02);
+            }
+            press(QStringLiteral("A4"), 0.18, 0.20);
+            MuriRenderOptions options;
+            options.handRadiusPx = 0;
+            return simulateRuntimeSlideAndWifiJudgments(markers, presses, {}, {}, options);
+        };
+        const auto singleContact = simulatePresses(QStringLiteral("5V74"), false, false);
+        expect(singleContact.size() == 1 && !singleContact.constBegin()->judgeBad,
+            QStringLiteral("a single B6 contact cannot satisfy separated repeated areas"));
+        const auto reentry = simulatePresses(QStringLiteral("5V74"), true, false);
+        expect(reentry.size() == 1 && reentry.constBegin()->judgeBad,
+            QStringLiteral("a later real B6 ON can advance the repeated area"));
+        const auto sharedRelease = simulatePresses(QStringLiteral("1>4"), false, true);
+        bool bothJudgedEarly = sharedRelease.size() == 2;
+        for (const auto& result : sharedRelease) {
+            bothJudgedEarly = bothJudgedEarly && result.judgeBad && result.judgeSecond < 0.3;
+        }
+        expect(bothJudgedEarly,
+            QStringLiteral("different slide queues independently retain simultaneous-release tolerance"));
     }
 
     {
