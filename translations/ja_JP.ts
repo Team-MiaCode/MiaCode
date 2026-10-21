@@ -2399,6 +2399,10 @@ Restore the backup from %1?</source>
         <source>Auto-align Video to Track Audio</source>
         <translation>動画を楽曲音声に自動同期</translation>
     </message>
+    <message id="media_tools.align_pv_to_audio_description">
+        <source>Detect the audio offset between the background video and track.mp3, then shift the video to match.</source>
+        <translation>背景動画と track.mp3 の音声オフセットを検出し、動画をずらして同期します。</translation>
+    </message>
     <message id="media_tools.background_mp4_video">
         <source>background .mp4 video</source>
         <translation>背景動画 .mp4</translation>

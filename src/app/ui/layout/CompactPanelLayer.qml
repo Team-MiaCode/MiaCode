@@ -11,18 +11,8 @@ Item {
     required property var commands
     required property var pages
     property bool compact: false
-    property bool pendingMediaToolsMenu: false
     signal settingsRequested()
-    signal mediaToolRequested(string toolId)
-
-    function showMediaToolsMenu() {
-        if (sidebarDrawer.opened) {
-            compactSidebar.showMediaToolsMenu()
-            return
-        }
-        root.pendingMediaToolsMenu = true
-        root.viewState.compactPanel = "sidebar"
-    }
+    signal mediaToolsRequested()
 
     z: 40
 
@@ -44,15 +34,8 @@ Item {
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         interactive: root.compact
         visible: root.compact && root.viewState.compactPanel === "sidebar"
-        onOpened: {
-            root.viewState.compactPanel = "sidebar"
-            if (root.pendingMediaToolsMenu) {
-                root.pendingMediaToolsMenu = false
-                compactSidebar.showMediaToolsMenu()
-            }
-        }
+        onOpened: root.viewState.compactPanel = "sidebar"
         onClosed: {
-            root.pendingMediaToolsMenu = false
             if (root.viewState.compactPanel === "sidebar")
                 root.viewState.compactPanel = ""
         }
@@ -70,7 +53,6 @@ Item {
         }
 
         contentItem: Sidebar {
-            id: compactSidebar
             viewState: root.viewState
             documentSession: root.documentSession
             preferences: root.preferences
@@ -78,7 +60,11 @@ Item {
             pages: root.pages
             compact: true
             onSettingsRequested: root.settingsRequested()
-            onMediaToolRequested: toolId => root.mediaToolRequested(toolId)
+            onMediaToolsRequested: {
+                if (root.viewState.compactPanel === "sidebar")
+                    root.viewState.compactPanel = ""
+                root.mediaToolsRequested()
+            }
         }
     }
 

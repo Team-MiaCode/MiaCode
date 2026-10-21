@@ -700,8 +700,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/editor/CompletionPopup.qml
     src/app/ui/editor/NormalizeOptionsDialog.qml
     src/app/ui/editor/DesignerSlotsDialog.qml
-    src/app/ui/media/AudioProcessingMenu.qml
-    src/app/ui/media/VideoProcessingMenu.qml
+    src/app/ui/media/MediaToolsDialog.qml
     src/app/ui/media/PvBatchCompressionDialog.qml
     src/app/ui/media/PrependBlankDialog.qml
     src/app/ui/preferences/PreferencesDialog.qml

@@ -79,11 +79,7 @@ Item {
     signal completionSettingsRequested(string group)
     signal audioSettingsRequested()
     signal previewSettingsRequested()
-    signal mediaToolRequested(string toolId)
-
-    function showMediaToolsMenu() {
-        sidebar.showMediaToolsMenu()
-    }
+    signal mediaToolsRequested()
 
     ResizeSnapState {
         id: sidebarSnap
@@ -476,7 +472,7 @@ Item {
                 ? (root.sidebarResizing ? root.sidebarDragWidth : root.preferences.sidebarWidth) : 0) : 0
             height: parent.height
             onSettingsRequested: root.settingsRequested()
-            onMediaToolRequested: toolId => root.mediaToolRequested(toolId)
+            onMediaToolsRequested: root.mediaToolsRequested()
         }
 
         // Behind the split, so a fractional device pixel at the divider shows

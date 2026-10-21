@@ -2399,6 +2399,10 @@ Restore the backup from %1?</translation>
         <source>Auto-align Video to Track Audio</source>
         <translation>Auto-align Video to Track Audio</translation>
     </message>
+    <message id="media_tools.align_pv_to_audio_description">
+        <source>Detect the audio offset between the background video and track.mp3, then shift the video to match.</source>
+        <translation>Detect the audio offset between the background video and track.mp3, then shift the video to match.</translation>
+    </message>
     <message id="media_tools.background_mp4_video">
         <source>background .mp4 video</source>
         <translation>background .mp4 video</translation>
