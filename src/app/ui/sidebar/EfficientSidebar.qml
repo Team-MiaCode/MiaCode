@@ -12,11 +12,13 @@ Rectangle {
     required property var documentSession
     required property var commands
     required property var pages
+    property bool toolsMenuActive: false
     property bool nativeMaterialActive: Theme.nativeMaterialActive
     readonly property var navigationStateColors: nativeMaterialActive
         ? Theme.compensatedStateColorsFor(Theme.colors.listState) : Theme.colors.listState
     readonly property Item cornerSourceItem: heading
     readonly property Item navigationContentItem: difficulties
+    readonly property Item toolsItem: toolsRow
 
     signal toolsRequested()
     signal settingsRequested()
@@ -130,7 +132,9 @@ Rectangle {
                 id: toolsRow
                 width: parent.width
                 text: qsTrId("qml.tools")
+                selected: root.toolsMenuActive
                 iconSource: Qt.resolvedUrl("icons/tools.svg")
+                filledIconSource: Qt.resolvedUrl("icons/tools-fill.svg")
                 onClicked: root.toolsRequested()
             }
         }
