@@ -4,12 +4,13 @@ MiaCode keeps preview decoding and video export in separate license domains.
 
 ## Preview SDK
 
-QtAVPlayer links the FFmpeg 8.1 ABI dynamically on Windows and macOS. Linux
-links the host FFmpeg through pkg-config.
+QtAVPlayer links FFmpeg dynamically: the FFmpeg 9.0 ABI on Windows x64 and the
+FFmpeg 8.1 ABI on Windows arm64 and macOS. Linux links the host FFmpeg through
+pkg-config.
 
 | Target | SDK | Runtime |
 |---|---|---|
-| Windows x64 | source-built FFmpeg 8.1.2 decode profile | six trimmed `av*.dll` files |
+| Windows x64 | source-built FFmpeg 9.0.2 decode profile | six trimmed `av*.dll` files |
 | Windows arm64 | pinned BtbN FFmpeg 8.1 LGPL shared build | six `av*.dll` files |
 | macOS arm64 | source-built FFmpeg 8.1.2 LGPL profile | six arm64 `dylib` files |
 
@@ -38,7 +39,7 @@ runtime does not link into MiaCode or the LGPL preview SDK.
 
 | Target | Source package |
 |---|---|
-| Windows x64 | Gyan.dev FFmpeg 7.1.1 essentials |
+| Windows x64 | Gyan.dev FFmpeg 9.0.2 essentials |
 | Windows arm64 | pinned BtbN FFmpeg 8.1 GPL build |
 | macOS arm64 | pinned FFmpeg 8.1.2 arm64 build |
 | Linux x64 | pinned BtbN FFmpeg 7.1 GPL build |

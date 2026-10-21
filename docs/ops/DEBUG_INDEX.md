@@ -185,7 +185,7 @@ FFmpeg binary + extra readback toggle:
 - `MIACODE_FFMPEG` / `MIACODE_FFMPEG_PATH` — override the ffmpeg executable path used by export (and the dialog's ffmpeg probe).
 - `MIACODE_EXPORT_VAAPI_DEVICE` — Linux VAAPI encode DRM render node (`/dev/dri/renderD*`). Unset uses `renderD128`, then `renderD129`, then the first `renderD*` node.
 - `MIACODE_EXPORT_DISABLE_PBO_READBACK=1` — extra PBO-readback opt-out, narrower than `MIACODE_EXPORT_DISABLE_OFFSCREEN_PBO`.
-- `MIACODE_EXPORT_PREMULTIPLIED_PIPE=0` — restore straight-RGBA CPU conversion for Fast D3D11 export. Unset/default keeps premultiplied RGBA and uses FFmpeg `overlay alpha=premultiplied`; HighQuality and OpenGL remain straight RGBA.
+- `MIACODE_EXPORT_PREMULTIPLIED_PIPE=0` — restore straight-RGBA CPU conversion for Fast D3D11 export. Unset/default keeps premultiplied RGBA, tags it with FFmpeg `setparams=alpha_mode=premultiplied` and uses `overlay alpha=premultiplied`; HighQuality and OpenGL remain straight RGBA.
 
 Render-session backend (P5 — hidden, diagnostic):
 

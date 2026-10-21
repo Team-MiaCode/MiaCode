@@ -1,8 +1,7 @@
 # Provisions the standalone `ffmpeg.exe` used by video export.
 #
-# x64 keeps the Gyan.dev 7.1.1 essentials build this repository has shipped: a
-# static GPL build (libx264 included) at 87 MB, against 163 MB for the BtbN n8.1
-# GPL static build of the same content.
+# x64 uses the Gyan.dev 9.0.2 essentials build: a static GPL build (libx264
+# included) that is smaller than the BtbN GPL static build of the same content.
 # arm64 has no Gyan build, so it uses the BtbN n8.1 GPL static build pinned to
 # one immutable autobuild tag (the rolling `latest` tag is replaced daily).
 #
@@ -132,9 +131,9 @@ if ($Arch -eq "arm64") {
     $defaultSha256 = "22E1BB241B8747ED5EA5ECE8DE64AFCC8720F4550ED35ED24657D00C2BADBA5E"
     $defaultVersionPattern = 'ffmpeg version n8\.1\.\d+'
 } else {
-    $defaultUrl = "https://github.com/GyanD/codexffmpeg/releases/download/7.1.1/ffmpeg-7.1.1-essentials_build.7z"
-    $defaultSha256 = "B90225987BDD042CCA09A1EFB5E34E9848F2D1DBF5FBCD388753A44145522997"
-    $defaultVersionPattern = '^ffmpeg version 7\.1\.1-essentials_build-www\.gyan\.dev'
+    $defaultUrl = "https://github.com/GyanD/codexffmpeg/releases/download/9.0.2/ffmpeg-9.0.2-essentials_build.7z"
+    $defaultSha256 = "4705843CCAAF54257C16AD90F3E952ECE33C17DF964ECF7BFDBB0F49C7171077"
+    $defaultVersionPattern = '^ffmpeg version 9\.0\.2-essentials_build-www\.gyan\.dev'
 }
 
 $ffmpegUrl = if ([string]::IsNullOrWhiteSpace($env:MIACODE_WINDOWS_FFMPEG_URL)) {

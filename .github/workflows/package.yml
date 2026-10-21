@@ -37,7 +37,7 @@ jobs:
             build: build-msvc
             qt: .qt/6.11.1/msvc2022_64
             media: third_party/ffmpeg/windows/win64
-            version: ffmpeg7.1
+            version: ffmpeg9.0.2
           - platform: windows-arm64
             runner: windows-11-arm
             toolchain: msvc-arm64
