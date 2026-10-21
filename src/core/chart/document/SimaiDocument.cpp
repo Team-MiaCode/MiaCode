@@ -3,7 +3,6 @@
 #include <algorithm>
 
 #include <QRegularExpression>
-#include <QSet>
 #include <QStringList>
 
 namespace {
@@ -118,7 +117,6 @@ SimaiDocument SimaiDocument::fromText(const QString& text)
     }
 
     doc.preamble_ = text.left(kFieldHeaderRe.match(text).capturedStart());
-    QSet<int> parsedCharts;
     for (const SimaiRawField& field : fields) {
         if (field.key == "title") {
             doc.title = field.value;
@@ -162,10 +160,6 @@ SimaiDocument SimaiDocument::fromText(const QString& text)
                 continue;
             }
             if (prefix == "inote") {
-                if (parsedCharts.contains(id)) {
-                    doc.precedingCharts_[id].append(doc.ensureDifficulty(id).chart);
-                }
-                parsedCharts.insert(id);
                 doc.ensureDifficulty(id).chart = field.value;
                 continue;
             }
@@ -411,11 +405,6 @@ QString SimaiDocument::toText() const
             const SimaiDifficultyData& difficultyData = difficultyIt.value();
             blocks.append(serializeField("lv_" + suffix, difficultyData.level));
             blocks.append(serializeField("des_" + suffix, difficultyData.designer));
-            const auto preceding = precedingCharts_.constFind(id);
-            if (preceding != precedingCharts_.cend()) {
-                for (const QString& chart : preceding.value())
-                    blocks.append(serializeField("inote_" + suffix, chart));
-            }
             blocks.append(serializeField("inote_" + suffix, difficultyData.chart));
             continue;
         }
@@ -468,7 +457,6 @@ SimaiDifficultyData& SimaiDocument::ensureDifficulty(int id)
 void SimaiDocument::removeDifficulty(int id)
 {
     difficulties_.remove(id);
-    precedingCharts_.remove(id);
 }
 
 QString SimaiDocument::designerForSlot(int id) const
