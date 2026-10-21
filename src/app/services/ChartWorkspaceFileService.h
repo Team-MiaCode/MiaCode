@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QFileDevice>
 #include <QString>
 #include <QVector>
 #include <optional>
@@ -14,6 +15,10 @@ struct ChartWorkspaceFileResult {
     QString error;
     QVector<ChartWorkspaceIssue> issues;
     bool usedSystemEncoding = false;
+    // Set when a write failed on a known file: what the system said about it.
+    QString failedPath;
+    QFileDevice::FileError fileError = QFileDevice::NoError;
+    QString systemError;
 };
 
 // File-system boundary for ChartWorkspace.  This deliberately reports failures

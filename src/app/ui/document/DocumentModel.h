@@ -292,6 +292,7 @@ private:
     void refreshDocumentState();
     void refreshMetadataMedia(bool force = false);
     bool runWorkspaceMutation(const std::function<bool()>& mutate);
+    void noticeChartSaveFailed(const miacode::ChartWorkspaceFileResult& result);
     bool applyDesignerSlotsWithoutBridge(const QVector<QPair<int, QString>>& slotValues,
                                         bool unified, const QString& canonicalName);
     void reconcileUnifiedDesignerAfterSourceReplacement();

@@ -2053,6 +2053,22 @@ Restore the backup from %1?</source>
         <source>Cannot write the chart file.</source>
         <translation>譜面ファイルを書き込めません。</translation>
     </message>
+    <message id="file_write.error.disk_full">
+        <source>Couldn't write %1: the disk is full.</source>
+        <translation>%1 を書き込めませんでした。ディスクの空き容量が不足しています。</translation>
+    </message>
+    <message id="file_write.error.access_denied">
+        <source>Couldn't write %1: permission denied.</source>
+        <translation>%1 を書き込めませんでした。書き込み権限がありません。</translation>
+    </message>
+    <message id="file_write.error.in_use">
+        <source>Couldn't write %1 because another app is using it.</source>
+        <translation>%1 を書き込めませんでした。別のアプリが使用中です。</translation>
+    </message>
+    <message id="file_write.error.generic">
+        <source>Couldn't write %1: unknown reason.</source>
+        <translation>%1 を書き込めませんでした。原因は不明です。</translation>
+    </message>
     <message id="document.cannot_write_file">
         <source>Cannot write file:
 %1</source>

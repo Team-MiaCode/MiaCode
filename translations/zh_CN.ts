@@ -2053,6 +2053,22 @@ Restore the backup from %1?</source>
         <source>Cannot write the chart file.</source>
         <translation>无法写入谱面文件。</translation>
     </message>
+    <message id="file_write.error.disk_full">
+        <source>Couldn't write %1: the disk is full.</source>
+        <translation>无法写入 %1：磁盘空间不足。</translation>
+    </message>
+    <message id="file_write.error.access_denied">
+        <source>Couldn't write %1: permission denied.</source>
+        <translation>无法写入 %1：没有写入权限。</translation>
+    </message>
+    <message id="file_write.error.in_use">
+        <source>Couldn't write %1 because another app is using it.</source>
+        <translation>无法写入 %1，文件正被其他程序占用。</translation>
+    </message>
+    <message id="file_write.error.generic">
+        <source>Couldn't write %1: unknown reason.</source>
+        <translation>无法写入 %1：原因不明。</translation>
+    </message>
     <message id="document.cannot_write_file">
         <source>Cannot write file:
 %1</source>

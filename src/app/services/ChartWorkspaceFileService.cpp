@@ -261,8 +261,16 @@ ChartWorkspaceFileResult ChartWorkspaceFileService::writeToPath(
     if (!QDir().mkpath(targetDirectory.absolutePath()))
         return {false, before.revision, QStringLiteral("mkpath_failed"), {}};
     QSaveFile file(normalizedPath);
+    // The failure keeps QSaveFile's own reason so the notice can say why.
+    const auto fileFailure = [&](const QString& code) {
+        ChartWorkspaceFileResult result{false, before.revision, code, {}};
+        result.failedPath = normalizedPath;
+        result.fileError = file.error();
+        result.systemError = file.errorString();
+        return result;
+    };
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        return {false, before.revision, QStringLiteral("open_failed"), {}};
+        return fileFailure(QStringLiteral("open_failed"));
     }
     std::unique_ptr<ProjectSaveTransaction> transaction;
     if (copyProject) {
@@ -276,10 +284,11 @@ ChartWorkspaceFileResult ChartWorkspaceFileService::writeToPath(
     }
     const QByteArray payload = QStringEncoder(QStringConverter::Utf8).encode(savedDocument.toText());
     if (file.write(payload) != payload.size()) {
+        ChartWorkspaceFileResult result = fileFailure(QStringLiteral("write_failed"));
         file.cancelWriting();
-        return {false, before.revision, QStringLiteral("write_failed"), {}};
+        return result;
     }
-    if (!file.commit()) return {false, before.revision, QStringLiteral("commit_failed"), {}};
+    if (!file.commit()) return fileFailure(QStringLiteral("commit_failed"));
 
     if (transaction) transaction->commit();
     workspace_->markSectionSaved(savedDocument, normalizedPath, currentVideoPath);

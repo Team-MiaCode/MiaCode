@@ -35,4 +35,33 @@ bool textReportsDiskFull(const QString& text)
     return containsAny(text, markers);
 }
 
+LocalizedText fileWriteFailureText(const QString& fileName,
+                                   QFileDevice::FileError error,
+                                   const QString& systemError)
+{
+    static const QStringList accessDeniedMarkers{
+        QStringLiteral("Access is denied"),
+        QStringLiteral("Permission denied"),
+        QStringLiteral("Read-only file system"),
+        QStringLiteral("Operation not permitted"),
+        QStringLiteral("\u62d2\u7edd\u8bbf\u95ee"),
+        QStringLiteral("\u30a2\u30af\u30bb\u30b9\u304c\u62d2\u5426\u3055\u308c\u307e\u3057\u305f"),
+    };
+    static const QStringList inUseMarkers{
+        QStringLiteral("being used by another process"),
+        QStringLiteral("\u53e6\u4e00\u4e2a\u7a0b\u5e8f\u6b63\u5728\u4f7f\u7528\u6b64\u6587\u4ef6"),
+        QStringLiteral("\u5225\u306e\u30d7\u30ed\u30bb\u30b9\u304c\u4f7f\u7528\u4e2d"),
+    };
+    if (textReportsDiskFull(systemError)) {
+        return localizedText("file_write.error.disk_full").arg(fileName);
+    }
+    if (containsAny(systemError, inUseMarkers)) {
+        return localizedText("file_write.error.in_use").arg(fileName);
+    }
+    if (error == QFileDevice::PermissionsError || containsAny(systemError, accessDeniedMarkers)) {
+        return localizedText("file_write.error.access_denied").arg(fileName);
+    }
+    return localizedText("file_write.error.generic").arg(fileName);
+}
+
 } // namespace miacode

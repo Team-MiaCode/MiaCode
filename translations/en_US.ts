@@ -2053,6 +2053,22 @@ Restore the backup from %1?</translation>
         <source>Cannot write the chart file.</source>
         <translation>Cannot write the chart file.</translation>
     </message>
+    <message id="file_write.error.disk_full">
+        <source>Couldn't write %1: the disk is full.</source>
+        <translation>Couldn't write %1: the disk is full.</translation>
+    </message>
+    <message id="file_write.error.access_denied">
+        <source>Couldn't write %1: permission denied.</source>
+        <translation>Couldn't write %1: permission denied.</translation>
+    </message>
+    <message id="file_write.error.in_use">
+        <source>Couldn't write %1 because another app is using it.</source>
+        <translation>Couldn't write %1 because another app is using it.</translation>
+    </message>
+    <message id="file_write.error.generic">
+        <source>Couldn't write %1: unknown reason.</source>
+        <translation>Couldn't write %1: unknown reason.</translation>
+    </message>
     <message id="document.cannot_write_file">
         <source>Cannot write file:
 %1</source>
