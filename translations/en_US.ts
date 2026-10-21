@@ -1778,12 +1778,12 @@ Restore the backup from %1?</translation>
         <translation>Another export is already running.</translation>
     </message>
     <message id="dialog.video_export.error.worker_crash">
-        <source>Export worker crashed.</source>
-        <translation>Export worker crashed.</translation>
+        <source>The export stopped unexpectedly.</source>
+        <translation>The export stopped unexpectedly.</translation>
     </message>
     <message id="dialog.video_export.error.worker_exit">
-        <source>Export worker exited unexpectedly.</source>
-        <translation>Export worker exited unexpectedly.</translation>
+        <source>The export stopped unexpectedly.</source>
+        <translation>The export stopped unexpectedly.</translation>
     </message>
     <message id="dialog.video_export.error.worker_retry_final_attempt">
         <source>Safe-mode retry diagnostics</source>
@@ -1794,12 +1794,60 @@ Restore the backup from %1?</translation>
         <translation>First attempt diagnostics</translation>
     </message>
     <message id="dialog.video_export.error.worker_retry_note">
-        <source>The export worker crashed once and was retried automatically with PBO disabled.</source>
-        <translation>The export worker crashed once and was retried automatically with PBO disabled.</translation>
+        <source>The first attempt stopped unexpectedly, so the export was retried in compatibility mode.</source>
+        <translation>The first attempt stopped unexpectedly, so the export was retried in compatibility mode.</translation>
     </message>
     <message id="dialog.video_export.error.worker_write_failed">
         <source>Failed to send export snapshot to worker.</source>
         <translation>Failed to send export snapshot to worker.</translation>
+    </message>
+    <message id="dialog.video_export.error.disk_full_temp">
+        <source>%1 is out of space. Export writes the video to the system temp folder (%2) first.</source>
+        <translation>%1 is out of space. Export writes the video to the system temp folder (%2) first.</translation>
+    </message>
+    <message id="dialog.video_export.error.disk_full_output">
+        <source>%1 is out of space, so the exported file could not be written.</source>
+        <translation>%1 is out of space, so the exported file could not be written.</translation>
+    </message>
+    <message id="dialog.video_export.error.temp_dir_failed">
+        <source>Could not create files in the system temp folder (%1).</source>
+        <translation>Could not create files in the system temp folder (%1).</translation>
+    </message>
+    <message id="dialog.video_export.error.output_write_failed">
+        <source>Could not write %1. Another app may be using the file.</source>
+        <translation>Could not write %1. Another app may be using the file.</translation>
+    </message>
+    <message id="dialog.video_export.error.ffmpeg_missing">
+        <source>The ffmpeg component is missing. Reinstall MiaCode and try again.</source>
+        <translation>The ffmpeg component is missing. Reinstall MiaCode and try again.</translation>
+    </message>
+    <message id="dialog.video_export.error.render_failed">
+        <source>Rendering the export frames failed.</source>
+        <translation>Rendering the export frames failed.</translation>
+    </message>
+    <message id="dialog.video_export.error.audio_failed">
+        <source>Could not generate the export audio track.</source>
+        <translation>Could not generate the export audio track.</translation>
+    </message>
+    <message id="dialog.video_export.error.encode_failed">
+        <source>Video encoding failed.</source>
+        <translation>Video encoding failed.</translation>
+    </message>
+    <message id="dialog.video_export.error.unknown">
+        <source>The export did not finish. See the details below.</source>
+        <translation>The export did not finish. See the details below.</translation>
+    </message>
+    <message id="dialog.video_export.volume.unknown">
+        <source>The disk</source>
+        <translation>The disk</translation>
+    </message>
+    <message id="dialog.video_export.volume.drive">
+        <source>Drive %1:</source>
+        <translation>Drive %1:</translation>
+    </message>
+    <message id="dialog.video_export.volume.named">
+        <source>Disk “%1”</source>
+        <translation>Disk “%1”</translation>
     </message>
     <message id="dialog.video_export.fps">
         <source>FPS</source>
@@ -1868,6 +1916,18 @@ Restore the backup from %1?</translation>
     <message id="preview.stop">
         <source>Stop</source>
         <translation>Stop</translation>
+    </message>
+    <message id="preview.audio_unavailable.title">
+        <source>Can't Play Sound</source>
+        <translation>Can't Play Sound</translation>
+    </message>
+    <message id="preview.audio_unavailable.message">
+        <source>The audio output device could not be opened, so the preview is playing silently. Check the default output device in your system sound settings, or close any app that holds the device exclusively, then play again.</source>
+        <translation>The audio output device could not be opened, so the preview is playing silently. Check the default output device in your system sound settings, or close any app that holds the device exclusively, then play again.</translation>
+    </message>
+    <message id="preview.audio_unavailable.error_code">
+        <source>Audio error code: %1</source>
+        <translation>Audio error code: %1</translation>
     </message>
     <message id="dialog.video_export.progress.canceling">
         <source>Canceling export...</source>
@@ -1992,6 +2052,22 @@ Restore the backup from %1?</translation>
     <message id="document.cannot_write_chart">
         <source>Cannot write the chart file.</source>
         <translation>Cannot write the chart file.</translation>
+    </message>
+    <message id="file_write.error.disk_full">
+        <source>Couldn't write %1: the disk is full.</source>
+        <translation>Couldn't write %1: the disk is full.</translation>
+    </message>
+    <message id="file_write.error.access_denied">
+        <source>Couldn't write %1: permission denied.</source>
+        <translation>Couldn't write %1: permission denied.</translation>
+    </message>
+    <message id="file_write.error.in_use">
+        <source>Couldn't write %1 because another app is using it.</source>
+        <translation>Couldn't write %1 because another app is using it.</translation>
+    </message>
+    <message id="file_write.error.generic">
+        <source>Couldn't write %1: unknown reason.</source>
+        <translation>Couldn't write %1: unknown reason.</translation>
     </message>
     <message id="document.cannot_write_file">
         <source>Cannot write file:
