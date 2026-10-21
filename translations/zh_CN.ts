@@ -2711,6 +2711,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Tools(&amp;T)</source>
         <translation>工具(&amp;T)</translation>
     </message>
+    <message id="menu.majnet_n">
+        <source>Majnet(&amp;N)</source>
+        <translation>Majnet(&amp;N)</translation>
+    </message>
     <message id="menu.transform">
         <source>Modify(&amp;M)</source>
         <translation>调整(&amp;M)</translation>
@@ -4240,6 +4244,10 @@ Error: %1</source>
         <source>Majdata Net</source>
         <translation>谱面下载</translation>
     </message>
+    <message id="net.ui.majnet">
+        <source>Majnet</source>
+        <translation>Majnet</translation>
+    </message>
     <message id="net.ui.uploader">
         <source>Uploader</source>
         <translation>上传者</translation>
@@ -4716,6 +4724,10 @@ Error: %1</source>
     <message id="guide.navigation.export">
         <source>Export page: export videos and covers, or package the chart as a ZIP.</source>
         <translation>导出页面：导出视频、封面与打包成 ZIP。</translation>
+    </message>
+    <message id="guide.navigation.net">
+        <source>Net: Majnet chart download and upload.</source>
+        <translation>Net相关：Majnet谱面下载与上传。</translation>
     </message>
     <message id="guide.navigation.tools">
         <source>Toolbox: chart normalization, audio and video processing, Net management and more.</source>
