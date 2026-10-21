@@ -2,6 +2,7 @@
 
 #include <QString>
 #include <QVector>
+#include <optional>
 
 #include "app/services/ChartWorkspace.h"
 
@@ -45,8 +46,10 @@ public:
     // Cross-directory saves publish project media and settings before switching the workspace path.
     ChartWorkspaceFileResult saveAs(const QString& path, int difficultyId) const;
 
+    static std::optional<QString> decodeDocumentText(
+        const QByteArray& bytes, bool* usedSystemEncoding = nullptr);
+
 private:
-    static QString decodeDocumentText(const QByteArray& bytes, bool* usedSystemEncoding);
     ChartWorkspaceFileResult writeToPath(const QString& path, int difficultyId) const;
 
     ChartWorkspace* workspace_ = nullptr;
