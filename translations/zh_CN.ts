@@ -2711,10 +2711,6 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Tools(&amp;T)</source>
         <translation>工具(&amp;T)</translation>
     </message>
-    <message id="menu.majnet_n">
-        <source>Majnet(&amp;N)</source>
-        <translation>Majnet(&amp;N)</translation>
-    </message>
     <message id="menu.transform">
         <source>Modify(&amp;M)</source>
         <translation>调整(&amp;M)</translation>
@@ -4244,10 +4240,6 @@ Error: %1</source>
         <source>Majdata Net</source>
         <translation>谱面下载</translation>
     </message>
-    <message id="net.ui.majnet">
-        <source>Majnet</source>
-        <translation>Majnet</translation>
-    </message>
     <message id="net.ui.uploader">
         <source>Uploader</source>
         <translation>上传者</translation>
@@ -4725,13 +4717,9 @@ Error: %1</source>
         <source>Export page: export videos and covers, or package the chart as a ZIP.</source>
         <translation>导出页面：导出视频、封面与打包成 ZIP。</translation>
     </message>
-    <message id="guide.navigation.net">
-        <source>Net: Majnet chart download and upload.</source>
-        <translation>Net相关：Majnet谱面下载与上传。</translation>
-    </message>
     <message id="guide.navigation.tools">
-        <source>Toolbox: chart normalization and audio and video processing tools.</source>
-        <translation>工具箱：谱面整理、音视频处理工具等。</translation>
+        <source>Toolbox: chart normalization, audio and video processing, Net management and more.</source>
+        <translation>工具箱：谱面整理、音视频处理工具、Net管理等。</translation>
     </message>
     <message id="guide.navigation.preferences">
         <source>Preferences: configure interface appearance and styling, the editor and shortcuts.</source>
@@ -4829,27 +4817,6 @@ Error: %1</source>
         <source>The prepended PV exceeds its size budget or the 20 MB limit.</source>
         <translation>插入黑屏后的 PV 超出体积预算或 20 MB 上限。</translation>
     </message>
-    <message id="dialog.batch_export.cover_preset">
-        <source>Cover preset</source>
-        <translation>封面预设</translation>
-    </message>
-    <message id="dialog.batch_export.cover_none">
-        <source>Cover export off</source>
-        <translation>关闭封面导出</translation>
-    </message>
-    <message id="dialog.batch_export.cover_summary">
-        <source>Covers: %1 succeeded, %2 failed</source>
-        <translation>封面导出：成功 %1 项，失败 %2 项</translation>
-    </message>
-    <message id="dialog.batch_export.cover_preset_unavailable">
-        <source>The cover preset cannot be applied to this chart</source>
-        <translation>封面预设无法应用到此谱面</translation>
-    </message>
-    <message id="dialog.batch_export.cover_frame_adjusted">
-        <source>%1: frame time adjusted from %2 s to %3 s</source>
-        <translation>%1：截图时间从 %2 秒调整为 %3 秒</translation>
-    </message>
-</context>
     <message id="file_picker.native_failed">
         <source>Could not open the system folder picker.</source>
         <translation>无法打开系统文件夹选择窗口。</translation>

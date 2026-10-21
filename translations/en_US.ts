@@ -2711,10 +2711,6 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Tools(&amp;T)</source>
         <translation>Tools(&amp;T)</translation>
     </message>
-    <message id="menu.majnet_n">
-        <source>Majnet(&amp;N)</source>
-        <translation>Majnet(&amp;N)</translation>
-    </message>
     <message id="menu.transform">
         <source>Modify(&amp;M)</source>
         <translation>Modify(&amp;M)</translation>
@@ -4244,10 +4240,6 @@ Error: %1</translation>
         <source>Majdata Net</source>
         <translation>Chart download</translation>
     </message>
-    <message id="net.ui.majnet">
-        <source>Majnet</source>
-        <translation>Majnet</translation>
-    </message>
     <message id="net.ui.uploader">
         <source>Uploader</source>
         <translation>Uploader</translation>
@@ -4725,13 +4717,9 @@ Error: %1</translation>
         <source>Export page: export videos and covers, or package the chart as a ZIP.</source>
         <translation>Export page: export videos and covers, or package the chart as a ZIP.</translation>
     </message>
-    <message id="guide.navigation.net">
-        <source>Net: Majnet chart download and upload.</source>
-        <translation>Net: Majnet chart download and upload.</translation>
-    </message>
     <message id="guide.navigation.tools">
-        <source>Toolbox: chart normalization and audio and video processing tools.</source>
-        <translation>Toolbox: chart normalization and audio and video processing tools.</translation>
+        <source>Toolbox: chart normalization, audio and video processing, Net management and more.</source>
+        <translation>Toolbox: chart normalization, audio and video processing, Net management and more.</translation>
     </message>
     <message id="guide.navigation.preferences">
         <source>Preferences: configure interface appearance and styling, the editor and shortcuts.</source>
@@ -4829,27 +4817,6 @@ Error: %1</translation>
         <source>The prepended PV exceeds its size budget or the 20 MB limit.</source>
         <translation>The prepended PV exceeds its size budget or the 20 MB limit.</translation>
     </message>
-    <message id="dialog.batch_export.cover_preset">
-        <source>Cover preset</source>
-        <translation>Cover preset</translation>
-    </message>
-    <message id="dialog.batch_export.cover_none">
-        <source>Cover export off</source>
-        <translation>Cover export off</translation>
-    </message>
-    <message id="dialog.batch_export.cover_summary">
-        <source>Covers: %1 succeeded, %2 failed</source>
-        <translation>Covers: %1 succeeded, %2 failed</translation>
-    </message>
-    <message id="dialog.batch_export.cover_preset_unavailable">
-        <source>The cover preset cannot be applied to this chart</source>
-        <translation>The cover preset cannot be applied to this chart</translation>
-    </message>
-    <message id="dialog.batch_export.cover_frame_adjusted">
-        <source>%1: frame time adjusted from %2 s to %3 s</source>
-        <translation>%1: frame time adjusted from %2 s to %3 s</translation>
-    </message>
-</context>
     <message id="file_picker.native_failed">
         <source>Could not open the system folder picker.</source>
         <translation>Could not open the system folder picker.</translation>
