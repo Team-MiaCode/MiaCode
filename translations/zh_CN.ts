@@ -4910,6 +4910,58 @@ Error: %1</source>
         <translation>无法打开系统文件夹选择窗口。</translation>
     </message>
 </context>
+<context>
+    <!-- Qt loads qtbase texts for the system locale; this context keeps the
+         native application menu in the interface language. -->
+    <name>MAC_APPLICATION_MENU</name>
+    <message>
+        <source>About %1</source>
+        <translation>关于 %1</translation>
+    </message>
+    <message>
+        <source>Preferences...</source>
+        <translation>首选项...</translation>
+    </message>
+    <message>
+        <source>Services</source>
+        <translation>服务</translation>
+    </message>
+    <message>
+        <source>Hide %1</source>
+        <translation>隐藏 %1</translation>
+    </message>
+    <message>
+        <source>Hide Others</source>
+        <translation>隐藏其他</translation>
+    </message>
+    <message>
+        <source>Show All</source>
+        <translation>全部显示</translation>
+    </message>
+    <message>
+        <source>Quit %1</source>
+        <translation>退出 %1</translation>
+    </message>
+</context>
+<context>
+    <!-- Cocoa identifies menu roles by matching the action text against these
+         words. Keep them in the interface language so the application menu
+         entries merge even when the system locale uses another language.
+         "Setup" is omitted on purpose: it would capture the beginner guide. -->
+    <name>QCocoaMenuItem</name>
+    <message>
+        <source>About</source>
+        <translation>关于</translation>
+    </message>
+    <message>
+        <source>Preference</source>
+        <translation>首选项</translation>
+    </message>
+    <message>
+        <source>Quit</source>
+        <translation>退出</translation>
+    </message>
+</context>
 
 
 
