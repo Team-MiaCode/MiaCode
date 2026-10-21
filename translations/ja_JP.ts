@@ -2793,7 +2793,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="menu.transform">
         <source>Modify(&amp;M)</source>
-        <translation>編集(&amp;M)</translation>
+        <translation>調整(&amp;M)</translation>
     </message>
     <message id="metadata.delete">
         <source>Delete</source>
@@ -2977,11 +2977,11 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="net.select">
         <source>Select</source>
-        <translation>Select</translation>
+        <translation>選択</translation>
     </message>
     <message id="net.select_all">
         <source>Select All</source>
-        <translation>Select All</translation>
+        <translation>すべて選択</translation>
     </message>
     <message id="net.start">
         <source>Start</source>
