@@ -83,6 +83,7 @@ bool CoverExportWindow::show(QQuickWindow* referenceWindow, int difficultyId)
         {QStringLiteral("windowChrome"), QVariant::fromValue(static_cast<QObject*>(&windowChrome_))},
     });
     engine_->loadFromModule(QStringLiteral("MiaCode.UI"), QStringLiteral("CoverExportWindow"));
+    miacode::LocaleService::instance().prioritizeTranslator();
     if (engine_->rootObjects().isEmpty()) {
         return false;
     }

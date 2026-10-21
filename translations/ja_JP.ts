@@ -2793,7 +2793,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="menu.transform">
         <source>Modify(&amp;M)</source>
-        <translation>編集(&amp;M)</translation>
+        <translation>調整(&amp;M)</translation>
     </message>
     <message id="metadata.delete">
         <source>Delete</source>
@@ -2977,11 +2977,11 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="net.select">
         <source>Select</source>
-        <translation>Select</translation>
+        <translation>選択</translation>
     </message>
     <message id="net.select_all">
         <source>Select All</source>
-        <translation>Select All</translation>
+        <translation>すべて選択</translation>
     </message>
     <message id="net.start">
         <source>Start</source>
@@ -4908,6 +4908,58 @@ Error: %1</source>
     <message id="file_picker.native_failed">
         <source>Could not open the system folder picker.</source>
         <translation>システムのフォルダー選択画面を開けませんでした。</translation>
+    </message>
+</context>
+<context>
+    <!-- Qt loads qtbase texts for the system locale; this context keeps the
+         native application menu in the interface language. -->
+    <name>MAC_APPLICATION_MENU</name>
+    <message>
+        <source>About %1</source>
+        <translation>%1 について</translation>
+    </message>
+    <message>
+        <source>Preferences...</source>
+        <translation>設定...</translation>
+    </message>
+    <message>
+        <source>Services</source>
+        <translation>サービス</translation>
+    </message>
+    <message>
+        <source>Hide %1</source>
+        <translation>%1 を隠す</translation>
+    </message>
+    <message>
+        <source>Hide Others</source>
+        <translation>ほかを隠す</translation>
+    </message>
+    <message>
+        <source>Show All</source>
+        <translation>すべて表示</translation>
+    </message>
+    <message>
+        <source>Quit %1</source>
+        <translation>%1 を終了</translation>
+    </message>
+</context>
+<context>
+    <!-- Cocoa identifies menu roles by matching the action text against these
+         words. Keep them in the interface language so the application menu
+         entries merge even when the system locale uses another language.
+         "Setup" is omitted on purpose: it would capture the beginner guide. -->
+    <name>QCocoaMenuItem</name>
+    <message>
+        <source>About</source>
+        <translation>について</translation>
+    </message>
+    <message>
+        <source>Setting</source>
+        <translation>設定</translation>
+    </message>
+    <message>
+        <source>Quit</source>
+        <translation>終了</translation>
     </message>
 </context>
 

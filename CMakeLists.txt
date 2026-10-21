@@ -520,6 +520,8 @@ add_executable(MiaCode WIN32 MACOSX_BUNDLE
     src/app/services/PreferenceDocument.cpp
     src/app/ui/preferences/LocaleService.h
     src/app/ui/preferences/LocaleService.cpp
+    src/app/ui/preferences/ApplicationMenuTranslation.h
+    src/app/ui/preferences/ApplicationMenuTranslation.cpp
     src/app/ui/preferences/AppBackgroundSettings.h
     src/app/ui/preferences/AppBackgroundSettings.cpp
     src/app/ui/theme/ThemeVariantResolver.h
@@ -1044,6 +1046,7 @@ if (APPLE)
         src/app/ui/chrome/NativeWindowThemeMac.mm
         src/app/ui/chrome/WindowChrome.mm
         src/app/ui/pet/PetNativeWindowMac.mm
+        src/app/ui/preferences/ApplicationMenuTranslationMac.mm
     )
     target_link_libraries(MiaCode PRIVATE "-framework AppKit" "-framework QuartzCore")
 endif()

@@ -650,6 +650,10 @@ Item {
         AppMenu {
             id: extrasMenu
             title: root.menuTitle(qsTrId("menu.extras"))
+            // Cocoa guesses action roles from the leading word (About / Config /
+            // Options / Preference / Setting / Setup / Quit / Exit) and moves the
+            // row into the application menu. The English label therefore starts
+            // with "Beginner", not "Setup"; translations must keep the same rule.
             AppMenuAction {
                 text: qsTrId("setup.wizard")
                 enabled: root.commandsEnabled

@@ -39,7 +39,7 @@ Classic mode: All functions are on one page, similar to the layout in earlier ve
     </message>
     <message id="setup.wizard">
         <source>Setup wizard</source>
-        <translation>Setup wizard</translation>
+        <translation>Beginner guide</translation>
     </message>
     <message id="setup.save_failed">
         <source>Settings could not be saved. Check configuration directory permissions and try again.</source>
@@ -4908,6 +4908,39 @@ Error: %1</translation>
     <message id="file_picker.native_failed">
         <source>Could not open the system folder picker.</source>
         <translation>Could not open the system folder picker.</translation>
+    </message>
+</context>
+<context>
+    <!-- Qt loads qtbase texts for the system locale; this context keeps the
+         native application menu in the interface language. -->
+    <name>MAC_APPLICATION_MENU</name>
+    <message>
+        <source>About %1</source>
+        <translation>About %1</translation>
+    </message>
+    <message>
+        <source>Preferences...</source>
+        <translation>Preferences...</translation>
+    </message>
+    <message>
+        <source>Services</source>
+        <translation>Services</translation>
+    </message>
+    <message>
+        <source>Hide %1</source>
+        <translation>Hide %1</translation>
+    </message>
+    <message>
+        <source>Hide Others</source>
+        <translation>Hide Others</translation>
+    </message>
+    <message>
+        <source>Show All</source>
+        <translation>Show All</translation>
+    </message>
+    <message>
+        <source>Quit %1</source>
+        <translation>Quit %1</translation>
     </message>
 </context>
 
