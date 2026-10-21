@@ -1869,6 +1869,18 @@ Restore the backup from %1?</source>
         <source>Stop</source>
         <translation>停止</translation>
     </message>
+    <message id="preview.audio_unavailable.title">
+        <source>Can't Play Sound</source>
+        <translation>无法播放声音</translation>
+    </message>
+    <message id="preview.audio_unavailable.message">
+        <source>The audio output device could not be opened, so the preview is playing silently. Check the default output device in your system sound settings, or close any app that holds the device exclusively, then play again.</source>
+        <translation>无法打开音频输出设备，当前为静音预览。可在系统声音设置中检查默认输出设备，或关闭独占声卡的程序后重新播放。</translation>
+    </message>
+    <message id="preview.audio_unavailable.error_code">
+        <source>Audio error code: %1</source>
+        <translation>音频错误码：%1</translation>
+    </message>
     <message id="dialog.video_export.progress.canceling">
         <source>Canceling export...</source>
         <translation>正在取消导出...</translation>

@@ -1869,6 +1869,18 @@ Restore the backup from %1?</translation>
         <source>Stop</source>
         <translation>Stop</translation>
     </message>
+    <message id="preview.audio_unavailable.title">
+        <source>Can't Play Sound</source>
+        <translation>Can't Play Sound</translation>
+    </message>
+    <message id="preview.audio_unavailable.message">
+        <source>The audio output device could not be opened, so the preview is playing silently. Check the default output device in your system sound settings, or close any app that holds the device exclusively, then play again.</source>
+        <translation>The audio output device could not be opened, so the preview is playing silently. Check the default output device in your system sound settings, or close any app that holds the device exclusively, then play again.</translation>
+    </message>
+    <message id="preview.audio_unavailable.error_code">
+        <source>Audio error code: %1</source>
+        <translation>Audio error code: %1</translation>
+    </message>
     <message id="dialog.video_export.progress.canceling">
         <source>Canceling export...</source>
         <translation>Canceling export...</translation>

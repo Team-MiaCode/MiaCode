@@ -510,6 +510,18 @@ bool BassPreviewAudioBackend::initializeAudioEngine()
             const int errorCode = static_cast<int>(BASS_ErrorGetCode());
             lastNativeErrorCode_ = errorCode;
             noteBassErrCode("engine_init/bass_init", errorCode);
+            // Name the endpoint in the failure line: an error code alone cannot tell
+            // a busy exclusive-mode device from a missing or virtual one.
+            BASS_DEVICEINFO deviceInfo {};
+            if (bassOutputDeviceIndex_ > 0
+                && BASS_GetDeviceInfo(static_cast<DWORD>(bassOutputDeviceIndex_), &deviceInfo)) {
+                _mc_op_.note(QStringLiteral("device=%1 name=%2 flags=0x%3")
+                                 .arg(bassOutputDeviceIndex_)
+                                 .arg(deviceInfo.name != nullptr
+                                          ? QString::fromUtf8(deviceInfo.name)
+                                          : QStringLiteral("(none)"))
+                                 .arg(deviceInfo.flags, 0, 16));
+            }
             _mc_op_.fail(QStringLiteral("BASS_Init err=%1").arg(errorCode));
             appendAudioDebugLog(QString("bass_init_failed err=%1").arg(errorCode));
             appendBassDebugLog(
