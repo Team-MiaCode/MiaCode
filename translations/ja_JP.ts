@@ -2029,10 +2029,6 @@ Restore the backup from %1?</source>
         <source>All difficulties share this designer</source>
         <translation>すべての難易度で同じ作者名を使用</translation>
     </message>
-    <message id="document.audio_files_filter">
-        <source>Audio files (%1)</source>
-        <translation>音声ファイル (%1)</translation>
-    </message>
     <message id="document.cannot_open_chart">
         <source>Cannot open the chart file.</source>
         <translation>譜面ファイルを開けません。</translation>
@@ -2091,9 +2087,17 @@ Restore the backup from %1?</source>
         <source>Blank-line grouping</source>
         <translation>空行で区切る</translation>
     </message>
-    <message id="document.choose_audio">
-        <source>Choose audio</source>
-        <translation>音声を選択</translation>
+    <message id="document.choose_media">
+        <source>Choose audio or video</source>
+        <translation>音声または動画を選択</translation>
+    </message>
+    <message id="document.media_files_filter">
+        <source>Audio and video files (%1)</source>
+        <translation>音声と動画ファイル (%1)</translation>
+    </message>
+    <message id="media_tools.extracting_audio">
+        <source>Extracting audio...</source>
+        <translation>音声を抽出中…</translation>
     </message>
     <message id="document.clear_all">
         <source>Clear all</source>

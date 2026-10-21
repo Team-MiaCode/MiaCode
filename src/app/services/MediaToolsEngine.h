@@ -9,6 +9,8 @@ class MediaToolsEngine
 public:
     virtual ~MediaToolsEngine() = default;
 
+    virtual bool importChartVideo(const QString& videoPath) = 0;
+
     // The two conversions run as jobs and report through JobProgressService.
     virtual void convertTrackTo44100Hz() = 0;
     virtual void compressBackgroundVideo() = 0;

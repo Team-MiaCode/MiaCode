@@ -2029,10 +2029,6 @@ Restore the backup from %1?</translation>
         <source>All difficulties share this designer</source>
         <translation>All difficulties share this designer</translation>
     </message>
-    <message id="document.audio_files_filter">
-        <source>Audio files (%1)</source>
-        <translation>Audio files (%1)</translation>
-    </message>
     <message id="document.cannot_open_chart">
         <source>Cannot open the chart file.</source>
         <translation>Cannot open the chart file.</translation>
@@ -2091,9 +2087,17 @@ Restore the backup from %1?</translation>
         <source>Blank-line grouping</source>
         <translation>Blank-line grouping</translation>
     </message>
-    <message id="document.choose_audio">
-        <source>Choose audio</source>
-        <translation>Choose audio</translation>
+    <message id="document.choose_media">
+        <source>Choose audio or video</source>
+        <translation>Choose audio or video</translation>
+    </message>
+    <message id="document.media_files_filter">
+        <source>Audio and video files (%1)</source>
+        <translation>Audio and video files (%1)</translation>
+    </message>
+    <message id="media_tools.extracting_audio">
+        <source>Extracting audio...</source>
+        <translation>Extracting audio...</translation>
     </message>
     <message id="document.clear_all">
         <source>Clear all</source>

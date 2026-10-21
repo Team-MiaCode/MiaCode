@@ -64,7 +64,8 @@ bool verifyDifficultyCardProjection()
     FakeBridge fake;
     miacode::DocumentBridge* bridge = &fake;
     miacode::PreviewSurface* preview = nullptr;
-    miacode::ui::DocumentModel model(notifications, workspace, files, analysis, requests, bridge, preview);
+    miacode::MediaToolsEngine* mediaTools = nullptr;
+    miacode::ui::DocumentModel model(notifications, workspace, files, analysis, requests, bridge, preview, mediaTools);
     const auto revision = workspace.snapshot().revision;
     const auto expert = model.difficultyCardTrack(4);
     const auto master = model.difficultyCardTrack(5);
@@ -115,7 +116,8 @@ bool verifyRejectedDraftBlocksPersistenceAndLeave()
     FakeBridge fake;
     miacode::DocumentBridge* bridge = &fake;
     miacode::PreviewSurface* preview = nullptr;
-    miacode::ui::DocumentModel model(notifications, workspace, files, analysis, requests, bridge, preview);
+    miacode::MediaToolsEngine* mediaTools = nullptr;
+    miacode::ui::DocumentModel model(notifications, workspace, files, analysis, requests, bridge, preview, mediaTools);
     model.setWholeSourceEditorActive(true);
     const auto revision = workspace.snapshot().revision;
     const QByteArray originalBytes = read(path);
@@ -198,7 +200,8 @@ bool verifyPickerDirectories()
     FakeBridge fake;
     miacode::DocumentBridge* bridge = &fake;
     miacode::PreviewSurface* preview = nullptr;
-    miacode::ui::DocumentModel model(notifications, workspace, files, analysis, requests, bridge, preview);
+    miacode::MediaToolsEngine* mediaTools = nullptr;
+    miacode::ui::DocumentModel model(notifications, workspace, files, analysis, requests, bridge, preview, mediaTools);
     QString id;
     QVariantMap request;
     QObject::connect(&requests, &miacode::UiRequestService::fileRequested,

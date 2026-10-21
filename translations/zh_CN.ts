@@ -2029,10 +2029,6 @@ Restore the backup from %1?</source>
         <source>All difficulties share this designer</source>
         <translation>所有难度采用相同名义</translation>
     </message>
-    <message id="document.audio_files_filter">
-        <source>Audio files (%1)</source>
-        <translation>音频文件 (%1)</translation>
-    </message>
     <message id="document.cannot_open_chart">
         <source>Cannot open the chart file.</source>
         <translation>无法打开谱面文件。</translation>
@@ -2091,9 +2087,17 @@ Restore the backup from %1?</source>
         <source>Blank-line grouping</source>
         <translation>空行分组</translation>
     </message>
-    <message id="document.choose_audio">
-        <source>Choose audio</source>
-        <translation>选择音频</translation>
+    <message id="document.choose_media">
+        <source>Choose audio or video</source>
+        <translation>选择音频或视频</translation>
+    </message>
+    <message id="document.media_files_filter">
+        <source>Audio and video files (%1)</source>
+        <translation>音频和视频文件 (%1)</translation>
+    </message>
+    <message id="media_tools.extracting_audio">
+        <source>Extracting audio...</source>
+        <translation>提取音频…</translation>
     </message>
     <message id="document.clear_all">
         <source>Clear all</source>

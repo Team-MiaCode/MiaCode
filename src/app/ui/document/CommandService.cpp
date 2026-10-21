@@ -45,7 +45,7 @@ void CommandService::openRecentDocument(const QString& path)
 
 void CommandService::newDocument()
 {
-    whenDocumentMayBeLeft([this]() { document_->createDocumentFromPickedAudio(); });
+    whenDocumentMayBeLeft([this]() { document_->createDocumentFromPickedMedia(); });
 }
 
 void CommandService::restoreBackupDocument(const QString& path)

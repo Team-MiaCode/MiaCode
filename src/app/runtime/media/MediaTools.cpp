@@ -1125,6 +1125,74 @@ bool alignVideoStreams(
 
 } // namespace
 
+bool miacode::runtime::MediaJobsHost::importChartVideo(const QString& videoPath)
+{
+    const auto title = miacode::localizedText("document.new_failed");
+    const auto reportFailure = [this, &title](const miacode::LocalizedText& error) {
+        session_.uiRequestService()->postNotice(miacode::NoticeSeverity::Error, title, error);
+        return false;
+    };
+    const QString ffmpegPath = resolveMediaToolFfmpegExecutable();
+    if (ffmpegPath.isEmpty()) {
+        return reportFailure(miacode::localizedText("media_tools.ffmpeg_was_not_found_place"));
+    }
+
+    const QDir directory = QFileInfo(videoPath).absoluteDir();
+    QTemporaryDir staging(directory.filePath(QStringLiteral(".miacode_video_XXXXXX")));
+    if (!staging.isValid()) {
+        return reportFailure(miacode::localizedText("document.cannot_write")
+                                 .arg(QDir::toNativeSeparators(directory.absolutePath())));
+    }
+    const QString stagedTrack = staging.filePath(QStringLiteral("track.mp3"));
+    const auto label = miacode::localizedText("media_tools.extracting_audio");
+    double durationSeconds = 0.0;
+    probeMediaDurationSeconds(ffmpegPath, videoPath, &durationSeconds, nullptr);
+    miacode::LocalizedText error;
+    bool cancelled = false;
+    const QStringList args{
+        QStringLiteral("-hide_banner"), QStringLiteral("-y"),
+        QStringLiteral("-i"), videoPath,
+        QStringLiteral("-map"), QStringLiteral("0:a:0"),
+        QStringLiteral("-vn"),
+        QStringLiteral("-ar"), QStringLiteral("44100"),
+        QStringLiteral("-c:a"), QStringLiteral("libmp3lame"),
+        QStringLiteral("-q:a"), QStringLiteral("2"), stagedTrack,
+    };
+    if (!runFfmpegBlocking(ffmpegPath, args, session_.jobProgressService(), label, label,
+                           durationSeconds, &error, &cancelled)) {
+        return cancelled ? false : reportFailure(error);
+    }
+
+    const QString pvPath = directory.filePath(QStringLiteral("pv.mp4"));
+    const bool copyVideo = QFileInfo(videoPath) != QFileInfo(pvPath);
+    const QString stagedVideo = staging.filePath(QStringLiteral("pv.mp4"));
+    if (copyVideo && !QFile::copy(videoPath, stagedVideo)) {
+        return reportFailure(miacode::localizedText("document.cannot_write")
+                                 .arg(QDir::toNativeSeparators(pvPath)));
+    }
+    const auto installFile = [&error](const QString& stagedPath, const QString& targetPath) {
+        if (QFileInfo::exists(targetPath)) {
+            return replaceFileWithTemp(stagedPath, targetPath, &error);
+        }
+        if (QFile::rename(stagedPath, targetPath)) {
+            return true;
+        }
+        error = miacode::localizedText("document.cannot_write")
+                    .arg(QDir::toNativeSeparators(targetPath));
+        return false;
+    };
+    const bool replacingCurrentMedia = directory.absolutePath() == resolveCurrentChartDirectory();
+    if (replacingCurrentMedia) {
+        releasePreviewMediaForFileOperation();
+    }
+    const bool imported = (!copyVideo || installFile(stagedVideo, pvPath))
+        && installFile(stagedTrack, directory.filePath(QStringLiteral("track.mp3")));
+    if (replacingCurrentMedia) {
+        reloadPreviewMediaAfterFileOperation(true);
+    }
+    return imported ? true : reportFailure(error);
+}
+
 void miacode::runtime::MediaJobsHost::onCompressBackgroundVideo()
 {
     MC_OP("miacode::runtime::MediaJobsHost::onCompressBackgroundVideo");

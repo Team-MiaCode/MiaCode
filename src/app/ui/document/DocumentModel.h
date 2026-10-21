@@ -19,6 +19,7 @@
 #include "app/services/ChartWorkspaceFileService.h"
 #include "app/services/DocumentBridge.h"
 #include "app/services/PreviewSurface.h"
+#include "app/services/MediaToolsEngine.h"
 #include "app/services/UiRequestService.h"
 
 #include "app/services/ShellNotifications.h"
@@ -92,6 +93,7 @@ public:
         miacode::UiRequestService& uiRequests,
         miacode::DocumentBridge*& bridgeSlot,
         miacode::PreviewSurface*& previewSlot,
+        miacode::MediaToolsEngine*& mediaToolsSlot,
         QObject* parent = nullptr);
     ~DocumentModel() override;
 
@@ -200,12 +202,9 @@ public:
     Q_INVOKABLE QVariantList backupDocuments();
     // Restore an autosave snapshot. Confirms first, through the shell.
     Q_INVOKABLE void restoreBackup(const QString& path);
-    // 新建: pick an audio file; the chart is created beside it, in that same
-    // folder rather than in a new one. A chart's track is found by name — only
-    // track.mp3/.wav/.flac/.ogg count — so the picked file is copied to that
-    // name unless it already has it.
+    // Create a chart beside the selected media, with a track and optional PV.
     // The unsaved-changes guard belongs to the caller in CommandService.
-    Q_INVOKABLE void createDocumentFromPickedAudio();
+    Q_INVOKABLE void createDocumentFromPickedMedia();
     void handleDroppedFile(const QString& path, std::function<void()> finished);
     Q_INVOKABLE void selectDifficulty(int id);
     Q_INVOKABLE bool addDifficulty(int id);
@@ -332,6 +331,7 @@ private:
     QString metadataExtraDraft_;
     QString metadataExtraError_;
     qulonglong metadataExtraDraftOpenGeneration_ = 0;
+    miacode::MediaToolsEngine** mediaToolsSlot_ = nullptr;
     miacode::PreviewSurface** previewSlot_ = nullptr;
     miacode::PreviewSurface* preview() const
     {
@@ -356,9 +356,11 @@ private:
     // makes it a continuation like the rest of this flow. Without this, 保存 on
     // a never-saved chart wrote nothing and said nothing: the file service
     // refused an empty path and the prompt just went away.
-    void createChartBesideAudio(const QString& audioPath, bool overwriteExisting = false);
-    void ensureTrackCopyThenCreate(const QString& audioPath, const QString& targetPath);
-    void createEmptyDocumentAt(const QString& targetPath, const QString& sourceAudioPath);
+    void createChartBesideMedia(const QString& audioPath, bool overwriteExisting = false);
+    void ensureVideoImportThenCreate(const QString& videoPath, const QString& targetPath);
+    void ensureMediaThenCreate(const QString& audioPath, const QString& targetPath);
+    void createEmptyDocumentAt(const QString& targetPath, const QString& sourceAudioPath,
+                               const QString& videoPath = {});
     void handleDroppedAudio(const QString& audioPath, std::function<void()> finished);
     void leaveThenCreateDroppedChart(const QString& audioPath, bool overwriteExisting,
                                      std::function<void()> finished);

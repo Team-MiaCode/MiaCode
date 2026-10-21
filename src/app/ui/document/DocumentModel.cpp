@@ -190,7 +190,8 @@ DocumentModel::DocumentModel(
     miacode::AnalysisService& analysisService,
     miacode::UiRequestService& uiRequests,
     miacode::DocumentBridge*& bridgeSlot,
-    miacode::PreviewSurface*& previewSlot, QObject* parent)
+    miacode::PreviewSurface*& previewSlot,
+    miacode::MediaToolsEngine*& mediaToolsSlot, QObject* parent)
     : QObject(parent)
     , notifications_(&notifications)
     , workspace_(&workspace)
@@ -198,6 +199,7 @@ DocumentModel::DocumentModel(
     , analysisService_(&analysisService)
     , uiRequests_(&uiRequests)
     , bridgeSlot_(&bridgeSlot)
+    , mediaToolsSlot_(&mediaToolsSlot)
     , previewSlot_(&previewSlot)
 {
 
@@ -1007,7 +1009,7 @@ void DocumentModel::restoreBackup(const QString& path)
     }
 }
 
-void DocumentModel::createDocumentFromPickedAudio()
+void DocumentModel::createDocumentFromPickedMedia()
 {
     miacode::UiRequestService* const requests = uiRequests_;
     if (requests == nullptr || fileService_ == nullptr) {
@@ -1018,19 +1020,20 @@ void DocumentModel::createDocumentFromPickedAudio()
         patterns << QStringLiteral("*.%1").arg(extension);
     }
     miacode::FileRequest request;
-    request.title = miacode::localizedText("document.choose_audio");
+    patterns << QStringLiteral("*.mp4");
+    request.title = miacode::localizedText("document.choose_media");
     request.startPath = miacode::file_dialog_preferences::recentDirectory(
         miacode::file_dialog_preferences::Purpose::NewChartAudio,
         fileDialogLocation(false).value(QStringLiteral("folder")).toUrl().toLocalFile());
     request.nameFilters = {
-        miacode::localizedText("document.audio_files_filter").arg(patterns.join(QLatin1Char(' '))),
+        miacode::localizedText("document.media_files_filter").arg(patterns.join(QLatin1Char(' '))),
         miacode::localizedText("qml.all_files"),
     };
-    requests->requestFile(request, [this](const QString& audioPath) {
-        if (!audioPath.trimmed().isEmpty()) {
+    requests->requestFile(request, [this](const QString& mediaPath) {
+        if (!mediaPath.trimmed().isEmpty()) {
             miacode::file_dialog_preferences::rememberFile(
-                miacode::file_dialog_preferences::Purpose::NewChartAudio, audioPath);
-            createChartBesideAudio(QDir::cleanPath(audioPath));
+                miacode::file_dialog_preferences::Purpose::NewChartAudio, mediaPath);
+            createChartBesideMedia(QDir::cleanPath(mediaPath));
         }
     });
 }
@@ -1176,7 +1179,7 @@ void DocumentModel::leaveThenCreateDroppedChart(const QString& audioPath, bool o
             }
             trackPath = renamed;
         }
-        createChartBesideAudio(trackPath, overwriteExisting);
+        createChartBesideMedia(trackPath, overwriteExisting);
         finished();
     });
 }
@@ -1201,38 +1204,74 @@ void DocumentModel::createDroppedChartInNewFolder(const QString& audioPath,
     leaveThenCreateDroppedChart(trackPath, false, finished);
 }
 
-void DocumentModel::createChartBesideAudio(const QString& audioPath, bool overwriteExisting)
+void DocumentModel::createChartBesideMedia(const QString& mediaPath, bool overwriteExisting)
 {
     miacode::UiRequestService* const requests = uiRequests_;
     if (requests == nullptr) {
         return;
     }
-    // The chart is created where the audio already lives — beside it, not in a
-    // folder made for it. A chart IS its folder, and the audio's folder is
-    // already that folder as far as the user is concerned.
+    // Create the chart in the selected media file's directory.
     const QString targetPath =
-        QFileInfo(audioPath).absoluteDir().filePath(QStringLiteral("maidata.txt"));
+        QFileInfo(mediaPath).absoluteDir().filePath(QStringLiteral("maidata.txt"));
     if (overwriteExisting || !QFileInfo::exists(targetPath)) {
-        ensureTrackCopyThenCreate(audioPath, targetPath);
+        ensureMediaThenCreate(mediaPath, targetPath);
         return;
     }
     requests->requestConfirmation(
         miacode::localizedText("document.file_already_exists"),
         miacode::localizedText("document.maidata_txt_already_exists_in"),
         miacode::localizedText("action.yes"),
-        [this, audioPath, targetPath](bool accepted) {
+        [this, mediaPath, targetPath](bool accepted) {
             if (accepted) {
-                ensureTrackCopyThenCreate(audioPath, targetPath);
+                ensureMediaThenCreate(mediaPath, targetPath);
             }
         });
 }
 
-void DocumentModel::ensureTrackCopyThenCreate(
+void DocumentModel::ensureVideoImportThenCreate(const QString& videoPath, const QString& targetPath)
+{
+    const QDir directory = QFileInfo(targetPath).absoluteDir();
+    const QString trackPath = directory.filePath(QStringLiteral("track.mp3"));
+    const QString pvPath = directory.filePath(QStringLiteral("pv.mp4"));
+    QStringList existingFiles;
+    if (QFileInfo::exists(trackPath)) {
+        existingFiles << QStringLiteral("track.mp3");
+    }
+    if (QFileInfo::exists(pvPath) && QFileInfo(pvPath) != QFileInfo(videoPath)) {
+        existingFiles << QStringLiteral("pv.mp4");
+    }
+    const auto importThenCreate = [this, videoPath, targetPath, trackPath]() {
+        if (mediaToolsSlot_ != nullptr && *mediaToolsSlot_ != nullptr
+            && (*mediaToolsSlot_)->importChartVideo(videoPath)) {
+            createEmptyDocumentAt(targetPath, trackPath, QStringLiteral("pv.mp4"));
+        }
+    };
+    if (existingFiles.isEmpty()) {
+        importThenCreate();
+        return;
+    }
+    uiRequests_->requestConfirmation(
+        miacode::localizedText("document.file_already_exists"),
+        miacode::localizedText("document.replace_existing_confirm")
+            .arg(existingFiles.join(QStringLiteral(", ")), QFileInfo(videoPath).fileName()),
+        miacode::localizedText("action.yes"),
+        [importThenCreate](bool accepted) {
+            if (accepted) {
+                importThenCreate();
+            }
+        });
+}
+
+void DocumentModel::ensureMediaThenCreate(
     const QString& audioPath, const QString& targetPath)
 {
     miacode::UiRequestService* const requests = uiRequests_;
     const QFileInfo audioInfo(audioPath);
     const QString extension = audioInfo.suffix().toLower();
+    if (extension == QLatin1String("mp4")) {
+        ensureVideoImportThenCreate(audioPath, targetPath);
+        return;
+    }
     const QString trackName = QStringLiteral("track.%1").arg(extension);
 
     // Already named track.<ext>: nothing to copy, and copying would mean
@@ -1295,7 +1334,8 @@ void DocumentModel::ensureTrackCopyThenCreate(
         });
 }
 
-void DocumentModel::createEmptyDocumentAt(const QString& targetPath, const QString& sourceAudioPath)
+void DocumentModel::createEmptyDocumentAt(const QString& targetPath, const QString& sourceAudioPath,
+                                          const QString& videoPath)
 {
     miacode::UiRequestService* const requests = uiRequests_;
     if (fileService_ == nullptr) {
@@ -1303,6 +1343,7 @@ void DocumentModel::createEmptyDocumentAt(const QString& targetPath, const QStri
     }
     SimaiDocument document = SimaiDocument::createEmpty();
     applyId3Metadata(document, sourceAudioPath);
+    document.videoPath = videoPath;
     if (!fileService_->createEmptyDocument(targetPath, document).accepted) {
         if (requests != nullptr) {
             requests->postNotice(

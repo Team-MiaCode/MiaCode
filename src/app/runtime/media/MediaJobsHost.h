@@ -28,6 +28,7 @@ public:
     void restoreMediaBlankBackup(MediaBlankTarget target);
     void applyMediaBlank(MediaBlankTarget target, double beats, double bpm);
 
+    bool importChartVideo(const QString& videoPath) override;
     void convertTrackTo44100Hz() override;
     void compressBackgroundVideo() override;
     void alignBackgroundVideoToTrack() override;
