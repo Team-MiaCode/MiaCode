@@ -8,6 +8,7 @@
 #include "core/scene/PreviewFrameState.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace miacode::preview::scene {
 
@@ -184,6 +185,15 @@ inline void syncPreviewLayerWindowCursor(
 )
 {
     Q_ASSERT(cursor != nullptr);
+
+    // NaN fails every comparison below, so the forward walk would drain both
+    // indices to the end of the layer and leave a valid cursor that no later
+    // forward playhead can reactivate. Invalidate instead: the next finite
+    // playhead rebuilds the active set from scratch.
+    if (!std::isfinite(playheadSeconds)) {
+        cursor->reset();
+        return;
+    }
 
     const double kEpsilon = 1e-6;
     const auto addActive = [&cursor](int preparedIndex) {

@@ -30,15 +30,20 @@ Item {
     width: 0
     height: 0
 
+    // Every request carries startFolder (UiRequestService supplies a default),
+    // so the shared dialogs never reopen in the previous pick's folder.
     // startFolder / startFile arrive as URLs built by UiRequestService with
     // QUrl::fromLocalFile. Never rebuild them from startPath here: "file://" +
     // "C:/..." names host "c", and the dialog stalls on that SMB lookup.
     function openRequest(requestId, request) {
         if (request.selectFolder) {
+            if (request.selectMultiple) {
+                root.requests.openNativeFolders(requestId, root.Window.window)
+                return
+            }
             root.activeFolderRequestId = requestId
             root.folderRequest = request
-            if (request.startFolder)
-                folderDialog.currentFolder = request.startFolder
+            folderDialog.currentFolder = request.startFolder
             folderDialog.open()
             return
         }
@@ -46,9 +51,10 @@ Item {
         root.fileRequest = request
         // Mode first: an open dialog rejects a selectedFile that does not
         // exist, a save dialog accepts the proposed name.
-        fileDialog.fileMode = request.saveMode ? FileDialog.SaveFile : FileDialog.OpenFile
-        if (request.startFolder)
-            fileDialog.currentFolder = request.startFolder
+        fileDialog.fileMode = request.saveMode ? FileDialog.SaveFile
+                            : request.selectMultiple ? FileDialog.OpenFiles : FileDialog.OpenFile
+        fileDialog.selectedFile = ""
+        fileDialog.currentFolder = request.startFolder
         if (request.startFile)
             fileDialog.selectedFile = request.startFile
         fileDialog.open()
@@ -90,7 +96,9 @@ Item {
         onAccepted: {
             const requestId = root.activeFileRequestId
             root.activeFileRequestId = ""
-            root.requests.submitFileResult(requestId, selectedFile)
+            if (root.fileRequest.selectMultiple)
+                root.requests.submitFileResults(requestId, selectedFiles)
+            else root.requests.submitFileResult(requestId, selectedFile)
         }
         onRejected: {
             const requestId = root.activeFileRequestId

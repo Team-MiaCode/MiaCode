@@ -478,6 +478,7 @@ QVariantMap Session::previewRenderSettings() const
         {QStringLiteral("layoutSquareScaleMax"), percentOf(kLayoutSquareScaleMax)},
         {QStringLiteral("layoutSquareScaleStep"), percentOf(kLayoutSquareScaleStep)},
         {QStringLiteral("scaleMode"), static_cast<int>(state_.previewBackgroundScaleMode_)},
+        {QStringLiteral("fireworkBrightness"), percentOf(state_.previewFireworkBrightness_)},
         {QStringLiteral("smoothBrightness"), state_.previewSmoothBrightness_},
         {QStringLiteral("showTimestamp"), state_.previewShowTimestamp_},
         {QStringLiteral("touchPadAuthoringShortcut"), state_.previewTouchPadAuthoringShortcutEnabled_},
@@ -531,6 +532,11 @@ void Session::setPreviewRenderSetting(const QString& key, const QVariant& value)
         applyPreviewStageMediaRouteVisualSettings();
         if (canvas != nullptr) {
             canvas->setBackgroundScaleMode(mode);
+        }
+    } else if (key == QLatin1String("fireworkBrightness")) {
+        state_.previewFireworkBrightness_ = miacode::preview_video::normalizedFireworkBrightness(value.toDouble() / 100.0);
+        if (canvas != nullptr) {
+            canvas->setFireworkBrightness(state_.previewFireworkBrightness_);
         }
     } else if (key == QLatin1String("smoothBrightness")) {
         state_.previewSmoothBrightness_ = value.toBool();

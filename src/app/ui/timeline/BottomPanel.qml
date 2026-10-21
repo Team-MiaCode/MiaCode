@@ -179,27 +179,14 @@ Item {
     }
 
     // Header controls share the tab row's edge inset, measured on their chrome.
-    AppDropDownButton {
+    TimelineZoomControl {
         id: zoomButton
 
         x: tabs.edgePadding - Theme.chromeInsetX + Theme.chromeHighlightOutset
         y: timelineItem.y + Math.max(0, (timelineItem.timelineTop - height) / 2)
         height: Theme.controlHighlightHeight + 2 * (Theme.chromeInsetY - Theme.chromeHighlightOutset)
         visible: timelineItem.visible
-        text: qsTrId("qml.1").arg(Math.round(root.timelineSession.stateBridge
-            ? root.timelineSession.stateBridge.zoomScale * 100
-            : 50))
-        sizeToLabels: zoomMenu.zoomLabels
-        tooltip: qsTrId("qml.timeline_zoom")
-        expanded: zoomMenu.active
-        Accessible.description: qsTrId("qml.open_timeline_zoom_presets")
-        onClicked: {
-            if (zoomMenu.active) {
-                zoomMenu.close()
-                return
-            }
-            zoomMenu.openAt(zoomButton)
-        }
+        stateBridge: root.timelineSession.stateBridge
     }
 
     IconButton {
@@ -222,11 +209,6 @@ Item {
             }
             settingsMenu.openAt(brightnessButton)
         }
-    }
-
-    TimelineZoomMenu {
-        id: zoomMenu
-        stateBridge: root.timelineSession.stateBridge
     }
 
     TimelineSettingsMenu {

@@ -105,6 +105,8 @@ void applyVideoExportPreferences(const QJsonObject& settings, VideoExportTask* t
                                 .toString(task->intro.pvPreview ? QStringLiteral("pv_preview")
                                                                 : QStringLiteral("classic"))
         == QStringLiteral("pv_preview");
+    task->intro.pvPreviewBrightness = qBound(
+        0.0, settings.value(QStringLiteral("intro_pv_brightness")).toDouble(task->intro.pvPreviewBrightness), 1.0);
     task->intro.backgroundMode = settings.value(QStringLiteral("intro_background_mode"))
                                      .toString(task->intro.backgroundMode);
     task->intro.customBackgroundPath = settings.value(QStringLiteral("intro_background_custom_path"))
@@ -141,6 +143,7 @@ void appendVideoExportPreferences(QJsonObject* settings, const VideoExportTask& 
     settings->insert(QStringLiteral("add_intro"), task.intro.enabled);
     settings->insert(QStringLiteral("intro_style"),
                      task.intro.pvPreview ? QStringLiteral("pv_preview") : QStringLiteral("classic"));
+    settings->insert(QStringLiteral("intro_pv_brightness"), task.intro.pvPreviewBrightness);
     settings->insert(QStringLiteral("intro_background_mode"), task.intro.backgroundMode);
     settings->insert(QStringLiteral("intro_background_custom_path"), task.intro.customBackgroundPath.trimmed());
     settings->insert(QStringLiteral("intro_background_blur"), task.intro.blurBackground);
@@ -228,6 +231,7 @@ void copyVideoExportUserSettings(const VideoExportTask& source, VideoExportTask*
     target->backgroundBrightnessOuter = source.backgroundBrightnessOuter;
     target->backgroundBrightnessInner = source.backgroundBrightnessInner;
     target->layoutSquareScale = source.layoutSquareScale;
+    target->fireworkBrightness = source.fireworkBrightness;
     target->smoothBrightness = source.smoothBrightness;
     target->backgroundScaleMode = source.backgroundScaleMode;
     target->tapFlowSpeed = source.tapFlowSpeed;
@@ -238,6 +242,7 @@ void copyVideoExportUserSettings(const VideoExportTask& source, VideoExportTask*
     target->clockCountEnabled = source.clockCountEnabled;
     target->intro.enabled = source.intro.enabled;
     target->intro.pvPreview = source.intro.pvPreview;
+    target->intro.pvPreviewBrightness = source.intro.pvPreviewBrightness;
     target->intro.backgroundMode = source.intro.backgroundMode;
     target->intro.customBackgroundPath = source.intro.customBackgroundPath;
     target->intro.blurBackground = source.intro.blurBackground;

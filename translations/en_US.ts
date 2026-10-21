@@ -1621,6 +1621,10 @@ Failed: %2</translation>
         <source>SD</source>
         <translation>SD</translation>
     </message>
+    <message id="dialog.render_settings.video.firework_brightness">
+        <source>Firework brightness</source>
+        <translation>Firework brightness</translation>
+    </message>
     <message id="dialog.render_settings.video.smooth_brightness">
         <source>Smooth brightness</source>
         <translation>Smooth brightness</translation>
@@ -3583,6 +3587,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Preview rendering mode</source>
         <translation>Preview rendering mode</translation>
     </message>
+    <message id="menu.preview_rendering_mode">
+        <source>Rendering Mode</source>
+        <translation>Rendering Mode</translation>
+    </message>
     <message id="qml.open_simai_file">
         <source>Open Simai file</source>
         <translation>Open Simai file</translation>
@@ -3746,6 +3754,14 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="qml.timeline_zoom">
         <source>Timeline zoom</source>
         <translation>Timeline zoom</translation>
+    </message>
+    <message id="qml.zoom_in">
+        <source>Zoom in</source>
+        <translation>Zoom in</translation>
+    </message>
+    <message id="qml.zoom_out">
+        <source>Zoom out</source>
+        <translation>Zoom out</translation>
     </message>
     <message id="qml.title_font_preview">
         <source>Title-font preview</source>
@@ -4789,10 +4805,6 @@ Error: %1</translation>
         <source>Set to current value</source>
         <translation>Set to current value</translation>
     </message>
-    <message id="dialog.video_export.range.play_clip">
-        <source>Play Range</source>
-        <translation>Play Range</translation>
-    </message>
     <message id="dialog.video_export.output_mode">
         <source>Output Format</source>
         <translation>Output Format</translation>
@@ -4838,4 +4850,64 @@ Error: %1</translation>
         <translation>%1: frame time adjusted from %2 s to %3 s</translation>
     </message>
 </context>
+    <message id="file_picker.native_failed">
+        <source>Could not open the system folder picker.</source>
+        <translation>Could not open the system folder picker.</translation>
+    </message>
+</context>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </TS>

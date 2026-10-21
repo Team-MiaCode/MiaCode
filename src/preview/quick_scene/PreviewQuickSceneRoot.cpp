@@ -8,6 +8,7 @@
 #include "preview/quick_scene/PreviewQuickHudLayer.h"
 #include "core/scene/PreviewFrameState.h"
 #include "core/scene/PreviewHudState.h"
+#include "core/scene/PreviewNoteLayerAnomaly.h"
 #include "core/scene/PreviewProgressStatsCache.h"
 #include "core/scene/PreviewPreparedSceneCache.h"
 #include "core/scene/PreviewSceneConstants.h"
@@ -34,6 +35,7 @@
 namespace {
 
 constexpr int kPreviewQuickSceneLayerSlotCount = 18;
+constexpr qint64 kNoteLayersEmptyAnomalyLogIntervalMs = 2000;
 
 class PreviewQuickRootNode final : public QSGNode
 {
@@ -1060,6 +1062,9 @@ QSGNode* PreviewQuickSceneRoot::updatePaintNode(QSGNode* oldNode, UpdatePaintNod
     miacode::preview::scene::syncPreviewLayerWindowCursor(preparedCache_.touchHoldLayer(), playheadSeconds, &touchHoldCursor_);
     miacode::preview::scene::syncPreviewLayerWindowCursor(preparedCache_.chartReviewLayer(), playheadSeconds, &chartReviewCursor_);
     miacode::preview::scene::syncPreviewLayerWindowCursor(preparedCache_.maimuriDxJudgeLayer(), playheadSeconds, &maimuriDxJudgeCursor_);
+    if (miacode::debug_options::runtimeDebugOutputEnabled()) {
+        logNoteLayersEmptyAnomaly(*state);
+    }
 
     const auto applyWindowCounts =
         [layerStatsForFrame](const char* layerName, qint64 candidateCount, qint64 activeCount) {
@@ -1424,6 +1429,65 @@ void PreviewQuickSceneRoot::noteFirstLayerDraws()
                 .arg(stat.activeCount)
         );
     }
+}
+
+void PreviewQuickSceneRoot::logNoteLayersEmptyAnomaly(const miacode::preview::scene::PreviewFrameState& state)
+{
+    // Issue #48: notes vanished while the statistics stayed correct. Compare this
+    // root's prepared key with the frame state and dump the note cursors so a
+    // stale prepared cache or a stuck cursor shows up in a --debug capture.
+    const qsizetype headActive = headCursor_.activePreparedIndices.size();
+    const qsizetype trackActive = trackCursor_.activePreparedIndices.size();
+    const qsizetype touchActive = touchCursor_.activePreparedIndices.size();
+    // Skip the marker scan whenever a note layer has something to draw.
+    if (state.noteMarkers.isEmpty() || headActive > 0 || trackActive > 0 || touchActive > 0) {
+        return;
+    }
+    const auto span = miacode::preview::scene::previewNoteMarkerSpan(state.noteMarkers);
+    if (!miacode::preview::scene::previewNoteLayersEmptyAnomaly(
+            span, state.playheadSeconds, headActive, trackActive, touchActive)) {
+        return;
+    }
+    ++noteLayersEmptyAnomalyFrames_;
+    if (noteLayersEmptyAnomalyLogTimer_.isValid()
+        && noteLayersEmptyAnomalyLogTimer_.elapsed() < kNoteLayersEmptyAnomalyLogIntervalMs) {
+        return;
+    }
+    noteLayersEmptyAnomalyLogTimer_.restart();
+    const auto cursorFields = [](const char* name, qsizetype entryCount,
+                                 const miacode::preview::scene::PreviewLayerWindowCursor& cursor) {
+        return QStringLiteral("%1_entries=%2 %1_valid=%3 %1_next_act=%4 %1_next_deact=%5 %1_last_playhead=%6")
+            .arg(QLatin1String(name))
+            .arg(entryCount)
+            .arg(cursor.valid ? 1 : 0)
+            .arg(cursor.nextActivationIndex)
+            .arg(cursor.nextDeactivationIndex)
+            .arg(cursor.lastPlayhead, 0, 'f', 3);
+    };
+    const miacode::preview::scene::PreviewPreparedSceneCacheKey& key = preparedCache_.key();
+    appendQuickSceneLog(
+        QStringLiteral("note_layers_empty_anomaly"),
+        QString(
+            "%1 playhead=%2 markers=%3 notes=%4 note_span=%5..%6 prepared_revision=%7 state_revision=%8 "
+            "prepared_generation=%9 state_generation=%10 guide_entries=%11 %12 %13 %14 frames_since_last=%15"
+        )
+            .arg(instanceTag())
+            .arg(state.playheadSeconds, 0, 'f', 3)
+            .arg(state.noteMarkers.size())
+            .arg(span.noteCount)
+            .arg(span.firstSecond, 0, 'f', 3)
+            .arg(span.lastSecond, 0, 'f', 3)
+            .arg(key.sceneContentRevision)
+            .arg(state.sceneContentRevision)
+            .arg(key.storageGeneration)
+            .arg(state.sceneStorageGeneration)
+            .arg(preparedCache_.guideLayer().entries.size())
+            .arg(cursorFields("head", preparedCache_.headLayer().entries.size(), headCursor_))
+            .arg(cursorFields("track", preparedCache_.slideLikeLayer().entries.size(), trackCursor_))
+            .arg(cursorFields("touch", preparedCache_.touchLayer().entries.size(), touchCursor_))
+            .arg(noteLayersEmptyAnomalyFrames_)
+    );
+    noteLayersEmptyAnomalyFrames_ = 0;
 }
 
 void PreviewQuickSceneRoot::recordRenderPhaseProfile()

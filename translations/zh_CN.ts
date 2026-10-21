@@ -1621,6 +1621,10 @@ Failed: %2</source>
         <source>SD</source>
         <translation>SD</translation>
     </message>
+    <message id="dialog.render_settings.video.firework_brightness">
+        <source>Firework brightness</source>
+        <translation>烟花亮度</translation>
+    </message>
     <message id="dialog.render_settings.video.smooth_brightness">
         <source>Smooth brightness</source>
         <translation>平滑亮度</translation>
@@ -3583,6 +3587,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Preview rendering mode</source>
         <translation>预览渲染模式</translation>
     </message>
+    <message id="menu.preview_rendering_mode">
+        <source>Rendering Mode</source>
+        <translation>渲染模式</translation>
+    </message>
     <message id="qml.open_simai_file">
         <source>Open Simai file</source>
         <translation>打开 simai 文件</translation>
@@ -3746,6 +3754,14 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="qml.timeline_zoom">
         <source>Timeline zoom</source>
         <translation>时间轴缩放</translation>
+    </message>
+    <message id="qml.zoom_in">
+        <source>Zoom in</source>
+        <translation>放大</translation>
+    </message>
+    <message id="qml.zoom_out">
+        <source>Zoom out</source>
+        <translation>缩小</translation>
     </message>
     <message id="qml.title_font_preview">
         <source>Title-font preview</source>
@@ -4789,10 +4805,6 @@ Error: %1</source>
         <source>Set to current value</source>
         <translation>设为当前值</translation>
     </message>
-    <message id="dialog.video_export.range.play_clip">
-        <source>Play Range</source>
-        <translation>播放区间</translation>
-    </message>
     <message id="dialog.video_export.output_mode">
         <source>Output Format</source>
         <translation>输出格式</translation>
@@ -4838,4 +4850,64 @@ Error: %1</source>
         <translation>%1：截图时间从 %2 秒调整为 %3 秒</translation>
     </message>
 </context>
+    <message id="file_picker.native_failed">
+        <source>Could not open the system folder picker.</source>
+        <translation>无法打开系统文件夹选择窗口。</translation>
+    </message>
+</context>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </TS>

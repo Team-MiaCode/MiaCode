@@ -174,6 +174,7 @@ QJsonObject VideoExportSnapshot::toJson() const
     render.insert(QStringLiteral("background_brightness_outer"), backgroundBrightnessOuter);
     render.insert(QStringLiteral("background_brightness_inner"), backgroundBrightnessInner);
     render.insert(QStringLiteral("layout_square_scale"), layoutSquareScale);
+    render.insert(QStringLiteral("firework_brightness"), fireworkBrightness);
     render.insert(QStringLiteral("smooth_brightness"), smoothBrightness);
     render.insert(QStringLiteral("outline_variant"), outlineVariantToken(outlineVariant));
     render.insert(QStringLiteral("background_scale_mode"), QString::fromLatin1(backgroundScaleModeToken(backgroundScaleMode)));
@@ -254,6 +255,7 @@ QJsonObject VideoExportSnapshot::toJson() const
     introObject.insert(QStringLiteral("font_body_path"), intro.fontBodyPath);
     introObject.insert(QStringLiteral("pv_preview"), intro.pvPreview);
     introObject.insert(QStringLiteral("pv_preview_start_seconds"), intro.pvPreviewStartSeconds);
+    introObject.insert(QStringLiteral("pv_preview_brightness"), intro.pvPreviewBrightness);
     if (!introSoundFileName.trimmed().isEmpty()) {
         introObject.insert(QStringLiteral("sound_file"), QFileInfo(introSoundFileName).fileName());
     }
@@ -311,6 +313,8 @@ bool VideoExportSnapshot::fromJson(
         render.value(QStringLiteral("background_brightness_inner")).toDouble(parsed.backgroundBrightnessInner);
     parsed.layoutSquareScale =
         render.value(QStringLiteral("layout_square_scale")).toDouble(parsed.layoutSquareScale);
+    parsed.fireworkBrightness = miacode::preview_video::normalizedFireworkBrightness(
+        render.value(QStringLiteral("firework_brightness")).toDouble(parsed.fireworkBrightness));
     parsed.smoothBrightness =
         render.value(QStringLiteral("smooth_brightness")).toBool(parsed.smoothBrightness);
     parsed.outlineVariant =
@@ -424,6 +428,8 @@ bool VideoExportSnapshot::fromJson(
         introObject.value(QStringLiteral("pv_preview")).toBool(parsed.intro.pvPreview);
     parsed.intro.pvPreviewStartSeconds = qMax(
         0.0, introObject.value(QStringLiteral("pv_preview_start_seconds")).toDouble(parsed.intro.pvPreviewStartSeconds));
+    parsed.intro.pvPreviewBrightness = qBound(
+        0.0, introObject.value(QStringLiteral("pv_preview_brightness")).toDouble(parsed.intro.pvPreviewBrightness), 1.0);
     parsed.introSoundFileName = QFileInfo(introObject.value(QStringLiteral("sound_file")).toString()).fileName();
 
     if (parsed.chartTextUtf8.isEmpty()) {
@@ -504,6 +510,7 @@ bool buildVideoExportTaskFromSnapshot(
     built.backgroundBrightnessOuter = snapshot.backgroundBrightnessOuter;
     built.backgroundBrightnessInner = snapshot.backgroundBrightnessInner;
     built.layoutSquareScale = snapshot.layoutSquareScale;
+    built.fireworkBrightness = snapshot.fireworkBrightness;
     built.smoothBrightness = snapshot.smoothBrightness;
     built.outlineVariant = snapshot.outlineVariant;
     built.outlineImagePath = snapshot.outlineImagePath;

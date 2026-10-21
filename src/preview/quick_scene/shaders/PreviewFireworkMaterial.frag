@@ -21,6 +21,7 @@ layout(std140, binding = 0) uniform buf {
     vec4 timing;
     vec4 glowFields[22];
     vec4 starsUvTransform;
+    vec4 brightnessControls;
 };
 
 const float kBrightBlockSpeed = 1.73;
@@ -197,47 +198,58 @@ vec4 sampleSoftColorBallLayer(vec2 localPos, float radius, float alpha, float as
         return vec4(0.0);
     }
     vec2 point = localPos / vec2(radius, max(0.01, radius * aspect));
-    float radial = length(point);
-    float pixelWidth = fwidth(radial);
+    vec2 uv = point * 0.5 + vec2(0.5);
     float retirement = retirementProgress * retirementProgress;
-    float feather = mix(0.016, 0.18, retirement);
-    float coverage = 1.0 - smoothstep(0.85 - feather - pixelWidth, 0.85 + feather + pixelWidth, radial);
-    if (coverage <= 0.0) {
-        return vec4(0.0);
-    }
-    // Reconstruct solid coverage while sampling the original colour gradient through the edge.
-    vec2 samplePoint = localPos * min(1.0, 0.94 / max(radial, 0.001));
-    vec4 color;
-    if (retirement > 0.0 && useTextureBall) {
-        vec2 uv = samplePoint / vec2(radius, radius * aspect) * 0.5 + vec2(0.5);
-        float level = log2(1.0 + 12.0 * retirement);
-        color = textureLod(colorBallBigSource, uv, level);
-    } else {
-        color = sampleColorBallLayer(samplePoint, radius, 1.0, aspect, useTextureBall);
-    }
-    vec3 tint = color.rgb / max(color.a, 0.001);
+    float level = log2(1.0 + 12.0 * retirement);
+    vec4 color = useTextureBall
+        ? textureLod(colorBallBigSource, clamp(uv, vec2(0.0), vec2(1.0)), level)
+        : proceduralColorBall(uv);
+    vec3 tint = color.rgb / max(color.a, 1.0 / 255.0);
+    float feather = mix(0.035, 0.16, retirement);
+    float coverage = 1.0 - smoothstep(0.85 - feather, 0.85 + feather, length(point));
     return vec4(tint * 0.90 * alpha * coverage, alpha * coverage);
 }
 
-vec4 sampleBlurredColorBallLayer(vec2 localPos, float radius, float alpha, float aspect, bool useTextureBall, float blurProgress)
+float bigColorBallFadeProgress()
+{
+    return smoothstep(0.017, 0.150, timing.w + 1.0 / 30.0);
+}
+
+float bigColorBallBlurProgress(float elapsed)
+{
+    float onset = clamp((0.95 - colorBallBig.y) / (0.95 - 0.44), 0.0, 1.0);
+    float retirement = smoothstep(0.050, 0.880, elapsed);
+    return 0.20 + 0.25 * onset + 0.55 * retirement;
+}
+
+vec3 preserveColorBallBrightness(vec3 color, vec3 reference)
+{
+    const vec3 luminanceWeights = vec3(0.2126, 0.7152, 0.0722);
+    float referenceLight = dot(pow(max(reference, vec3(0.0)), vec3(2.2)), luminanceWeights);
+    float colorLight = dot(pow(max(color, vec3(0.0)), vec3(2.2)), luminanceWeights);
+    return color * pow(referenceLight / max(colorLight, 0.00001), 1.0 / 2.2);
+}
+
+vec4 sampleBlurredColorBallLayer(vec2 localPos, float radius, float alpha, float lightAlpha, float aspect, bool useTextureBall, float blurProgress)
 {
     if (radius <= 0.0 || alpha <= 0.0) {
         return vec4(0.0);
     }
+    float fade = smoothstep(0.50, 0.75, blurProgress);
+    float softness = smoothstep(0.0, 1.0, blurProgress);
     vec2 uv = localPos / vec2(radius, radius * aspect) * 0.5 + vec2(0.5);
-    float blur = blurProgress * blurProgress;
-    // Mip filtering blurs the complete premultiplied image, including its single alpha edge.
-    float level = log2(1.0 + 12.0 * blur);
+    float level = log2(1.0 + 12.0 * blurProgress * blurProgress);
     vec4 color = useTextureBall ? textureLod(colorBallBigSource, uv, level) : proceduralColorBall(uv);
+    vec3 sourceTint = clamp(color.rgb / max(color.a, 1.0 / 255.0), vec3(0.0), vec3(1.0));
     float radial = length(uv * 2.0 - 1.0);
-    float expansion = smoothstep(0.03, 0.30, timing.x);
-    float retirement = smoothstep(0.70, 1.05, timing.x);
-    float featherStart = mix(0.84, 0.78, expansion);
-    featherStart = mix(featherStart, 0.60, retirement);
-    float edgeCoverage = 1.0 - smoothstep(featherStart, 0.98, radial);
-    // Retain the colour body while feathering its outer silhouette.
-    float bodyCoverage = mix(0.98, 0.90, smoothstep(0.12, 0.65, radial));
-    return color * (alpha * bodyCoverage * edgeCoverage);
+    float pixelWidth = max(fwidth(radial), 0.002);
+    float triggerCoverage = 1.0 - smoothstep(0.85 - pixelWidth, 0.85 + pixelWidth, radial);
+    float sourcePeak = max(sourceTint.r, max(sourceTint.g, sourceTint.b));
+    vec3 fadeTint = vec3(1.0, 0.98, 0.90) * sourcePeak;
+    float fadeCoverage = 1.0 - smoothstep(0.76, 0.98, radial);
+    float coverage = mix(triggerCoverage, fadeCoverage, softness);
+    vec3 radiance = preserveColorBallBrightness(mix(sourceTint, fadeTint, fade), sourceTint) * lightAlpha * coverage;
+    return vec4(radiance, alpha * coverage);
 }
 
 vec4 sampleFirework(vec2 texCoord)
@@ -249,22 +261,34 @@ vec4 sampleFirework(vec2 texCoord)
     // Evaluate derivatives before radial and sector branches.
     float pixelWidth = max(0.75, 0.5 * length(abs(dFdx(localPos)) + abs(dFdy(localPos))));
 
+    int diagnosticLayer = int(brightnessControls.y + 0.5);
+    if (diagnosticLayer == 7) diagnosticLayer = 0;
+    float fireworkBrightness = brightnessControls.x;
+    // 120% is the reference appearance; 100% attenuates it for chart readability.
+    float boost = clamp((fireworkBrightness - 1.0) / 0.20, 0.0, 1.0);
+    float centerGain = min(fireworkBrightness, 1.0) * mix(0.96, 1.0, boost);
+    float triggerPeak = 1.0 - clamp((0.95 - colorBallBig.y) / (0.95 - 0.44), 0.0, 1.0);
+    float washGain = pow(clamp((fireworkBrightness - 0.50) / 0.50, 0.0, 1.0), 2.0)
+        * mix(1.0, 1.20, boost);
     float fireworkAlpha = fireworkAndHole.x;
     float fireworkRotationDegrees = fireworkAndHole.y;
     float holeRadius = fireworkAndHole.z;
     float holeMaskRadius = fireworkAndHole.w;
     float colorBallRadius = colorBallSmall.x;
-    float colorBallAlpha = colorBallSmall.y;
+    float colorBallAlpha = min(1.0, colorBallSmall.y * centerGain);
     float sourceAspect = max(0.01, colorBallSmall.z);
     float fallbackColorBallRadius = colorBallSmall.w;
     float colorBallBigRadius = colorBallBig.x;
-    float colorBallBigAlpha = colorBallBig.y;
-    float fallbackColorBallAlpha = colorBallBig.z;
+    float colorBallBigAlpha = min(1.0, colorBallBig.y * centerGain * mix(1.0, 1.35, triggerPeak));
+    // Higher settings retain the ball through its fade while preserving the zero endpoint.
+    colorBallBigAlpha = pow(colorBallBigAlpha, mix(1.0, 0.75, boost));
+    float fallbackColorBallAlpha = min(1.0, colorBallBig.z * centerGain);
     int renderFlags = renderFlagsFromFloat(colorBallBig.w);
     if (hasRenderFlag(renderFlags, kRenderFlagWarmup)) {
         return vec4(0.0);
     }
-    bool drawFirework = hasRenderFlag(renderFlags, kRenderFlagDrawStripe);
+    bool fireworkActive = hasRenderFlag(renderFlags, kRenderFlagDrawStripe);
+    bool drawFirework = fireworkActive && (diagnosticLayer == 0 || diagnosticLayer == 4);
     bool drawColorBallBig = hasRenderFlag(renderFlags, kRenderFlagDrawBigBall);
     bool drawColorBallSmall = hasRenderFlag(renderFlags, kRenderFlagDrawSmallBall);
     bool useTextureBall = hasRenderFlag(renderFlags, kRenderFlagUseTexture);
@@ -298,7 +322,8 @@ vec4 sampleFirework(vec2 texCoord)
             float headFade = smoothstep(1.0 - headFeather, 1.01, radius / outerRadius);
             float frontAlpha = 1.0 - headFade * (1.0 - edgeArrival);
             float sectorAlpha = fireworkContributionAlpha * sectorCoverage
-                * launchAlpha * frontAlpha * 0.74;
+                * launchAlpha * frontAlpha * mix(0.76, 0.82, boost)
+                * mix(0.85, 1.0, clamp((fireworkBrightness - 0.50) / 0.50, 0.0, 1.0));
             float sectorCenter = sectorStart + kSectorSpanDegrees * 0.5;
             float angularDistance = shortestAngleDistanceDegrees(angleDegrees, sectorCenter);
             float axial01 = 1.0 - smoothstep(0.0, kSectorSpanDegrees * 0.5, angularDistance);
@@ -326,16 +351,16 @@ vec4 sampleFirework(vec2 texCoord)
             ) * smoothstep(0.43 - 1.0 / 30.0, 0.45 - 1.0 / 30.0, timing.w);
             float brightBlockLight = max(firstBlock, secondBlock);
             float colorRise = smoothstep(0.16, 0.34, timing.x);
-            float saturation = mix(0.96, 1.03, colorRise);
             float radialTint = smoothstep(0.05, 1.0, fieldDistance);
-            float brightness = 0.78;
-            brightness *= mix(0.82, 1.12, radialTint);
+            float saturation = mix(1.12, 0.98, radialTint) * mix(1.0, 1.04, colorRise);
+            float brightness = mix(0.82, 0.94, boost);
+            brightness *= mix(0.60, 1.14, radialTint);
             brightness *= mix(0.90, 1.04, axial01);
-            brightness *= mix(0.66, 1.12, brightBlockLight);
+            brightness *= mix(0.70, 1.05, brightBlockLight);
             vec3 baseColor = cyclingSectorColor(sectorIndex);
             float baseLuma = dot(baseColor, vec3(0.2126, 0.7152, 0.0722));
             vec3 beamColor = mix(vec3(baseLuma), baseColor, saturation);
-            float outerLightening = baseColor.b > baseColor.r ? 0.02 : 0.07;
+            float outerLightening = baseColor.b > baseColor.r ? 0.01 : 0.025;
             beamColor = mix(beamColor, vec3(1.0), radialTint * outerLightening);
             beamColor = clamp(beamColor * brightness, vec3(0.0), vec3(1.0));
             vec4 fireworkLayer = vec4(
@@ -363,7 +388,7 @@ vec4 sampleFirework(vec2 texCoord)
         float washClearRadius = clipRadius * mix(-0.30, 1.30, washRetirement);
         float washClear = smoothstep(washClearRadius - clipRadius * 0.26,
             washClearRadius + clipRadius * 0.26, radius);
-        float washAlpha = 0.14 * fireworkAlpha * washEdge * washClear;
+        float washAlpha = mix(0.05, 0.07, boost) * fireworkAlpha * washEdge * washClear * washGain;
         washEmission = vec3(0.86, 0.88, 0.91) * washAlpha;
     }
 
@@ -372,25 +397,28 @@ vec4 sampleFirework(vec2 texCoord)
     float lightReturn = lightRetirement * lightRetirement;
     float lightShrink = 1.0 - lightReturn;
 
-    if (drawFirework && fireworkAlpha > 0.0 && lightShrink > 0.0) {
+    if (fireworkActive && (diagnosticLayer == 0 || diagnosticLayer == 5)
+        && fireworkAlpha > 0.0 && lightShrink > 0.0) {
         // Independent light emission: soft radiance with no filled spike boundary.
-        float burstProgress = clamp(timing.x / 0.100, 0.0, 1.0);
+        float burstProgress = clamp((timing.w + 1.0 / 30.0) / 0.050, 0.0, 1.0);
         float outward = burstProgress * burstProgress * (3.0 - 2.0 * burstProgress);
         float roundness = 1.0 - pow(lightRetirement, 4.0);
         float dispersion = outward * roundness;
         vec2 lightPoint = localPos / (clipRadius * lightShrink * 0.75);
-        float coreWidth = mix(0.026, 0.054, dispersion);
+        float coreWidth = mix(0.030, 0.060, dispersion);
         float density = exp(-dot(lightPoint, lightPoint) / (coreWidth * coreWidth));
         // Elliptical Gaussian fields merge into one light, then collapse into the round core.
         if (radius < clipRadius * 0.34) {
             for (int ray = 0; ray < 11; ++ray) {
                 vec4 axes = glowFields[ray * 2];
                 vec4 shape = glowFields[ray * 2 + 1];
-                vec2 relative = lightPoint - shape.xy;
-                vec2 fieldPoint = vec2(dot(relative, axes.xy) * axes.z,
+                // The slider changes longitudinal reach while retaining core intensity and beam width.
+                float radiationReach = fireworkBrightness / 1.20;
+                vec2 relative = lightPoint - shape.xy * radiationReach;
+                vec2 fieldPoint = vec2(dot(relative, axes.xy) * axes.z / radiationReach,
                     dot(relative, vec2(-axes.y, axes.x)) * axes.w);
                 float rayDensity = shape.z
-                    * exp(-2.0 * (pow(abs(fieldPoint.x), 2.4) + fieldPoint.y * fieldPoint.y));
+                    * exp(-1.7 * dot(fieldPoint, fieldPoint));
                 // Weight the join by shared radiance so empty fields contribute zero light.
                 float blend = max(0.12 - abs(density - rayDensity), 0.0) / 0.12;
                 float sharedRadiance = clamp(min(density, rayDensity) / 0.12, 0.0, 1.0);
@@ -398,53 +426,70 @@ vec4 sampleFirework(vec2 texCoord)
             }
         }
         // Continuous radiance gives the beams a bright root and soft longitudinal falloff.
-        float glowAlpha = pow(clamp(density, 0.0, 1.0), mix(2.8, 1.15, dispersion));
-        vec3 glowColor = vec3(1.0, 0.93, 0.55);
+        float glowAlpha = 0.85
+            * pow(clamp(density, 0.0, 1.0), mix(2.4, 1.05, dispersion));
+        vec3 glowColor = vec3(1.0, 0.96, 0.70);
         rootLayer = vec4(glowColor * glowAlpha, glowAlpha);
 
     }
 
-    vec4 stars = texture(starsSource, texCoord * starsUvTransform.zw + starsUvTransform.xy);
-    layerColor = compositeSourceOver(stars, layerColor);
+    vec4 stars = min(vec4(1.0), texture(starsSource, texCoord * starsUvTransform.zw + starsUvTransform.xy)
+        * mix(1.0, 1.05, boost));
+    if (diagnosticLayer == 0 || diagnosticLayer == 6) {
+        layerColor = compositeSourceOver(stars, layerColor);
+    }
 
-    if (drawColorBallBig) {
+    if (drawColorBallBig && (diagnosticLayer == 0 || diagnosticLayer == 1 || diagnosticLayer == 3)) {
+        vec4 underBall = layerColor;
         float elapsed = timing.w + 1.0 / 30.0;
         float haloRetirement = smoothstep(0.10, 0.32, elapsed);
-        float haloRadius = clipRadius * 1.12 * mix(0.44, 0.429, smoothstep(0.0, 0.10, elapsed))
-            * mix(1.0, 1.06, haloRetirement);
         float haloOpacity = smoothstep(0.0, 0.033, elapsed) * 0.95 * (1.0 - haloRetirement);
-        if (haloOpacity > 0.0 && radius > haloRadius * 0.60) {
-            vec2 haloPoint = localPos / max(radius, 1.0) * haloRadius * 0.72;
-            vec4 haloSample = sampleColorBallLayer(
-                haloPoint, haloRadius, 1.0, sourceAspect, useTextureBall);
-            vec3 haloTint = haloSample.rgb / max(haloSample.a, 0.001);
-            haloTint = mix(haloTint, vec3(1.0), 0.15);
-            float haloDistance = max(0.0, radius / haloRadius - 0.70) / 0.62;
-            float haloAlpha = exp(-2.0 * haloDistance * haloDistance)
-                * smoothstep(0.60, 0.72, radius / haloRadius)
-                * haloOpacity * 0.42;
-            float combinedAlpha = haloAlpha + layerColor.a * (1.0 - haloAlpha);
-            layerColor = vec4(min(layerColor.rgb + haloTint * haloAlpha, vec3(combinedAlpha)), combinedAlpha);
-        }
+        float haloRadius = colorBallBigRadius * mix(1.0, 1.06, haloRetirement);
+        vec2 haloPoint = localPos / max(radius, 1.0) * haloRadius * 0.72;
+        vec4 halo = sampleColorBallLayer(
+            haloPoint, haloRadius, 1.0, sourceAspect, useTextureBall);
+        vec3 haloTint = halo.rgb / max(halo.a, 1.0 / 255.0);
+        haloTint = mix(haloTint, vec3(1.0), 0.15);
+        float haloDistance = max(0.0, radius / haloRadius - 0.70) / 0.62;
+        float haloStrength = exp(-2.0 * haloDistance * haloDistance)
+            * smoothstep(0.60, 0.72, radius / haloRadius) * haloOpacity;
+        float haloAlpha = haloStrength * mix(0.28, 0.34, boost)
+            * min(fireworkBrightness, 1.0);
+        if (diagnosticLayer == 1) haloAlpha = 0.0;
+        float haloCombinedAlpha = haloAlpha + layerColor.a * (1.0 - haloAlpha);
+        layerColor = vec4(
+            min(layerColor.rgb + haloTint * haloAlpha, vec3(haloCombinedAlpha)),
+            haloCombinedAlpha);
+        if (diagnosticLayer == 0 || diagnosticLayer == 1) {
+        float ballOpacity = colorBallBigAlpha * mix(0.90, 1.0, max(triggerPeak, boost));
+        float triggerLightAlpha = 0.95 * min(fireworkBrightness, 1.0) * mix(0.80, 1.0, boost);
+        float settled = bigColorBallFadeProgress();
+        float peakHold = 1.0 - smoothstep(0.090, 0.200, elapsed);
+        float ballLightAlpha = mix(ballOpacity * mix(1.0, 1.25, boost), triggerLightAlpha, peakHold);
+        float goldRadius = clipRadius * 0.12;
+        float goldField = exp(-dot(localPos, localPos) / (goldRadius * goldRadius));
+        ballLightAlpha *= mix(0.80, 1.0, goldField);
         vec4 ball = sampleBlurredColorBallLayer(
-            localPos, colorBallBigRadius, min(1.0, colorBallBigAlpha * 1.08), sourceAspect, useTextureBall,
-            mix(0.20, 1.0, smoothstep(0.72, 0.88, elapsed)));
-        float illumination = smoothstep(0.13, 0.267, timing.w);
-        vec3 emittedLight = ball.rgb * mix(1.0, 1.50, illumination);
-        // Light strength and image opacity remain independent during dissolution.
-        vec3 litColor = min(layerColor.rgb + emittedLight, vec3(1.0));
-        float combinedAlpha = ball.a + layerColor.a * (1.0 - ball.a);
-        vec4 illuminatedBall = vec4(min(litColor, vec3(combinedAlpha)), combinedAlpha);
-        layerColor = mix(compositeSourceOver(ball, layerColor), illuminatedBall, illumination);
+            localPos, colorBallBigRadius, ballOpacity, ballLightAlpha, sourceAspect, useTextureBall,
+            bigColorBallBlurProgress(elapsed));
+        float bodyCoverage = clamp(ball.a / max(ballOpacity, 0.00001), 0.0, 1.0);
+        vec4 ballUnderlay = mix(layerColor, underBall, bodyCoverage);
+        vec3 ballLight = ball.rgb;
+        vec3 goldLight = vec3(1.0, 0.88, 0.48) * goldField * colorBallBigAlpha * settled * 0.28;
+        vec3 emittedLight = preserveColorBallBrightness(ballLight + goldLight, ballLight) * 1.20;
+        layerColor = vec4(
+            emittedLight + ballUnderlay.rgb,
+            ballUnderlay.a);
 
+        }
     }
-    if (drawColorBallSmall) {
+    if (drawColorBallSmall && (diagnosticLayer == 0 || diagnosticLayer == 2)) {
         float retirement = clamp(timing.x / 0.150, 0.0, 1.0);
         vec4 ball = sampleSoftColorBallLayer(
             localPos, colorBallRadius, colorBallAlpha, sourceAspect, useTextureBall, retirement);
         layerColor = compositeSourceOver(ball, layerColor);
     }
-    if (drawFallbackColorBall) {
+    if (drawFallbackColorBall && (diagnosticLayer == 0 || diagnosticLayer == 1)) {
         layerColor = compositeSourceOver(
             sampleColorBallLayer(localPos, fallbackColorBallRadius, fallbackColorBallAlpha, 1.0, false),
             layerColor
@@ -466,5 +511,7 @@ vec4 sampleFirework(vec2 texCoord)
 
 void main()
 {
-    fragColor = sampleFirework(vTexCoord) * qt_Opacity;
+    vec4 effect = sampleFirework(vTexCoord);
+    fragColor = int(brightnessControls.y + 0.5) == 7
+        ? vec4(vec3(effect.a), 1.0) * qt_Opacity : effect * qt_Opacity;
 }

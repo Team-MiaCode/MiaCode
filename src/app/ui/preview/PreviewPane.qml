@@ -16,6 +16,10 @@ Rectangle {
     // Suspend the scene subscription while moving the pane between windows.
     property bool surfaceActive: true
     property bool detached: false
+    // Mirrors the transport row when the preview sits left of the editor; set
+    // by the workspace layout, kept separate from `detached` so the detached
+    // window always renders the default order.
+    property bool transportMirrored: false
     readonly property real minimumHeight: heading.implicitHeight + transport.implicitHeight
                                           + statistics.implicitHeight + 64
     readonly property real minimumWidth: transport.minimumWidth
@@ -24,6 +28,9 @@ Rectangle {
     readonly property alias cornerSourceItem: heading
     readonly property Item transportItem: transport
     readonly property Item renderModeItem: renderModeButton
+    // The 预览 → 渲染模式 menu entry stands in for a click on the button, so it
+    // is available exactly when the button can be clicked.
+    readonly property bool renderModeMenuAvailable: renderModeButton.visible && renderModeButton.enabled
 
     // Export page still uses the backend ratio. Edit mode defaults to 1:1;
     // free aspect sizes the surface to the live stage geometry.
@@ -38,6 +45,14 @@ Rectangle {
 
     color: Theme.surfaceColor(Theme.colors.background.panel)
     clip: true
+
+    function toggleRenderModeMenu() {
+        if (renderModeMenu.active) {
+            renderModeMenu.close()
+            return
+        }
+        renderModeMenu.openAt(renderModeButton)
+    }
 
     function closeMenus() {
         renderModeMenu.close()
@@ -72,13 +87,7 @@ Rectangle {
             Accessible.role: Accessible.Button
             Accessible.name: qsTrId("qml.preview_rendering_mode")
             Accessible.description: root.previewSession.renderModeLabel
-            onClicked: {
-                if (renderModeMenu.active) {
-                    renderModeMenu.close()
-                    return
-                }
-                renderModeMenu.openAt(renderModeButton)
-            }
+            onClicked: root.toggleRenderModeMenu()
 
             contentItem: Text {
                 id: renderModeLabelText
@@ -150,6 +159,7 @@ Rectangle {
         exportSession: root.exportSession
         exportPageActive: root.exportPageActive
         detached: root.detached
+        transportMirrored: root.transportMirrored
         dataAvailable: root.documentAvailable
         enabled: root.documentAvailable
         onDetachRequested: root.detachRequested()

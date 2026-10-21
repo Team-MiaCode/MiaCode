@@ -14,6 +14,10 @@ Item {
     property bool exportPageActive: false
     property bool detached: false
     property bool topEdgeHighlighted: false
+    // Mirrors the control row when the preview sits left of the editor: the
+    // frequent stop/play pair then moves to the editor-adjacent edge, next to
+    // the scrub area, while the lower-frequency options move away from it.
+    property bool transportMirrored: false
     readonly property real topEdgeCenterY: 0.5 / root.Screen.devicePixelRatio
     signal detachRequested()
     signal dockRequested()
@@ -191,6 +195,7 @@ Item {
         anchors.rightMargin: 8
         anchors.bottomMargin: root.controlsBottomInset
         spacing: 5
+        layoutDirection: root.transportMirrored ? Qt.RightToLeft : Qt.LeftToRight
 
         IconButton {
             id: stopButton

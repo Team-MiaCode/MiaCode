@@ -28,6 +28,7 @@ struct VideoExportSnapshot {
     double backgroundBrightnessOuter = miacode::preview_video::kBackgroundBrightnessDefault;
     double backgroundBrightnessInner = miacode::preview_video::kBackgroundBrightnessInnerDefault;
     double layoutSquareScale = miacode::preview_video::kLayoutSquareScaleDefault;
+    double fireworkBrightness = miacode::preview_video::kFireworkBrightnessDefault;
     bool smoothBrightness = miacode::preview_video::kSmoothBrightnessDefault;
     PreviewOutlineVariant outlineVariant = PreviewOutlineVariant::Line;
     QString outlineImagePath;

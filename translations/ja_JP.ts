@@ -1621,6 +1621,10 @@ Failed: %2</source>
         <source>SD</source>
         <translation>SD</translation>
     </message>
+    <message id="dialog.render_settings.video.firework_brightness">
+        <source>Firework brightness</source>
+        <translation>花火の明るさ</translation>
+    </message>
     <message id="dialog.render_settings.video.smooth_brightness">
         <source>Smooth brightness</source>
         <translation>明るさをなめらかに</translation>
@@ -3583,6 +3587,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Preview rendering mode</source>
         <translation>プレビューレンダリングモード</translation>
     </message>
+    <message id="menu.preview_rendering_mode">
+        <source>Rendering Mode</source>
+        <translation>レンダリングモード</translation>
+    </message>
     <message id="qml.open_simai_file">
         <source>Open Simai file</source>
         <translation>Simai ファイルを開く</translation>
@@ -3746,6 +3754,14 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="qml.timeline_zoom">
         <source>Timeline zoom</source>
         <translation>タイムラインの拡大率</translation>
+    </message>
+    <message id="qml.zoom_in">
+        <source>Zoom in</source>
+        <translation>拡大</translation>
+    </message>
+    <message id="qml.zoom_out">
+        <source>Zoom out</source>
+        <translation>縮小</translation>
     </message>
     <message id="qml.title_font_preview">
         <source>Title-font preview</source>
@@ -4789,10 +4805,6 @@ Error: %1</source>
         <source>Set to current value</source>
         <translation>現在値に設定</translation>
     </message>
-    <message id="dialog.video_export.range.play_clip">
-        <source>Play Range</source>
-        <translation>範囲を再生</translation>
-    </message>
     <message id="dialog.video_export.output_mode">
         <source>Output Format</source>
         <translation>出力形式</translation>
@@ -4838,4 +4850,64 @@ Error: %1</source>
         <translation>%1：フレーム時間を %2 秒から %3 秒に調整</translation>
     </message>
 </context>
+    <message id="file_picker.native_failed">
+        <source>Could not open the system folder picker.</source>
+        <translation>システムのフォルダー選択画面を開けませんでした。</translation>
+    </message>
+</context>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </TS>

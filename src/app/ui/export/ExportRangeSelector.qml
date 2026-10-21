@@ -381,7 +381,7 @@ Item {
             width: Math.max(1, lane.visualEndX - x)
             height: lane.trackHeight
             radius: height * 0.5
-            color: Theme.colors.accent.focus
+            color: Theme.colors.accent.muted
         }
 
         Rectangle {

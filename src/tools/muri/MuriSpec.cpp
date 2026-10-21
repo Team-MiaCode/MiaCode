@@ -215,6 +215,64 @@ int main(int argc, char** argv)
     }
 
     {
+        const AnalyzedChart analyzed = analyzeChart(QStringLiteral(
+            "(146){16}6qq3[4:4]/4<2[4:4]*<2<4b[4:8],,,,,,,,,,,,,,,,,,,,,,,,E"));
+        expect(analyzed.parsed.ok, QStringLiteral("Overchannel embedded slide repro parses"));
+        expect(countDiagnostics(analyzed.report.diagnostics, MuriKind::MultiTouch) == 0,
+            QStringLiteral("a slide ending inside a matching chain has no extra release-tail hand"));
+        expect(countVisibleEntries(analyzed.visibleEntries, MuriKind::MultiTouch) == 0,
+            QStringLiteral("Overchannel embedded slide leaves no multitouch panel entry"));
+    }
+
+    {
+        const AnalyzedChart analyzed = analyzeChart(QStringLiteral(
+            "(110){24}4^1[8:1]/3^6[8:1],,,,,,4h[384:1]/3h[384:1],,,,E"));
+        expect(analyzed.parsed.ok, QStringLiteral("Itowokashi short-hold slide start repro parses"));
+        expect(countDiagnostics(analyzed.report.diagnostics, MuriKind::MultiTouch) == 0,
+            QStringLiteral("short holds at slide motion start do not add independent hands"));
+        expect(countVisibleEntries(analyzed.visibleEntries, MuriKind::MultiTouch) == 0,
+            QStringLiteral("short-hold slide starts leave no multitouch panel entry"));
+        for (const TimelineNoteMarker& marker : analyzed.parsed.noteMarkers) {
+            if (marker.type == QLatin1String("hold")) {
+                expect(marker.endSecond > marker.second,
+                    QStringLiteral("short-hold chart timing and type remain intact"));
+                const QString key = makeMarkerAnalysisKey(marker);
+                bool hasPressTrail = false;
+                for (const MuriActionTrail& trail : analyzed.report.actionTrails) {
+                    hasPressTrail |= trail.sourceMarkerKey == key;
+                }
+                expect(!hasPressTrail,
+                    QStringLiteral("short-hold slide starts also reuse the slide overlay hand"));
+            }
+        }
+
+        for (const QString& duration : {QStringLiteral("120:1"), QStringLiteral("#0.017")}) {
+            const auto boundary = analyzeChart(QStringLiteral(
+                "(120){4}1-5[4:2]/3-7[4:2],1h[%1]/3h[%1],,,,E").arg(duration));
+            expect(boundary.parsed.ok, QStringLiteral("short-hold boundary repro parses"));
+            expect(countDiagnostics(boundary.report.diagnostics, MuriKind::MultiTouch)
+                       == (duration == QLatin1String("120:1") ? 0 : 1),
+                QStringLiteral("only holds lasting at most one frame reuse the slide start"));
+        }
+        const auto independent = analyzeChart(QStringLiteral("(110){4}1h[384:1]/2/3,E"));
+        expect(countDiagnostics(independent.report.diagnostics, MuriKind::MultiTouch) == 1,
+            QStringLiteral("an independent short hold still counts toward real triple presses"));
+    }
+
+    {
+        const auto parsed = SimaiParser::parseForTimeline(QStringLiteral(
+            "(159){16}4,4,8,3,6,1,5-8[8:1],4,7,2,5V74[32:7],,,4,,,,,,,,E"));
+        expect(parsed.ok, QStringLiteral("Kaijin B6/A6 judge-area repro parses"));
+        for (int radius : {0, 15, 30, 60}) {
+            MuriRenderOptions options;
+            options.handRadiusPx = radius;
+            const auto report = MuriAnalyzer::analyze(parsed.noteMarkers, options);
+            expect(countDiagnostics(report.diagnostics, MuriKind::SlideTooFast) == 1,
+                QStringLiteral("B6 can advance the B6/A6 area even at hand radius %1").arg(radius));
+        }
+    }
+
+    {
         const AnalyzedChart analyzed = analyzeChart(
             QStringLiteral("(240){16}\n8>3[4:1],,,,,\n8,\nE\n"));
         expect(analyzed.parsed.ok, QStringLiteral("anchor repro chart parses"));

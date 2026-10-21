@@ -4,6 +4,7 @@
 #include "app/ui/layout/WorkbenchSettings.h"
 #include "app/ui/chrome/ShortcutModel.h"
 #include "app/ui/preferences/LocaleService.h"
+#include "app/ui/dialogs/NativeFolderPicker.h"
 #include "common/DebugLog.h"
 #include "export/cover_export/CoverCompositeRenderer.h"
 
@@ -29,6 +30,7 @@ CoverExportWindow::CoverExportWindow(miacode::ExportEngine& exportEngine,
     , requests_(this)
     , session_(exportEngine, requests_, playbackControlSlot, this)
 {
+    installNativeFolderPicker(requests_);
     connect(&miacode::LocaleService::instance(), &miacode::LocaleService::languageChanged,
             &requests_, &miacode::UiRequestService::retranslate);
     // Export pumps events while capturing. Finish the active operation before

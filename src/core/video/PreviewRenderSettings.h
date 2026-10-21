@@ -2,6 +2,16 @@
 
 #include <QString>
 
+namespace miacode::preview_video {
+inline constexpr double kFireworkBrightnessMin = 0.5;
+inline constexpr double kFireworkBrightnessDefault = 1.0;
+inline constexpr double kFireworkBrightnessMax = 1.2;
+inline double normalizedFireworkBrightness(double value)
+{
+    return qBound(kFireworkBrightnessMin, value, kFireworkBrightnessMax);
+}
+}
+
 // Which skin family the preview and the export renderer draw with. It lived
 // inside MainWindow as a nested enum, which meant every preview-appearance
 // consumer had to include the widget header to name a render setting. It is a
