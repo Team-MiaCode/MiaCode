@@ -34,7 +34,7 @@ QtObject {
     signal latencyCalibrationRequested()
     signal netRequested()
     signal netUploadRequested()
-    signal mediaToolsRequested()
+    signal mediaToolRequested(string toolId)
     signal chartTransformRequested(string opId)
     signal aboutRequested()
     signal setupWizardRequested()

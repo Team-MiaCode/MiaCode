@@ -21,7 +21,17 @@ Item {
         ? exportSidebar.cornerSourceItem : chartSidebar.cornerSourceItem
 
     signal settingsRequested()
-    signal mediaToolsRequested()
+    signal mediaToolRequested(string toolId)
+
+    function showMediaToolsMenu() {
+        if (root.efficientMode) {
+            root.viewState.sidebarVisible = true
+            root.preferences.sidebarVisible = true
+            Qt.callLater(efficientSidebar.showTools)
+        } else {
+            activityBar.showMediaToolsMenu()
+        }
+    }
 
     clip: true
 
@@ -71,10 +81,15 @@ Item {
         toolsAvailable: true
         onViewRequested: viewId => root.activateView(viewId)
         onToolRequested: function(toolId) {
-            if (toolId === "net-download" || toolId === "net-upload")
+            if (toolId === "net-download" || toolId === "net-upload") {
                 root.pages.openNetPage(toolId)
+                return
+            }
+            if (!root.documentSession.hasDocument)
+                return
+            if (toolId.startsWith("media."))
+                root.mediaToolRequested(toolId.substring(6))
         }
-        onMediaToolsRequested: root.mediaToolsRequested()
         onSettingsRequested: root.settingsRequested()
     }
 
@@ -108,7 +123,8 @@ Item {
             documentSession: root.documentSession
             commands: root.commands
             pages: root.pages
-            onToolsRequested: root.mediaToolsRequested()
+            toolsMenuActive: activityBar.toolsMenuActive
+            onToolsRequested: activityBar.showMediaToolsMenu(efficientSidebar.toolsItem)
             onSettingsRequested: root.settingsRequested()
         }
 
