@@ -252,16 +252,21 @@ Item {
 
     function showOpenFileDialog() {
         const location = root.documentSession.fileDialogLocation(false)
-        openFileDialog.currentFolder = location.folder
-        openFileDialog.selectedFile = ""
-        openFileDialog.open()
+        const dialog = openFileDialogComponent.createObject(root, {
+            parentWindow: root.hostWindow,
+            currentFolder: location.folder
+        })
+        dialog.open()
     }
 
     function showSaveFileDialog() {
         const location = root.documentSession.fileDialogLocation(true)
-        saveFileDialog.currentFolder = location.folder
-        saveFileDialog.selectedFile = location.file
-        saveFileDialog.open()
+        const dialog = saveFileDialogComponent.createObject(root, {
+            parentWindow: root.hostWindow,
+            currentFolder: location.folder,
+            selectedFile: location.file
+        })
+        dialog.open()
     }
 
     function saveDocument() {
@@ -471,21 +476,34 @@ Item {
         onActivated: splitView.requestCloseActiveEditor()
     }
 
-    FileDialog {
-        id: openFileDialog
-        title: qsTrId("qml.open_simai_file")
-        fileMode: FileDialog.OpenFile
-        nameFilters: [qsTrId("qml.simai_files_txt_simai"), qsTrId("qml.all_files_2")]
-        onAccepted: root.requestOpenFile(selectedFile)
+    // Release the native panel with each request, including its directory state.
+    Component {
+        id: openFileDialogComponent
+        FileDialog {
+            title: qsTrId("qml.open_simai_file")
+            fileMode: FileDialog.OpenFile
+            nameFilters: [qsTrId("qml.simai_files_txt_simai"), qsTrId("qml.all_files_2")]
+            onAccepted: {
+                root.requestOpenFile(selectedFile)
+                destroy()
+            }
+            onRejected: destroy()
+        }
     }
 
-    FileDialog {
-        id: saveFileDialog
-        title: qsTrId("qml.save_simai_file")
-        fileMode: FileDialog.SaveFile
-        defaultSuffix: "txt"
-        nameFilters: [qsTrId("qml.simai_files_txt_simai"), qsTrId("qml.all_files_2")]
-        onAccepted: root.commands.saveDocumentAs(selectedFile)
+    Component {
+        id: saveFileDialogComponent
+        FileDialog {
+            title: qsTrId("qml.save_simai_file")
+            fileMode: FileDialog.SaveFile
+            defaultSuffix: "txt"
+            nameFilters: [qsTrId("qml.simai_files_txt_simai"), qsTrId("qml.all_files_2")]
+            onAccepted: {
+                root.commands.saveDocumentAs(selectedFile)
+                destroy()
+            }
+            onRejected: destroy()
+        }
     }
 
     // These actions remain discoverable while their dedicated QML pages and
