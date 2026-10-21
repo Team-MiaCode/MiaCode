@@ -12,6 +12,7 @@
 #include "core/chart/ChartAssetPaths.h"
 #include "common/DebugLog.h"
 #include "common/DebugOptions.h"
+#include "common/FileWriteFailure.h"
 #include "common/GpuDevicePolicy.h"
 #include "common/OperationLog.h"
 #include "audio/WaveformCache.h"
@@ -518,6 +519,112 @@ miacode::LocalizedText buildExportProgressLabelTextForUiLanguage(
     return miacode::LocalizedText(QStringLiteral("%1\n%2")).arg(text, etaLine);
 }
 
+// Encoding writes into the system temp folder; these stages write beside the
+// output file instead.
+bool exportFailureWritesOutputFolder(const QString& workerMessage)
+{
+    return workerMessage == QLatin1String("ffmpeg remux failed.")
+        || workerMessage == QLatin1String("Failed to start ffmpeg remux stage.")
+        || workerMessage == QLatin1String("Failed to finalize output file.")
+        || workerMessage == QLatin1String("Failed to finalize WAV output file.")
+        || workerMessage == QLatin1String("Failed to stage WAV output file.")
+        || workerMessage == QLatin1String("Failed to start WAV finalization.")
+        || workerMessage == QLatin1String("WAV finalization failed.");
+}
+
+miacode::LocalizedText exportVolumeLabel(const QStorageInfo& storage)
+{
+    if (!storage.isValid()) {
+        return miacode::localizedText("dialog.video_export.volume.unknown");
+    }
+#ifdef Q_OS_WIN
+    const QString root = storage.rootPath();
+    if (root.size() >= 2 && root.at(1) == QLatin1Char(':')) {
+        return miacode::localizedText("dialog.video_export.volume.drive").arg(root.left(1).toUpper());
+    }
+#endif
+    const QString name = storage.displayName().trimmed();
+    return name.isEmpty()
+        ? miacode::localizedText("dialog.video_export.volume.unknown")
+        : miacode::localizedText("dialog.video_export.volume.named").arg(name);
+}
+
+// The worker fails with the fixed English sentences of VideoExportPreparedTask.
+// Lead the notice with what the viewer can act on; anything unrecognised, such
+// as a message the worker already localized, passes through unchanged.
+miacode::LocalizedText localizeExportWorkerFailureForUiLanguage(
+    const QString& workerMessage,
+    const QString& diagnostics,
+    const QString& outputPath)
+{
+    const QString trimmed = workerMessage.trimmed();
+    const QStorageInfo outputStorage = outputPath.isEmpty()
+        ? QStorageInfo()
+        : QStorageInfo(QFileInfo(outputPath).absolutePath());
+    if (miacode::textReportsDiskFull(trimmed + QLatin1Char('\n') + diagnostics)) {
+        const QString tempPath = QDir::tempPath();
+        const QStorageInfo tempStorage(tempPath);
+        const bool tempOnOtherVolume = tempStorage.isValid() && outputStorage.isValid()
+            && tempStorage.rootPath() != outputStorage.rootPath();
+        if (tempOnOtherVolume && !exportFailureWritesOutputFolder(trimmed)) {
+            return miacode::localizedText("dialog.video_export.error.disk_full_temp")
+                .arg(exportVolumeLabel(tempStorage), QDir::toNativeSeparators(tempPath));
+        }
+        return miacode::localizedText("dialog.video_export.error.disk_full_output")
+            .arg(exportVolumeLabel(outputStorage));
+    }
+
+    if (trimmed == QLatin1String("Unable to create temporary directory.")) {
+        return miacode::localizedText("dialog.video_export.error.temp_dir_failed")
+            .arg(QDir::toNativeSeparators(QDir::tempPath()));
+    }
+    if (trimmed == QLatin1String("Failed to finalize output file.")
+        || trimmed == QLatin1String("Failed to finalize WAV output file.")
+        || trimmed == QLatin1String("Failed to stage WAV output file.")) {
+        const QString suffix = trimmed.contains(QLatin1String("WAV"))
+            ? QStringLiteral("wav")
+            : QStringLiteral("mp4");
+        return miacode::localizedText("dialog.video_export.error.output_write_failed")
+            .arg(QFileInfo(outputPath).completeBaseName() + QLatin1Char('.') + suffix);
+    }
+
+    static const QHash<QString, const char*> summaryIds{
+        {QStringLiteral("ffmpeg executable was not found."), "dialog.video_export.error.ffmpeg_missing"},
+        {QStringLiteral("Skin directory is empty."), "dialog.video_export.error.skin_missing"},
+        {QStringLiteral("Failed to load export skin assets."), "dialog.video_export.error.skin_missing"},
+        {QStringLiteral("Render frame failed."), "dialog.video_export.error.render_failed"},
+        {QStringLiteral("Failed to initialize Quick export renderer."), "dialog.video_export.error.render_failed"},
+        {QStringLiteral("Failed to pack RGBA frame."), "dialog.video_export.error.render_failed"},
+        {QStringLiteral("Unable to create dim mask image."), "dialog.video_export.error.render_failed"},
+        {QStringLiteral("Unable to create inner media mask image."), "dialog.video_export.error.render_failed"},
+        {QStringLiteral("Unable to generate mixed export audio track."), "dialog.video_export.error.audio_failed"},
+        {QStringLiteral("Unable to select export audio backend."), "dialog.video_export.error.audio_failed"},
+        {QStringLiteral("Unable to build export audio render plan."), "dialog.video_export.error.audio_failed"},
+        {QStringLiteral("Failed to start WAV finalization."), "dialog.video_export.error.audio_failed"},
+        {QStringLiteral("WAV finalization failed."), "dialog.video_export.error.audio_failed"},
+        {QStringLiteral("ffmpeg encode failed."), "dialog.video_export.error.encode_failed"},
+        {QStringLiteral("ffmpeg process failed."), "dialog.video_export.error.encode_failed"},
+        {QStringLiteral("ffmpeg exited unexpectedly during frame piping."), "dialog.video_export.error.encode_failed"},
+        {QStringLiteral("Failed to start ffmpeg."), "dialog.video_export.error.encode_failed"},
+        {QStringLiteral("Failed to queue frame data for ffmpeg."), "dialog.video_export.error.encode_failed"},
+        {QStringLiteral("Failed to finalize raw pipe stream."), "dialog.video_export.error.encode_failed"},
+        {QStringLiteral("Failed to start raw pipe writer."), "dialog.video_export.error.encode_failed"},
+        {QStringLiteral("Failed to create raw video pipe."), "dialog.video_export.error.encode_failed"},
+        {QStringLiteral("Failed to write raw dump frame."), "dialog.video_export.error.encode_failed"},
+        {QStringLiteral("ffmpeg remux failed."), "dialog.video_export.error.encode_failed"},
+        {QStringLiteral("Failed to start ffmpeg remux stage."), "dialog.video_export.error.encode_failed"},
+        {QStringLiteral("VAAPI encoder selected but no DRM render node was found."), "dialog.video_export.error.encode_failed"},
+        {QStringLiteral("Output path is empty."), "dialog.video_export.error.unknown"},
+        {QStringLiteral("Export parameters are invalid."), "dialog.video_export.error.unknown"},
+        {QStringLiteral("Output size currently requires width >= height."), "dialog.video_export.error.unknown"},
+        {QStringLiteral("Content duration is invalid."), "dialog.video_export.error.unknown"},
+    };
+    const auto summaryId = summaryIds.constFind(trimmed);
+    if (summaryId != summaryIds.constEnd()) {
+        return miacode::localizedText(summaryId.value());
+    }
+    return trimmed;
+}
 
 }  // namespace
 
@@ -678,7 +785,7 @@ bool miacode::runtime::VideoExportHost::runVideoExportWorkerSync(
                 if (eventType == QLatin1String("finished")) {
                     finishedEventReceived = true;
                     success = object.value(QStringLiteral("success")).toBool(false);
-                    resultMessage = object.value(QStringLiteral("message")).toString();
+                    resultMessage = object.value(QStringLiteral("error")).toString();
                     resultDetails = tailLimitedProcessText(
                         object.value(QStringLiteral("details")).toString(),
                         kVideoExportWorkerDetailsMaxChars);
@@ -742,6 +849,20 @@ bool miacode::runtime::VideoExportHost::runVideoExportWorkerSync(
             continue;
         }
 
+        // Lead with the localized cause; the worker's own sentence follows it.
+        const auto workerFailureSummary = [&]() -> QString {
+            const QString workerMessage = resultMessage.trimmed();
+            if (workerMessage.isEmpty()) {
+                return !stderrText.isEmpty()
+                    ? stderrText.split('\n').constFirst().trimmed()
+                    : qtTrId("dialog.video_export.error.failed");
+            }
+            const QString localized = localizeExportWorkerFailureForUiLanguage(
+                workerMessage, resultDetails, snapshot.outputPath).text();
+            return localized == workerMessage
+                ? workerMessage
+                : QStringLiteral("%1 (%2)").arg(localized, workerMessage);
+        };
         const QString combinedRetryDiagnostics = firstCrashDiagnostics.trimmed().isEmpty()
             ? QString()
             : buildWorkerRetryFailureDetails(
@@ -753,11 +874,7 @@ bool miacode::runtime::VideoExportHost::runVideoExportWorkerSync(
               );
         if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
             if (errorMessage != nullptr) {
-                const QString summary = !resultMessage.trimmed().isEmpty()
-                    ? resultMessage
-                    : (!stderrText.isEmpty()
-                        ? stderrText.split('\n').constFirst().trimmed()
-                        : qtTrId("dialog.video_export.error.failed"));
+                const QString summary = workerFailureSummary();
                 const QString exitSummary = compactWorkerExitSummary(process.exitCode(), process.exitStatus(), summary);
                 *errorMessage = combinedRetryDiagnostics.isEmpty()
                     ? exitSummary
@@ -768,11 +885,7 @@ bool miacode::runtime::VideoExportHost::runVideoExportWorkerSync(
 
         if (!finishedEventReceived || !success) {
             if (errorMessage != nullptr) {
-                const QString summary = !resultMessage.trimmed().isEmpty()
-                    ? resultMessage
-                    : (!stderrText.isEmpty()
-                        ? stderrText.split('\n').constFirst().trimmed()
-                        : qtTrId("dialog.video_export.error.failed"));
+                const QString summary = workerFailureSummary();
                 const bool genericFailure = resultMessage.trimmed().isEmpty() && stderrText.trimmed().isEmpty();
                 if (!combinedRetryDiagnostics.isEmpty()) {
                     *errorMessage = appendVideoExportDiagnostics(summary, combinedRetryDiagnostics);
@@ -1163,6 +1276,17 @@ void miacode::runtime::VideoExportHost::handleVideoExportWorkerProcessFinished(i
         } else if (!session_.videoExportWorkerCompletionReceived_) {
             failureText = miacode::localizedText(exitStatus == static_cast<int>(QProcess::CrashExit)
                 ? "dialog.video_export.error.worker_crash" : "dialog.video_export.error.worker_exit");
+        } else {
+            // The worker's own sentence stays as the first line of the details.
+            const QString workerMessage = session_.videoExportWorkerResultMessage_.trimmed();
+            const miacode::LocalizedText summary = localizeExportWorkerFailureForUiLanguage(
+                workerMessage, details.text(), session_.videoExportWorkerOutputPath_);
+            if (summary.text() != workerMessage) {
+                failureText = summary;
+                details = details.isEmpty()
+                    ? miacode::LocalizedText(workerMessage)
+                    : miacode::LocalizedText(QStringLiteral("%1\n\n%2")).arg(workerMessage, details);
+            }
         }
         if (session_.currentFilePath_.isEmpty()) {
             // No chart on disk, so there is no folder to offer.

@@ -1778,12 +1778,12 @@ Restore the backup from %1?</source>
         <translation>別の出力がすでに実行中です。</translation>
     </message>
     <message id="dialog.video_export.error.worker_crash">
-        <source>Export worker crashed.</source>
-        <translation>出力用の別処理が落ちました。</translation>
+        <source>The export stopped unexpectedly.</source>
+        <translation>出力が予期せず中断されました。</translation>
     </message>
     <message id="dialog.video_export.error.worker_exit">
-        <source>Export worker exited unexpectedly.</source>
-        <translation>出力用の別処理が異常終了しました。</translation>
+        <source>The export stopped unexpectedly.</source>
+        <translation>出力が予期せず中断されました。</translation>
     </message>
     <message id="dialog.video_export.error.worker_retry_final_attempt">
         <source>Safe-mode retry diagnostics</source>
@@ -1794,12 +1794,60 @@ Restore the backup from %1?</source>
         <translation>初回試行の診断</translation>
     </message>
     <message id="dialog.video_export.error.worker_retry_note">
-        <source>The export worker crashed once and was retried automatically with PBO disabled.</source>
-        <translation>出力用の別処理が一度落ちたため、PBO を自動で無効にして再試行しました。</translation>
+        <source>The first attempt stopped unexpectedly, so the export was retried in compatibility mode.</source>
+        <translation>1 回目の出力が予期せず中断されたため、互換モードで再試行しました。</translation>
     </message>
     <message id="dialog.video_export.error.worker_write_failed">
         <source>Failed to send export snapshot to worker.</source>
         <translation>出力スナップショットをワーカーへ送信できませんでした。</translation>
+    </message>
+    <message id="dialog.video_export.error.disk_full_temp">
+        <source>%1 is out of space. Export writes the video to the system temp folder (%2) first.</source>
+        <translation>%1の空き容量が不足しています。出力時はまずシステムの一時フォルダー（%2）に動画を作成します。</translation>
+    </message>
+    <message id="dialog.video_export.error.disk_full_output">
+        <source>%1 is out of space, so the exported file could not be written.</source>
+        <translation>%1の空き容量が不足しているため、出力ファイルを書き込めませんでした。</translation>
+    </message>
+    <message id="dialog.video_export.error.temp_dir_failed">
+        <source>Could not create files in the system temp folder (%1).</source>
+        <translation>システムの一時フォルダー（%1）にファイルを作成できませんでした。</translation>
+    </message>
+    <message id="dialog.video_export.error.output_write_failed">
+        <source>Could not write %1. Another app may be using the file.</source>
+        <translation>%1 を書き込めませんでした。ほかのアプリがファイルを使用している可能性があります。</translation>
+    </message>
+    <message id="dialog.video_export.error.ffmpeg_missing">
+        <source>The ffmpeg component is missing. Reinstall MiaCode and try again.</source>
+        <translation>ffmpeg コンポーネントが見つかりません。MiaCode を再インストールしてから再試行してください。</translation>
+    </message>
+    <message id="dialog.video_export.error.render_failed">
+        <source>Rendering the export frames failed.</source>
+        <translation>出力映像のレンダリングに失敗しました。</translation>
+    </message>
+    <message id="dialog.video_export.error.audio_failed">
+        <source>Could not generate the export audio track.</source>
+        <translation>出力用の音声トラックを生成できませんでした。</translation>
+    </message>
+    <message id="dialog.video_export.error.encode_failed">
+        <source>Video encoding failed.</source>
+        <translation>動画のエンコードに失敗しました。</translation>
+    </message>
+    <message id="dialog.video_export.error.unknown">
+        <source>The export did not finish. See the details below.</source>
+        <translation>出力が完了しませんでした。詳細は下記を参照してください。</translation>
+    </message>
+    <message id="dialog.video_export.volume.unknown">
+        <source>The disk</source>
+        <translation>ディスク</translation>
+    </message>
+    <message id="dialog.video_export.volume.drive">
+        <source>Drive %1:</source>
+        <translation>%1 ドライブ</translation>
+    </message>
+    <message id="dialog.video_export.volume.named">
+        <source>Disk “%1”</source>
+        <translation>ディスク「%1」</translation>
     </message>
     <message id="dialog.video_export.fps">
         <source>FPS</source>

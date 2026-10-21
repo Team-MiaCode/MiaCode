@@ -1778,12 +1778,12 @@ Restore the backup from %1?</source>
         <translation>已有另一个导出正在进行。</translation>
     </message>
     <message id="dialog.video_export.error.worker_crash">
-        <source>Export worker crashed.</source>
-        <translation>导出子进程已崩溃。</translation>
+        <source>The export stopped unexpectedly.</source>
+        <translation>导出意外中断。</translation>
     </message>
     <message id="dialog.video_export.error.worker_exit">
-        <source>Export worker exited unexpectedly.</source>
-        <translation>导出子进程异常退出。</translation>
+        <source>The export stopped unexpectedly.</source>
+        <translation>导出意外中断。</translation>
     </message>
     <message id="dialog.video_export.error.worker_retry_final_attempt">
         <source>Safe-mode retry diagnostics</source>
@@ -1794,12 +1794,60 @@ Restore the backup from %1?</source>
         <translation>第一次尝试诊断</translation>
     </message>
     <message id="dialog.video_export.error.worker_retry_note">
-        <source>The export worker crashed once and was retried automatically with PBO disabled.</source>
-        <translation>导出子进程曾崩溃一次，系统已自动关闭 PBO 并重试。</translation>
+        <source>The first attempt stopped unexpectedly, so the export was retried in compatibility mode.</source>
+        <translation>第一次导出意外中断，已改用兼容模式重试。</translation>
     </message>
     <message id="dialog.video_export.error.worker_write_failed">
         <source>Failed to send export snapshot to worker.</source>
         <translation>无法将导出快照发送给导出子进程。</translation>
+    </message>
+    <message id="dialog.video_export.error.disk_full_temp">
+        <source>%1 is out of space. Export writes the video to the system temp folder (%2) first.</source>
+        <translation>%1空间不足。导出会先在系统临时目录（%2）生成视频。</translation>
+    </message>
+    <message id="dialog.video_export.error.disk_full_output">
+        <source>%1 is out of space, so the exported file could not be written.</source>
+        <translation>%1空间不足，无法写入导出文件。</translation>
+    </message>
+    <message id="dialog.video_export.error.temp_dir_failed">
+        <source>Could not create files in the system temp folder (%1).</source>
+        <translation>无法在系统临时目录（%1）中创建文件。</translation>
+    </message>
+    <message id="dialog.video_export.error.output_write_failed">
+        <source>Could not write %1. Another app may be using the file.</source>
+        <translation>无法写入 %1，文件可能正被其他程序占用。</translation>
+    </message>
+    <message id="dialog.video_export.error.ffmpeg_missing">
+        <source>The ffmpeg component is missing. Reinstall MiaCode and try again.</source>
+        <translation>缺少 ffmpeg 组件，重新安装 MiaCode 后重试。</translation>
+    </message>
+    <message id="dialog.video_export.error.render_failed">
+        <source>Rendering the export frames failed.</source>
+        <translation>导出画面渲染失败。</translation>
+    </message>
+    <message id="dialog.video_export.error.audio_failed">
+        <source>Could not generate the export audio track.</source>
+        <translation>无法生成导出音轨。</translation>
+    </message>
+    <message id="dialog.video_export.error.encode_failed">
+        <source>Video encoding failed.</source>
+        <translation>视频编码失败。</translation>
+    </message>
+    <message id="dialog.video_export.error.unknown">
+        <source>The export did not finish. See the details below.</source>
+        <translation>导出未完成，原因见下方详细信息。</translation>
+    </message>
+    <message id="dialog.video_export.volume.unknown">
+        <source>The disk</source>
+        <translation>磁盘</translation>
+    </message>
+    <message id="dialog.video_export.volume.drive">
+        <source>Drive %1:</source>
+        <translation>%1 盘</translation>
+    </message>
+    <message id="dialog.video_export.volume.named">
+        <source>Disk “%1”</source>
+        <translation>磁盘“%1”</translation>
     </message>
     <message id="dialog.video_export.fps">
         <source>FPS</source>

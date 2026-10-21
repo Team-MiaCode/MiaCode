@@ -14,6 +14,8 @@ miacode_add_module(miacode_base
         src/common/DebugLog.h
         src/common/DebugOptions.h
         src/common/FileContentStamp.h
+        src/common/FileWriteFailure.cpp
+        src/common/FileWriteFailure.h
         src/common/GpuDevicePolicy.cpp
         src/common/GpuDevicePolicy.h
         src/common/InputShortcutGesture.cpp
