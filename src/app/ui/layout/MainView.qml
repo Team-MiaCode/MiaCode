@@ -703,6 +703,7 @@ Item {
                     Qt.resolvedUrl("icons/video.svg"),
                     Qt.resolvedUrl("icons/image.svg"),
                     Qt.resolvedUrl("icons/folder-zip.svg"),
+                    Qt.resolvedUrl("icons/globe.svg"),
                     Qt.resolvedUrl("icons/tools.svg"),
                     Qt.resolvedUrl("icons/settings.svg")
                 ] : [],
@@ -711,6 +712,7 @@ Item {
                 ] : [
                     { icon: Qt.resolvedUrl("icons/file.svg"), label: qsTrId("guide.navigation.chart") },
                     { icon: Qt.resolvedUrl("icons/export.svg"), label: qsTrId("guide.navigation.export") },
+                    { icon: Qt.resolvedUrl("icons/globe.svg"), label: qsTrId("guide.navigation.net") },
                     { icon: Qt.resolvedUrl("icons/tools.svg"), label: qsTrId("guide.navigation.tools") },
                     { icon: Qt.resolvedUrl("icons/settings.svg"), label: qsTrId("guide.navigation.preferences") }
                 ],

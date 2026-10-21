@@ -1,0 +1,27 @@
+# Release-channel packaging triggered from a `release/*` branch.
+#
+# `workflow_dispatch` only shows up in the Actions UI when the workflow exists
+# on the default branch, and `main` intentionally does not track the package
+# workflows. A push trigger has no such restriction, so a release/* branch cut
+# from dev runs the same reusable chain as .github/workflows/release.yml.
+name: Release (branch trigger)
+run-name: Release ${{ github.ref_name }}
+
+on:
+  push:
+    branches:
+      - 'release/**'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: release-branch-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    uses: ./.github/workflows/package.yml
+    with:
+      channel: release

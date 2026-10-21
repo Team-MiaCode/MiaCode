@@ -5,7 +5,7 @@ set(MIACODE_VERSION_MINOR "0")
 set(MIACODE_VERSION_PATCH "0")
 # Single source of truth for the prerelease tag and package version. The
 # About dialog appends its compile date to this version at runtime.
-set(MIACODE_VERSION_PRERELEASE "alpha")
+set(MIACODE_VERSION_PRERELEASE "")
 set(MIACODE_BUILD_LAYOUT_REVISION "2026-04-21-first-unification")
 set(MIACODE_VERSION "${MIACODE_VERSION_MAJOR}.${MIACODE_VERSION_MINOR}.${MIACODE_VERSION_PATCH}")
 set(MIACODE_VERSION_STRING "${MIACODE_VERSION}")
@@ -646,6 +646,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/components/AppSlider.qml
     src/app/ui/components/AppScrollBar.qml
     src/app/ui/components/AppMenu.qml
+    src/app/ui/components/MajnetActionsMenu.qml
     src/app/ui/components/AppMenuAction.qml
     src/app/ui/components/FloatingCard.qml
     src/app/ui/components/WindowBackground.qml
@@ -766,6 +767,8 @@ set(MIACODE_UI_ICON_FILES
     src/app/ui/resources/icons/more-fill.svg
     src/app/ui/resources/icons/folder-open.svg
     src/app/ui/resources/icons/folder-arrow-right.svg
+    src/app/ui/resources/icons/globe.svg
+    src/app/ui/resources/icons/wand.svg
     src/app/ui/resources/icons/save.svg
     src/app/ui/resources/icons/save-multiple.svg
     src/app/ui/resources/icons/undo.svg
