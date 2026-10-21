@@ -11,8 +11,6 @@ Rectangle {
     property bool netEnabled: false
     property bool networkActive: false
     property bool toolsAvailable: true
-    property bool chartEditorAvailable: true
-    property bool normalizationEnabled: true
     readonly property bool toolsMenuActive: toolsPopup.active
     signal viewRequested(string viewId)
     signal toolRequested(string toolId)
@@ -93,11 +91,6 @@ Rectangle {
             enabled: root.toolsAvailable
             documentAvailable: root.documentAvailable
             onToolRequested: toolId => root.toolRequested("media." + toolId)
-        }
-        AppMenuAction {
-            text: qsTrId("qml.normalize_whole_chart")
-            enabled: root.chartEditorAvailable && root.normalizationEnabled
-            onTriggered: root.toolRequested("normalize")
         }
     }
 

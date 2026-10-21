@@ -119,7 +119,6 @@ Item {
         canCopy: root.editorCommandsAvailable && splitView.canCopy
         canPaste: root.editorCommandsAvailable && splitView.canPaste
         canTransform: root.editorCommandsAvailable && splitView.canTransform
-        canNormalize: root.editorCommandsAvailable && splitView.normalizationAvailable
         renderModeMenuAvailable: splitView.renderModeMenuAvailable
         onExitRequested: root.requestClose()
         onUndoRequested: root.undo()
@@ -152,10 +151,6 @@ Item {
         onChartTransformRequested: opId => {
             if (root.chartEditorActive)
                 root.applyChartTransform(opId)
-        }
-        onNormalizeChartRequested: {
-            if (root.chartEditorActive)
-                root.pages.openNormalizeWholeChart()
         }
         onAboutRequested: preferencesDialog.openPage("about")
         onSetupWizardRequested: setupWizard.open()
@@ -356,7 +351,6 @@ Item {
                 trailingToolAreaWidth: root.platform.nativeMenuBar
                     ? mainToolBar.trailingActionsWidth : 0
                 documentTitle: root.documentTitle
-                normalizationEnabled: root.pages.activePageId !== "export"
             }
 
             MainToolBar {

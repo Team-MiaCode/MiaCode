@@ -2712,8 +2712,8 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>Tools(&amp;T)</translation>
     </message>
     <message id="menu.majnet_n">
-        <source>Majnet(&amp;N)</source>
-        <translation>Majnet(&amp;N)</translation>
+        <source>Network(&amp;N)</source>
+        <translation>Network(&amp;N)</translation>
     </message>
     <message id="menu.transform">
         <source>Modify(&amp;M)</source>
@@ -4245,8 +4245,8 @@ Error: %1</translation>
         <translation>Chart download</translation>
     </message>
     <message id="net.ui.majnet">
-        <source>Majnet</source>
-        <translation>Majnet</translation>
+        <source>Network</source>
+        <translation>Network</translation>
     </message>
     <message id="net.ui.uploader">
         <source>Uploader</source>
@@ -4726,12 +4726,12 @@ Error: %1</translation>
         <translation>Export page: export videos and covers, or package the chart as a ZIP.</translation>
     </message>
     <message id="guide.navigation.net">
-        <source>Net: Majnet chart download and upload.</source>
-        <translation>Net: Majnet chart download and upload.</translation>
+        <source>Net: chart download and upload.</source>
+        <translation>Net: chart download and upload.</translation>
     </message>
     <message id="guide.navigation.tools">
-        <source>Toolbox: chart normalization, audio and video processing, Net management and more.</source>
-        <translation>Toolbox: chart normalization, audio and video processing, Net management and more.</translation>
+        <source>Toolbox: chart normalization, audio and video processing, and more.</source>
+        <translation>Toolbox: chart normalization, audio and video processing, and more.</translation>
     </message>
     <message id="guide.navigation.preferences">
         <source>Preferences: configure interface appearance and styling, the editor and shortcuts.</source>

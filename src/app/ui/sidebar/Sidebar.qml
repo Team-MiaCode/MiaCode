@@ -79,9 +79,6 @@ Item {
         documentAvailable: root.documentSession.hasDocument
         networkActive: root.viewState.netEditorActive
         toolsAvailable: true
-        chartEditorAvailable: root.documentSession.hasDocument
-            && root.documentSession.currentDifficultyId > 0 && !root.pages.overlayActive
-        normalizationEnabled: root.pages.activePageId !== "export"
         onViewRequested: viewId => root.activateView(viewId)
         onToolRequested: function(toolId) {
             if (toolId === "net-download" || toolId === "net-upload") {
@@ -92,8 +89,6 @@ Item {
                 return
             if (toolId.startsWith("media."))
                 root.mediaToolRequested(toolId.substring(6))
-            else if (toolId === "normalize")
-                root.pages.openNormalizeWholeChart()
         }
         onSettingsRequested: root.settingsRequested()
     }

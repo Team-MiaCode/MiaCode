@@ -2712,8 +2712,8 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>工具(&amp;T)</translation>
     </message>
     <message id="menu.majnet_n">
-        <source>Majnet(&amp;N)</source>
-        <translation>Majnet(&amp;N)</translation>
+        <source>Network(&amp;N)</source>
+        <translation>网络(&amp;N)</translation>
     </message>
     <message id="menu.transform">
         <source>Modify(&amp;M)</source>
@@ -4245,8 +4245,8 @@ Error: %1</source>
         <translation>谱面下载</translation>
     </message>
     <message id="net.ui.majnet">
-        <source>Majnet</source>
-        <translation>Majnet</translation>
+        <source>Network</source>
+        <translation>网络</translation>
     </message>
     <message id="net.ui.uploader">
         <source>Uploader</source>
@@ -4726,12 +4726,12 @@ Error: %1</source>
         <translation>导出页面：导出视频、封面与打包成 ZIP。</translation>
     </message>
     <message id="guide.navigation.net">
-        <source>Net: Majnet chart download and upload.</source>
-        <translation>Net相关：Majnet谱面下载与上传。</translation>
+        <source>Net: chart download and upload.</source>
+        <translation>Net相关：谱面下载与上传。</translation>
     </message>
     <message id="guide.navigation.tools">
-        <source>Toolbox: chart normalization, audio and video processing, Net management and more.</source>
-        <translation>工具箱：谱面整理、音视频处理工具、Net管理等。</translation>
+        <source>Toolbox: chart normalization, audio and video processing, and more.</source>
+        <translation>工具箱：谱面整理、音视频处理工具等。</translation>
     </message>
     <message id="guide.navigation.preferences">
         <source>Preferences: configure interface appearance and styling, the editor and shortcuts.</source>
