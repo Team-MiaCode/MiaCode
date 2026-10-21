@@ -3,11 +3,13 @@
 #include <algorithm>
 
 #include <QRegularExpression>
+#include <QSet>
 #include <QStringList>
 
 namespace {
 
 constexpr QLatin1StringView kBookmarksFieldKey{"miacode_bookmarks"};
+const QRegularExpression kFieldHeaderRe(QStringLiteral(R"((?m)^[^\S\r\n]*&([^\r\n=]+)=)"));
 
 // Trim every trailing whitespace character (spaces, tabs, CR/LF — i.e. any
 // trailing blank lines too) from a field value. A &key= header is now allowed
@@ -115,6 +117,8 @@ SimaiDocument SimaiDocument::fromText(const QString& text)
         return doc;
     }
 
+    doc.preamble_ = text.left(kFieldHeaderRe.match(text).capturedStart());
+    QSet<int> parsedCharts;
     for (const SimaiRawField& field : fields) {
         if (field.key == "title") {
             doc.title = field.value;
@@ -158,6 +162,10 @@ SimaiDocument SimaiDocument::fromText(const QString& text)
                 continue;
             }
             if (prefix == "inote") {
+                if (parsedCharts.contains(id)) {
+                    doc.precedingCharts_[id].append(doc.ensureDifficulty(id).chart);
+                }
+                parsedCharts.insert(id);
                 doc.ensureDifficulty(id).chart = field.value;
                 continue;
             }
@@ -189,9 +197,8 @@ QVector<SimaiRawField> SimaiDocument::parseRawFields(const QString& text, bool p
     // indentation is matched but not captured, so it lands in neither the key
     // nor the previous field's value. `[^\S\r\n]` = whitespace minus CR/LF, so
     // the `^` line anchor still only fires at true line starts.
-    const QRegularExpression headerRe(R"((?m)^[^\S\r\n]*&([^\r\n=]+)=)");
     QVector<QRegularExpressionMatch> matches;
-    QRegularExpressionMatchIterator it = headerRe.globalMatch(source);
+    QRegularExpressionMatchIterator it = kFieldHeaderRe.globalMatch(source);
     while (it.hasNext()) {
         matches.append(it.next());
     }
@@ -404,13 +411,18 @@ QString SimaiDocument::toText() const
             const SimaiDifficultyData& difficultyData = difficultyIt.value();
             blocks.append(serializeField("lv_" + suffix, difficultyData.level));
             blocks.append(serializeField("des_" + suffix, difficultyData.designer));
+            const auto preceding = precedingCharts_.constFind(id);
+            if (preceding != precedingCharts_.cend()) {
+                for (const QString& chart : preceding.value())
+                    blocks.append(serializeField("inote_" + suffix, chart));
+            }
             blocks.append(serializeField("inote_" + suffix, difficultyData.chart));
             continue;
         }
         blocks.append(serializeField("des_" + suffix, standaloneDesigners_.value(id)));
     }
 
-    return blocks.join('\n');
+    return preamble_ + blocks.join('\n');
 }
 
 QVector<int> SimaiDocument::difficultyIds() const
@@ -456,6 +468,7 @@ SimaiDifficultyData& SimaiDocument::ensureDifficulty(int id)
 void SimaiDocument::removeDifficulty(int id)
 {
     difficulties_.remove(id);
+    precedingCharts_.remove(id);
 }
 
 QString SimaiDocument::designerForSlot(int id) const
