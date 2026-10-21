@@ -24,7 +24,6 @@ Item {
     property bool editorCommandsEnabled: true
     property bool chartCommandsEnabled: true
     property bool toolCommandsEnabled: true
-    property bool normalizationEnabled: true
     property bool nativeMenuMode: false
     // Re-read each time the menu opens rather than kept live: the list only
     // changes when a document is opened, and a menu nobody is looking at has no
@@ -496,12 +495,6 @@ Item {
                 documentAvailable: root.documentAvailable
                 onToolRequested: toolId => root.commands.mediaToolRequested(toolId)
             }
-            AppMenuAction {
-                text: qsTrId("qml.normalize_whole_chart")
-                enabled: root.commandsEnabled && root.chartCommandsEnabled
-                         && root.normalizationEnabled && root.commands.canNormalize
-                onTriggered: root.commands.normalizeChartRequested()
-            }
         }
 
         MajnetActionsMenu {
@@ -580,12 +573,6 @@ Item {
                                          transformItem.modelData.id)
                     }
                 }
-            }
-            AppMenuAction {
-                text: qsTrId("qml.normalize_whole_chart")
-                enabled: root.commandsEnabled && root.chartCommandsEnabled
-                         && root.normalizationEnabled && root.commands.canNormalize
-                onTriggered: root.commands.normalizeChartRequested()
             }
 
             AppMenu {

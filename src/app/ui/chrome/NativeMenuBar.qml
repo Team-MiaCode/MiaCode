@@ -16,7 +16,6 @@ MenuBar {
     property bool editorCommandsEnabled: true
     property bool chartCommandsEnabled: true
     property bool toolCommandsEnabled: true
-    property bool normalizationEnabled: true
 
     property MainMenu menuDefinitions: MainMenu {
         visible: false
@@ -31,7 +30,6 @@ MenuBar {
         editorCommandsEnabled: root.editorCommandsEnabled
         chartCommandsEnabled: root.chartCommandsEnabled
         toolCommandsEnabled: root.toolCommandsEnabled
-        normalizationEnabled: root.normalizationEnabled
         nativeMenuMode: true
     }
 
