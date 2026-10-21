@@ -11,15 +11,10 @@ Rectangle {
     property bool netEnabled: false
     property bool networkActive: false
     property bool toolsAvailable: true
-    readonly property bool toolsMenuActive: toolsPopup.active
     signal viewRequested(string viewId)
     signal toolRequested(string toolId)
+    signal mediaToolsRequested()
     signal settingsRequested()
-
-    function showMediaToolsMenu(anchorItem) {
-        if (root.toolsAvailable)
-            toolsPopup.popup(anchorItem || toolsButton, (anchorItem || toolsButton).width, 0)
-    }
 
     implicitWidth: Theme.activityButtonSize
     color: Theme.surfaceColor(Theme.colors.background.activityBar)
@@ -55,18 +50,10 @@ Rectangle {
             onClicked: majnetPopup.popup(majnetButton, majnetButton.width, 0)
         }
         ActivityButton {
-            id: toolsButton
             iconSource: Qt.resolvedUrl("icons/tools.svg")
-            filledIconSource: Qt.resolvedUrl("icons/tools-fill.svg")
             tooltip: qsTrId("qml.tools")
             enabled: root.toolsAvailable
-            selected: toolsPopup.active
-            onClicked: {
-                if (toolsPopup.active)
-                    toolsPopup.close()
-                else
-                    toolsPopup.popup(toolsButton, toolsButton.width, 0)
-            }
+            onClicked: root.mediaToolsRequested()
         }
     }
 
@@ -76,27 +63,6 @@ Rectangle {
         actionsEnabled: root.netEnabled
         onDownloadRequested: root.toolRequested("net-download")
         onUploadRequested: root.toolRequested("net-upload")
-    }
-
-    AppMenu {
-        id: toolsPopup
-        hugContent: true
-
-        AudioProcessingMenu {
-            enabled: root.toolsAvailable
-            documentAvailable: root.documentAvailable
-            onToolRequested: toolId => root.toolRequested("media." + toolId)
-        }
-        VideoProcessingMenu {
-            enabled: root.toolsAvailable
-            documentAvailable: root.documentAvailable
-            onToolRequested: toolId => root.toolRequested("media." + toolId)
-        }
-    }
-
-    onToolsAvailableChanged: {
-        if (!toolsAvailable)
-            toolsPopup.close()
     }
 
     ActivityButton {

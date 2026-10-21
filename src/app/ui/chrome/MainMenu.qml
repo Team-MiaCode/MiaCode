@@ -485,15 +485,10 @@ Item {
                 onTriggered: root.commands.latencyCalibrationRequested()
             }
             AppMenuSeparator {}
-            AudioProcessingMenu {
+            AppMenuAction {
+                text: qsTrId("media_tools.audio_video_processing")
                 enabled: root.commandsEnabled && root.documentAvailable
-                documentAvailable: root.documentAvailable
-                onToolRequested: toolId => root.commands.mediaToolRequested(toolId)
-            }
-            VideoProcessingMenu {
-                enabled: root.commandsEnabled && root.documentAvailable
-                documentAvailable: root.documentAvailable
-                onToolRequested: toolId => root.commands.mediaToolRequested(toolId)
+                onTriggered: root.commands.mediaToolsRequested()
             }
         }
 

@@ -2323,6 +2323,10 @@ Restore the backup from %1?</source>
         <source>Auto-align Video to Track Audio</source>
         <translation>自动对齐曲目音频</translation>
     </message>
+    <message id="media_tools.align_pv_to_audio_description">
+        <source>Detect the audio offset between the background video and track.mp3, then shift the video to match.</source>
+        <translation>检测背景视频与 track.mp3 的音频偏移，并移动视频使其对齐。</translation>
+    </message>
     <message id="media_tools.background_mp4_video">
         <source>background .mp4 video</source>
         <translation>背景视频 .mp4</translation>
