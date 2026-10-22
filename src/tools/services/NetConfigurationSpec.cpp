@@ -18,7 +18,8 @@ int main(int argc, char** argv)
     using miacode::net_configuration::Repository;
     using namespace miacode::preference_json_file;
     const auto arguments = app.arguments();
-    if (arguments.contains("--config-probe")) {
+    if (arguments.size() == 3 && arguments[1] == "--config-probe") {
+        app.setApplicationName(arguments[2]);
         QTextStream(stdout) << (miacode::net_configuration::enabled() ? "enabled" : "disabled");
         return 0;
     }
@@ -42,35 +43,24 @@ int main(int argc, char** argv)
     expect(configurationPath.fileName() == "net_config.json"
         && configurationPath.dir().absolutePath() == preferencesPath.dir().absolutePath(),
         "Net settings share the user preferences directory");
-    expect(miacode::net_configuration::configFilePath()
-        == QDir(app.applicationDirPath()).filePath("config.json"), "application configuration uses the executable directory");
+    const QString configPath = miacode::net_configuration::configFilePath();
+    expect(QFileInfo(configPath).fileName() == "config.json"
+        && QFileInfo(configPath).dir().absolutePath() == preferencesPath.dir().absolutePath(),
+        "application configuration shares the user preferences directory");
 
-    const QString probePath = directory.filePath(QFileInfo(app.applicationFilePath()).fileName());
-    expect(QFile::copy(app.applicationFilePath(), probePath), "isolated configuration probe");
-    const QString configPath = directory.filePath("config.json");
+    // enabled() caches per process, so each case runs in a fresh child with the same config directory.
     const auto probe = [&](const QString& expected) {
         QProcess process;
-        process.start(probePath, {"--config-probe"});
+        process.start(app.applicationFilePath(), {"--config-probe", app.applicationName()});
         return process.waitForFinished(10000) && process.exitStatus() == QProcess::NormalExit
             && process.exitCode() == 0 && QString::fromUtf8(process.readAllStandardOutput()) == expected;
     };
     expect(probe("disabled") && read(configPath).status == ReadStatus::Valid
-        && read(configPath).object.isEmpty(), "default application configuration is an empty object");
-    expect(write(configPath, {{"net_config", true}}) && probe("enabled"), "user configuration enables upload");
+        && read(configPath).object.isEmpty(), "missing application configuration is created as an empty object");
+    expect(write(configPath, {{"net_config", true}}) && probe("enabled")
+        && read(configPath).object == QJsonObject{{"net_config", true}}, "user configuration enables upload unchanged");
     expect(write(configPath, {{"net_config", false}}) && probe("disabled"), "false closes upload");
     expect(write(configPath, {{"net_config", "true"}}) && probe("disabled"), "upload requires a JSON boolean");
-#ifdef Q_OS_WIN
-    expect(QDir(directory.path()).mkdir("app")
-        && QFile::copy(app.applicationFilePath(), directory.filePath("MiaCode.exe")), "package root fixture");
-    const QString packagedProbe = directory.filePath("app/" + QFileInfo(probePath).fileName());
-    expect(QFile::copy(app.applicationFilePath(), packagedProbe)
-        && write(configPath, {{"net_config", true}}), "packaged application fixture");
-    QProcess packaged;
-    packaged.start(packagedProbe, {"--config-probe"});
-    expect(packaged.waitForFinished(10000) && packaged.exitStatus() == QProcess::NormalExit
-        && packaged.exitCode() == 0 && packaged.readAllStandardOutput() == "enabled"
-        && !QFileInfo::exists(directory.filePath("app/config.json")), "packaged application reads the root configuration");
-#endif
 
     const QString path = directory.filePath("net_config.json");
     Repository settings(path);
@@ -140,6 +130,7 @@ int main(int argc, char** argv)
     NetAccountStore::erase("spec");
 #endif
     QFile::remove(configurationPath.filePath());
+    QFile::remove(configPath);
     QFile::remove(preferencesPath.filePath());
     QDir().rmdir(configurationPath.absolutePath());
     QTextStream(stdout) << (ok ? "net_configuration_spec ok\n" : "net_configuration_spec failed\n");

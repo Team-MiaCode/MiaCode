@@ -1,8 +1,8 @@
 # Net 配置与持久化设置
 
-## 应用根目录配置
+## 上传入口配置
 
-`config.json` 位于应用文件根目录。Windows 发布包中与入口 `MiaCode.exe` 同级，macOS 发布包中与 `MiaCode.app` 同级；开发构建中与应用可执行文件同级。发布包附带该文件，应用启动时也会创建缺省文件，内容为 `{}`。上传入口的属性由用户手动填写。
+`config.json` 位于用户配置目录，与 `preferences_v2.json` 同级（macOS 为 `~/Library/Preferences/MiaCode/`，Windows 为 `%LOCALAPPDATA%\MiaCode\`）。发布包不附带该文件，整包覆盖升级不影响用户修改。文件缺省时程序创建内容为 `{}` 的文件；文件存在时程序只读不写，属性由用户手动填写。
 
 沿用布尔字段 `net_config` 控制桌面上传入口：值为 `true` 时显示上传菜单并允许打开上传标签页。在线谱面下载默认开放。
 
@@ -21,4 +21,4 @@
 
 Windows 端使用当前系统用户的 DPAPI 加密用户名与密码，JSON 中保存加密结果的 Base64 字符串。调用主体参与加密上下文校验；读取时解密并校验数据完整性。勾选记住账号且登录成功后保存，取消记住账号时清除对应的加密数据。
 
-程序迁移 `preferences_v2.json` 中的 Net 持久化设置，目标文件中的显式值优先，包括 `null` 和 `false`。旧版明文账号字段（`net_upload_username`、`net_upload_password`、`net_upload_credential_ref`）不迁移，直接移除，用户需重新登录；Windows 凭据管理器中的旧条目不再读取。原上传开关从用户持久化设置中移除，入口由应用根目录配置管理。
+程序迁移 `preferences_v2.json` 中的 Net 持久化设置，目标文件中的显式值优先，包括 `null` 和 `false`。旧版明文账号字段（`net_upload_username`、`net_upload_password`、`net_upload_credential_ref`）不迁移，直接移除，用户需重新登录；Windows 凭据管理器中的旧条目不再读取。原上传开关从用户持久化设置中移除，入口由 `config.json` 管理。
