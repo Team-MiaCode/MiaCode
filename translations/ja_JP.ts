@@ -4757,6 +4757,26 @@ Error: %1</source>
         <source>Playback controls are in the detached preview window.</source>
         <translation>再生操作は分離したプレビューウィンドウにあります。</translation>
     </message>
+    <message id="guide.timeline.title">
+        <source>Timeline options</source>
+        <translation>タイムラインの設定</translation>
+    </message>
+    <message id="guide.timeline.hint">
+        <source>Expand the bottom panel and select Timeline to view its settings.</source>
+        <translation>下部パネルを開き、「タイムライン」を選択すると設定を確認できます。</translation>
+    </message>
+    <message id="guide.timeline.zoom">
+        <source>Zoom: adjust the timeline's horizontal scale.</source>
+        <translation>ズーム：タイムラインの横方向の表示倍率を調整します。</translation>
+    </message>
+    <message id="guide.timeline.brightness">
+        <source>Brightness: open settings in the timeline's upper-right corner to adjust the waveform and grid lines separately.</source>
+        <translation>明るさ：タイムライン右上の設定から、波形とグリッド線の明るさを個別に調整できます。</translation>
+    </message>
+    <message id="guide.timeline.follow">
+        <source>Follow code: choose whether the timeline follows the current chart-source position in settings.</source>
+        <translation>コード追従：設定で、譜面コードの現在位置にタイムラインを追従させるか切り替えます。</translation>
+    </message>
     <message id="guide.editor.metadata_save">
         <source>Changes to the level, offset and designer above are saved immediately.</source>
         <translation>上部のレベル、オフセット、譜面作者の変更は即時保存されます。</translation>

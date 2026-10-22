@@ -405,6 +405,8 @@ Item {
             MainSplitView {
                 id: splitView
                 anchors.fill: parent
+                timelineGuideActive: beginnerGuide.visible
+                    && beginnerGuide.selectedSection.id === "timeline-options"
                 backgroundSource: root.backgroundSource
                 backgroundOffset: root.mapToItem(root.backgroundSource,
                                                  mainViewHost.x, mainViewHost.y)
@@ -781,6 +783,22 @@ Item {
                     { icon: Qt.resolvedUrl("icons/preview-detach.svg"), label: qsTrId("guide.transport.detach") }
                 ],
                 placement: "above",
+                alignment: "end"
+            },
+            {
+                id: "timeline-options",
+                target: splitView.timelineGuideItem,
+                secondaryTarget: splitView.timelineSettingsGuideItem,
+                fallbackTarget: mainToolBar.workspaceActionsItem,
+                hint: qsTrId("guide.timeline.hint"),
+                title: qsTrId("guide.timeline.title"),
+                columns: 1,
+                features: [
+                    { sample: "100%", label: qsTrId("guide.timeline.zoom") },
+                    { icon: Qt.resolvedUrl("icons/sliders-horizontal.svg"), label: qsTrId("guide.timeline.brightness") },
+                    { icon: Qt.resolvedUrl("icons/file.svg"), label: qsTrId("guide.timeline.follow") }
+                ],
+                placement: "right",
                 alignment: "end"
             }
         ])

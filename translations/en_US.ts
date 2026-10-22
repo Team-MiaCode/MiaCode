@@ -4757,6 +4757,26 @@ Error: %1</translation>
         <source>Playback controls are in the detached preview window.</source>
         <translation>Playback controls are in the detached preview window.</translation>
     </message>
+    <message id="guide.timeline.title">
+        <source>Timeline options</source>
+        <translation>Timeline options</translation>
+    </message>
+    <message id="guide.timeline.hint">
+        <source>Expand the bottom panel and select Timeline to view its settings.</source>
+        <translation>Expand the bottom panel and select Timeline to view its settings.</translation>
+    </message>
+    <message id="guide.timeline.zoom">
+        <source>Zoom: adjust the timeline's horizontal scale.</source>
+        <translation>Zoom: adjust the timeline's horizontal scale.</translation>
+    </message>
+    <message id="guide.timeline.brightness">
+        <source>Brightness: open settings in the timeline's upper-right corner to adjust the waveform and grid lines separately.</source>
+        <translation>Brightness: open settings in the timeline's upper-right corner to adjust the waveform and grid lines separately.</translation>
+    </message>
+    <message id="guide.timeline.follow">
+        <source>Follow code: choose whether the timeline follows the current chart-source position in settings.</source>
+        <translation>Follow code: choose whether the timeline follows the current chart-source position in settings.</translation>
+    </message>
     <message id="guide.editor.metadata_save">
         <source>Changes to the level, offset and designer above are saved immediately.</source>
         <translation>Changes to the level, offset and designer above are saved immediately.</translation>

@@ -13,7 +13,25 @@ Item {
     required property var preferences
     required property var timelineSession
     required property var previewSession
+    property bool guideSettingsActive: false
+    readonly property bool guideSettingsAvailable: root.guideSettingsActive
+        && root.visible && timelineItem.visible
+    readonly property Item timelineGuideItem: timelineItem
+    readonly property Item timelineSettingsGuideItem: settingsMenu.contentItem
     signal analysisRowActivated(int difficultyId, var revision, int line, int column, int endColumn, double second)
+
+    onGuideSettingsAvailableChanged: {
+        // Let the menu's focus and close-policy bindings settle before opening.
+        if (root.guideSettingsAvailable)
+            Qt.callLater(root.openGuideSettingsMenu)
+        else
+            settingsMenu.close()
+    }
+
+    function openGuideSettingsMenu() {
+        if (root.guideSettingsAvailable)
+            settingsMenu.openAt(brightnessButton)
+    }
 
     Rectangle {
         width: parent.width
@@ -215,6 +233,11 @@ Item {
         id: settingsMenu
         stateBridge: root.timelineSession.stateBridge
         timelineSession: root.timelineSession
+        // The modal guide owns input and Escape while demonstrating this menu.
+        focus: !root.guideSettingsActive
+        closePolicy: root.guideSettingsActive ? Popup.NoAutoClose
+            : Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
+        z: root.guideSettingsActive ? 99 : 0
     }
 
     Item {
