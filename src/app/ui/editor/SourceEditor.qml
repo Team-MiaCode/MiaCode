@@ -12,7 +12,7 @@ Rectangle {
     required property var syncController
     required property var analysisSession
     property var preferences: null
-    readonly property bool overviewRulerEnabled: preferences ? preferences.editorOverviewRulerEnabled : true
+    readonly property bool overviewRulerEnabled: preferences ? preferences.editorOverviewRulerEnabled : false
     property bool navigationVisible: false
     onNavigationVisibleChanged: {
         if (!navigationVisible) {

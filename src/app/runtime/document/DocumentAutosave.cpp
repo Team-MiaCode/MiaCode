@@ -1,4 +1,5 @@
 #include "common/LocalizedText.h"
+#include "common/FileWriteFailure.h"
 
 #include "app/services/UiRequestService.h"
 #include "app/runtime/document/DocumentSessionHost.h"
@@ -460,11 +461,13 @@ namespace {
 
 // Saving is on the v2 path (Session::saveDocument / saveDocumentAs), so its
 // failures have to reach the QML shell rather than a Widgets box.
-void postSaveFailureThrough(miacode::UiRequestService* requests, const miacode::LocalizedText& text)
+void postSaveFailureThrough(miacode::UiRequestService* requests,
+                            const miacode::LocalizedText& text,
+                            const miacode::LocalizedText& details = QString())
 {
     if (requests != nullptr) {
         requests->postNotice(miacode::NoticeSeverity::Error,
-                             miacode::localizedText("document.save_failed"), text);
+                             miacode::localizedText("document.save_failed"), text, details);
     }
 }
 
@@ -499,8 +502,16 @@ bool miacode::runtime::DocumentSessionHost::saveToPath(const QString& path)
     const auto saved = session_.applicationServices_.files().saveAs(normalizedPath, 0);
     if (!saved.accepted) {
         _mc_op_.fail(saved.error);
-        postSaveFailureThrough(session_.uiRequestService(),
-                               miacode::localizedText("document.write_failed") + path);
+        if (saved.failedPath.isEmpty()) {
+            postSaveFailureThrough(session_.uiRequestService(),
+                                   miacode::localizedText("document.write_failed") + path);
+        } else {
+            postSaveFailureThrough(
+                session_.uiRequestService(),
+                miacode::fileWriteFailureText(
+                    QFileInfo(saved.failedPath).fileName(), saved.fileError, saved.systemError),
+                QDir::toNativeSeparators(saved.failedPath));
+        }
         return false;
     }
     const QString serialized = session_.applicationServices_.workspace().snapshot().sourceText;

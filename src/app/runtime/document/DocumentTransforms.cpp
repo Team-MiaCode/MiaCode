@@ -1,3 +1,4 @@
+#include "app/services/FileDialogPreferences.h"
 #include "app/runtime/document/DocumentSessionHost.h"
 #include "app/runtime/editor/EditorHost.h"
 #include "app/runtime/Shared.h"
@@ -30,20 +31,7 @@ std::pair<int, int> lineColForPosition(const QTextDocument* document, int positi
 
 QString miacode::runtime::DocumentSessionHost::resolveInitialOpenDirectory() const
 {
-    if (!state_.lastOpenDir_.isEmpty() && QDir(state_.lastOpenDir_).exists()) {
-        return state_.lastOpenDir_;
-    }
-    if (!state_.currentFilePath_.isEmpty()) {
-        const QString currentDir = QFileInfo(state_.currentFilePath_).absolutePath();
-        if (QDir(currentDir).exists()) {
-            return currentDir;
-        }
-    }
-    const QString appDir = QCoreApplication::applicationDirPath();
-    if (QDir(appDir).exists()) {
-        return appDir;
-    }
-    return QDir::currentPath();
+    return miacode::file_dialog_preferences::documentDirectory(state_.lastOpenDir_, state_.currentFilePath_);
 }
 
 void miacode::runtime::DocumentSessionHost::setLastOpenDirectory(const QString& pathOrDir)

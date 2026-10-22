@@ -85,6 +85,7 @@ private:
     void syncVisibleHostWindowBinding(const char* reason = "unspecified");
     void recordRenderPhaseProfile();
     void noteFirstLayerDraws();
+    void logNoteLayersEmptyAnomaly(const miacode::preview::scene::PreviewFrameState& state);
 
     QPointer<PreviewRuntime> runtime_;
     QColor backgroundColor_{QStringLiteral("#191A1B")};
@@ -153,6 +154,9 @@ private:
     miacode::preview::scene::PreviewLayerWindowCursor touchHoldCursor_;
     miacode::preview::scene::PreviewLayerWindowCursor chartReviewCursor_;
     miacode::preview::scene::PreviewLayerWindowCursor maimuriDxJudgeCursor_;
+    // logNoteLayersEmptyAnomaly() rate limit. Render-thread only.
+    QElapsedTimer noteLayersEmptyAnomalyLogTimer_;
+    quint64 noteLayersEmptyAnomalyFrames_ = 0;
     quint64 updatePaintNodeCount_ = 0;
     quint64 geometryChangeCount_ = 0;
     quint64 instanceId_ = 0;

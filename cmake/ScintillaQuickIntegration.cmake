@@ -251,3 +251,19 @@ function(miacode_scintillaquick_indicator_capture)
     target_sources(scintillaquick_scintilla_objects PRIVATE "${patched_source}")
 endfunction()
 cmake_language(DEFER CALL miacode_scintillaquick_indicator_capture)
+
+function(miacode_scintillaquick_cstdint_include)
+    # GCC 16 stopped pulling <cstdint> in transitively, but ScintillaTypes.h uses
+    # intptr_t/uintptr_t without including it. Force the header in instead of
+    # patching the pinned submodule sources.
+    if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+        OR CMAKE_CXX_COMPILER_VERSION VERSION_LESS 16)
+        return()
+    endif()
+    foreach(target IN ITEMS ScintillaQuick scintillaquick_scintilla_objects)
+        if (TARGET ${target})
+            target_compile_options(${target} PRIVATE "-include" "cstdint")
+        endif()
+    endforeach()
+endfunction()
+cmake_language(DEFER CALL miacode_scintillaquick_cstdint_include)

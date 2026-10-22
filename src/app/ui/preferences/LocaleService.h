@@ -31,6 +31,11 @@ public:
 
     void setQmlEngine(QQmlEngine* engine);
 
+    // QQmlApplicationEngine loads the Qt catalogs for the system locale while
+    // it starts loading a module. Reinstall ours afterwards to take precedence
+    // and retranslate the UI, the native menu bar included.
+    void prioritizeTranslator();
+
 signals:
     void languageChanged(const QString& token);
 

@@ -26,6 +26,7 @@ Item {
     required property var net
     required property var netUpload
     property bool compact: false
+    property bool timelineGuideActive: false
     property string documentTitle: ""
     property real sidebarDragWidth: 0
     property bool sidebarResizing: false
@@ -34,7 +35,10 @@ Item {
     readonly property Item sourceEditorItem: editorPane.sourceEditorItem
     readonly property Item difficultyFieldsItem: editorPane.difficultyFieldsItem
     readonly property Item transportItem: preview.transportItem
+    readonly property Item timelineGuideItem: bottomPanel.timelineGuideItem
+    readonly property Item timelineSettingsGuideItem: bottomPanel.timelineSettingsGuideItem
     readonly property Item renderModeItem: preview.renderModeItem
+    readonly property bool renderModeMenuAvailable: preview.renderModeMenuAvailable
     readonly property bool previewDetached: root.preferences.previewDetached
     readonly property Item settingsDialogParent: root.previewDetached
         ? detachedPreviewWindow.Overlay.overlay : root.Overlay.overlay
@@ -62,7 +66,6 @@ Item {
     readonly property bool canCopy: editorPane.canCopy
     readonly property bool canPaste: editorPane.canPaste
     readonly property bool canTransform: editorPane.canTransform
-    readonly property bool normalizationAvailable: editorPane.normalizationAvailable
     readonly property string selectionBeatStatusText: editorPane.selectionBeatStatusText
     readonly property string selectionBeatTooltipText: editorPane.selectionBeatTooltipText
     // User preference AND backend chart-bottom-tabs mode (export/metadata
@@ -161,6 +164,16 @@ Item {
         return editorPane.applyChartTransform(opId)
     }
 
+    function toggleRenderModeMenu() {
+        if (!preview.renderModeMenuAvailable)
+            return
+        if (root.previewDetached) {
+            detachedPreviewWindow.raise()
+            detachedPreviewWindow.requestActivate()
+        }
+        preview.toggleRenderModeMenu()
+    }
+
     function detachPreview() {
         preview.closeMenus()
         root.previewSurfaceMoving = true
@@ -240,6 +253,7 @@ Item {
         documentAvailable: root.documentSession.hasDocument
         surfaceActive: !root.previewSurfaceMoving && (root.previewDetached || !root.viewState.netEditorActive)
         detached: root.previewDetached
+        transportMirrored: root.preferencesModel.previewOnLeft && !root.previewDetached
         previewSession: root.previewSession
         preferences: root.preferences
         exportSession: root.pages.exportSession
@@ -468,6 +482,17 @@ Item {
             onMediaToolRequested: toolId => root.mediaToolRequested(toolId)
         }
 
+        // Behind the split, so a fractional device pixel at the divider shows
+        // the panel surface instead of the wallpaper. Kept out of the
+        // SplitView background so it cannot intercept handle hover.
+        Rectangle {
+            x: workspaceSplit.x
+            y: workspaceSplit.y
+            width: workspaceSplit.width
+            height: workspaceSplit.height
+            color: Theme.surfaceColor(Theme.colors.background.panel)
+        }
+
         SplitView {
             id: workspaceSplit
             orientation: Qt.Horizontal
@@ -538,6 +563,7 @@ Item {
                 BottomPanel {
                     id: bottomPanel
                     visible: root.bottomPanelEffectivelyVisible
+                    guideSettingsActive: root.timelineGuideActive
                     documentSession: root.documentSession
                     analysisSession: root.analysisSession
                     preferences: root.preferences

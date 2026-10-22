@@ -28,9 +28,9 @@ CheckBox {
             anchors.fill: parent
             radius: Theme.smallControlRadius
             // Same on/off colors as AppSwitch.
-            color: Theme.overlayColor(root.checked ? Theme.colors.toggle.checkedTrack : "transparent")
+            color: Theme.overlayColor(root.checked ? Theme.colors.accent.muted : "transparent")
             border.width: 1
-            border.color: root.checked ? Theme.colors.toggle.checkedTrack
+            border.color: root.checked ? Theme.colors.accent.muted
                 : root.hovered ? Theme.colors.text.secondary
                 : Theme.colors.toggle.border
         }

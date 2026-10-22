@@ -15,6 +15,9 @@ struct TimelineNoteMarker;
 // the Muri analyzer — namespace miacode::muri::detail.
 namespace miacode::muri::detail {
 
+// Analysis-only hand semantics; preserve chart types, timing and marker keys.
+QVector<TimelineNoteMarker> prepareRuntimeMarkers(const QVector<TimelineNoteMarker>& noteMarkers);
+
 // The runtime model produced from a chart's note markers. This is the data
 // object passed from the model-builder stage to the judge stages.
 struct MuriRuntimeModel {

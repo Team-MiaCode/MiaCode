@@ -21,6 +21,7 @@ struct PreviewJudgeFireworkLayerState {
     qreal fireworkScale = 0.0;
     qreal outerRadius = 0.0;
     qreal fireworkAlpha = 0.0;
+    qreal fireworkBrightness = 1.0;
     qreal fireworkRotationDegrees = 0.0;
     qreal holeRadius = 0.0;
     qreal holeMaskRadius = 0.0;

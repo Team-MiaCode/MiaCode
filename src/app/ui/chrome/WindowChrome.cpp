@@ -480,15 +480,18 @@ bool WindowChrome::nativeEventFilter(const QByteArray& eventType, void* message,
 
     if (nativeMessage->message == WM_NCCALCSIZE) {
         if (IsZoomed(handle) && !window_->windowStates().testFlag(Qt::WindowFullScreen)) {
+            auto* clientRect = nativeMessage->wParam == TRUE
+                ? &reinterpret_cast<NCCALCSIZE_PARAMS*>(nativeMessage->lParam)->rgrc[0]
+                : reinterpret_cast<RECT*>(nativeMessage->lParam);
+            // During maximized restore or cross-screen moves, the HWND can
+            // still identify the old monitor. Use the proposed native rect;
+            // leave it unchanged if it does not intersect a screen.
+            const HMONITOR monitor = MonitorFromRect(clientRect, MONITOR_DEFAULTTONULL);
             MONITORINFO monitorInfo{};
             monitorInfo.cbSize = sizeof(monitorInfo);
-            const HMONITOR monitor = MonitorFromWindow(handle, MONITOR_DEFAULTTONEAREST);
-            if (GetMonitorInfoW(monitor, &monitorInfo)) {
+            if (monitor != nullptr && GetMonitorInfoW(monitor, &monitorInfo)) {
                 // QML owns the caption, so its client origin is the work-area
                 // origin rather than the native caption's client origin.
-                auto* clientRect = nativeMessage->wParam == TRUE
-                    ? &reinterpret_cast<NCCALCSIZE_PARAMS*>(nativeMessage->lParam)->rgrc[0]
-                    : reinterpret_cast<RECT*>(nativeMessage->lParam);
                 *clientRect = monitorInfo.rcWork;
             }
         }

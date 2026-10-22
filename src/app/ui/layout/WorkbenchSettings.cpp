@@ -333,7 +333,7 @@ void WorkbenchSettings::reloadEditorSettings()
     const bool selectionBeatDisplay =
         editorUi.value(QLatin1String(kEditorSelectionBeatDisplay)).toBool(true);
     const bool overviewRulerEnabled =
-        editorUi.value(QLatin1String(kEditorOverviewRulerEnabled)).toBool(true);
+        editorUi.value(QLatin1String(kEditorOverviewRulerEnabled)).toBool(false);
     if (codeFont_ == codeFont
         && editorBlockSpacing_ == blockSpacing
         && editorHalfWidthInputEnabled_ == halfWidth

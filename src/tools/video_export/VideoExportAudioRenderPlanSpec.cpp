@@ -229,7 +229,7 @@ bool verifyPvPreviewIntroPlan(QTextStream& err)
     }
 
     const double expectedIntroSeconds =
-        (390.0 + miacode::intro::kCycle2SpanFrames) / miacode::intro::kAuthoringFps;
+        (510.0 + miacode::intro::kCycle2SpanFrames) / miacode::intro::kAuthoringFps;
     if (!require(qAbs(plan.introLeadSeconds - expectedIntroSeconds) <= 1e-6,
                  QStringLiteral("PV preview intro should pad hold + cycle 2"), err)) {
         return false;
@@ -248,12 +248,13 @@ bool verifyPvPreviewIntroPlan(QTextStream& err)
         return false;
     }
     if (!require(qAbs(intro.mixStartSecond) <= 1e-6 && qAbs(intro.sourceStartSecond - 54.0) <= 1e-6
-                     && qAbs(intro.durationSeconds - 6.5 - miacode::intro::kPvPreviewAudioTailSeconds) <= 1e-6,
+                     && qAbs(intro.durationSeconds - 8.5 - miacode::intro::kPvPreviewAudioTailSeconds) <= 1e-6,
                  QStringLiteral("PV preview music should play the segment from output 0 into the wipe"), err)) {
         return false;
     }
-    if (!require(intro.fadeOutSeconds > miacode::intro::kPvPreviewAudioTailSeconds,
-                 QStringLiteral("PV preview fade-out should straddle the hard cut"), err)) {
+    if (!require(qAbs(intro.fadeOutSeconds - 3.0) <= 1e-6
+                     && qAbs(intro.durationSeconds - intro.fadeOutSeconds - 6.75) <= 1e-6,
+                 QStringLiteral("PV preview music fades for 3 s, starting at 6.75 s before the wipe"), err)) {
         return false;
     }
     if (!require(intro.fadeInSeconds > 0.0 && intro.fadeOutSeconds > 0.0

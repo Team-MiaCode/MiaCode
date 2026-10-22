@@ -23,6 +23,7 @@
 | `miacode_export` | `src/export` | 视频导出（`video_export`）、封面导出（`cover_export`）、QSG/D3D11 导出会话（`session`）、导出音频；片头资源与 shader | 除 `MiaCode` 外任意库 |
 | `miacode_media_tools` | `src/media_tools` | PV 压缩（`media`）、ZIP 打包（`zip_export`）、网络客户端（`net`） | chart |
 | `MiaCode` | `src/app` | UI、services、runtime（含延迟检测 `runtime/latency`）、quick_shell、platform、进程入口 | 任意库 |
+| `MiaCodeBatchCleaner` | `src/batch_cleaner` | 独立的谱面批处理程序（整理、删除注释、统一谱师）及其命令行模式；自带一份由 `src/app/ui` 主题与通用控件编译的 `MiaCode.UI` 模块，定义见 `cmake/BatchCleaner.cmake` | chart |
 
 `src/tools` 只放 Spec，`src/devtools` 是命令行诊断入口，`src/intro` 是片头素材，`src/extensions` 只由
 扩展清单 Spec 编译；这些目录不属于任何库。依赖定义见 `cmake/MiaCodeModules.cmake`。

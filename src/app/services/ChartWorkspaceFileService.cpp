@@ -6,8 +6,11 @@
 #include <QSaveFile>
 #include <QTemporaryDir>
 #include "core/chart/ChartAssetPaths.h"
+#include "common/AtomicFileCopy.h"
+#include "common/DebugLog.h"
 #include <QStringConverter>
 #include <memory>
+#include <vector>
 
 namespace miacode {
 namespace {
@@ -26,9 +29,16 @@ public:
         if (committed_) return;
         for (auto it = files_.crbegin(); it != files_.crend(); ++it) {
             if (!it->published) continue;
-            QFile::remove(it->target);
-            if (!it->backup.isEmpty() && !QFile::rename(it->backup, it->target))
+            const bool restored = it->backup.isEmpty()
+                ? QFile::remove(it->target)
+                : file_io::copyFileAtomically(it->backup, it->target);
+            if (!restored) {
                 staging_.setAutoRemove(false);
+                debug_log::appendLine(debug_log::Channel::Runtime,
+                    QStringLiteral("document/save_as_restore_failed"),
+                    QStringLiteral("target=%1 backup=%2").arg(it->target, it->backup),
+                    true, debug_log::Level::Error);
+            }
         }
     }
 
@@ -43,10 +53,14 @@ public:
         file.source = source;
         file.target = targetPath;
         if (!source.isEmpty()) {
-            file.staged = staging_.filePath(QString::number(files_.size()));
-            if (!QFile::copy(source, file.staged)) return false;
+            if (!QDir().mkpath(QFileInfo(targetPath).absolutePath())) return false;
+            QFile input(source);
+            if (!input.open(QIODevice::ReadOnly)) return false;
+            file.replacement = std::make_unique<QSaveFile>(targetPath);
+            if (!file.replacement->open(QIODevice::WriteOnly)
+                || !file_io::copyFileContents(input, *file.replacement)) return false;
         }
-        files_.append(file);
+        files_.push_back(std::move(file));
         return true;
     }
 
@@ -57,10 +71,14 @@ public:
             if (QFileInfo::exists(file.target)) {
                 if (!QFileInfo(file.target).isFile()) return false;
                 file.backup = staging_.filePath(QStringLiteral("backup-%1").arg(&file - files_.data()));
-                if (!QFile::rename(file.target, file.backup)) return false;
+                if (!QFile::copy(file.target, file.backup)) return false;
+            }
+            if (file.replacement) {
+                if (!file.replacement->commit()) return false;
+            } else if (QFileInfo::exists(file.target) && !QFile::remove(file.target)) {
+                return false;
             }
             file.published = true;
-            if (!file.staged.isEmpty() && !QFile::rename(file.staged, file.target)) return false;
         }
         return true;
     }
@@ -71,13 +89,13 @@ private:
     struct Entry {
         QString source;
         QString target;
-        QString staged;
+        std::unique_ptr<QSaveFile> replacement;
         QString backup;
         bool published = false;
     };
     QDir target_;
     QTemporaryDir staging_;
-    QVector<Entry> files_;
+    std::vector<Entry> files_;
     bool committed_ = false;
 };
 
@@ -95,13 +113,14 @@ bool stageProjectFiles(ProjectSaveTransaction& transaction, const QDir& source,
             if (!transaction.add({}, name)) return false;
         }
     }
+    const QDir targetSettings(target.filePath(QStringLiteral(".miacode")));
+    const auto targetSettingsFiles = targetSettings.entryInfoList(QDir::Files | QDir::Hidden);
     const QDir settings(source.filePath(QStringLiteral(".miacode")));
     for (const auto& file : settings.entryInfoList(QDir::Files | QDir::Hidden)) {
         if (!transaction.add(file.absoluteFilePath(), QStringLiteral(".miacode/") + file.fileName()))
             return false;
     }
-    const QDir targetSettings(target.filePath(QStringLiteral(".miacode")));
-    for (const auto& file : targetSettings.entryInfoList(QDir::Files | QDir::Hidden)) {
+    for (const auto& file : targetSettingsFiles) {
         if (!QFileInfo::exists(settings.filePath(file.fileName()))
             && !transaction.add({}, QStringLiteral(".miacode/") + file.fileName())) return false;
     }
@@ -149,8 +168,11 @@ ChartWorkspaceFileResult ChartWorkspaceFileService::open(const QString& path, Ch
         return {false, workspace_->snapshot().revision, QStringLiteral("open_failed"), {}};
     }
     bool usedSystemEncoding = false;
-    const QString text = decodeDocumentText(file.readAll(), &usedSystemEncoding);
-    const ChartWorkspaceResult result = workspace_->openSource(text, normalizedPath, 0, origin);
+    const auto text = decodeDocumentText(file.readAll(), &usedSystemEncoding);
+    if (!text || file.error() != QFileDevice::NoError) {
+        return {false, workspace_->snapshot().revision, QStringLiteral("decode_failed"), {}};
+    }
+    const ChartWorkspaceResult result = workspace_->openSource(*text, normalizedPath, 0, origin);
     return {result.accepted, result.revision,
             result.accepted ? QString() : QStringLiteral("open_failed"), result.issues,
             usedSystemEncoding};
@@ -196,19 +218,20 @@ ChartWorkspaceFileResult ChartWorkspaceFileService::saveAs(const QString& path, 
     return writeToPath(path, difficultyId);
 }
 
-QString ChartWorkspaceFileService::decodeDocumentText(
+std::optional<QString> ChartWorkspaceFileService::decodeDocumentText(
     const QByteArray& bytes, bool* usedSystemEncoding)
 {
     if (usedSystemEncoding != nullptr) *usedSystemEncoding = false;
-    if (bytes.startsWith("\xEF\xBB\xBF")) return QString::fromUtf8(bytes.mid(3));
-
-    QStringDecoder utf8Decoder(QStringConverter::Utf8);
+    QStringDecoder utf8Decoder(QStringConverter::Utf8, QStringConverter::Flag::Stateless);
     const QString text = utf8Decoder.decode(bytes);
     if (!utf8Decoder.hasError()) return text;
+    if (bytes.startsWith("\xEF\xBB\xBF")) return std::nullopt;
 
+    QStringDecoder systemDecoder(QStringConverter::System, QStringConverter::Flag::Stateless);
+    const QString systemText = systemDecoder.decode(bytes);
+    if (systemDecoder.hasError()) return std::nullopt;
     if (usedSystemEncoding != nullptr) *usedSystemEncoding = true;
-    QStringDecoder systemDecoder(QStringConverter::System);
-    return systemDecoder.decode(bytes);
+    return systemText;
 }
 
 ChartWorkspaceFileResult ChartWorkspaceFileService::writeToPath(
@@ -238,8 +261,16 @@ ChartWorkspaceFileResult ChartWorkspaceFileService::writeToPath(
     if (!QDir().mkpath(targetDirectory.absolutePath()))
         return {false, before.revision, QStringLiteral("mkpath_failed"), {}};
     QSaveFile file(normalizedPath);
+    // The failure keeps QSaveFile's own reason so the notice can say why.
+    const auto fileFailure = [&](const QString& code) {
+        ChartWorkspaceFileResult result{false, before.revision, code, {}};
+        result.failedPath = normalizedPath;
+        result.fileError = file.error();
+        result.systemError = file.errorString();
+        return result;
+    };
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        return {false, before.revision, QStringLiteral("open_failed"), {}};
+        return fileFailure(QStringLiteral("open_failed"));
     }
     std::unique_ptr<ProjectSaveTransaction> transaction;
     if (copyProject) {
@@ -253,10 +284,11 @@ ChartWorkspaceFileResult ChartWorkspaceFileService::writeToPath(
     }
     const QByteArray payload = QStringEncoder(QStringConverter::Utf8).encode(savedDocument.toText());
     if (file.write(payload) != payload.size()) {
+        ChartWorkspaceFileResult result = fileFailure(QStringLiteral("write_failed"));
         file.cancelWriting();
-        return {false, before.revision, QStringLiteral("write_failed"), {}};
+        return result;
     }
-    if (!file.commit()) return {false, before.revision, QStringLiteral("commit_failed"), {}};
+    if (!file.commit()) return fileFailure(QStringLiteral("commit_failed"));
 
     if (transaction) transaction->commit();
     workspace_->markSectionSaved(savedDocument, normalizedPath, currentVideoPath);

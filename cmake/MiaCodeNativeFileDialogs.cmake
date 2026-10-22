@@ -1,0 +1,16 @@
+function(miacode_enable_native_file_dialogs target)
+    target_sources(${target} PRIVATE
+        src/app/ui/dialogs/NativeFolderPicker.h
+        src/app/ui/dialogs/NativeFolderPicker.cpp)
+    if(APPLE)
+        target_sources(${target} PRIVATE src/app/ui/dialogs/NativeFolderPickerMac.mm)
+        target_link_libraries(${target} PRIVATE "-framework AppKit")
+    elseif(WIN32)
+        target_sources(${target} PRIVATE src/app/ui/dialogs/NativeFolderPickerWin.cpp)
+        target_link_libraries(${target} PRIVATE ole32 shell32 uuid)
+    elseif(UNIX)
+        find_package(Qt6 6.10 REQUIRED COMPONENTS DBus)
+        target_sources(${target} PRIVATE src/app/ui/dialogs/NativeFolderPickerPortal.cpp)
+        target_link_libraries(${target} PRIVATE Qt6::DBus)
+    endif()
+endfunction()
