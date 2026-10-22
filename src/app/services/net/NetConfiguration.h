@@ -2,7 +2,6 @@
 
 #include <QJsonObject>
 #include <QString>
-#include <functional>
 
 namespace miacode::net_configuration {
 
@@ -13,8 +12,7 @@ public:
     QJsonObject snapshot() const { return settings_; }
     QJsonValue value(const QString& key) const;
     bool update(const QJsonObject& values);
-    bool migrate(QJsonObject& preferences,
-                 const std::function<bool(QJsonObject&)>& prepareSettings = {});
+    bool migrate(QJsonObject& preferences);
 
 private:
     bool replace(const QJsonObject& settings);
