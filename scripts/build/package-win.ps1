@@ -404,6 +404,7 @@ if (Test-Path $DistDir) {
     Remove-Item -Recurse -Force $DistDir
 }
 New-Item -ItemType Directory -Path $DistDir | Out-Null
+[System.IO.File]::WriteAllText((Join-Path $DistDir "config.json"), "{}" + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
 
 # All runtime DLLs and Qt plugin/QML subtrees live in app/ so the dist
 # root only exposes the user-facing entry points (launcher exe + .bat

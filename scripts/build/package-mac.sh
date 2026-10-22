@@ -441,6 +441,7 @@ fi
 package_step "Staging app bundle, documentation, assets, and runtime tools"
 rm -rf "$DIST_DIR"
 mkdir -p "$DIST_DIR"
+printf '{}\n' > "$DIST_DIR/config.json"
 cp -R "$APP_PATH" "$DIST_DIR/"
 
 for release_doc in LICENSE THIRD_PARTY_NOTICES.md; do
