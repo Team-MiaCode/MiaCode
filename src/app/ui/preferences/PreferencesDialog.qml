@@ -108,6 +108,7 @@ AppDialog {
         root.preferencesModel.languageToken
         return root.preferences.aboutInfo()
     }
+    readonly property string aboutConfigFolder: root.preferences.configFolderPath()
     readonly property real sidebarWidth: root.width < 650 ? 140 : 180
     readonly property int settingsRowHeight: Theme.controlMinHeight + 10
     readonly property int settingsLabelWidth: root.width < 650 ? 120 : 140
@@ -1034,6 +1035,37 @@ AppDialog {
                                     return
                                 }
                             }
+                        }
+                    }
+
+                    PreferenceGroup {
+                        title: qsTrId("dialog.preferences.file_locations_group")
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.minimumHeight: root.settingsRowHeight
+                            spacing: 12
+
+                            AboutInfoLabel {
+                                Layout.preferredWidth: -1
+                                Layout.fillWidth: true
+                                text: qsTrId("dialog.preferences.config_folder")
+                            }
+                            AppButton {
+                                objectName: "preferencesOpenConfigFolderButton"
+                                text: qsTrId("action.open")
+                                enabled: root.aboutConfigFolder.length > 0
+                                onClicked: root.preferences.openConfigFolder()
+                            }
+                        }
+
+                        // Selectable so the path can be copied into a file manager or a bug report.
+                        AboutInfoValue {
+                            objectName: "preferencesConfigFolderPath"
+                            text: root.aboutConfigFolder
+                            color: Theme.colors.text.secondary
+                            font.pixelSize: Theme.secondaryFontSize
+                            wrapMode: TextEdit.WrapAnywhere
                         }
                     }
                 }

@@ -11,6 +11,10 @@
 #include <QJsonObject>
 #include <QJsonValue>
 #include <QDate>
+#include <QDesktopServices>
+#include <QDir>
+#include <QFileInfo>
+#include <QUrl>
 #include <QStringList>
 #include <QSettings>
 #include <QSysInfo>
@@ -237,6 +241,21 @@ QVariantMap WorkbenchSettings::aboutInfo() const
         {QStringLiteral("buildTypeLabel"), qtTrId("about.build_type")},
         {QStringLiteral("title"), qtTrId("action.about")},
     };
+}
+
+QString WorkbenchSettings::configFolderPath() const
+{
+    const QString preferences = PreferenceDocument::preferencesFilePath();
+    return preferences.isEmpty() ? QString{}
+        : QDir::toNativeSeparators(QFileInfo(preferences).absolutePath());
+}
+
+void WorkbenchSettings::openConfigFolder() const
+{
+    const QString folder = configFolderPath();
+    if (folder.isEmpty()) return;
+    QDir().mkpath(folder);
+    QDesktopServices::openUrl(QUrl::fromLocalFile(folder));
 }
 
 bool WorkbenchSettings::efficientSidebarEnabled() const { return efficientSidebarEnabled_; }

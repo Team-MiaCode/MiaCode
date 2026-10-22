@@ -62,6 +62,9 @@ public:
     // What 关于 MiaCode shows: version, platform triple and build type. Read
     // from the build's own macros so the page cannot drift from the binary.
     Q_INVOKABLE QVariantMap aboutInfo() const;
+    // Folder holding preferences_v2.json, config.json and the other user settings files.
+    Q_INVOKABLE QString configFolderPath() const;
+    Q_INVOKABLE void openConfigFolder() const;
     explicit WorkbenchSettings(QObject* parent = nullptr);
     bool setupCompleted() const;
     QString preferenceMigrationStatus() const;

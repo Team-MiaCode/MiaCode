@@ -49,6 +49,14 @@ Classic mode: All functions are on one page, similar to the layout in earlier ve
         <source>Version: %1</source>
         <translation>バージョン：%1</translation>
     </message>
+    <message id="dialog.preferences.config_folder">
+        <source>Configuration Folder</source>
+        <translation>設定フォルダー</translation>
+    </message>
+    <message id="dialog.preferences.file_locations_group">
+        <source>File Locations</source>
+        <translation>ファイルの場所</translation>
+    </message>
     <message id="dialog.preferences.group.appearance">
         <source>Appearance</source>
         <translation>外観</translation>
