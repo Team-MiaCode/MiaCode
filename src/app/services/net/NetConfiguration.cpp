@@ -2,7 +2,6 @@
 
 #include "app/services/PreferenceDocument.h"
 #include "app/services/PreferenceJsonFile.h"
-#include <QCoreApplication>
 #include <QFileInfo>
 #include <QDir>
 
@@ -93,36 +92,26 @@ bool Repository::migrate(QJsonObject& preferences)
     return true;
 }
 
-QString filePath()
+namespace {
+QString userConfigFile(const QString& fileName)
 {
     const QString preferences = PreferenceDocument::preferencesFilePath();
-    return preferences.isEmpty() ? QString{}
-        : QFileInfo(preferences).dir().filePath(QStringLiteral("net_config.json"));
+    return preferences.isEmpty() ? QString{} : QFileInfo(preferences).dir().filePath(fileName);
+}
 }
 
+QString filePath() { return userConfigFile(QStringLiteral("net_config.json")); }
+
 QJsonValue value(const QString& key) { return repository().value(key); }
-QString configFilePath()
-{
-    QDir root(QCoreApplication::applicationDirPath());
-#ifdef Q_OS_WIN
-    if (root.dirName() == QStringLiteral("app")
-        && QFileInfo(root.filePath(QStringLiteral("../MiaCode.exe"))).isFile())
-        root.cdUp();
-#elif defined(Q_OS_MACOS)
-    const QDir bundle(QDir::cleanPath(root.filePath(QStringLiteral("../.."))));
-    if (root.dirName() == QStringLiteral("MacOS")
-        && bundle.dirName().endsWith(QStringLiteral(".app"))) {
-        root = bundle;
-        root.cdUp();
-    }
-#endif
-    return root.filePath(QStringLiteral("config.json"));
-}
+
+// Hand-edited and never rewritten, so release packages cannot overwrite it.
+QString configFilePath() { return userConfigFile(QStringLiteral("config.json")); }
 
 bool enabled()
 {
     static const bool uploadEnabled = [] {
         const QString path = configFilePath();
+        if (path.isEmpty()) return false;
         const auto source = preference_json_file::read(path);
         if (source.status == preference_json_file::ReadStatus::Missing)
             preference_json_file::write(path, {});
