@@ -10,6 +10,7 @@ public:
     static QPair<QString, QString> load(const QString& principal);
     static bool save(const QString& principal, const QString& username, const QString& password);
     static void erase(const QString& principal);
-    static QString migrateLegacyCredentials(const QString& principal, QJsonObject& app);
+    static QString migrateLegacyCredentials(const QString& principal, QJsonObject& settings);
+    static void eraseLegacyCredentials(const QString& principal);
 };
 }

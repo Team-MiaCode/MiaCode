@@ -1,21 +1,24 @@
-# Net 应用配置
+# Net 配置与持久化设置
 
-桌面应用从用户配置目录中与 `preferences_v2.json` 同级的 `net_config.json` 读取 Net 设置。路径复用 `PreferenceDocument::preferencesFilePath()` 所在目录，随平台的用户配置目录解析。配置按进程启动时的内容读取，手动编辑后重启应用生效。
+## 应用根目录配置
 
-在线谱面下载默认开放，无需账号或配置文件。`net_config` 为 JSON 布尔值，仅控制上传入口：`true` 显示上传菜单并允许打开上传标签页；`false`、缺省或配置文件无效时隐藏上传入口，下载仍可使用。
+`config.json` 位于应用文件根目录。Windows 发布包中与入口 `MiaCode.exe` 同级，macOS 发布包中与 `MiaCode.app` 同级；开发构建中与应用可执行文件同级。发布包附带该文件，应用启动时也会创建缺省文件，内容为 `{}`。上传入口的属性由用户手动填写。
 
-用户创建配置文件，程序仅更新存在且格式有效的文件；文件缺省时，下载输出目录使用桌面路径，桌面路径不可用时使用用户主目录，不自动创建配置文件。
+沿用布尔字段 `net_config` 控制桌面上传入口：值为 `true` 时显示上传菜单并允许打开上传标签页。在线谱面下载默认开放。
 
-```json
-{
-  "net_config": true,
-  "last_net_batch_output_dir": null
-}
-```
+配置按进程首次访问时的内容读取，手动编辑后重启应用生效。
+
+## 用户持久化设置
+
+`net_config.json` 位于用户配置目录，与 `preferences_v2.json` 同级。路径复用 `PreferenceDocument::preferencesFilePath()` 所在目录。程序自动创建该文件，保存 Net 页面产生的持久化设置。
 
 | 字段 | 类型 | 内容 |
 | --- | --- | --- |
-| `net_config` | boolean / null | 桌面 Net 上传入口开关，缺省为关闭；不影响下载 |
-| `last_net_batch_output_dir` | string / null | 批量下载输出目录 |
+| `last_net_batch_output_dir` | string / null | 批量下载输出目录，缺省使用桌面路径，桌面路径为空时使用用户主目录 |
+| `last_net_batch_upload_dir` | string / null | 批量上传源目录 |
+| `net_upload_remember_credentials` | boolean | 记住账号选项 |
+| `net_upload_credentials` | object | 按调用主体区分的加密账号数据 |
 
-配置文件存在时，程序迁移 `preferences_v2.json` 中的 Net 设置，保留原字段名。目标文件中的显式值优先，包括 `null` 和 `false`。目标写入成功后清除偏好中的对应字段。
+Windows 端使用当前系统用户的 DPAPI 加密用户名与密码，JSON 中保存加密结果的 Base64 字符串。调用主体参与加密上下文校验；读取时解密并校验数据完整性。勾选记住账号且登录成功后保存，取消记住账号时清除对应的加密数据。
+
+程序迁移 `preferences_v2.json` 中的 Net 持久化设置，目标文件中的显式值优先，包括 `null` 和 `false`。原有账号凭据转为加密数据，目标文件及偏好迁移写入成功后清理旧凭据。原上传开关从用户持久化设置中移除，入口由应用根目录配置管理。
