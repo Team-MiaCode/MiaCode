@@ -59,7 +59,7 @@ Item {
 
     ViewState {
         id: state
-        netEnabled: root.pages.netEnabled
+        netUploadEnabled: root.pages.netUploadEnabled
     }
 
     Binding {
@@ -111,7 +111,7 @@ Item {
 
     MainMenuCommands {
         id: menuCommands
-        netEnabled: root.pages.netEnabled
+        netUploadEnabled: root.pages.netUploadEnabled
         commandsEnabled: !root.beginnerGuideActive
         canUndo: root.editorCommandsAvailable && splitView.canUndo
         canRedo: root.editorCommandsAvailable && splitView.canRedo

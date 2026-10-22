@@ -257,7 +257,7 @@ Item {
             id: majnetButton
             menu: majnetMenu
             menuIndex: 5
-            enabled: root.commandsEnabled && root.commands.netEnabled
+            enabled: root.commandsEnabled
         }
         TopLevelItem {
             id: extrasButton
@@ -500,7 +500,8 @@ Item {
         MajnetActionsMenu {
             id: majnetMenu
             title: root.menuTitle(qsTrId("menu.majnet_n"))
-            actionsEnabled: root.commandsEnabled && root.commands.netEnabled
+            actionsEnabled: root.commandsEnabled
+            uploadEnabled: root.commands.netUploadEnabled
             onDownloadRequested: root.commands.netRequested()
             onUploadRequested: root.commands.netUploadRequested()
         }
