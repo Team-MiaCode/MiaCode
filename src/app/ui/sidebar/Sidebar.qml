@@ -67,7 +67,7 @@ Item {
     }
 
     ActivityBar {
-        netEnabled: root.pages.netEnabled
+        netUploadEnabled: root.pages.netUploadEnabled
         id: activityBar
         visible: !root.efficientMode
         width: root.efficientMode ? 0 : implicitWidth

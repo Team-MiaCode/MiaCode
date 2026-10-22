@@ -12,6 +12,7 @@ public:
     explicit Repository(QString path);
     QJsonObject snapshot() const { return settings_; }
     QJsonValue value(const QString& key) const;
+    // The configuration gate applies only to desktop upload/account access.
     bool enabled() const;
     bool update(const QJsonObject& values);
     bool migrate(QJsonObject& preferences,
