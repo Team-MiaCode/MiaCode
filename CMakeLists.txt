@@ -956,7 +956,7 @@ target_compile_definitions(MiaCode PRIVATE HAVE_QT_MULTIMEDIA=1)
 
 if (WIN32)
     target_link_libraries(MiaCode PRIVATE
-        Advapi32     # Windows Credential Manager
+        Crypt32      # Current-user DPAPI encryption
         winmm        # timeBeginPeriod for preview frame pacing
         d3d11        # Startup D3D11 probe (startup_diagnostics_win32.cpp)
         User32       # RegisterPowerSettingNotification
