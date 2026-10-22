@@ -3,12 +3,12 @@
 
 #include <QCryptographicHash>
 #include <QJsonDocument>
+#include <QJsonObject>
 #ifdef Q_OS_WIN
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <wincrypt.h>
 #include <dpapi.h>
-#include <wincred.h>
 #endif
 
 namespace miacode {
@@ -95,58 +95,5 @@ void NetAccountStore::erase(const QString& principal)
     if (!accounts.contains(target(principal))) return;
     accounts.remove(target(principal));
     net_configuration::update({{"net_upload_credentials", accounts}});
-}
-
-QString NetAccountStore::migrateLegacyCredentials(const QString& principal, QJsonObject& settings)
-{
-    const bool hasLegacy = settings.contains("net_upload_username")
-        || settings.contains("net_upload_password") || settings.contains("net_upload_credential_ref");
-    if (!hasLegacy) return {};
-    auto accounts = settings.value("net_upload_credentials").toObject();
-    const auto key = target(principal);
-    if (settings.value("net_upload_remember_credentials").toBool() && accounts.contains(key)) {
-        const auto account = decryptCredentials(principal, accounts.value(key).toString());
-        if (account.first.isEmpty() || account.second.isEmpty())
-            return QStringLiteral("credential_store.unavailable");
-    } else if (settings.value("net_upload_remember_credentials").toBool()) {
-        QString username = settings.value("net_upload_username").toString();
-        QString password = settings.value("net_upload_password").toString();
-#ifdef Q_OS_WIN
-        if (!settings.contains("net_upload_password")) {
-            PCREDENTIALW credential = nullptr;
-            if (CredReadW(reinterpret_cast<LPCWSTR>(key.utf16()), CRED_TYPE_GENERIC, 0, &credential)) {
-                username = QString::fromWCharArray(credential->UserName);
-                password = QString::fromUtf8(reinterpret_cast<const char*>(credential->CredentialBlob),
-                    credential->CredentialBlobSize);
-                SecureZeroMemory(credential->CredentialBlob, credential->CredentialBlobSize);
-                CredFree(credential);
-            } else if (GetLastError() != ERROR_NOT_FOUND) {
-                return QStringLiteral("credential_store.unavailable");
-            }
-        }
-#endif
-        if (!username.isEmpty() && !password.isEmpty()) {
-            const QString encrypted = encryptCredentials(principal, username, password);
-            if (encrypted.isEmpty()) return QStringLiteral("credential_store.unavailable");
-            accounts.insert(key, encrypted);
-            settings.insert("net_upload_credentials", accounts);
-        } else {
-            settings.insert("net_upload_remember_credentials", false);
-        }
-    }
-    settings.remove("net_upload_username");
-    settings.remove("net_upload_password");
-    settings.remove("net_upload_credential_ref");
-    return {};
-}
-
-void NetAccountStore::eraseLegacyCredentials(const QString& principal)
-{
-#ifdef Q_OS_WIN
-    const auto key = target(principal);
-    CredDeleteW(reinterpret_cast<LPCWSTR>(key.utf16()), CRED_TYPE_GENERIC, 0);
-#else
-    Q_UNUSED(principal);
-#endif
 }
 }

@@ -9,11 +9,6 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTextStream>
-#ifdef Q_OS_WIN
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <wincred.h>
-#endif
 
 int main(int argc, char** argv)
 {
@@ -98,10 +93,11 @@ int main(int argc, char** argv)
     expect(existing.migrate(legacy) && existing.value("last_net_batch_output_dir").isNull()
         && existing.value("custom") == 7 && existing.value("net_config").isNull(),
         "explicit values win and the former gate is removed");
-    legacy = {{"last_net_batch_output_dir", "legacy"}};
-    const auto original = legacy;
-    expect(!existing.migrate(legacy, [](QJsonObject&) { return false; }) && legacy == original,
-        "failed credential preparation retains migration source");
+    legacy = {{"app", QJsonObject{{"net_upload_username", "legacy-user"},
+        {"net_upload_password", "legacy-password"}, {"net_upload_credential_ref", "legacy-ref"}}}};
+    expect(existing.migrate(legacy) && legacy == QJsonObject{{"app", QJsonObject{}}}
+        && !existing.snapshot().contains("net_upload_username") && !existing.snapshot().contains("net_upload_password")
+        && !existing.snapshot().contains("net_upload_credential_ref"), "legacy plaintext accounts are dropped");
     QFile corrupt(path);
     expect(corrupt.open(QIODevice::WriteOnly) && corrupt.write("{") == 1, "malformed fixture");
     corrupt.close();
@@ -141,39 +137,6 @@ int main(int argc, char** argv)
     NetAccountStore::erase("other");
     expect(NetAccountStore::load("other").first.isEmpty()
         && NetAccountStore::load("spec").first == "test-user", "erasing one account preserves other accounts");
-    QJsonObject legacyAccount{{"net_upload_username", "legacy-user"}, {"net_upload_password", "legacy-password"},
-        {"net_upload_remember_credentials", true}};
-    expect(NetAccountStore::migrateLegacyCredentials("legacy", legacyAccount).isEmpty()
-        && !legacyAccount.contains("net_upload_username") && !legacyAccount.contains("net_upload_password")
-        && !legacyAccount.value("net_upload_credentials").toObject().isEmpty(), "legacy account becomes encrypted data");
-    QJsonObject unreadableAccount{{"net_upload_username", "legacy-user"}, {"net_upload_password", "legacy-password"},
-        {"net_upload_remember_credentials", true}, {"net_upload_credentials", QJsonObject{{accountKey("legacy"), "invalid ciphertext"}}}};
-    const auto originalAccount = unreadableAccount;
-    expect(!NetAccountStore::migrateLegacyCredentials("legacy", unreadableAccount).isEmpty()
-        && unreadableAccount == originalAccount, "unreadable destination preserves legacy credentials");
-
-    const QString legacyPrincipal = "legacy_" + app.applicationName();
-    const QString legacyTarget = accountKey(legacyPrincipal);
-    auto legacyPassword = QByteArrayLiteral("legacy-password");
-    CREDENTIALW credential{};
-    credential.Type = CRED_TYPE_GENERIC;
-    credential.TargetName = const_cast<LPWSTR>(reinterpret_cast<LPCWSTR>(legacyTarget.utf16()));
-    credential.UserName = const_cast<LPWSTR>(L"legacy-user");
-    credential.CredentialBlob = reinterpret_cast<LPBYTE>(legacyPassword.data());
-    credential.CredentialBlobSize = static_cast<DWORD>(legacyPassword.size());
-    credential.Persist = CRED_PERSIST_LOCAL_MACHINE;
-    expect(CredWriteW(&credential, 0), "legacy Windows credential fixture");
-    QJsonObject windowsAccount{{"net_upload_username", "legacy-user"}, {"net_upload_remember_credentials", true}};
-    expect(NetAccountStore::migrateLegacyCredentials(legacyPrincipal, windowsAccount).isEmpty()
-        && miacode::net_configuration::update(windowsAccount)
-        && NetAccountStore::load(legacyPrincipal) == qMakePair(QStringLiteral("legacy-user"), QStringLiteral("legacy-password")),
-        "Windows credentials migrate to the encrypted settings file");
-    NetAccountStore::eraseLegacyCredentials(legacyPrincipal);
-    PCREDENTIALW remainingCredential = nullptr;
-    const bool remaining = CredReadW(reinterpret_cast<LPCWSTR>(legacyTarget.utf16()), CRED_TYPE_GENERIC, 0, &remainingCredential);
-    expect(!remaining && GetLastError() == ERROR_NOT_FOUND, "committed migration releases the legacy Windows credential");
-    if (remaining) CredFree(remainingCredential);
-    NetAccountStore::erase(legacyPrincipal);
     NetAccountStore::erase("spec");
 #endif
     QFile::remove(configurationPath.filePath());

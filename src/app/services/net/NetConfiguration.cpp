@@ -2,7 +2,6 @@
 
 #include "app/services/PreferenceDocument.h"
 #include "app/services/PreferenceJsonFile.h"
-#include "app/services/net/NetAccountStore.h"
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QDir>
@@ -39,17 +38,8 @@ Repository& repository()
     static const bool initialized = [&] {
         auto preferences = PreferenceDocument::loadPreferencesObject();
         const auto original = preferences;
-        bool legacyCredentials = false;
-        if (!instance.migrate(preferences, [&](QJsonObject& settings) {
-            legacyCredentials = settings.contains("net_upload_username")
-                || settings.contains("net_upload_password") || settings.contains("net_upload_credential_ref");
-            const auto error = NetAccountStore::migrateLegacyCredentials(QStringLiteral("desktop"), settings);
-            if (!error.isEmpty()) preference_json_file::log(filePath(), error);
-            return error.isEmpty();
-        })) return false;
-        if (preferences != original && !PreferenceDocument::savePreferencesObject(preferences)) return false;
-        if (legacyCredentials) NetAccountStore::eraseLegacyCredentials(QStringLiteral("desktop"));
-        return true;
+        return instance.migrate(preferences)
+            && (preferences == original || PreferenceDocument::savePreferencesObject(preferences));
     }();
     Q_UNUSED(initialized);
     return instance;
@@ -88,15 +78,15 @@ bool Repository::update(const QJsonObject& values)
     return replace(settings);
 }
 
-bool Repository::migrate(QJsonObject& preferences,
-                         const std::function<bool(QJsonObject&)>& prepareSettings)
+bool Repository::migrate(QJsonObject& preferences)
 {
     if (!available_) return false;
     auto remaining = preferences;
     auto settings = settings_;
     extractNetSettings(remaining, settings);
-    settings.remove(QStringLiteral("net_config"));
-    if (prepareSettings && !prepareSettings(settings)) return false;
+    // The upload gate moved to config.json; legacy plaintext accounts are dropped.
+    for (const auto* key : {"net_config", "net_upload_username", "net_upload_password", "net_upload_credential_ref"})
+        settings.remove(QLatin1String(key));
     // Commit the destination before releasing the source settings.
     if (!replace(settings)) return false;
     preferences = remaining;
