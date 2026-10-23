@@ -10,6 +10,7 @@
 #include "app/services/ChartWorkspace.h"
 #include "core/analysis/MuriRenderOptions.h"
 #include "core/analysis/MuriTypes.h"
+#include "core/analysis/MuriPanelEntries.h"
 #include "common/TaskCancellation.h"
 #include "core/chart/parser/SimaiParser.h"
 #include "core/chart/model/TimelineData.h"
@@ -36,12 +37,14 @@ struct AnalysisSnapshot {
     int difficultyId = 0;
     bool available = false;
     bool pending = false;
+    bool validationReady = false;
     SimaiValidationLocale locale = SimaiValidationLocale::English;
     SimaiValidationReport validation;
     QVector<TimelineNoteMarker> noteMarkers;
     QByteArray noteMarkerSignature;
     MuriAnalysisReport muri;
     QVector<MuriStaticReference> muriStaticReferences;
+    QVector<miacode::muri::MuriPanelEntrySource> muriPanelEntries;
 };
 
 class AnalysisService final : public QObject
@@ -77,9 +80,8 @@ public:
 
 signals:
     void parseReady(int difficultyId, quint64 revision);
-    // The whole pending/available value is installed before this signal is
-    // emitted. Consumers read it once and gate the complete package by the
-    // workspace (difficultyId, revision) identity.
+    // Each stage publishes under the same workspace identity. available marks
+    // complete diagnostics; validationReady also permits syntax-only results.
     void snapshotChanged(int difficultyId, quint64 revision);
     void analysisReady(int difficultyId, quint64 revision);
 
@@ -89,7 +91,8 @@ private:
     static AnalysisSnapshot diagnose(const ParsedChartSnapshot& parsed,
                                     SimaiValidationLocale locale,
                                     const MuriRenderOptions& renderOptions,
-                                    double staticTapOnSlideThresholdSeconds);
+                                    double staticTapOnSlideThresholdSeconds,
+                                    const std::function<void(const SimaiValidationReport&)>& validationReady = {});
     void dispatchPendingParse();
     void requestDiagnostics();
     void dispatchDiagnostics();

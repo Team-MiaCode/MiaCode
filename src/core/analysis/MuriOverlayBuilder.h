@@ -5,6 +5,7 @@
 #include <QVector>
 
 #include "core/analysis/MuriTypes.h"
+#include "core/analysis/MuriTimeIndex.h"
 
 struct TimelineNoteMarker;
 
@@ -25,7 +26,7 @@ void buildOverlayActions(
 // segment would land outside the critical window.
 MarkerMuriState buildSlideState(
     const TimelineNoteMarker& marker,
-    const QHash<QString, QVector<int>>& windowsByPad,
+    const QHash<QString, MuriTimeIndex>& windowsByPad,
     const QVector<MuriPadWindow>& allWindows);
 
 // Wifi counterpart of buildSlideState. Wifi traces have no pad-window

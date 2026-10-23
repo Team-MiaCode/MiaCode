@@ -44,7 +44,7 @@ DocumentValidationProjection projectDocumentValidation(
 
     const bool current = snapshot.difficultyId == activeDifficultyId
         && snapshot.revision == documentRevision;
-    if (!current || snapshot.pending || !snapshot.available) {
+    if (!current || (!snapshot.validationReady && !snapshot.available)) {
         projection.pending = true;
         return projection;
     }

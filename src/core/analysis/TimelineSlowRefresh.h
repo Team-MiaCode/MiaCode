@@ -4,6 +4,8 @@
 #include <QString>
 #include <QVector>
 
+#include <functional>
+
 #include "core/analysis/MuriRenderOptions.h"
 #include "core/analysis/MuriTypes.h"
 #include "core/chart/document/SimaiTimingMetadata.h"
@@ -69,4 +71,6 @@ TimelinePreviewRefreshResult buildTimelinePreviewRefreshResult(
     const TimelinePreviewRefreshState& previewState);
 TimelinePreviewRefreshResult buildTimelinePreviewRefreshResult(const TimelineSlowRefreshRequest& request);
 TimelinePreviewRefreshState buildTimelinePreviewRefreshState(const QString& chartText, double firstSeconds);
-TimelineAnalysisRefreshResult buildTimelineAnalysisRefreshResult(const TimelineAnalysisRefreshRequest& request);
+TimelineAnalysisRefreshResult buildTimelineAnalysisRefreshResult(
+    const TimelineAnalysisRefreshRequest& request,
+    const std::function<void(const SimaiValidationReport&)>& validationReady = {});

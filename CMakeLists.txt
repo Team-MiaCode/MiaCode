@@ -439,7 +439,6 @@ add_executable(MiaCode WIN32 MACOSX_BUNDLE
     src/app/cli_video_export_worker.cpp
     src/app/quick_shell/QuickShellPreviewCompositeSurface.h
     src/app/quick_shell/QuickShellPreviewCompositeSurface.cpp
-    src/app/quick_shell/QuickShellPreviewSurfacePolicy.h
     src/app/runtime/Session.h
     src/app/runtime/SessionLifecycle.cpp
     src/app/runtime/RuntimeContext.h
