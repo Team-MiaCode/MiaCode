@@ -850,6 +850,7 @@ qt_add_qml_module(MiaCode
         src/app/ui/document/DocumentModel.cpp
         src/app/ui/document/DocumentModel.h
         src/app/ui/document/AnalysisModel.cpp
+        src/app/ui/document/AnalysisDecoration.h
         src/app/ui/document/AnalysisModel.h
         src/app/ui/preview/PreviewModel.cpp
         src/app/ui/preview/PreviewModel.h

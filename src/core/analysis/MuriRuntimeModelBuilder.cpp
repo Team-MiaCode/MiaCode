@@ -76,8 +76,9 @@ QVector<TimelineNoteMarker> prepareRuntimeMarkers(const QVector<TimelineNoteMark
     }
     const MuriTimeIndex slideSpans(std::move(spans));
 
-    for (TimelineNoteMarker& marker : prepared) {
+    for (int index = 0; index < prepared.size(); ++index) {
         miacode::task::CancellationScope::checkpoint();
+        const auto& marker = prepared.at(index);
         if (marker.type != QLatin1String("hold")
             || marker.endSecond - marker.second > kFakeHoldDurationSeconds + 1e-9) {
             continue;
@@ -91,14 +92,14 @@ QVector<TimelineNoteMarker> prepareRuntimeMarkers(const QVector<TimelineNoteMark
             if (isSlideLike(slide) && !slide.isMine && !slide.trackMine
                 && slide.lane == marker.lane
                 && qAbs(slide.slideTraceSecond - marker.second) < kTapOnSlideThresholdSeconds) {
-                marker.slideHead = true;
+                if (!marker.slideHead) prepared[index].slideHead = true;
                 break;
             }
         }
     }
 
     for (const SlideMotion& ending : slides) {
-        auto& marker = prepared[ending.markerIndex];
+        const auto& marker = prepared.at(ending.markerIndex);
         if (marker.beforeSlide) {
             continue;
         }
@@ -122,11 +123,11 @@ QVector<TimelineNoteMarker> prepareRuntimeMarkers(const QVector<TimelineNoteMark
                 if (sampleRuntimeHandAction(segment, sampleSecond, &point) && point.hasTangent
                     && pointDistance(tail.center, point.center) < kSlideMergeDistance
                     && tangentDelta(tail.tangent, point.tangent) < kSlideMergeTangentDelta) {
-                    marker.beforeSlide = true;
+                    prepared[ending.markerIndex].beforeSlide = true;
                     break;
                 }
             }
-            if (marker.beforeSlide) {
+            if (prepared.at(ending.markerIndex).beforeSlide) {
                 break;
             }
         }
@@ -137,7 +138,7 @@ QVector<TimelineNoteMarker> prepareRuntimeMarkers(const QVector<TimelineNoteMark
 QHash<QString, MarkerSourceRef> buildMarkerSourceRefs(const QVector<TimelineNoteMarker>& noteMarkers)
 {
     QHash<QString, MarkerSourceRef> refs;
-    refs.reserve(noteMarkers.size() * 2);
+    refs.reserve(noteMarkers.size());
 
     for (int index = 0; index < noteMarkers.size(); ++index) {
         miacode::task::CancellationScope::checkpoint();

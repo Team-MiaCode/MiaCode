@@ -216,81 +216,23 @@ void parseSlideToken(ParseState* state, const QString& token, int lineNumber, in
         marker.endLane = lane;
         for (int shapeIndex = 0; shapeIndex < chainShapes.size(); ++shapeIndex) {
             const QString& shapeKey = chainShapes.at(shapeIndex);
-            const QJsonObject entry = miacode::slide_reference::root().value("slides").toObject().value(shapeKey).toObject();
-            if (entry.isEmpty()) {
+            const auto geometry = lookupSlideGeometry(shapeKey, QStringLiteral("slide"));
+            if (!geometry) {
                 appendTokenError(state, lineNumber, column, QString("Invalid note: %1 unknown shape %2").arg(token, shapeKey));
                 return;
             }
-
             marker.slideSegmentShootSeconds.append(segmentShootSecond);
             segmentShootSecond += qMax(0.001, chainDurations.value(shapeIndex, 0.001));
-            marker.endLane = qBound(1, entry.value("end").toInt(marker.endLane), 8);
-            marker.slideSegmentPadEnterTimes.append(loadPadEnterTimes(entry.value("pad_enter_times").toArray()));
-            marker.slideSegmentCriticalProportions.append(entry.value("critical_proportion").toDouble(1.0));
-
-            QVector<QPointF> points;
-            QVector<double> angles;
-            loadSamplePath(entry.value("samples").toArray(), &points, &angles);
-            marker.slideSegmentPoints.append(points);
-            marker.slideSegmentAngles.append(angles);
-
-            QVector<QVector<QPointF>> segmentAreas;
-            QVector<QVector<double>> segmentRotations;
-            const QJsonArray areaArray = entry.value("track_arrows").toArray();
-            segmentAreas.reserve(areaArray.size());
-            segmentRotations.reserve(areaArray.size());
-            for (const QJsonValue& areaValue : areaArray) {
-                QVector<QPointF> areaPoints;
-                QVector<double> areaRotations;
-                const QJsonArray arrowArray = areaValue.toArray();
-                areaPoints.reserve(arrowArray.size());
-                areaRotations.reserve(arrowArray.size());
-                for (const QJsonValue& arrowValue : arrowArray) {
-                    const QJsonObject arrowObject = arrowValue.toObject();
-                    areaPoints.append(QPointF(arrowObject.value("x").toDouble(), arrowObject.value("y").toDouble()));
-                    areaRotations.append(arrowObject.value("rotation").toDouble());
-                }
-                segmentAreas.append(areaPoints);
-                segmentRotations.append(areaRotations);
-            }
-            marker.slideTrackAreaPoints.append(segmentAreas);
-            marker.slideTrackAreaRotations.append(segmentRotations);
-
-            QVector<double> thresholds;
-            const QJsonArray thresholdArray = entry.value("track_thresholds").toArray();
-            thresholds.reserve(thresholdArray.size());
-            for (const QJsonValue& thresholdValue : thresholdArray) {
-                thresholds.append(thresholdValue.toDouble());
-            }
-            marker.slideTrackAreaThresholds.append(thresholds);
-
-            QVector<QVector<double>> checkpointGroups;
-            const QJsonArray checkpointArray = entry.value("track_checkpoints").toArray();
-            checkpointGroups.reserve(checkpointArray.size());
-            for (const QJsonValue& groupValue : checkpointArray) {
-                QVector<double> values;
-                const QJsonArray valuesArray = groupValue.toArray();
-                values.reserve(valuesArray.size());
-                for (const QJsonValue& value : valuesArray) {
-                    values.append(value.toDouble());
-                }
-                checkpointGroups.append(values);
-            }
-            marker.slideTrackAreaCheckpoints.append(checkpointGroups);
-
-            QVector<QVector<int>> cutGroups;
-            const QJsonArray cutArray = entry.value("track_cut_indices").toArray();
-            cutGroups.reserve(cutArray.size());
-            for (const QJsonValue& groupValue : cutArray) {
-                QVector<int> values;
-                const QJsonArray valuesArray = groupValue.toArray();
-                values.reserve(valuesArray.size());
-                for (const QJsonValue& value : valuesArray) {
-                    values.append(value.toInt());
-                }
-                cutGroups.append(values);
-            }
-            marker.slideTrackAreaCutIndices.append(cutGroups);
+            marker.endLane = geometry->endLane;
+            marker.slideSegmentPadEnterTimes.append(geometry->slideSegmentPadEnterTimes.constFirst());
+            marker.slideSegmentCriticalProportions.append(geometry->slideSegmentCriticalProportions.constFirst());
+            marker.slideSegmentPoints.append(geometry->slideSegmentPoints.constFirst());
+            marker.slideSegmentAngles.append(geometry->slideSegmentAngles.constFirst());
+            marker.slideTrackAreaPoints.append(geometry->slideTrackAreaPoints.constFirst());
+            marker.slideTrackAreaRotations.append(geometry->slideTrackAreaRotations.constFirst());
+            marker.slideTrackAreaThresholds.append(geometry->slideTrackAreaThresholds.constFirst());
+            marker.slideTrackAreaCheckpoints.append(geometry->slideTrackAreaCheckpoints.constFirst());
+            marker.slideTrackAreaCutIndices.append(geometry->slideTrackAreaCutIndices.constFirst());
         }
 
         marker.endSecond = segmentShootSecond;

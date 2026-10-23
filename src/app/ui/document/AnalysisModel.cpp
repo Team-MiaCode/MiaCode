@@ -78,7 +78,7 @@ void MuriRowsModel::setSnapshot(const miacode::AnalysisSnapshot& snapshot)
     beginResetModel();
     snapshot_ = snapshot;
     warningCount_ = 0;
-    for (const auto& source : snapshot_.muriPanelEntries) {
+    for (const auto& source : std::as_const(snapshot_.muriPanelEntries)) {
         if (source.alertLevel == MuriAlertLevel::Warning) ++warningCount_;
     }
     decorationRows_.clear();
@@ -86,23 +86,18 @@ void MuriRowsModel::setSnapshot(const miacode::AnalysisSnapshot& snapshot)
     endResetModel();
 }
 
-QVariantList MuriRowsModel::decorationRows() const
+QVector<AnalysisDecoration> MuriRowsModel::decorationRows() const
 {
     if (decorationsReady_) return decorationRows_;
     QSet<QPair<quint64, bool>> locations;
-    for (const auto& source : snapshot_.muriPanelEntries) {
+    for (const auto& source : std::as_const(snapshot_.muriPanelEntries)) {
         const int line = qMax(1, source.line);
         const int column = qMax(1, source.col);
         const bool warning = source.alertLevel == MuriAlertLevel::Warning;
         const auto key = qMakePair((quint64(line) << 32) | quint32(column), warning);
         if (locations.contains(key)) continue;
         locations.insert(key);
-        decorationRows_.append(QVariantMap{
-            {QStringLiteral("line"), line},
-            {QStringLiteral("column"), column},
-            {QStringLiteral("endColumn"), column},
-            {QStringLiteral("severity"), warning ? QStringLiteral("warning") : QStringLiteral("error")},
-        });
+        decorationRows_.append({line, column, column, warning});
     }
     decorationsReady_ = true;
     return decorationRows_;

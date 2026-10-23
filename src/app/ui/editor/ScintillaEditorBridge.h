@@ -187,8 +187,8 @@ private:
     QVariantMap palette_;
     QVariantList bookmarks_;
     QVariantList overviewMarkers_;
-    QVariantList overviewSyntaxRows_;
-    QVariantList overviewMuriRows_;
+    QVector<AnalysisDecoration> overviewSyntaxRows_;
+    QVector<AnalysisDecoration> overviewMuriRows_;
     qulonglong overviewDiagnosticGeneration_ = ~qulonglong(0);
     int overviewDiagnosticDifficulty_ = -1;
     int overviewDisplayLineCount_ = 0;

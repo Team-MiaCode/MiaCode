@@ -5,6 +5,7 @@
 #include <QVariantList>
 
 #include "app/services/AnalysisProjection.h"
+#include "app/ui/document/AnalysisDecoration.h"
 #include "app/services/AnalysisService.h"
 #include "app/services/ChartWorkspace.h"
 
@@ -19,7 +20,7 @@ public:
     QHash<int, QByteArray> roleNames() const override;
     void setSnapshot(const miacode::AnalysisSnapshot& snapshot);
     AnalysisRow row(int index) const;
-    QVariantList decorationRows() const;
+    QVector<AnalysisDecoration> decorationRows() const;
     int warningCount() const { return warningCount_; }
     int issueCount() const { return rowCount() - warningCount_; }
 
@@ -27,7 +28,7 @@ private:
     miacode::AnalysisSnapshot snapshot_;
     int warningCount_ = 0;
     mutable bool decorationsReady_ = false;
-    mutable QVariantList decorationRows_;
+    mutable QVector<AnalysisDecoration> decorationRows_;
 };
 
 class AnalysisModel final : public QObject
@@ -55,7 +56,7 @@ public:
     int muriRowCount() const { return muriRows_.rowCount(); }
     int muriWarningCount() const { return muriRows_.warningCount(); }
     int muriIssueCount() const { return muriRows_.issueCount(); }
-    QVariantList muriDecorationRows() const { return muriRows_.decorationRows(); }
+    QVector<AnalysisDecoration> muriDecorationRows() const { return muriRows_.decorationRows(); }
     bool pending() const;
     bool validationPending() const;
     bool available() const;

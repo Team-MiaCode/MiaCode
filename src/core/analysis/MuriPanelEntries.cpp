@@ -143,8 +143,8 @@ MuriDetailArgs buildMuriStaticReferenceDetailArgs(
     const MuriStaticReference& reference,
     MuriDetailKind* detailKind)
 {
-    const QString affectedText = muriStaticReferenceConfigText(reference.affected);
-    const QString causeText = muriStaticReferenceConfigText(reference.cause);
+    const QString affectedText = muriStaticReferenceConfigText(*reference.affected);
+    const QString causeText = muriStaticReferenceConfigText(*reference.cause);
     const double gapMs = qAbs(reference.deltaSecond) * 1000.0;
     MuriDetailArgs args;
     args.left = causeText;
@@ -209,12 +209,12 @@ MuriPanelEntry makeMuriPanelEntry(const MuriStaticReference& reference)
     entry.isStatic = true;
     entry.kind = reference.kind;
     entry.alertLevel = reference.alertLevel;
-    const MuriPanelAnchor affectedAnchor = muriPanelAnchorFromReferenceNote(reference.affected);
+    const MuriPanelAnchor affectedAnchor = muriPanelAnchorFromReferenceNote(*reference.affected);
     const MuriPanelAnchor anchor = affectedAnchor;
-    entry.second = anchor.valid ? anchor.second : reference.affected.second;
-    entry.occurrenceSecond = reference.affected.second;
-    entry.line = anchor.valid ? anchor.line : reference.affected.line;
-    entry.col = anchor.valid ? anchor.col : reference.affected.col;
+    entry.second = anchor.valid ? anchor.second : reference.affected->second;
+    entry.occurrenceSecond = reference.affected->second;
+    entry.line = anchor.valid ? anchor.line : reference.affected->line;
+    entry.col = anchor.valid ? anchor.col : reference.affected->col;
     entry.detailArgs = buildMuriStaticReferenceDetailArgs(reference, &entry.detailKind);
     entry.rawDetail = renderMuriDetail(
         entry.detailKind,
@@ -247,7 +247,7 @@ QVector<MuriPanelEntrySource> selectVisibleMuriPanelEntries(
         miacode::task::CancellationScope::checkpoint();
         const auto& reference = staticReferences.at(index);
         append({true, index, reference.kind, reference.alertLevel,
-                reference.affected.second, reference.affected.line, reference.affected.col});
+                reference.affected->second, reference.affected->line, reference.affected->col});
     }
     for (int index = 0; index < analysisReport.diagnostics.size(); ++index) {
         miacode::task::CancellationScope::checkpoint();

@@ -2,6 +2,7 @@
 #include <QVariantMap>
 #include <QMap>
 #include "app/ui/editor/ScintillaDocumentAdapter.h"
+#include "app/ui/document/AnalysisDecoration.h"
 
 namespace miacode::ui {
 class ScintillaDslStyler
@@ -12,7 +13,7 @@ public:
     void style();
     void reset();
     void invalidate(int line, int linesAdded);
-    void diagnostics(const QVariantList& rows, bool isMuri);
+    void diagnostics(const QVector<AnalysisDecoration>& rows, bool isMuri);
     QVariantList bookmarks() const;
     void follow(bool active, int start, int end);
     bool following() const { return followActive_; }
@@ -22,7 +23,7 @@ private:
     QMap<int, QString> bookmarks_;
     int dirtyLine_ = 0;
     int dirtyThrough_ = 0;
-    QVariantList validation_, muri_;
+    QVector<AnalysisDecoration> validation_, muri_;
     bool followActive_ = false;
     bool validationDirty_ = true, muriDirty_ = true;
     int followStart_ = 0, followEnd_ = 0;
