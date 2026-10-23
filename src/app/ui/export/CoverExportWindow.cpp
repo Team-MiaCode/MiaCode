@@ -110,8 +110,9 @@ bool CoverExportWindow::show(QQuickWindow* referenceWindow, int difficultyId)
 void CoverExportWindow::raise()
 {
     if (window_ && !closePending_) {
-        if (window_->windowState() == Qt::WindowMinimized) {
-            window_->showNormal();
+        if (window_->windowStates().testFlag(Qt::WindowMinimized)) {
+            window_->setWindowStates(window_->windowStates() & ~Qt::WindowMinimized);
+            window_->setVisible(true);
         }
         window_->raise();
         window_->requestActivate();
