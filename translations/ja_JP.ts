@@ -2793,7 +2793,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="menu.transform">
         <source>Modify(&amp;M)</source>
-        <translation>編集(&amp;M)</translation>
+        <translation>調整(&amp;M)</translation>
     </message>
     <message id="metadata.delete">
         <source>Delete</source>
@@ -2977,11 +2977,11 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="net.select">
         <source>Select</source>
-        <translation>Select</translation>
+        <translation>選択</translation>
     </message>
     <message id="net.select_all">
         <source>Select All</source>
-        <translation>Select All</translation>
+        <translation>すべて選択</translation>
     </message>
     <message id="net.start">
         <source>Start</source>
@@ -4757,6 +4757,26 @@ Error: %1</source>
         <source>Playback controls are in the detached preview window.</source>
         <translation>再生操作は分離したプレビューウィンドウにあります。</translation>
     </message>
+    <message id="guide.timeline.title">
+        <source>Timeline options</source>
+        <translation>タイムラインの設定</translation>
+    </message>
+    <message id="guide.timeline.hint">
+        <source>Expand the bottom panel and select Timeline to view its settings.</source>
+        <translation>下部パネルを開き、「タイムライン」を選択すると設定を確認できます。</translation>
+    </message>
+    <message id="guide.timeline.zoom">
+        <source>Zoom: adjust the timeline's horizontal scale.</source>
+        <translation>ズーム：タイムラインの横方向の表示倍率を調整します。</translation>
+    </message>
+    <message id="guide.timeline.brightness">
+        <source>Brightness: open settings in the timeline's upper-right corner to adjust the waveform and grid lines separately.</source>
+        <translation>明るさ：タイムライン右上の設定から、波形とグリッド線の明るさを個別に調整できます。</translation>
+    </message>
+    <message id="guide.timeline.follow">
+        <source>Follow code: choose whether the timeline follows the current chart-source position in settings.</source>
+        <translation>コード追従：設定で、譜面コードの現在位置にタイムラインを追従させるか切り替えます。</translation>
+    </message>
     <message id="guide.editor.metadata_save">
         <source>Changes to the level, offset and designer above are saved immediately.</source>
         <translation>上部のレベル、オフセット、譜面作者の変更は即時保存されます。</translation>
@@ -4908,6 +4928,58 @@ Error: %1</source>
     <message id="file_picker.native_failed">
         <source>Could not open the system folder picker.</source>
         <translation>システムのフォルダー選択画面を開けませんでした。</translation>
+    </message>
+</context>
+<context>
+    <!-- Qt loads qtbase texts for the system locale; this context keeps the
+         native application menu in the interface language. -->
+    <name>MAC_APPLICATION_MENU</name>
+    <message>
+        <source>About %1</source>
+        <translation>%1 について</translation>
+    </message>
+    <message>
+        <source>Preferences...</source>
+        <translation>設定...</translation>
+    </message>
+    <message>
+        <source>Services</source>
+        <translation>サービス</translation>
+    </message>
+    <message>
+        <source>Hide %1</source>
+        <translation>%1 を隠す</translation>
+    </message>
+    <message>
+        <source>Hide Others</source>
+        <translation>ほかを隠す</translation>
+    </message>
+    <message>
+        <source>Show All</source>
+        <translation>すべて表示</translation>
+    </message>
+    <message>
+        <source>Quit %1</source>
+        <translation>%1 を終了</translation>
+    </message>
+</context>
+<context>
+    <!-- Cocoa identifies menu roles by matching the action text against these
+         words. Keep them in the interface language so the application menu
+         entries merge even when the system locale uses another language.
+         "Setup" is omitted on purpose: it would capture the beginner guide. -->
+    <name>QCocoaMenuItem</name>
+    <message>
+        <source>About</source>
+        <translation>について</translation>
+    </message>
+    <message>
+        <source>Setting</source>
+        <translation>設定</translation>
+    </message>
+    <message>
+        <source>Quit</source>
+        <translation>終了</translation>
     </message>
 </context>
 

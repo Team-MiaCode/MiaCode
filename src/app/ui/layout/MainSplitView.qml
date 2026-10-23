@@ -26,6 +26,7 @@ Item {
     required property var net
     required property var netUpload
     property bool compact: false
+    property bool timelineGuideActive: false
     property string documentTitle: ""
     property real sidebarDragWidth: 0
     property bool sidebarResizing: false
@@ -34,6 +35,8 @@ Item {
     readonly property Item sourceEditorItem: editorPane.sourceEditorItem
     readonly property Item difficultyFieldsItem: editorPane.difficultyFieldsItem
     readonly property Item transportItem: preview.transportItem
+    readonly property Item timelineGuideItem: bottomPanel.timelineGuideItem
+    readonly property Item timelineSettingsGuideItem: bottomPanel.timelineSettingsGuideItem
     readonly property Item renderModeItem: preview.renderModeItem
     readonly property bool renderModeMenuAvailable: preview.renderModeMenuAvailable
     readonly property bool previewDetached: root.preferences.previewDetached
@@ -560,6 +563,7 @@ Item {
                 BottomPanel {
                     id: bottomPanel
                     visible: root.bottomPanelEffectivelyVisible
+                    guideSettingsActive: root.timelineGuideActive
                     documentSession: root.documentSession
                     analysisSession: root.analysisSession
                     preferences: root.preferences

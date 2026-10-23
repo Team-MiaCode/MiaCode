@@ -225,6 +225,9 @@ bool Bootstrap::start(const QString& startupOpenTarget)
     appendUiRuntimeLog(QStringLiteral("load_begin"), QStringLiteral("MiaCode.UI/Main"));
     miacode::oplog::appendStartupBeaconLine("ui/before_qml_load");
     engine_->loadFromModule(QStringLiteral("MiaCode.UI"), QStringLiteral("Main"));
+    // The engine loaded Qt's system-locale catalogs while starting; put the
+    // interface catalog back in front and retranslate what it built.
+    miacode::LocaleService::instance().prioritizeTranslator();
     miacode::oplog::appendStartupBeaconLine("ui/after_qml_load");
 
     if (engine_->rootObjects().isEmpty()) {

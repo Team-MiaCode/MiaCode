@@ -225,9 +225,11 @@ miacode_add_dev_tool(net_download_flow_spec TEST
         src/app/services/net/NetService.cpp
         src/app/services/net/NetService.h
         src/app/services/net/NetAccountStore.cpp
+        src/app/services/net/NetConfiguration.cpp
+        src/app/services/PreferenceDocument.cpp
         src/app/services/jobs/JobRegistry.cpp
         src/app/services/jobs/JobRegistry.h
-    LIBS miacode_media_tools Qt6::Core Qt6::Network miniz $<$<PLATFORM_ID:Windows>:Advapi32>
+    LIBS miacode_media_tools miacode_base Qt6::Core Qt6::Network miniz $<$<PLATFORM_ID:Windows>:Crypt32>
     INCLUDES src
 )
 target_compile_definitions(net_download_flow_spec PRIVATE

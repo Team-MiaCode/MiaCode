@@ -4757,6 +4757,26 @@ Error: %1</source>
         <source>Playback controls are in the detached preview window.</source>
         <translation>播放控件位于独立预览窗口。</translation>
     </message>
+    <message id="guide.timeline.title">
+        <source>Timeline options</source>
+        <translation>时间轴选项</translation>
+    </message>
+    <message id="guide.timeline.hint">
+        <source>Expand the bottom panel and select Timeline to view its settings.</source>
+        <translation>展开底部面板并选择「时间轴」，即可查看时间轴设置。</translation>
+    </message>
+    <message id="guide.timeline.zoom">
+        <source>Zoom: adjust the timeline's horizontal scale.</source>
+        <translation>缩放视图：调整时间轴的横向比例。</translation>
+    </message>
+    <message id="guide.timeline.brightness">
+        <source>Brightness: open settings in the timeline's upper-right corner to adjust the waveform and grid lines separately.</source>
+        <translation>显示亮度：点击时间轴右上角设置，分别调节波形图与网格线亮度。</translation>
+    </message>
+    <message id="guide.timeline.follow">
+        <source>Follow code: choose whether the timeline follows the current chart-source position in settings.</source>
+        <translation>代码跟随：在设置中切换是否跟随当前谱面代码位置。</translation>
+    </message>
     <message id="guide.editor.metadata_save">
         <source>Changes to the level, offset and designer above are saved immediately.</source>
         <translation>修改上方的等级、延迟与谱师信息会立即保存。</translation>
@@ -4908,6 +4928,58 @@ Error: %1</source>
     <message id="file_picker.native_failed">
         <source>Could not open the system folder picker.</source>
         <translation>无法打开系统文件夹选择窗口。</translation>
+    </message>
+</context>
+<context>
+    <!-- Qt loads qtbase texts for the system locale; this context keeps the
+         native application menu in the interface language. -->
+    <name>MAC_APPLICATION_MENU</name>
+    <message>
+        <source>About %1</source>
+        <translation>关于 %1</translation>
+    </message>
+    <message>
+        <source>Preferences...</source>
+        <translation>首选项...</translation>
+    </message>
+    <message>
+        <source>Services</source>
+        <translation>服务</translation>
+    </message>
+    <message>
+        <source>Hide %1</source>
+        <translation>隐藏 %1</translation>
+    </message>
+    <message>
+        <source>Hide Others</source>
+        <translation>隐藏其他</translation>
+    </message>
+    <message>
+        <source>Show All</source>
+        <translation>全部显示</translation>
+    </message>
+    <message>
+        <source>Quit %1</source>
+        <translation>退出 %1</translation>
+    </message>
+</context>
+<context>
+    <!-- Cocoa identifies menu roles by matching the action text against these
+         words. Keep them in the interface language so the application menu
+         entries merge even when the system locale uses another language.
+         "Setup" is omitted on purpose: it would capture the beginner guide. -->
+    <name>QCocoaMenuItem</name>
+    <message>
+        <source>About</source>
+        <translation>关于</translation>
+    </message>
+    <message>
+        <source>Preference</source>
+        <translation>首选项</translation>
+    </message>
+    <message>
+        <source>Quit</source>
+        <translation>退出</translation>
     </message>
 </context>
 

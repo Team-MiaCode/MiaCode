@@ -13,7 +13,7 @@ QtObject {
     property bool canCopy: false
     property bool canPaste: false
     property bool canTransform: false
-    property bool netEnabled: false
+    property bool netUploadEnabled: false
     property bool renderModeMenuAvailable: false
     property bool commandsEnabled: true
 
