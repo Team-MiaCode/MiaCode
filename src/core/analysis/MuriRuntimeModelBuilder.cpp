@@ -1,6 +1,7 @@
 #include "core/analysis/MuriRuntimeModelBuilder.h"
 
 #include "common/TaskCancellation.h"
+#include "core/analysis/MuriTimeIndex.h"
 
 #include <algorithm>
 
@@ -60,6 +61,21 @@ QVector<TimelineNoteMarker> prepareRuntimeMarkers(const QVector<TimelineNoteMark
         slides.append(motion);
     }
 
+    QVector<MuriTimeInterval> starts;
+    for (int index = 0; index < noteMarkers.size(); ++index) {
+        const auto& marker = noteMarkers.at(index);
+        if (isSlideLike(marker) && !marker.isMine && !marker.trackMine) {
+            starts.append({marker.slideTraceSecond, marker.slideTraceSecond, index});
+        }
+    }
+    const MuriTimeIndex slideStarts(std::move(starts));
+    QVector<MuriTimeInterval> spans;
+    for (int index = 0; index < slides.size(); ++index) {
+        const auto& slide = slides.at(index);
+        spans.append({slide.firstAreaExitSecond, slide.criticalSecond, index});
+    }
+    const MuriTimeIndex slideSpans(std::move(spans));
+
     for (TimelineNoteMarker& marker : prepared) {
         miacode::task::CancellationScope::checkpoint();
         if (marker.type != QLatin1String("hold")
@@ -68,7 +84,10 @@ QVector<TimelineNoteMarker> prepareRuntimeMarkers(const QVector<TimelineNoteMark
         }
         // Keep the hold in the chart. Only its simulated hand behaves as a tap,
         // which can be supplied by the slide shooting from the same lane.
-        for (const auto& slide : noteMarkers) {
+        for (int slideIndex : slideStarts.intersecting(
+                 marker.second - kTapOnSlideThresholdSeconds,
+                 marker.second + kTapOnSlideThresholdSeconds)) {
+            const auto& slide = noteMarkers.at(slideIndex);
             if (isSlideLike(slide) && !slide.isMine && !slide.trackMine
                 && slide.lane == marker.lane
                 && qAbs(slide.slideTraceSecond - marker.second) < kTapOnSlideThresholdSeconds) {
@@ -90,7 +109,8 @@ QVector<TimelineNoteMarker> prepareRuntimeMarkers(const QVector<TimelineNoteMark
         if (!sampleRuntimeHandAction(ending.segments.constLast(), sampleSecond, &tail) || !tail.hasTangent) {
             continue;
         }
-        for (const SlideMotion& containing : slides) {
+        for (int index : slideSpans.intersecting(marker.endSecond, marker.endSecond)) {
+            const auto& containing = slides.at(index);
             miacode::task::CancellationScope::checkpoint();
             if (containing.markerIndex == ending.markerIndex
                 || marker.endSecond <= containing.firstAreaExitSecond

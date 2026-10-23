@@ -486,7 +486,7 @@ void ScintillaEditorBridge::refreshDiagnostics()
         if (documentSession_ && analysisSession_->available()
             && analysisSession_->difficultyId() == documentSession_->currentDifficultyId()
             && analysisSession_->revision() == documentSession_->documentRevision()) {
-            const QVariantList rows = analysisSession_->muriRows();
+            const QVariantList rows = analysisSession_->muriDecorationRows();
             if (overviewMuriRows_ != rows) {
                 overviewMuriRows_ = rows;
                 overviewRowsChanged = true;

@@ -17,5 +17,6 @@ public:
     static MuriAnalysisReport analyze(
         const QVector<TimelineNoteMarker>& noteMarkers,
         const MuriRenderOptions& renderOptions,
-        double staticTapOnSlideThresholdSeconds);
+        double staticTapOnSlideThresholdSeconds,
+        QVector<MuriStaticReference>* staticReferences = nullptr);
 };

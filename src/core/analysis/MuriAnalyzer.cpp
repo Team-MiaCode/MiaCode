@@ -1,4 +1,5 @@
 #include "core/analysis/MuriAnalyzer.h"
+#include "core/analysis/MuriStaticChecker.h"
 
 #include "common/TaskCancellation.h"
 
@@ -1218,8 +1219,11 @@ MuriAnalysisReport MuriAnalyzer::analyze(
 MuriAnalysisReport MuriAnalyzer::analyze(
     const QVector<TimelineNoteMarker>& sourceMarkers,
     const MuriRenderOptions& renderOptions,
-    double staticTapOnSlideThresholdSeconds)
+    double staticTapOnSlideThresholdSeconds,
+    QVector<MuriStaticReference>* staticReferences)
 {
+    QVector<MuriStaticReference> references = miacode::muri::buildStaticMuriReferences(
+        sourceMarkers, staticTapOnSlideThresholdSeconds);
     const QVector<TimelineNoteMarker> noteMarkers = prepareRuntimeMarkers(sourceMarkers);
     MuriAnalysisReport report;
     QStringList signatureParts;
@@ -1240,7 +1244,8 @@ MuriAnalysisReport MuriAnalyzer::analyze(
         noteMarkers,
         renderOptions,
         collector,
-        staticTapOnSlideThresholdSeconds);
+        staticTapOnSlideThresholdSeconds,
+        references);
 
     const MuriRuntimeModel runtimeModel = MuriRuntimeModelBuilder::build(noteMarkers);
     const QHash<QString, MarkerSourceRef>& markerRefs = runtimeModel.markerRefs;
@@ -1272,10 +1277,15 @@ MuriAnalysisReport MuriAnalyzer::analyze(
         return a.sourceMarkerKey < b.sourceMarkerKey;
     });
 
-    QHash<QString, QVector<int>> windowsByPad;
+    QHash<QString, QVector<MuriTimeInterval>> intervalsByPad;
     for (int index = 0; index < report.padWindows.size(); ++index) {
         miacode::task::CancellationScope::checkpoint();
-        windowsByPad[report.padWindows.at(index).pad].append(index);
+        const auto& window = report.padWindows.at(index);
+        intervalsByPad[window.pad].append({window.startSecond, window.endSecond, index});
+    }
+    QHash<QString, MuriTimeIndex> windowsByPad;
+    for (auto it = intervalsByPad.begin(); it != intervalsByPad.end(); ++it) {
+        windowsByPad.insert(it.key(), MuriTimeIndex(std::move(it.value())));
     }
 
     for (const TimelineNoteMarker& marker : noteMarkers) {
@@ -1423,5 +1433,6 @@ MuriAnalysisReport MuriAnalyzer::analyze(
     collector.finalize();
     report.diagnostics = std::move(collector.diagnostics);
     report.judgeSpriteEvents = std::move(collector.judgeSpriteEvents);
+    if (staticReferences != nullptr) *staticReferences = std::move(references);
     return report;
 }

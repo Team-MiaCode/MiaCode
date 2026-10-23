@@ -1,6 +1,7 @@
 #include "core/analysis/MuriStaticChecker.h"
 
 #include "common/TaskCancellation.h"
+#include "core/analysis/MuriTimeIndex.h"
 
 #include <algorithm>
 
@@ -281,13 +282,13 @@ MuriStaticReferenceNote staticReferenceNoteFromMarker(const TimelineNoteMarker& 
 
 MuriStaticReference lastAreaOccupancyOverlap(
     const MuriStaticReferenceNote& affected,
-    const TimelineNoteMarker& slideLike)
+    const MuriStaticReferenceNote& slideLike)
 {
     MuriStaticReference record;
     record.kind = MuriKind::Overlap;
     record.alertLevel = MuriAlertLevel::Muri;
     record.affected = affected;
-    record.cause = staticReferenceNoteFromMarker(slideLike);
+    record.cause = slideLike;
     return record;
 }
 
@@ -406,6 +407,28 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
         }
     }
 
+    using detail::MuriTimeIndex;
+    using detail::MuriTimeInterval;
+    QVector<MuriTimeInterval> noteTimes;
+    for (int index : nonSlideIndices) {
+        const auto& note = noteMarkers.at(index);
+        noteTimes.append({note.second, note.second, index});
+    }
+    const MuriTimeIndex nonSlideTimes(std::move(noteTimes));
+    QVector<MuriTimeInterval> headTimes;
+    for (int index = 0; index < headStarTargets.size(); ++index) {
+        const double second = headStarTargets.at(index).second;
+        headTimes.append({second, second, index});
+    }
+    const MuriTimeIndex headStarTimes(std::move(headTimes));
+
+    QVector<MuriStaticReferenceNote> sourceNotes;
+    sourceNotes.reserve(noteMarkers.size());
+    for (const auto& marker : noteMarkers) {
+        miacode::task::CancellationScope::checkpoint();
+        sourceNotes.append(staticReferenceNoteFromMarker(marker));
+    }
+
     QVector<MuriStaticReference> records;
     records.reserve(128);
 
@@ -451,7 +474,8 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
             }
         }
 
-        for (int noteIndex : nonSlideIndices) {
+        for (int noteIndex : nonSlideTimes.intersecting(slide.slideTraceSecond - kStaticTimeEpsilonSeconds,
+                 slide.endSecond + normalizedCollideThresholdSeconds + kStaticTimeEpsilonSeconds)) {
             miacode::task::CancellationScope::checkpoint();
             const TimelineNoteMarker& note = noteMarkers.at(noteIndex);
             const QString notePad = markerPadToken(note);
@@ -472,7 +496,7 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                 && headDeltaSecond + kStaticTimeEpsilonSeconds >= miacode::muri::kTapOnSlideThresholdSeconds
                 && headDeltaSecond <= normalizedCollideThresholdSeconds + kStaticTimeEpsilonSeconds) {
                 MuriStaticReference record;
-                const MuriStaticReferenceNote affected = staticReferenceNoteFromMarker(note);
+                const MuriStaticReferenceNote& affected = sourceNotes.at(noteIndex);
                 record.kind = MuriKind::SlideHeadTap;
                 record.alertLevel = downgradeProtectedReferenceAlertLevel(
                     slideHeadTapAlertLevel(
@@ -480,7 +504,7 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                         qAbs(slide.slideTraceSecond - note.second)),
                     affected.hasProtection);
                 record.affected = affected;
-                record.cause = staticReferenceNoteFromMarker(slide);
+                record.cause = sourceNotes.at(slideIndex);
                 record.deltaSecond = slide.slideTraceSecond - note.second;
                 record.hasDelta = true;
                 record.slideHeadHasTapOnSlide =
@@ -497,7 +521,7 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                     continue;
                 }
                 MuriStaticReference record;
-                const MuriStaticReferenceNote affected = staticReferenceNoteFromMarker(note);
+                const MuriStaticReferenceNote& affected = sourceNotes.at(noteIndex);
                 record.kind = MuriKind::TapOnSlide;
                 record.alertLevel = downgradeProtectedReferenceAlertLevel(
                     tapOnSlideAlertLevel(
@@ -505,7 +529,7 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                         normalizedCollideThresholdSeconds),
                     affected.hasProtection);
                 record.affected = affected;
-                record.cause = staticReferenceNoteFromMarker(slide);
+                record.cause = sourceNotes.at(slideIndex);
                 record.deltaSecond = collide.enterSecond - note.second;
                 record.hasDelta = true;
                 records.append(record);
@@ -519,11 +543,13 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                     slide.endSecond,
                     normalizedCollideThresholdSeconds,
                     collideExtraDeltaSeconds)) {
-                records.append(lastAreaOccupancyOverlap(staticReferenceNoteFromMarker(note), slide));
+                records.append(lastAreaOccupancyOverlap(sourceNotes.at(noteIndex), sourceNotes.at(slideIndex)));
             }
         }
 
-        for (const StaticHeadStarTarget& target : headStarTargets) {
+        for (int targetIndex : headStarTimes.intersecting(slide.slideTraceSecond - kStaticTimeEpsilonSeconds,
+                 slide.endSecond + normalizedCollideThresholdSeconds + kStaticTimeEpsilonSeconds)) {
+            const auto& target = headStarTargets.at(targetIndex);
             miacode::task::CancellationScope::checkpoint();
             if (target.pad.isEmpty()) {
                 continue;
@@ -547,7 +573,7 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                         qAbs(slide.slideTraceSecond - target.second)),
                     affected.hasProtection);
                 record.affected = affected;
-                record.cause = staticReferenceNoteFromMarker(slide);
+                record.cause = sourceNotes.at(slideIndex);
                 record.deltaSecond = slide.slideTraceSecond - target.second;
                 record.hasDelta = true;
                 record.slideHeadHasTapOnSlide =
@@ -572,7 +598,7 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                         normalizedCollideThresholdSeconds),
                     affected.hasProtection);
                 record.affected = affected;
-                record.cause = staticReferenceNoteFromMarker(slide);
+                record.cause = sourceNotes.at(slideIndex);
                 record.deltaSecond = collide.enterSecond - target.second;
                 record.hasDelta = true;
                 records.append(record);
@@ -586,7 +612,7 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                     slide.endSecond,
                     normalizedCollideThresholdSeconds,
                     collideExtraDeltaSeconds)) {
-                records.append(lastAreaOccupancyOverlap(target.note, slide));
+                records.append(lastAreaOccupancyOverlap(target.note, sourceNotes.at(slideIndex)));
             }
         }
     }
@@ -610,7 +636,8 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
             wifi.slideTraceSecond + miacode::muri::kTapOnSlideThresholdSeconds);
         const double collideEndSecond = criticalSecond + normalizedCollideThresholdSeconds;
 
-        for (int noteIndex : nonSlideIndices) {
+        for (int noteIndex : nonSlideTimes.intersecting(wifi.slideTraceSecond - kStaticTimeEpsilonSeconds,
+                 wifi.endSecond + normalizedCollideThresholdSeconds + kStaticTimeEpsilonSeconds)) {
             miacode::task::CancellationScope::checkpoint();
             const TimelineNoteMarker& note = noteMarkers.at(noteIndex);
             if (!isTapMarker(note) && !isHoldMarker(note)) {
@@ -626,7 +653,7 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                 && headDeltaSecond + kStaticTimeEpsilonSeconds >= miacode::muri::kTapOnSlideThresholdSeconds
                 && headDeltaSecond <= normalizedCollideThresholdSeconds + kStaticTimeEpsilonSeconds) {
                 MuriStaticReference record;
-                const MuriStaticReferenceNote affected = staticReferenceNoteFromMarker(note);
+                const MuriStaticReferenceNote& affected = sourceNotes.at(noteIndex);
                 record.kind = MuriKind::SlideHeadTap;
                 record.alertLevel = downgradeProtectedReferenceAlertLevel(
                     slideHeadTapAlertLevel(
@@ -634,7 +661,7 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                         qAbs(wifi.slideTraceSecond - note.second)),
                     affected.hasProtection);
                 record.affected = affected;
-                record.cause = staticReferenceNoteFromMarker(wifi);
+                record.cause = sourceNotes.at(wifiIndex);
                 record.deltaSecond = wifi.slideTraceSecond - note.second;
                 record.hasDelta = true;
                 record.slideHeadHasTapOnSlide =
@@ -645,7 +672,7 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
             if (endLanes.contains(note.lane)
                 && markerMomentInRange(note.second, collideStartSecond, collideEndSecond)) {
                 MuriStaticReference record;
-                const MuriStaticReferenceNote affected = staticReferenceNoteFromMarker(note);
+                const MuriStaticReferenceNote& affected = sourceNotes.at(noteIndex);
                 record.kind = MuriKind::TapOnSlide;
                 record.alertLevel = downgradeProtectedReferenceAlertLevel(
                     tapOnSlideAlertLevel(
@@ -653,7 +680,7 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                         normalizedCollideThresholdSeconds),
                     affected.hasProtection);
                 record.affected = affected;
-                record.cause = staticReferenceNoteFromMarker(wifi);
+                record.cause = sourceNotes.at(wifiIndex);
                 record.deltaSecond = criticalSecond - note.second;
                 record.hasDelta = true;
                 records.append(record);
@@ -666,11 +693,13 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                     wifi.endSecond,
                     normalizedCollideThresholdSeconds,
                     collideExtraDeltaSeconds)) {
-                records.append(lastAreaOccupancyOverlap(staticReferenceNoteFromMarker(note), wifi));
+                records.append(lastAreaOccupancyOverlap(sourceNotes.at(noteIndex), sourceNotes.at(wifiIndex)));
             }
         }
 
-        for (const StaticHeadStarTarget& target : headStarTargets) {
+        for (int targetIndex : headStarTimes.intersecting(wifi.slideTraceSecond - kStaticTimeEpsilonSeconds,
+                 wifi.endSecond + normalizedCollideThresholdSeconds + kStaticTimeEpsilonSeconds)) {
+            const auto& target = headStarTargets.at(targetIndex);
             miacode::task::CancellationScope::checkpoint();
             if (target.second + kStaticTimeEpsilonSeconds < wifi.slideTraceSecond
                 || target.second > wifi.endSecond + normalizedCollideThresholdSeconds + kStaticTimeEpsilonSeconds) {
@@ -690,7 +719,7 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                         qAbs(wifi.slideTraceSecond - target.second)),
                     affected.hasProtection);
                 record.affected = affected;
-                record.cause = staticReferenceNoteFromMarker(wifi);
+                record.cause = sourceNotes.at(wifiIndex);
                 record.deltaSecond = wifi.slideTraceSecond - target.second;
                 record.hasDelta = true;
                 record.slideHeadHasTapOnSlide =
@@ -709,7 +738,7 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                         normalizedCollideThresholdSeconds),
                     affected.hasProtection);
                 record.affected = affected;
-                record.cause = staticReferenceNoteFromMarker(wifi);
+                record.cause = sourceNotes.at(wifiIndex);
                 record.deltaSecond = criticalSecond - target.second;
                 record.hasDelta = true;
                 records.append(record);
@@ -722,7 +751,7 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                     wifi.endSecond,
                     normalizedCollideThresholdSeconds,
                     collideExtraDeltaSeconds)) {
-                records.append(lastAreaOccupancyOverlap(target.note, wifi));
+                records.append(lastAreaOccupancyOverlap(target.note, sourceNotes.at(wifiIndex)));
             }
         }
     }
@@ -738,7 +767,7 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
         }
 
         StaticOverlapCandidate candidate;
-        candidate.note = staticReferenceNoteFromMarker(note);
+        candidate.note = sourceNotes.at(noteIndex);
         candidate.pad = pad;
         candidate.tapLike = isTapLikeMarker(note);
         candidate.holdLike = isHoldLikeMarker(note);
@@ -798,10 +827,25 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
         overlapCandidates.append(candidate);
     }
 
+    QHash<QString, QVector<MuriTimeInterval>> intervalsByPad;
+    for (int index = 0; index < overlapCandidates.size(); ++index) {
+        const auto& candidate = overlapCandidates.at(index);
+        intervalsByPad[candidate.pad].append({candidate.note.second,
+            qMax(candidate.note.second, candidate.note.endSecond), index});
+    }
+    QHash<QString, MuriTimeIndex> overlapIndices;
+    for (auto it = intervalsByPad.begin(); it != intervalsByPad.end(); ++it) {
+        overlapIndices.insert(it.key(), MuriTimeIndex(std::move(it.value())));
+    }
+
     for (int i = 0; i < overlapCandidates.size(); ++i) {
         miacode::task::CancellationScope::checkpoint();
         const StaticOverlapCandidate& candidate = overlapCandidates.at(i);
-        for (int j = 0; j < overlapCandidates.size(); ++j) {
+        const auto& timeIndex = overlapIndices.constFind(candidate.pad).value();
+        for (int j : timeIndex.intersecting(
+                 candidate.note.second - kStaticOverlayThresholdSeconds - kStaticTimeEpsilonSeconds,
+                 qMax(candidate.note.second, candidate.note.endSecond)
+                     + kStaticOverlayThresholdSeconds + kStaticTimeEpsilonSeconds)) {
             miacode::task::CancellationScope::checkpoint();
             if (i == j) {
                 continue;

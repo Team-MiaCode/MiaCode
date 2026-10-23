@@ -182,7 +182,9 @@ TimelinePreviewRefreshState buildTimelinePreviewRefreshState(const QString& char
     return buildTimelinePreviewRefreshState(SimaiParser::parseForTimeline(chartText), firstSeconds);
 }
 
-TimelineAnalysisRefreshResult buildTimelineAnalysisRefreshResult(const TimelineAnalysisRefreshRequest& request)
+TimelineAnalysisRefreshResult buildTimelineAnalysisRefreshResult(
+    const TimelineAnalysisRefreshRequest& request,
+    const std::function<void(const SimaiValidationReport&)>& validationReady)
 {
     miacode::task::CancellationScope::check();
     TimelineAnalysisRefreshResult result;
@@ -196,14 +198,12 @@ TimelineAnalysisRefreshResult buildTimelineAnalysisRefreshResult(const TimelineA
         request.validationLocale,
         request.timingMetadata);
     miacode::task::CancellationScope::check();
+    if (validationReady) validationReady(result.validationReport);
     result.noteMarkerSignature = request.noteMarkerSignature;
     result.analysisReport = MuriAnalyzer::analyze(
         request.noteMarkers,
         request.renderOptions,
-        request.staticTapOnSlideThresholdSeconds);
-    miacode::task::CancellationScope::check();
-    result.staticReferences = miacode::muri::buildStaticMuriReferences(
-        request.noteMarkers,
-        request.staticTapOnSlideThresholdSeconds);
+        request.staticTapOnSlideThresholdSeconds,
+        &result.staticReferences);
     return result;
 }

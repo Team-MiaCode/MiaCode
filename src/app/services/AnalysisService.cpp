@@ -177,7 +177,8 @@ AnalysisSnapshot AnalysisService::diagnose(
     const ParsedChartSnapshot& parsed,
     SimaiValidationLocale locale,
     const MuriRenderOptions& renderOptions,
-    double staticTapOnSlideThresholdSeconds)
+    double staticTapOnSlideThresholdSeconds,
+    const std::function<void(const SimaiValidationReport&)>& validationReady)
 {
     TimelineAnalysisRefreshRequest request;
     request.revision = parsed.revision;
@@ -191,18 +192,21 @@ AnalysisSnapshot AnalysisService::diagnose(
     request.staticTapOnSlideThresholdSeconds = staticTapOnSlideThresholdSeconds >= 0.0
         ? staticTapOnSlideThresholdSeconds
         : static_cast<double>(miacode::muri::kStaticTapOnSlideThresholdDefaultMs) / 1000.0;
-    TimelineAnalysisRefreshResult result = buildTimelineAnalysisRefreshResult(request);
+    TimelineAnalysisRefreshResult result = buildTimelineAnalysisRefreshResult(request, validationReady);
 
     AnalysisSnapshot snapshot;
     snapshot.revision = parsed.revision;
     snapshot.difficultyId = parsed.difficultyId;
     snapshot.available = true;
+    snapshot.validationReady = true;
     snapshot.locale = locale;
     snapshot.validation = std::move(result.validationReport);
     snapshot.noteMarkers = parsed.previewState.shiftedNoteMarkers;
     snapshot.noteMarkerSignature = parsed.previewState.noteMarkerSignature;
     snapshot.muri = std::move(result.analysisReport);
     snapshot.muriStaticReferences = std::move(result.staticReferences);
+    snapshot.muriPanelEntries = miacode::muri::selectVisibleMuriPanelEntries(
+        snapshot.muri, snapshot.muriStaticReferences);
     return snapshot;
 }
 
@@ -290,7 +294,22 @@ void AnalysisService::dispatchDiagnostics()
         miacode::task::CancellationScope scope(cancellation);
         try {
             miacode::task::CancellationScope::check();
-            result = diagnose(parsed, locale, renderOptions, threshold);
+            const auto publishValidation = [guard, cancellation, generation,
+                                            difficultyId = parsed.difficultyId, revision = parsed.revision](
+                                               const SimaiValidationReport& validation) {
+                if (guard.isNull()) return;
+                QMetaObject::invokeMethod(guard.data(),
+                    [guard, cancellation, generation, difficultyId, revision, report = validation]() mutable {
+                        if (guard.isNull() || cancellation->load(std::memory_order_relaxed)
+                            || generation != guard->diagnosticsGeneration_
+                            || !guard->identityIsCurrent(difficultyId, revision)) return;
+                        SimaiParser::localizeValidationReport(report, guard->locale_);
+                        guard->snapshot_.validation = std::move(report);
+                        guard->snapshot_.validationReady = true;
+                        emit guard->snapshotChanged(difficultyId, revision);
+                    }, Qt::QueuedConnection);
+            };
+            result = diagnose(parsed, locale, renderOptions, threshold, publishValidation);
             miacode::task::CancellationScope::check();
         } catch (const miacode::task::Cancelled&) {
             result.reset();

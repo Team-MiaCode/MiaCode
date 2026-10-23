@@ -86,9 +86,9 @@ bool TimelineQuickModel::updateFromText(const QString& text, double firstSeconds
     if (sourceText_ == text) return false;
     int begin = 0;
     const int commonLength = qMin(sourceText_.size(), text.size());
-    while (begin < commonLength && sourceText_[begin] == text[begin]) ++begin;
+    while (begin < commonLength && sourceText_.at(begin) == text.at(begin)) ++begin;
     int oldEnd = sourceText_.size(), newEnd = text.size();
-    while (oldEnd > begin && newEnd > begin && sourceText_[oldEnd - 1] == text[newEnd - 1]) {
+    while (oldEnd > begin && newEnd > begin && sourceText_.at(oldEnd - 1) == text.at(newEnd - 1)) {
         --oldEnd;
         --newEnd;
     }
@@ -118,37 +118,29 @@ bool TimelineQuickModel::applyTextChange(
         return rebuildFromText(text, firstSeconds, timingMetadata);
     }
 
-    QVector<QString> currentLines = text.split(QLatin1Char('\n')).toVector();
-    if (currentLines.isEmpty()) {
-        currentLines.append(QString());
-    }
-
     const int startLineIndex = lineIndexForStoredPosition(position);
     const int oldEndLineIndex = charsRemoved > 0
         ? lineIndexForStoredPosition(position + charsRemoved)
         : startLineIndex;
     const int boundedNewEndPosition = qBound(0, position + charsAdded, text.size());
-    const int newEndLineIndex = charsAdded > 0
-        ? text.left(boundedNewEndPosition).count(QLatin1Char('\n'))
-        : startLineIndex;
-    const int replacementStart = qBound(0, startLineIndex, currentLines.size() - 1);
-    const int replacementEnd = qBound(replacementStart, newEndLineIndex, currentLines.size() - 1);
-    const QVector<QString> replacementLines = currentLines.mid(
-        replacementStart, replacementEnd - replacementStart + 1);
-
-    QVector<LineState> inserted;
-    inserted.reserve(replacementLines.size());
-    for (const QString& text : replacementLines) {
-        LineState line;
-        line.lineId = allocateLineId();
-        line.text = text;
-        inserted.append(line);
-    }
+    const int replacementStart = lines_.at(startLineIndex).startPosition;
+    const int nextNewline = text.indexOf(QLatin1Char('\n'), boundedNewEndPosition);
+    const int replacementEnd = nextNewline >= 0 ? nextNewline : text.size();
+    const QStringList replacementLines = text.mid(
+        replacementStart, replacementEnd - replacementStart).split(QLatin1Char('\n'));
 
     const int replaceCount = qMax(0, oldEndLineIndex - startLineIndex + 1);
-    lines_.erase(lines_.begin() + startLineIndex, lines_.begin() + startLineIndex + replaceCount);
-    for (int insertIndex = 0; insertIndex < inserted.size(); ++insertIndex) {
-        lines_.insert(startLineIndex + insertIndex, inserted.at(insertIndex));
+    if (replacementLines.size() > replaceCount) {
+        lines_.insert(startLineIndex + replaceCount, replacementLines.size() - replaceCount, LineState());
+    } else if (replacementLines.size() < replaceCount) {
+        lines_.erase(lines_.begin() + startLineIndex + replacementLines.size(),
+            lines_.begin() + startLineIndex + replaceCount);
+    }
+    for (int insertIndex = 0; insertIndex < replacementLines.size(); ++insertIndex) {
+        LineState& line = lines_[startLineIndex + insertIndex];
+        line = LineState();
+        line.lineId = allocateLineId();
+        line.text = replacementLines.at(insertIndex);
     }
     resequenceLineMetadata(startLineIndex);
 
@@ -167,7 +159,7 @@ bool TimelineQuickModel::applyTextChange(
         currentState.currentMeasureStartSecond = firstSeconds;
     }
 
-    const int guaranteedReparseEnd = qMin(lines_.size() - 1, startLineIndex + inserted.size() - 1);
+    const int guaranteedReparseEnd = qMin(lines_.size() - 1, startLineIndex + replacementLines.size() - 1);
     for (int index = startLineIndex; index < lines_.size(); ++index) {
         LineState& line = lines_[index];
         const ParseState oldStartState = line.startState;

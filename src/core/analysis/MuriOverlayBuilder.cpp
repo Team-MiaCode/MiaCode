@@ -38,7 +38,7 @@ QVector<QStringList> checkpointPadsForArea(
 }
 
 PadWindowIndex earliestPadWindow(
-    const QHash<QString, QVector<int>>& windowsByPad,
+    const QHash<QString, MuriTimeIndex>& windowsByPad,
     const QVector<MuriPadWindow>& windows,
     const QStringList& pads,
     double earliestSecond)
@@ -50,7 +50,10 @@ PadWindowIndex earliestPadWindow(
         if (it == windowsByPad.constEnd()) {
             continue;
         }
-        for (int windowIndex : it.value()) {
+        const int first = it->firstEndingAfter(earliestSecond - kPadTimeEpsilon);
+        if (first < 0) continue;
+        const double latestStart = qMax(earliestSecond, windows.at(first).startSecond) + kPadTimeEpsilon;
+        for (int windowIndex : it->intersecting(earliestSecond - kPadTimeEpsilon, latestStart)) {
             miacode::task::CancellationScope::checkpoint();
             if (windowIndex < 0 || windowIndex >= windows.size()) {
                 continue;
@@ -85,7 +88,7 @@ QVector<MuriCheckpointState> buildCheckpointStates(
     double segmentShootSecond,
     double durationSecond,
     double earliestAllowedSecond,
-    const QHash<QString, QVector<int>>& windowsByPad,
+    const QHash<QString, MuriTimeIndex>& windowsByPad,
     const QVector<MuriPadWindow>& allWindows,
     const QString& selfMarkerKey)
 {
@@ -126,7 +129,7 @@ QVector<MuriCheckpointState> buildCheckpointStates(
 
 MarkerMuriState buildSlideState(
     const TimelineNoteMarker& marker,
-    const QHash<QString, QVector<int>>& windowsByPad,
+    const QHash<QString, MuriTimeIndex>& windowsByPad,
     const QVector<MuriPadWindow>& allWindows)
 {
     MarkerMuriState state;

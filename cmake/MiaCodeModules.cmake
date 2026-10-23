@@ -100,6 +100,7 @@ miacode_add_module(miacode_analysis
         src/core/analysis/MuriAnalyzerGeometry.h
         src/core/analysis/MuriAnalyzerInternal.h
         src/core/analysis/MuriAnalyzerModel.h
+        src/core/analysis/MuriTimeIndex.h
         src/core/analysis/MuriConfig.h
         src/core/analysis/MuriDiagnosticCollector.cpp
         src/core/analysis/MuriDiagnosticCollector.h

@@ -40,6 +40,7 @@ struct AnalysisProjectionInput {
 struct AnalysisProjection {
     bool available = false;
     bool pending = true;
+    bool validationPending = true;
     int difficultyId = 0;
     quint64 revision = 0;
     QVector<AnalysisRow> validationRows;
