@@ -43,10 +43,8 @@ struct TimelineQuickHoldTextureParts {
 struct TimelineQuickTextureCacheCapacity {
     qsizetype textureCount = 0;
     qint64 textureBytes = 0;
-    qsizetype pixmapCount = 0;
     qsizetype textureCountLimit = 0;
     qint64 textureByteLimit = 0;
-    qsizetype pixmapCountLimit = 0;
 };
 
 class TimelineQuickTextureCache
@@ -85,25 +83,17 @@ public:
     qreal holdScaleForBaseIconScale(const QString& spriteType, qreal baseIconScale) const;
     TimelineQuickHoldTextureParts holdTextureParts(const QString& spriteType, qreal scale);
 
-    // beta7 leak gauge (probe 3.1) — cheap read of the three uncapped caches plus the count of
+    // beta7 leak gauge (probe 3.1) — read of the texture and hold-part caches plus the count of
     // rotation-bearing note keys (slide-track arrows) and the cumulative texture-create total.
     // A flat tex/tex_create across edit→play→pause cycles confirms this cache saturates and is
     // NOT the leak; a monotonic climb reopens it. Called at most once per pause (render thread).
     void debugCacheStats(
         int* textureCount,
-        int* pixmapCount,
         int* holdPartsCount,
         int* rotatedNoteKeyCount,
         quint64* createTotal) const;
 
 private:
-    struct HoldPixmapPartsCacheEntry {
-        miacode::timeline::TimelineHoldPixmapParts parts;
-        QSizeF leftCapLogicalSize;
-        QSizeF rightCapLogicalSize;
-        QSizeF bodySliceLogicalSize;
-    };
-
     QString noteTextureKey(
         const QString& spriteType,
         const QSize& targetSize,
@@ -112,11 +102,6 @@ private:
     QString holdPartsCacheKey(const QString& spriteType, qreal scale) const;
     qreal effectiveDevicePixelRatio() const;
     void removeTextureKeysMatching(const std::function<bool(const QString&)>& predicate);
-    QPixmap transformedNotePixmap(
-        const QString& spriteType,
-        const QSize& targetSize,
-        qreal rotationDegrees,
-        bool mirrorX);
 
     QQuickWindow* window_ = nullptr;
     miacode::timeline::TimelineNoteAssetSet noteAssets_;
@@ -126,8 +111,7 @@ private:
     // theme invalidation) can decrement the running total instead of letting it drift.
     QHash<QString, qint64> textureBytesByKey_;
     qint64 textureBytes_ = 0;
-    QHash<QString, QPixmap> transformedPixmaps_;
-    QHash<QString, HoldPixmapPartsCacheEntry> holdPixmapParts_;
+    QHash<QString, TimelineQuickHoldTextureParts> holdTextureParts_;
     // beta7 leak gauge — cumulative count of QSGTextures actually created (createTextureFromImage).
     // Monotonic by design; a flat slope once a chart saturates is the healthy signature.
     quint64 textureCreateCount_ = 0;

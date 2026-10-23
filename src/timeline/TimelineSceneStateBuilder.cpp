@@ -73,27 +73,27 @@ QString laneLabelForIndex(int laneIndex)
     return QString();
 }
 
-const miacode::timeline::TimelineNoteAssetSet& fallbackSceneNoteAssets()
+const QHash<QString, miacode::timeline::TimelineNoteMetrics>& fallbackSceneNoteMetrics()
 {
-    static const miacode::timeline::TimelineNoteAssetSet assets = miacode::timeline::loadTimelineNoteAssets();
-    return assets;
+    static const auto metrics = miacode::timeline::loadTimelineNoteMetrics();
+    return metrics;
 }
 
-const miacode::timeline::TimelineNoteAssetSet& sceneNoteAssets(const TimelineSceneBuildRequest& request)
+const QHash<QString, miacode::timeline::TimelineNoteMetrics>& sceneNoteMetrics(const TimelineSceneBuildRequest& request)
 {
     if (request.skinDirectory.trimmed().isEmpty()) {
-        return fallbackSceneNoteAssets();
+        return fallbackSceneNoteMetrics();
     }
 
     thread_local QString cachedSkinDirectory;
-    thread_local miacode::timeline::TimelineNoteAssetSet cachedAssets;
+    thread_local QHash<QString, miacode::timeline::TimelineNoteMetrics> cachedMetrics;
     const QString trimmed = request.skinDirectory.trimmed();
     const QString normalized = trimmed.isEmpty() ? QString() : QDir::cleanPath(trimmed);
     if (cachedSkinDirectory != normalized) {
         cachedSkinDirectory = normalized;
-        cachedAssets = miacode::timeline::loadTimelineNoteAssets(normalized);
+        cachedMetrics = miacode::timeline::loadTimelineNoteMetrics(normalized);
     }
-    return cachedAssets.noteIcons.isEmpty() ? fallbackSceneNoteAssets() : cachedAssets;
+    return cachedMetrics.isEmpty() ? fallbackSceneNoteMetrics() : cachedMetrics;
 }
 
 QFont timelineHeaderLabelFont(const QFont& sourceFont)
@@ -1149,7 +1149,7 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
             if (!request.showSlideTracks || !isSlideTrack) {
                 return;
             }
-            const auto& noteAssets = sceneNoteAssets(request);
+            const auto& noteMetrics = sceneNoteMetrics(request);
             const int startLane = qBound(1, note.lane, kPlayableLaneCount);
             const int endLane = qBound(1, note.endLane, kPlayableLaneCount);
             const int startY =
@@ -1177,7 +1177,7 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
                     1.0);
             const qreal trackScale = qMin<qreal>(state.contentScale, zoomAdjustedTrackScale);
             const QSize trackTargetSize =
-                miacode::timeline::targetSizeForNoteType(noteAssets, baseTrackType, trackScale);
+                noteMetrics.value(baseTrackType, noteMetrics.value(QStringLiteral("tap"))).targetSize(trackScale);
             if (!trackTargetSize.isValid()) {
                 return;
             }
@@ -1255,8 +1255,9 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
 
         const bool shouldDrawHead = !isSlideLike || timelineRenderFlagSet(note, TimelineRenderFlagHasHeadStar);
         if (!isHold && shouldDrawHead) {
-            const QSize iconTargetSize =
-                miacode::timeline::targetSizeForNoteType(sceneNoteAssets(request), iconType, baseIconScale);
+            const auto& noteMetrics = sceneNoteMetrics(request);
+            const QSize iconTargetSize = noteMetrics.value(
+                iconType, noteMetrics.value(QStringLiteral("tap"))).targetSize(baseIconScale);
             if (!iconTargetSize.isValid()) {
                 return;
             }

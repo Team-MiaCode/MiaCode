@@ -17,21 +17,15 @@ namespace miacode::timeline::quick {
 // session grew the rotation key set by ~30 per switch with no plateau, at roughly
 // 3.5 KB per entry — i.e. a byte cap alone would never have fired.
 //
-// The pixmap arm exists because transformedPixmaps_ is the CPU-side twin of the note
-// textures and is NOT covered by the partial theme invalidation, so it can outgrow
-// textures_ on its own.
 constexpr bool timelineTextureCacheFlushRequired(
     qsizetype textureCount,
     qint64 textureBytes,
-    qsizetype pixmapCount,
     qsizetype textureEntryLimit,
-    qint64 textureByteLimit,
-    qsizetype pixmapEntryLimit
+    qint64 textureByteLimit
 )
 {
     return textureCount > textureEntryLimit
-        || textureBytes > textureByteLimit
-        || pixmapCount > pixmapEntryLimit;
+        || textureBytes > textureByteLimit;
 }
 
 }  // namespace miacode::timeline::quick

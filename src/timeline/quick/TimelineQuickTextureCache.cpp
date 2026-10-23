@@ -31,7 +31,6 @@ namespace {
 // (very high DPR, oversized hold bodies).
 constexpr qsizetype kTimelineCachedTextureEntryLimit = 8192;
 constexpr qint64 kTimelineCachedTextureByteLimit = 64LL * 1024 * 1024;
-constexpr qsizetype kTimelineTransformedPixmapEntryLimit = 8192;
 
 QString normalizedSkinDirectory(const QString& skinDirectory)
 {
@@ -62,8 +61,7 @@ void TimelineQuickTextureCache::clear()
     textures_.clear();
     textureBytesByKey_.clear();
     textureBytes_ = 0;
-    transformedPixmaps_.clear();
-    holdPixmapParts_.clear();
+    holdTextureParts_.clear();
 }
 
 void TimelineQuickTextureCache::invalidateAll()
@@ -93,10 +91,8 @@ TimelineQuickTextureCacheCapacity TimelineQuickTextureCache::capacitySnapshot() 
     return TimelineQuickTextureCacheCapacity{
         textures_.size(),
         textureBytes_,
-        transformedPixmaps_.size(),
         kTimelineCachedTextureEntryLimit,
         kTimelineCachedTextureByteLimit,
-        kTimelineTransformedPixmapEntryLimit,
     };
 }
 
@@ -108,10 +104,8 @@ bool TimelineQuickTextureCache::capacityFlushRequired() const
     return miacode::timeline::quick::timelineTextureCacheFlushRequired(
         capacity.textureCount,
         capacity.textureBytes,
-        capacity.pixmapCount,
         capacity.textureCountLimit,
-        capacity.textureByteLimit,
-        capacity.pixmapCountLimit);
+        capacity.textureByteLimit);
 }
 
 void TimelineQuickTextureCache::setSkinDirectory(const QString& skinDirectory)
@@ -145,7 +139,6 @@ QSGTexture* TimelineQuickTextureCache::textureForKey(const QString& key, const Q
 
 void TimelineQuickTextureCache::debugCacheStats(
     int* textureCount,
-    int* pixmapCount,
     int* holdPartsCount,
     int* rotatedNoteKeyCount,
     quint64* createTotal) const
@@ -153,11 +146,8 @@ void TimelineQuickTextureCache::debugCacheStats(
     if (textureCount != nullptr) {
         *textureCount = textures_.size();
     }
-    if (pixmapCount != nullptr) {
-        *pixmapCount = transformedPixmaps_.size();
-    }
     if (holdPartsCount != nullptr) {
-        *holdPartsCount = holdPixmapParts_.size();
+        *holdPartsCount = holdTextureParts_.size();
     }
     if (createTotal != nullptr) {
         *createTotal = textureCreateCount_;
@@ -232,49 +222,30 @@ void TimelineQuickTextureCache::removeTextureKeysMatching(const std::function<bo
     textureBytes_ = qMax<qint64>(0, textureBytes_);
 }
 
-QPixmap TimelineQuickTextureCache::transformedNotePixmap(
-    const QString& spriteType,
-    const QSize& targetSize,
-    qreal rotationDegrees,
-    bool mirrorX)
-{
-    const QString key = noteTextureKey(spriteType, targetSize, rotationDegrees, mirrorX);
-    auto it = transformedPixmaps_.find(key);
-    if (it != transformedPixmaps_.end()) {
-        return it.value();
-    }
-
-    if (!targetSize.isValid()) {
-        return QPixmap();
-    }
-    const qreal dpr = effectiveDevicePixelRatio();
-    const QSize pixelSize(
-        qMax(1, qRound(static_cast<qreal>(targetSize.width()) * dpr)),
-        qMax(1, qRound(static_cast<qreal>(targetSize.height()) * dpr)));
-    QPixmap transformed = miacode::timeline::transformNotePixmapToTargetSize(
-        noteAssets_,
-        spriteType,
-        pixelSize,
-        rotationDegrees,
-        mirrorX);
-    if (!transformed.isNull()) {
-        transformed.setDevicePixelRatio(dpr);
-    }
-    transformedPixmaps_.insert(key, transformed);
-    return transformed;
-}
-
 QSGTexture* TimelineQuickTextureCache::noteTexture(
     const QString& spriteType,
     const QSize& targetSize,
     qreal rotationDegrees,
     bool mirrorX)
 {
-    const QPixmap pixmap = transformedNotePixmap(spriteType, targetSize, rotationDegrees, mirrorX);
+    const QString key = noteTextureKey(spriteType, targetSize, rotationDegrees, mirrorX);
+    if (auto it = textures_.constFind(key); it != textures_.constEnd()) {
+        return it.value();
+    }
+    if (!targetSize.isValid()) {
+        return nullptr;
+    }
+    const qreal dpr = effectiveDevicePixelRatio();
+    const QSize pixelSize(
+        qMax(1, qRound(static_cast<qreal>(targetSize.width()) * dpr)),
+        qMax(1, qRound(static_cast<qreal>(targetSize.height()) * dpr)));
+    QPixmap pixmap = miacode::timeline::transformNotePixmapToTargetSize(
+        noteAssets_, spriteType, pixelSize, rotationDegrees, mirrorX);
     if (pixmap.isNull()) {
         return nullptr;
     }
-    return textureForKey(noteTextureKey(spriteType, targetSize, rotationDegrees, mirrorX), pixmap.toImage());
+    pixmap.setDevicePixelRatio(dpr);
+    return textureForPixmapKey(key, pixmap);
 }
 
 QSize TimelineQuickTextureCache::noteTargetSize(const QString& spriteType, qreal scale) const
@@ -292,22 +263,9 @@ TimelineQuickHoldTextureParts TimelineQuickTextureCache::holdTextureParts(
     qreal scale)
 {
     const QString key = holdPartsCacheKey(spriteType, scale);
-    auto it = holdPixmapParts_.constFind(key);
-    if (it != holdPixmapParts_.constEnd()) {
-        return TimelineQuickHoldTextureParts{
-            TimelineQuickTextureHandle{
-                textureForPixmapKey(QStringLiteral("hold_left_cap|%1").arg(key), it->parts.leftCap),
-                it->leftCapLogicalSize,
-            },
-            TimelineQuickTextureHandle{
-                textureForPixmapKey(QStringLiteral("hold_right_cap|%1").arg(key), it->parts.rightCap),
-                it->rightCapLogicalSize,
-            },
-            TimelineQuickTextureHandle{
-                textureForKey(QStringLiteral("hold_body|%1").arg(key), it->parts.bodySlice),
-                it->bodySliceLogicalSize,
-            },
-        };
+    auto it = holdTextureParts_.constFind(key);
+    if (it != holdTextureParts_.constEnd()) {
+        return it.value();
     }
 
     const qreal dpr = effectiveDevicePixelRatio();
@@ -315,36 +273,16 @@ TimelineQuickHoldTextureParts TimelineQuickTextureCache::holdTextureParts(
     const QSize pixelTargetSize(
         qMax(1, qRound(static_cast<qreal>(logicalTargetSize.width()) * dpr)),
         qMax(1, qRound(static_cast<qreal>(logicalTargetSize.height()) * dpr)));
-    HoldPixmapPartsCacheEntry entry;
-    entry.parts = miacode::timeline::buildHoldPixmapPartsForTargetSize(noteAssets_, spriteType, pixelTargetSize);
-    if (!entry.parts.leftCap.isNull()) {
-        entry.leftCapLogicalSize = QSizeF(
-            static_cast<qreal>(entry.parts.leftCap.width()) / dpr,
-            static_cast<qreal>(entry.parts.leftCap.height()) / dpr);
-    }
-    if (!entry.parts.rightCap.isNull()) {
-        entry.rightCapLogicalSize = QSizeF(
-            static_cast<qreal>(entry.parts.rightCap.width()) / dpr,
-            static_cast<qreal>(entry.parts.rightCap.height()) / dpr);
-    }
-    if (!entry.parts.bodySlice.isNull()) {
-        entry.bodySliceLogicalSize = QSizeF(
-            static_cast<qreal>(entry.parts.bodySlice.width()) / dpr,
-            static_cast<qreal>(entry.parts.bodySlice.height()) / dpr);
-    }
-    holdPixmapParts_.insert(key, entry);
-    return TimelineQuickHoldTextureParts{
-        TimelineQuickTextureHandle{
-            textureForPixmapKey(QStringLiteral("hold_left_cap|%1").arg(key), entry.parts.leftCap),
-            entry.leftCapLogicalSize,
-        },
-        TimelineQuickTextureHandle{
-            textureForPixmapKey(QStringLiteral("hold_right_cap|%1").arg(key), entry.parts.rightCap),
-            entry.rightCapLogicalSize,
-        },
-        TimelineQuickTextureHandle{
-            textureForKey(QStringLiteral("hold_body|%1").arg(key), entry.parts.bodySlice),
-            entry.bodySliceLogicalSize,
-        },
+    const auto parts = miacode::timeline::buildHoldPixmapPartsForTargetSize(noteAssets_, spriteType, pixelTargetSize);
+    const auto logicalSize = [dpr](const QSize& size) {
+        return size.isEmpty() ? QSizeF()
+            : QSizeF(static_cast<qreal>(size.width()) / dpr, static_cast<qreal>(size.height()) / dpr);
     };
+    const TimelineQuickHoldTextureParts textures{
+        {textureForPixmapKey(QStringLiteral("hold_left_cap|%1").arg(key), parts.leftCap), logicalSize(parts.leftCap.size())},
+        {textureForPixmapKey(QStringLiteral("hold_right_cap|%1").arg(key), parts.rightCap), logicalSize(parts.rightCap.size())},
+        {textureForKey(QStringLiteral("hold_body|%1").arg(key), parts.bodySlice), logicalSize(parts.bodySlice.size())},
+    };
+    holdTextureParts_.insert(key, textures);
+    return textures;
 }
