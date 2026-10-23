@@ -33,11 +33,12 @@ namespace miacode::preview::scene {
 
 PreviewMuriActionLayerState buildPreviewMuriActionLayerState(
     const PreviewFrameState& state,
-    const QRectF& playfieldRect
+    const QRectF& playfieldRect,
+    const QVector<int>& visibleIndices
 )
 {
     PreviewMuriActionLayerState layerState;
-    if (!state.muriRenderOptions.showTouchTrail || state.muriAnalysisReport.actionTrails.isEmpty()) {
+    if (!state.muriRenderOptions.showTouchTrail || visibleIndices.isEmpty()) {
         return layerState;
     }
 
@@ -57,9 +58,10 @@ PreviewMuriActionLayerState buildPreviewMuriActionLayerState(
         const qreal playheadSecond = static_cast<qreal>(state.playheadSeconds);
         const qreal sampleStartSecond = playheadSecond - kPressEffectLifetimeSeconds;
         QVector<VisibleTrailEntry> visibleTrails;
-        visibleTrails.reserve(state.muriAnalysisReport.actionTrails.size());
+        visibleTrails.reserve(visibleIndices.size());
         int visibleIndex = 0;
-        for (const MuriActionTrail& trail : state.muriAnalysisReport.actionTrails) {
+        for (int index : visibleIndices) {
+            const MuriActionTrail& trail = state.muriAnalysisReport.actionTrails[index];
             if (trail.endSecond + 1e-6 < sampleStartSecond || trail.startSecond > playheadSecond + 1e-6) {
                 continue;
             }
@@ -188,8 +190,9 @@ PreviewMuriActionLayerState buildPreviewMuriActionLayerState(
         return layerState;
     }
 
-    layerState.circles.reserve(state.muriAnalysisReport.actionTrails.size());
-    for (const MuriActionTrail& trail : state.muriAnalysisReport.actionTrails) {
+    layerState.circles.reserve(visibleIndices.size());
+    for (int index : visibleIndices) {
+        const MuriActionTrail& trail = state.muriAnalysisReport.actionTrails[index];
         if (trail.startSecond > state.playheadSeconds + 1e-6 || trail.endSecond + 1e-6 < state.playheadSeconds) {
             continue;
         }

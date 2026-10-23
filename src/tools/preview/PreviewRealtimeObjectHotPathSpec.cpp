@@ -904,8 +904,15 @@ bool verifyDxMuriActionSweepLineMatchesNaiveReferenceForState(
         miacode::preview::scene::kLogicalCanvasSize
     );
 
+    miacode::preview::scene::PreviewPreparedSceneCache prepared;
+    prepared.sync(state);
+    miacode::preview::scene::PreviewLayerWindowCursor cursor;
+    miacode::preview::scene::syncPreviewLayerWindowCursor(
+        prepared.muriActionLayer(), state.playheadSeconds, &cursor);
+    QVector<int> visibleIndices;
+    prepared.collectMuriActionIndices(state, cursor.activePreparedIndices, &visibleIndices);
     const PreviewMuriActionLayerState actual =
-        miacode::preview::scene::buildPreviewMuriActionLayerState(state, playfieldRect);
+        miacode::preview::scene::buildPreviewMuriActionLayerState(state, playfieldRect, visibleIndices);
     const PreviewMuriActionLayerState expected = buildNaiveDxMuriActionLayerState(state, playfieldRect);
 
     if (!require(actual.circles.size() == expected.circles.size(), label + QStringLiteral(" circle count matches naive reference"), err)) {

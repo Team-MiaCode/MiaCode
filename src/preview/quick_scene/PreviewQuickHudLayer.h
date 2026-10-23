@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QColor>
+#include <QImage>
+#include <QRectF>
 #include <QElapsedTimer>
 #include <QMetaObject>
 #include <QPointer>
@@ -36,6 +38,30 @@ void paintPreviewHudOverlay(
     const QColor& textColor = QColor(Qt::white),
     const QColor& shadowColor = QColor(0, 0, 0, 190),
     HudInformationLayoutCache* informationLayoutCache = nullptr);
+
+struct CenterDisplayKey {
+    QString title;
+    QString value;
+    QColor titleColor;
+    QColor valueColor;
+    QString fontPath;
+    QSize canvasSize;
+    qreal layoutSquareScale = 1.0;
+    qreal dpr = 1.0;
+    bool operator==(const CenterDisplayKey&) const = default;
+};
+
+struct CenterDisplayImage {
+    QImage image;
+    QRectF rect;
+};
+
+CenterDisplayKey centerDisplayKey(
+    const miacode::preview::scene::PreviewFrameState& state,
+    const QSize& canvasSize, qreal dpr);
+CenterDisplayImage rasterizeCenterDisplay(
+    const miacode::preview::scene::PreviewFrameState& state,
+    const QSize& canvasSize, qreal dpr);
 
 void paintCenterDisplay(
     QPainter& painter,

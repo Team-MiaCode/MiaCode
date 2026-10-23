@@ -7,6 +7,7 @@
 QSGNode* PreviewQuickMuriPadLayer::updateNode(
     QSGNode* oldNode,
     const miacode::preview::scene::PreviewFrameState& state,
+    const QVector<int>& visibleIndices,
     const QSize& renderSize,
     QQuickWindow* window,
     PreviewTextureRepository* textures
@@ -21,7 +22,9 @@ QSGNode* PreviewQuickMuriPadLayer::updateNode(
             miacode::preview::scene::playfieldRectForStage(
                 miacode::preview::scene::stageRectForSize(renderSize),
                 state.render.layoutSquareScale
-            )
+            ),
+            visibleIndices,
+            cache_
         ).circles
     );
 }

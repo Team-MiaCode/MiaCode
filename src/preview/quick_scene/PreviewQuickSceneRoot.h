@@ -1,5 +1,8 @@
 #pragma once
 
+#include "preview/quick_scene/PreviewQuickHudLayer.h"
+#include <optional>
+
 #include <QElapsedTimer>
 #include <QColor>
 #include <QMetaObject>
@@ -143,6 +146,10 @@ private:
     PreviewQuickChartReviewLayer chartReviewShapeLayer_;
     PreviewQuickMaimuriDxJudgeLayer maimuriDxJudgeShapeLayer_;
     miacode::preview::scene::PreviewPreparedSceneCache preparedCache_;
+    miacode::preview::scene::PreviewLayerWindowCursor muriPadCursor_;
+    miacode::preview::scene::PreviewLayerWindowCursor muriActionCursor_;
+    QVector<int> muriPadIndices_;
+    QVector<int> muriActionIndices_;
     miacode::preview::scene::PreviewLayerWindowCursor guideCursor_;
     miacode::preview::scene::PreviewLayerWindowCursor headCursor_;
     miacode::preview::scene::PreviewLayerWindowCursor trackCursor_;
@@ -190,18 +197,5 @@ private:
     // GPU/driver context line (adapter, UMD version, VRAM budget) next to the profile so
     // the field report carries the variables §5.6 asks for. Render-thread only.
     bool renderStallContextEmitted_ = false;
-    // Center display cache — avoid per-frame QImage+texture regeneration.
-    miacode::preview_gameplay::CenterDisplayMode cachedCenterDisplayMode_ =
-        miacode::preview_gameplay::CenterDisplayMode::Off;
-    double cachedCenterDisplayPlayheadSeconds_ = -1.0;
-    QSize cachedCenterDisplayRenderSize_;
-    qreal cachedCenterDisplayDpr_ = 1.0;
-    // Stats-derived values that determine whether the center display text changed.
-    double cachedCenterDisplayDeluxeRate_ = -1.0;
-    double cachedCenterDisplayFinaleRate_ = -1.0;
-    int cachedCenterDisplayCombo_ = -1;
-    int cachedCenterDisplayDxScore_ = -1;
-    int cachedCenterDisplayDxScoreMax_ = -1;
-    int cachedCenterDisplayBreakCurrent_ = -1;
-    int cachedCenterDisplayBreakTotal_ = -1;
+    std::optional<miacode::preview::hud::CenterDisplayKey> cachedCenterDisplayKey_;
 };

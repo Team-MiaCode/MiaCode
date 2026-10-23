@@ -120,6 +120,69 @@ void appendPreparedMarkerEntry(
 
 namespace miacode::preview::scene {
 
+namespace {
+
+template <typename Records>
+void prepareIntervalBlocks(const Records& records, double tailSeconds,
+    PreviewPreparedLayerWindow<PreviewPreparedIntervalBlock>* layer)
+{
+    // One index entry per block bounds memory while retaining source draw order.
+    constexpr int blockSize = 256;
+    *layer = {};
+    layer->entries.reserve((records.size() + blockSize - 1) / blockSize);
+    for (int first = 0; first < records.size(); first += blockSize) {
+        const int end = qMin(first + blockSize, static_cast<int>(records.size()));
+        double startSecond = records[first].startSecond;
+        double endSecond = records[first].endSecond;
+        for (int index = first + 1; index < end; ++index) {
+            startSecond = qMin(startSecond, records[index].startSecond);
+            endSecond = qMax(endSecond, records[index].endSecond);
+        }
+        layer->entries.append({first, end, startSecond, endSecond + tailSeconds + 1e-9});
+    }
+    finalizePreparedLayerWindow(layer);
+}
+
+template <typename Records>
+void collectIntervalIndices(const Records& records,
+    const PreviewPreparedLayerWindow<PreviewPreparedIntervalBlock>& layer,
+    const QVector<int>& activeBlocks, double second, double tailSeconds,
+    QVector<int>* indices)
+{
+    indices->clear();
+    for (int blockIndex : activeBlocks) {
+        const auto& block = layer.entries[blockIndex];
+        for (int index = block.firstIndex; index < block.endIndex; ++index) {
+            const auto& record = records[index];
+            if (record.startSecond <= second + 1e-6
+                && record.endSecond + 1e-6 >= second - tailSeconds) {
+                indices->append(index);
+            }
+        }
+    }
+}
+
+double actionTrailTailSeconds(RenderMode mode)
+{
+    return mode == RenderMode::MaimuriDxStyle ? 36.0 / miacode::muri::kJudgeTps : 0.0;
+}
+
+} // namespace
+
+void PreviewPreparedSceneCache::collectMuriPadIndices(const PreviewFrameState& state,
+    const QVector<int>& activeBlocks, QVector<int>* indices) const
+{
+    collectIntervalIndices(state.muriAnalysisReport.padWindows, muriPadLayer_, activeBlocks,
+        state.playheadSeconds, 0.0, indices);
+}
+
+void PreviewPreparedSceneCache::collectMuriActionIndices(const PreviewFrameState& state,
+    const QVector<int>& activeBlocks, QVector<int>* indices) const
+{
+    collectIntervalIndices(state.muriAnalysisReport.actionTrails, muriActionLayer_, activeBlocks,
+        state.playheadSeconds, actionTrailTailSeconds(state.muriRenderOptions.renderMode), indices);
+}
+
 bool PreviewPreparedSceneCache::sync(const PreviewFrameState& state)
 {
     PreviewPreparedSceneCacheKey nextKey;
@@ -130,6 +193,8 @@ bool PreviewPreparedSceneCache::sync(const PreviewFrameState& state)
     nextKey.touchFlowSpeed = state.render.touchFlowSpeed;
     nextKey.renderMode = state.muriRenderOptions.renderMode;
     nextKey.showSlideTracks = state.muriRenderOptions.showSlideTracks;
+    nextKey.showJudgeMarkers = state.muriRenderOptions.showJudgeMarkers;
+    nextKey.showTouchTrail = state.muriRenderOptions.showTouchTrail;
     nextKey.slideEarlierSecondAndTextOnTop = state.render.slideEarlierSecondAndTextOnTop;
     nextKey.tapJudgeTextDistance = state.render.tapJudgeTextDistance;
     nextKey.showChartReviewSlideJudgeOverlay = state.muriRenderOptions.showChartReviewSlideJudgeOverlay;
@@ -163,6 +228,16 @@ void PreviewPreparedSceneCache::rebuild(const PreviewFrameState& state)
     touchHoldLayer_.clear();
     chartReviewLayer_.clear();
     maimuriDxJudgeLayer_.clear();
+
+    muriPadLayer_ = {};
+    muriActionLayer_ = {};
+    if (state.muriRenderOptions.showJudgeMarkers) {
+        prepareIntervalBlocks(state.muriAnalysisReport.padWindows, 0.0, &muriPadLayer_);
+    }
+    if (state.muriRenderOptions.showTouchTrail) {
+        prepareIntervalBlocks(state.muriAnalysisReport.actionTrails,
+            actionTrailTailSeconds(state.muriRenderOptions.renderMode), &muriActionLayer_);
+    }
 
     // HS diagnostic: once per cache rebuild, log a histogram of marker
     // hsMultiplier values. Routed through the Runtime channel so it
