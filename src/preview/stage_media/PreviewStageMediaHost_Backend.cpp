@@ -346,10 +346,12 @@ void PreviewStageMediaHost::maybeRetryWithSoftwareDecode()
     player_->setSource(QString());
     player_->setSource(mediaPath_);
     player_->setSpeed(static_cast<qreal>(playbackRate_));
+    sealPendingVideoFrameDelivery();
     player_->seek(resumeMs);
     if (resumePlaying) {
         player_->play();
     } else {
+        sealPendingVideoFrameDelivery();
         player_->pause();
     }
 }
@@ -381,10 +383,12 @@ void PreviewStageMediaHost::reloadVideoDecodeInPlace()
     player_->setSource(QString());
     player_->setSource(mediaPath_);
     player_->setSpeed(static_cast<qreal>(playbackRate_));
+    sealPendingVideoFrameDelivery();
     player_->seek(resumeMs);
     if (resumePlaying) {
         player_->play();
     } else {
+        sealPendingVideoFrameDelivery();
         player_->pause();
     }
 }

@@ -86,6 +86,7 @@ void PreviewStageMediaHost::preparePlaybackStart(double seconds, quint64 transac
     const qint64 targetMs = qMax<qint64>(0, qRound64((clampedSecond + timelineOffsetSeconds_) * 1000.0));
     preparedPlaybackTargetMs_ = targetMs;
     preparedPlaybackPending_ = true;
+    sealPendingVideoFrameDelivery();
     player_->pause();
     const bool decodedFrameCoversTarget =
         lastVideoFrame_.isValid()
@@ -118,6 +119,7 @@ void PreviewStageMediaHost::preparePlaybackStart(double seconds, quint64 transac
         return;
     }
     lastSeekMs_ = targetMs;
+    sealPendingVideoFrameDelivery();
     player_->seek(targetMs);
     schedulePreparedPlaybackTimeout(transactionId, targetMs);
     emit diagnosticsChanged();
@@ -140,6 +142,7 @@ void PreviewStageMediaHost::commitPreparedPlaybackStart(double currentTimelineSe
     if (rawSecond < 0.0) {
         // Timeline still ahead of the clip's in-point (negative offset): hold
         // paused until the playhead reaches second 0 of the media.
+        sealPendingVideoFrameDelivery();
         player_->pause();
         videoPlaybackPendingStart_ = true;
         videoPlaybackActive_ = false;
@@ -175,6 +178,7 @@ void PreviewStageMediaHost::commitPreparedPlaybackStart(double currentTimelineSe
         && qAbs(targetMs - preparedPlaybackTargetMs_) <= kSeekCoalesceToleranceMs;
     if (!preparedLandingMatchesCommit) {
         lastSeekMs_ = targetMs;
+        sealPendingVideoFrameDelivery();
         player_->seek(targetMs);
     }
     if (videoFrameElapsed_.isValid()) {
@@ -276,6 +280,7 @@ void PreviewStageMediaHost::setPlayheadSeconds(double seconds)
         return;
     }
     lastSeekMs_ = targetMs;
+    sealPendingVideoFrameDelivery();
     player_->seek(targetMs);
     emit diagnosticsChanged();
 }
@@ -313,10 +318,12 @@ void PreviewStageMediaHost::startPlayback(double seconds)
     const double rawSecond = seconds + timelineOffsetSeconds_;
     const qint64 targetMs = qMax<qint64>(0, qRound64(rawSecond * 1000.0));
     lastSeekMs_ = targetMs;
+    sealPendingVideoFrameDelivery();
     player_->seek(targetMs);
     if (rawSecond < 0.0) {
         // Negative offset: timeline is ahead of the clip in-point — hold the
         // first media frame paused until the playhead reaches media second 0.
+        sealPendingVideoFrameDelivery();
         player_->pause();
         videoPlaybackPendingStart_ = true;
         videoPlaybackActive_ = false;
@@ -403,6 +410,7 @@ void PreviewStageMediaHost::submitPausedSeek(double seconds, quint64 generation)
         return;
     }
     lastSeekMs_ = targetMs;
+    sealPendingVideoFrameDelivery();
     player_->seek(targetMs);
     schedulePausedSeekTimeout(generation, targetMs);
     emit diagnosticsChanged();
@@ -456,6 +464,7 @@ void PreviewStageMediaHost::syncPlayback(double seconds)
 
     const qint64 targetMs = qMax<qint64>(0, qRound64(rawSecond * 1000.0));
     lastSeekMs_ = targetMs;
+    sealPendingVideoFrameDelivery();
     player_->seek(targetMs);
     if (videoFrameElapsed_.isValid()) {
         videoFrameElapsed_.restart();
@@ -485,6 +494,7 @@ void PreviewStageMediaHost::pausePlayback()
     }
     recordPvMemoryBoundary(PvMemoryBoundary::Pause);
     if (mediaKind_ == MediaKind::Video && player_ != nullptr) {
+        sealPendingVideoFrameDelivery();
         player_->pause();
     }
     // 暂停保留执行中的 seek 及其超时确认，上层等待完成后提交最新目标。

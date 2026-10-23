@@ -270,29 +270,23 @@ void refreshPreviewStageMediaRouteDebugState(RuntimeContext::State& state, bool 
     const QString videoDecodeDesc = state.previewStageMediaHost_ != nullptr
         ? state.previewStageMediaHost_->videoDecodeDescription()
         : QString();
-    state.scene_->setExternalStageMediaProfileSummary(
-        // StageMediaHost::quickShellPreviewUsesSeparateSurface() is a hardcoded
-        // `return false;` — folded in here.
-        false,
-        hasResolvedMedia,
-        hasVideoMedia,
-        mediaTypeName,
-        videoFrameCountTotal,
-        videoFrameRate,
-        videoFrameIntervalAvgMs,
-        videoFrameIntervalMaxMs,
-        videoFrameStallCount,
-        videoDecodeDesc
-    );
-    state.scene_->setExternalStageMediaDebugState(
-        mediaType,
-        videoPlaybackActive,
-        playbackSecond,
-        clockDeltaSeconds,
-        videoFrameAgeMs,
-        videoFrameStalled,
-        requestUpdate
-    );
+    PreviewRuntime::ExternalStageMediaState mediaState;
+    mediaState.mediaType = mediaType;
+    mediaState.hasResolvedMedia = hasResolvedMedia;
+    mediaState.hasVideoMedia = hasVideoMedia;
+    mediaState.mediaTypeName = mediaTypeName;
+    mediaState.videoPlaybackActive = videoPlaybackActive;
+    mediaState.playbackSecond = playbackSecond;
+    mediaState.clockDeltaSeconds = clockDeltaSeconds;
+    mediaState.videoFrameAgeMs = videoFrameAgeMs;
+    mediaState.videoFrameStalled = videoFrameStalled;
+    mediaState.videoFrameCountTotal = videoFrameCountTotal;
+    mediaState.videoFrameRate = videoFrameRate;
+    mediaState.videoFrameIntervalAvgMs = videoFrameIntervalAvgMs;
+    mediaState.videoFrameIntervalMaxMs = videoFrameIntervalMaxMs;
+    mediaState.videoFrameStallCount = videoFrameStallCount;
+    mediaState.videoDecodeDesc = videoDecodeDesc;
+    state.scene_->setExternalStageMediaState(mediaState, requestUpdate);
 }
 
 void setPreviewFixedTimerHighResolutionActive(RuntimeContext::State& state, bool active)
