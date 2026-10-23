@@ -5,10 +5,12 @@ miacode_add_dev_tool(net_api_contract_spec TEST
         src/app/services/api/ApiDispatcher.cpp
         src/app/services/net/NetService.cpp
         src/app/services/net/NetAccountStore.cpp
+        src/app/services/net/NetConfiguration.cpp
+        src/app/services/PreferenceDocument.cpp
         src/app/services/net/NetService.h
         src/app/services/jobs/JobRegistry.cpp
         src/app/services/jobs/JobRegistry.h
-    LIBS miacode_media_tools Qt6::Core $<$<PLATFORM_ID:Windows>:Advapi32>
+    LIBS miacode_media_tools miacode_base Qt6::Core $<$<PLATFORM_ID:Windows>:Crypt32>
     INCLUDES src
 )
 
@@ -27,10 +29,12 @@ miacode_add_dev_tool(net_service_spec TEST
         src/app/services/api/ApiCatalog.cpp
         src/app/services/net/NetService.cpp
         src/app/services/net/NetAccountStore.cpp
+        src/app/services/net/NetConfiguration.cpp
+        src/app/services/PreferenceDocument.cpp
         src/app/services/net/NetService.h
         src/app/services/jobs/JobRegistry.cpp
         src/app/services/jobs/JobRegistry.h
-    LIBS Qt6::Core $<$<PLATFORM_ID:Windows>:Advapi32>
+    LIBS miacode_base Qt6::Core $<$<PLATFORM_ID:Windows>:Crypt32>
     INCLUDES src
 )
 
@@ -288,7 +292,7 @@ miacode_add_dev_tool(net_configuration_spec TEST
         src/app/services/net/NetConfiguration.h
         src/app/services/net/NetAccountStore.cpp
         src/app/services/PreferenceDocument.cpp
-    LIBS miacode_base Qt6::Core $<$<PLATFORM_ID:Windows>:Advapi32>
+    LIBS miacode_base Qt6::Core $<$<PLATFORM_ID:Windows>:Crypt32>
     INCLUDES src
 )
 
