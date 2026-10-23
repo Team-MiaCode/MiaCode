@@ -13,6 +13,15 @@ struct TimelineNoteAssetSet {
     QHash<QString, int> noteIconBasePixelSizes;
 };
 
+struct TimelineNoteMetrics {
+    QSize sourceSize;
+    int basePixelSize = 14;
+
+    QSize targetSize(qreal scale) const;
+};
+
+QHash<QString, TimelineNoteMetrics> loadTimelineNoteMetrics(const QString& skinDirectory = QString());
+
 struct TimelineHoldPixmapParts {
     QPixmap leftCap;
     QPixmap rightCap;
