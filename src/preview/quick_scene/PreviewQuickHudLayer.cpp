@@ -832,7 +832,7 @@ void paintPreviewHudOverlay(
     const QColor& shadowColor,
     HudInformationLayoutCache* informationLayoutCache)
 {
-    QRectF debugRegion;
+    qreal debugBottom = 0;
     QRectF timestampRegion;
     const auto* state = &stateRef;
     const auto drawHudText = [&](QPainter& target,
@@ -843,17 +843,7 @@ void paintPreviewHudOverlay(
                                  qreal shadowOffset) {
         drawHudTextWithColors(
             target, tag, baseline, text, font, shadowOffset, textColor, shadowColor);
-        if (tag.startsWith(QLatin1String("debug."))) {
-            const QFontMetrics metrics(font, target.device());
-            QRectF bounds = metrics.boundingRect(text);
-            const auto glyphs = hudGlyphVerticalBounds(font, metrics, {text});
-            if (glyphs.valid) {
-                bounds.setTop(glyphs.top);
-                bounds.setBottom(glyphs.bottom);
-            }
-            debugRegion = debugRegion.united(bounds.translated(baseline)
-                .adjusted(0, 0, shadowOffset, shadowOffset));
-        } else if (tag == QLatin1String("timestamp")) {
+        if (tag == QLatin1String("timestamp")) {
             const QFontMetrics metrics(font, target.device());
             timestampRegion = QRectF(metrics.boundingRect(QStringLiteral("-88:88:888")))
                 .translated(baseline).adjusted(0, 0, shadowOffset, shadowOffset);
@@ -1052,9 +1042,12 @@ void paintPreviewHudOverlay(
             );
         }
         const QFontMetrics metrics(fpsFont, painter.device());
-        const auto glyphs = hudGlyphVerticalBounds(fpsFont, metrics, debugLines);
+        // Keep row geometry stable when decoder names and counters change.
+        const auto glyphs = hudGlyphVerticalBounds(fpsFont, metrics,
+            {QStringLiteral("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ()/.:@+-")});
         const qreal advance = hudLineAdvance(fpsFont, metrics, glyphs, shadowOffset);
         const qreal ascent = glyphs.valid ? -glyphs.top : metrics.ascent();
+        const qreal descent = glyphs.valid ? glyphs.bottom : metrics.descent();
         const qreal bearing = informationLeftBearing(metrics, debugLines);
         for (int i = 0; i < debugLines.size(); ++i) {
             drawHudText(painter, QStringLiteral("debug.%1").arg(i),
@@ -1062,6 +1055,8 @@ void paintPreviewHudOverlay(
                     stageRect.top() + hudPadding + ascent + i * advance),
                 debugLines[i], fpsFont, shadowOffset);
         }
+        debugBottom = stageRect.top() + hudPadding + ascent
+            + (debugLines.size() - 1) * advance + descent + shadowOffset;
     }
 
     // The HUD honours `hudPlayheadSecondsOverride` when finite so callers
@@ -1104,7 +1099,7 @@ void paintPreviewHudOverlay(
     key.stage = stageRect;
     key.playfield = playfield;
     key.timestamp = timestampRegion;
-    key.chartTop = debugRegion.isEmpty() ? stageRect.top() + hudPadding : debugRegion.bottom() + hudPadding;
+    key.chartTop = debugBottom > 0 ? debugBottom + hudPadding : stageRect.top() + hudPadding;
     key.padding = hudPadding;
     key.shadow = shadowOffset;
     key.minimumPointSize = qMax(1, qRound(6 * hudScale));
