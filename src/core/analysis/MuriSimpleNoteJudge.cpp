@@ -752,7 +752,7 @@ void collectSimpleNoteRuntimeDiagnostics(
     for (const auto& reference : staticReferences) {
         miacode::task::CancellationScope::checkpoint();
         if (reference.kind == MuriKind::Overlap) {
-            staticOverlaps.insert(qMakePair(reference.affected.markerKey, reference.cause.markerKey));
+            staticOverlaps.insert(qMakePair(reference.affected->markerKey, reference.cause->markerKey));
         }
     }
     QSet<QString> multiTouchMarkerKeys;

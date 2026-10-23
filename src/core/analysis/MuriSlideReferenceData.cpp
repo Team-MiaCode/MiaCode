@@ -2,6 +2,10 @@
 
 #include "core/chart/SlideReferenceData.h"
 
+#include <QHash>
+#include <QMutex>
+#include <QMutexLocker>
+
 namespace miacode::muri::detail {
 
 QVector<QStringList> loadPadAreaSequence(const QJsonArray& areaArray)
@@ -35,6 +39,14 @@ QVector<QVector<QStringList>> loadTriPadAreaSequence(const QJsonArray& laneArray
 
 QVector<QPointF> loadRuntimeSlideActionPath(const QString& key)
 {
+    static QMutex mutex;
+    static QHash<QString, QVector<QPointF>> cache;
+    {
+        QMutexLocker lock(&mutex);
+        const auto it = cache.constFind(key);
+        if (it != cache.constEnd()) return it.value();
+    }
+
     QVector<QPointF> points;
     const QJsonObject entry = slide_reference::root().value(QStringLiteral("slides")).toObject().value(key).toObject();
     if (entry.isEmpty()) {
@@ -49,11 +61,21 @@ QVector<QPointF> loadRuntimeSlideActionPath(const QString& key)
             sampleObject.value(QStringLiteral("x")).toDouble(),
             sampleObject.value(QStringLiteral("y")).toDouble()));
     }
+    QMutexLocker lock(&mutex);
+    cache.insert(key, points);
     return points;
 }
 
 QVector<QVector<QPointF>> loadRuntimeWifiActionPaths(const QString& key)
 {
+    static QMutex mutex;
+    static QHash<QString, QVector<QVector<QPointF>>> cache;
+    {
+        QMutexLocker lock(&mutex);
+        const auto it = cache.constFind(key);
+        if (it != cache.constEnd()) return it.value();
+    }
+
     QVector<QVector<QPointF>> paths;
     const QJsonObject entry = slide_reference::root().value(QStringLiteral("wifi")).toObject().value(key).toObject();
     if (entry.isEmpty()) {
@@ -76,6 +98,8 @@ QVector<QVector<QPointF>> loadRuntimeWifiActionPaths(const QString& key)
             paths.append(points);
         }
     }
+    QMutexLocker lock(&mutex);
+    cache.insert(key, paths);
     return paths;
 }
 

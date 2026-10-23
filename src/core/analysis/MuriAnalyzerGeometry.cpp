@@ -6,6 +6,9 @@
 #include <limits>
 
 #include <QtGlobal>
+#include <QCache>
+#include <QMutex>
+#include <QMutexLocker>
 
 #include "core/analysis/MuriConfig.h"
 
@@ -17,6 +20,16 @@ constexpr double kPadTimeEpsilon = 1e-6;
 
 QVector<QPointF> centeredPathPoints(const QVector<QPointF>& points)
 {
+    struct CachedPath {
+        QVector<QPointF> source;
+        QVector<QPointF> centered;
+    };
+    static QMutex mutex;
+    static QCache<const QPointF*, CachedPath> cache(16 * 1024 * 1024);
+    {
+        QMutexLocker lock(&mutex);
+        if (const auto* path = cache.object(points.constData())) return path->centered;
+    }
     QVector<QPointF> result;
     result.reserve(points.size());
     for (const QPointF& point : points) {
@@ -26,6 +39,11 @@ QVector<QPointF> centeredPathPoints(const QVector<QPointF>& points)
             miacode::muri::kLogicalCanvasCenter + point.y()
         ));
     }
+    // Retain the source so its data pointer remains a valid cache identity.
+    const qsizetype cost = sizeof(CachedPath)
+        + (points.capacity() + result.capacity()) * sizeof(QPointF);
+    QMutexLocker lock(&mutex);
+    cache.insert(points.constData(), new CachedPath{points, result}, cost);
     return result;
 }
 

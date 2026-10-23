@@ -637,8 +637,15 @@ QHash<QString, RuntimeSlideJudgeResult> simulateRuntimeSlideAndWifiJudgments(
 {
     QVector<RuntimeSlideNoteState> slideNotes;
     QVector<RuntimeWifiNoteState> wifiNotes;
-    slideNotes.reserve(noteMarkers.size());
-    wifiNotes.reserve(noteMarkers.size());
+    qsizetype slideCount = 0;
+    qsizetype wifiCount = 0;
+    for (const auto& marker : noteMarkers) {
+        miacode::task::CancellationScope::checkpoint();
+        if (marker.type == QLatin1String("slide")) ++slideCount;
+        else if (marker.type == QLatin1String("wifi")) ++wifiCount;
+    }
+    slideNotes.reserve(slideCount);
+    wifiNotes.reserve(wifiCount);
 
     for (const TimelineNoteMarker& marker : noteMarkers) {
         miacode::task::CancellationScope::checkpoint();

@@ -9,10 +9,13 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLineF>
+#include <QMutex>
+#include <QMutexLocker>
 #include <QtMath>
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 
 namespace {
 
@@ -1516,7 +1519,7 @@ void loadSamplePath(const QJsonArray& samples, QVector<QPointF>* points, QVector
     }
 }
 
-bool populateSlideFromLookup(const QString& key, TimelineNoteMarker* marker)
+bool loadSlideGeometry(const QString& key, TimelineNoteMarker* marker)
 {
     if (marker == nullptr || key.isEmpty()) {
         return false;
@@ -1707,6 +1710,54 @@ bool populateSlideFromLookup(const QString& key, TimelineNoteMarker* marker)
     }
 
     return false;
+}
+
+// Fixed geometry is shared by shape; timing and note modifiers stay on each marker.
+std::optional<TimelineNoteMarker> lookupSlideGeometry(const QString& key, const QString& type)
+{
+    static QMutex mutex;
+    static QHash<QPair<QString, QString>, TimelineNoteMarker> cache;
+    const auto cacheKey = qMakePair(type, key);
+    {
+        QMutexLocker lock(&mutex);
+        const auto it = cache.constFind(cacheKey);
+        if (it != cache.constEnd()) return it.value();
+    }
+    TimelineNoteMarker geometry;
+    geometry.type = type;
+    if (!loadSlideGeometry(key, &geometry)) return std::nullopt;
+    QMutexLocker lock(&mutex);
+    cache.insert(cacheKey, geometry);
+    return geometry;
+}
+
+bool populateSlideFromLookup(const QString& key, TimelineNoteMarker* marker)
+{
+    if (marker == nullptr) return false;
+    const auto geometry = lookupSlideGeometry(key, marker->type);
+    if (!geometry) return false;
+    marker->slideTrackKey = geometry->slideTrackKey;
+    marker->slideSegmentKeys = geometry->slideSegmentKeys;
+    marker->endLane = geometry->endLane;
+    marker->slideSegmentPadEnterTimes = geometry->slideSegmentPadEnterTimes;
+    marker->slideSegmentCriticalProportions = geometry->slideSegmentCriticalProportions;
+    marker->slideSegmentPoints = geometry->slideSegmentPoints;
+    marker->slideSegmentAngles = geometry->slideSegmentAngles;
+    marker->slideTrackAreaPoints = geometry->slideTrackAreaPoints;
+    marker->slideTrackAreaRotations = geometry->slideTrackAreaRotations;
+    marker->slideTrackAreaThresholds = geometry->slideTrackAreaThresholds;
+    marker->slideTrackAreaCheckpoints = geometry->slideTrackAreaCheckpoints;
+    marker->slideTrackAreaCutIndices = geometry->slideTrackAreaCutIndices;
+    marker->wifiPadEnterTimes = geometry->wifiPadEnterTimes;
+    marker->wifiCriticalProportion = geometry->wifiCriticalProportion;
+    marker->wifiLanePoints = geometry->wifiLanePoints;
+    marker->wifiLaneAngles = geometry->wifiLaneAngles;
+    marker->wifiTrackAreaPoints = geometry->wifiTrackAreaPoints;
+    marker->wifiTrackAreaRotations = geometry->wifiTrackAreaRotations;
+    marker->wifiTrackAreaImageIndices = geometry->wifiTrackAreaImageIndices;
+    marker->wifiTrackAreaThresholds = geometry->wifiTrackAreaThresholds;
+    marker->wifiTrackAreaCheckpoints = geometry->wifiTrackAreaCheckpoints;
+    return true;
 }
 
 int inferSlideEndLane(const QString& token, int fallbackLane)

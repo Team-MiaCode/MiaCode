@@ -366,9 +366,9 @@ int main(int argc, char** argv)
 
         if (const MuriStaticReference* reference =
                 firstStaticReference(analyzed.staticReferences, MuriKind::SlideHeadTap)) {
-            expect(reference->cause.line == 2 && reference->cause.col == 1,
+            expect(reference->cause->line == 2 && reference->cause->col == 1,
                 QStringLiteral("static anchor repro keeps the earlier slide as cause"));
-            expect(reference->affected.line == 3 && reference->affected.col == 1,
+            expect(reference->affected->line == 3 && reference->affected->col == 1,
                 QStringLiteral("static anchor repro keeps the later tap as affected"));
         }
 
@@ -437,7 +437,7 @@ int main(int argc, char** argv)
 
         if (const MuriStaticReference* reference =
                 firstStaticReference(analyzed.staticReferences, MuriKind::SlideHeadTap)) {
-            expect(reference->cause.second < -1e-6,
+            expect(reference->cause->second < -1e-6,
                 QStringLiteral("negative-time slide-head repro keeps the static cause on the negative-time slide"));
         }
 
@@ -657,13 +657,13 @@ int main(int argc, char** argv)
                 firstStaticReference(analyzed.staticReferences, MuriKind::TapOnSlide)) {
             expect(reference->kind == MuriKind::TapOnSlide,
                 QStringLiteral("head-star tap-on-slide repro first static kind is tap-on-slide"));
-            expect(reference->affected.markerType == QStringLiteral("tap"),
+            expect(reference->affected->markerType == QStringLiteral("tap"),
                 QStringLiteral("head-star tap-on-slide repro models the affected head star as tap"));
-            expect(reference->affected.headStarTapLike,
+            expect(reference->affected->headStarTapLike,
                 QStringLiteral("head-star tap-on-slide repro flags the affected helper as star-like"));
-            expect(reference->affected.line == 2 && reference->affected.col == 7,
+            expect(reference->affected->line == 2 && reference->affected->col == 7,
                 QStringLiteral("head-star tap-on-slide repro anchors the affected helper at the synthetic head column"));
-            expect(reference->cause.line == 1 && reference->cause.col == 36,
+            expect(reference->cause->line == 1 && reference->cause->col == 36,
                 QStringLiteral("head-star tap-on-slide repro keeps the prior slide tail as cause"));
         }
 
@@ -715,7 +715,7 @@ int main(int argc, char** argv)
 
         if (const MuriStaticReference* reference =
                 firstStaticReference(analyzed.staticReferences, MuriKind::SlideHeadTap)) {
-            expect(reference->affected.hasProtection,
+            expect(reference->affected->hasProtection,
                 QStringLiteral("protected slide-head repro static reference keeps the protection flag"));
         }
 
@@ -809,7 +809,7 @@ int main(int argc, char** argv)
 
         if (const MuriStaticReference* reference =
                 firstStaticReference(analyzed.staticReferences, MuriKind::TapOnSlide)) {
-            expect(reference->cause.slideDisplayKey == QStringLiteral("3^5pp4"),
+            expect(reference->cause->slideDisplayKey == QStringLiteral("3^5pp4"),
                 QStringLiteral("chain-slide label repro static cause keeps the full chained slide token"));
         }
 
@@ -986,9 +986,9 @@ int main(int argc, char** argv)
 
         if (const MuriStaticReference* reference =
                 firstStaticReference(analyzed.staticReferences, MuriKind::Overlap)) {
-            expect(reference->cause.headStarTapLike,
+            expect(reference->cause->headStarTapLike,
                 QStringLiteral("head-star overlap repro static cause keeps the helper star identity"));
-            expect(reference->cause.col == 2,
+            expect(reference->cause->col == 2,
                 QStringLiteral("head-star overlap repro anchors the helper star at the synthetic head column"));
         }
     }
@@ -1159,13 +1159,13 @@ int main(int argc, char** argv)
 
         if (const MuriStaticReference* reference =
                 firstStaticReference(analyzed.staticReferences, MuriKind::Overlap)) {
-            expect(reference->affected.markerType == QStringLiteral("hold"),
+            expect(reference->affected->markerType == QStringLiteral("hold"),
                 QStringLiteral("slow slide end occupancy repro static affected is hold"));
-            expect(reference->affected.lane == 8,
+            expect(reference->affected->lane == 8,
                 QStringLiteral("slow slide end occupancy repro static affected lane is 8"));
-            expect(reference->cause.markerType == QStringLiteral("slide"),
+            expect(reference->cause->markerType == QStringLiteral("slide"),
                 QStringLiteral("slow slide end occupancy repro static cause is slide"));
-            expect(reference->cause.endLane == 8,
+            expect(reference->cause->endLane == 8,
                 QStringLiteral("slow slide end occupancy repro static cause ends on lane 8"));
         }
 

@@ -6,6 +6,8 @@
 #include <QStringList>
 #include <QVector>
 
+#include <memory>
+
 struct TimelineNoteMarker;
 enum class SimaiValidationLocale;
 
@@ -170,11 +172,14 @@ struct MuriStaticReferenceNote {
     bool headStarTapLike = false;
 };
 
+// References share immutable source notes across every detected relationship.
+using MuriStaticReferenceNotePtr = std::shared_ptr<const MuriStaticReferenceNote>;
+
 struct MuriStaticReference {
     MuriKind kind = MuriKind::Overlap;
     MuriAlertLevel alertLevel = MuriAlertLevel::Muri;
-    MuriStaticReferenceNote affected;
-    MuriStaticReferenceNote cause;
+    MuriStaticReferenceNotePtr affected;
+    MuriStaticReferenceNotePtr cause;
     double deltaSecond = 0.0;
     bool hasDelta = false;
     bool slideHeadHasTapOnSlide = false;

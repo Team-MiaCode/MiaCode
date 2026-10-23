@@ -53,6 +53,7 @@ inline QVector<TimelineBeatMarker> shiftedBeatMarkers(
     double offsetSeconds,
     NonFiniteHandling handling)
 {
+    if (offsetSeconds == 0.0) return beatMarkers;
     QVector<TimelineBeatMarker> shifted = beatMarkers;
     for (TimelineBeatMarker& marker : shifted) {
         miacode::task::CancellationScope::checkpoint();
@@ -68,6 +69,7 @@ inline QVector<TimelineNoteMarker> shiftedNoteMarkers(
     double offsetSeconds,
     NonFiniteHandling handling)
 {
+    if (offsetSeconds == 0.0) return noteMarkers;
     QVector<TimelineNoteMarker> shifted = noteMarkers;
     for (TimelineNoteMarker& marker : shifted) {
         miacode::task::CancellationScope::checkpoint();

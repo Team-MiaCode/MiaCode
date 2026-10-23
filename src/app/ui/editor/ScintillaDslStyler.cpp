@@ -186,7 +186,7 @@ void ScintillaDslStyler::fill(int indicator, int start, int end)
     editor_.send(SCI_SETINDICATORCURRENT, indicator);
     editor_.send(SCI_INDICATORFILLRANGE, first, last - first);
 }
-void ScintillaDslStyler::diagnostics(const QVariantList& rows, bool isMuri)
+void ScintillaDslStyler::diagnostics(const QVector<AnalysisDecoration>& rows, bool isMuri)
 {
     auto& cached = isMuri ? muri_ : validation_;
     auto& dirty = isMuri ? muriDirty_ : validationDirty_;
@@ -197,15 +197,14 @@ void ScintillaDslStyler::diagnostics(const QVariantList& rows, bool isMuri)
         editor_.send(SCI_SETINDICATORCURRENT, indicator);
         editor_.send(SCI_INDICATORCLEARRANGE, 0, editor_.send(SCI_GETLENGTH));
     }
-    for (const auto& value : rows) {
-        const auto row = value.toMap();
-        const int line = row.value(QStringLiteral("line")).toInt() - 1;
+    for (const auto& row : rows) {
+        const int line = row.line - 1;
         if (line < 0 || line >= editor_.send(SCI_GETLINECOUNT)) continue;
         const int lineStart = document_.utf16Position(editor_.send(SCI_POSITIONFROMLINE, line));
         const int lineEnd = document_.utf16Position(editor_.send(SCI_GETLINEENDPOSITION, line));
-        const int start = qBound(lineStart, lineStart + qMax(0, row.value(QStringLiteral("column")).toInt() - 1), lineEnd);
-        const int end = qBound(start, lineStart + qMax(row.value(QStringLiteral("endColumn")).toInt(), row.value(QStringLiteral("column")).toInt()), lineEnd);
-        const int indicator = isMuri ? muriIndicator : row.value(QStringLiteral("severity")) == QStringLiteral("warning") ? warningIndicator : errorIndicator;
+        const int start = qBound(lineStart, lineStart + qMax(0, row.column - 1), lineEnd);
+        const int end = qBound(start, lineStart + qMax(row.endColumn, row.column), lineEnd);
+        const int indicator = isMuri ? muriIndicator : row.warning ? warningIndicator : errorIndicator;
         fill(indicator, start, end);
     }
 }

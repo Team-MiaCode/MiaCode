@@ -373,8 +373,8 @@ QJsonObject jsonFromStaticReferenceRecord(const MuriStaticReference& record)
     QJsonObject item;
     item.insert(QStringLiteral("kind"), muriKindKey(record.kind));
     item.insert(QStringLiteral("alert_level"), muriAlertLevelKey(record.alertLevel));
-    item.insert(QStringLiteral("affected"), jsonFromStaticReferenceNote(record.affected));
-    item.insert(QStringLiteral("cause"), jsonFromStaticReferenceNote(record.cause));
+    item.insert(QStringLiteral("affected"), jsonFromStaticReferenceNote(*record.affected));
+    item.insert(QStringLiteral("cause"), jsonFromStaticReferenceNote(*record.cause));
     if (record.hasDelta) {
         item.insert(QStringLiteral("delta_second"), record.deltaSecond);
         item.insert(QStringLiteral("delta_ms"), record.deltaSecond * 1000.0);
