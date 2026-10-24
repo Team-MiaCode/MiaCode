@@ -169,6 +169,17 @@ void WindowChrome::showRestored()
     if (window_.isNull()) {
         return;
     }
+#ifdef Q_OS_WIN
+    if (maximized_ && !window_->isExposed()
+        && qobject_cast<QQuickWindow*>(window_.data()) != nullptr) {
+        // Establish the normal surface and its material before native maximization.
+        restoreMaximizedPending_ = true;
+        restoringWindowState_ = true;
+        window_->showNormal();
+        materialUpdateTimer_.start();
+        return;
+    }
+#endif
     if (maximized_) {
         window_->showMaximized();
     } else {
@@ -258,10 +269,13 @@ void WindowChrome::refreshNativeMaterial()
     if (!dwmState_.frameExtended) {
         dwmState_.frameExtended = extendDwmFrame();
     }
-    if (!blurMaterialsEnabled_ || materialRegions_.isEmpty()) {
+    const bool backdropEnabled = blurMaterialsEnabled_ && !materialRegions_.isEmpty();
+    if (!backdropEnabled) {
         NativeWindowTheme::applyToWindow(window_.data(), false,
             NativeWindowTheme::BackdropMaterial::Acrylic, &dwmState_);
-        return;
+        if (!restoreMaximizedPending_) {
+            return;
+        }
     }
     if (materialPresentationPending_ || !window_->isExposed()
         || window_->windowStates().testFlag(Qt::WindowMinimized)) {
@@ -273,15 +287,16 @@ void WindowChrome::refreshNativeMaterial()
     }
     materialPresentationPending_ = true;
     const quint64 generation = materialGeneration_;
+    const bool materialWasAvailable = nativeMaterialAvailable_;
     materialSyncConnection_ = connect(quickWindow, &QQuickWindow::afterSynchronizing, this,
-        [this, quickWindow, generation] {
+        [this, quickWindow, generation, backdropEnabled, materialWasAvailable] {
             // The GUI thread is blocked during synchronization. Subscribe to
             // this frame's presentation only after its geometry is synchronized.
             const QSize size = quickWindow->size();
             const qreal devicePixelRatio = quickWindow->devicePixelRatio();
             const Qt::WindowStates states = quickWindow->windowStates();
             materialFrameConnection_ = connect(quickWindow, &QQuickWindow::frameSwapped, this,
-                [this, generation, size, devicePixelRatio, states] {
+                [this, generation, size, devicePixelRatio, states, backdropEnabled, materialWasAvailable] {
                     if (generation != materialGeneration_ || window_.isNull()) {
                         return;
                     }
@@ -292,8 +307,18 @@ void WindowChrome::refreshNativeMaterial()
                         return;
                     }
                     const bool backdropApplied = NativeWindowTheme::applyToWindow(
-                        window_.data(), true, NativeWindowTheme::BackdropMaterial::Acrylic, &dwmState_);
+                        window_.data(), backdropEnabled, NativeWindowTheme::BackdropMaterial::Acrylic, &dwmState_);
                     setNativeMaterialAvailable(dwmState_.frameExtended && backdropApplied);
+                    if (restoreMaximizedPending_) {
+                        if (nativeMaterialAvailable_ && !materialWasAvailable) {
+                            // Present the transparent normal window before maximizing it.
+                            materialUpdateTimer_.start();
+                        } else {
+                            restoreMaximizedPending_ = false;
+                            window_->showMaximized();
+                            restoringWindowState_ = false;
+                        }
+                    }
                     static_cast<QQuickWindow*>(window_.data())->update();
                 }, Qt::ConnectionType(Qt::QueuedConnection | Qt::SingleShotConnection));
         }, Qt::ConnectionType(Qt::DirectConnection | Qt::SingleShotConnection));
@@ -374,7 +399,7 @@ bool WindowChrome::eventFilter(QObject* watched, QEvent* event)
             invalidateNativeMaterial();
             materialUpdateTimer_.start();
         } else if (event->type() == QEvent::Expose
-            && window_->isExposed() && !dwmState_.frameExtended) {
+            && window_->isExposed() && !nativeMaterialAvailable_) {
             // A show event can precede exposure; apply at the first exposure.
             materialUpdateTimer_.start();
 #endif
