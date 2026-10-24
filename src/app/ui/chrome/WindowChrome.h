@@ -93,6 +93,7 @@ private:
     quintptr nativeHandle_ = 0;
 #ifdef Q_OS_WIN
     NativeWindowTheme::AppliedState dwmState_;
+    bool restoreMaximizedPending_ = false;
     quint64 materialGeneration_ = 0;
     QMetaObject::Connection materialSyncConnection_;
     QMetaObject::Connection materialFrameConnection_;
