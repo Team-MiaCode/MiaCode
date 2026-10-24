@@ -251,14 +251,19 @@ void WindowChrome::refreshNativeMaterial()
         return;
     }
 #ifdef Q_OS_WIN
-    if (nativeHandle_ == 0 || materialPresentationPending_) {
+    if (nativeHandle_ == 0) {
         return;
     }
-    // Keep the solid QML background while DWM and Qt establish the target surface.
-    NativeWindowTheme::applyToWindow(window_.data(), false,
-        NativeWindowTheme::BackdropMaterial::Acrylic, &dwmState_);
-    if (!blurMaterialsEnabled_ || materialRegions_.isEmpty()
-        || !window_->isExposed()
+    // Native frame composition also serves windows with an opaque QML background.
+    if (!dwmState_.frameExtended) {
+        dwmState_.frameExtended = extendDwmFrame();
+    }
+    if (!blurMaterialsEnabled_ || materialRegions_.isEmpty()) {
+        NativeWindowTheme::applyToWindow(window_.data(), false,
+            NativeWindowTheme::BackdropMaterial::Acrylic, &dwmState_);
+        return;
+    }
+    if (materialPresentationPending_ || !window_->isExposed()
         || window_->windowStates().testFlag(Qt::WindowMinimized)) {
         return;
     }
@@ -286,7 +291,6 @@ void WindowChrome::refreshNativeMaterial()
                         materialUpdateTimer_.start();
                         return;
                     }
-                    dwmState_.frameExtended = extendDwmFrame();
                     const bool backdropApplied = NativeWindowTheme::applyToWindow(
                         window_.data(), true, NativeWindowTheme::BackdropMaterial::Acrylic, &dwmState_);
                     setNativeMaterialAvailable(dwmState_.frameExtended && backdropApplied);
