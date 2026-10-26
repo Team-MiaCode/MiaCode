@@ -607,6 +607,13 @@ endif()
 
 # Default UI (v2).
 # QTP0001 NEW embeds this module at :/qt/qml/MiaCode/UI/.
+# QML and native windows consume the same checked-in palette data.
+set(MIACODE_THEME_PALETTE_DATA "${CMAKE_CURRENT_SOURCE_DIR}/resources/themes/palettes.json")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${MIACODE_THEME_PALETTE_DATA}")
+file(READ "${MIACODE_THEME_PALETTE_DATA}" MIACODE_THEME_PALETTE_JSON)
+set(MIACODE_THEME_PALETTE_SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/generated/ThemePalettes.js")
+file(WRITE "${MIACODE_THEME_PALETTE_SCRIPT}" ".pragma library\nvar catalog = ${MIACODE_THEME_PALETTE_JSON};\n")
+set_source_files_properties("${MIACODE_THEME_PALETTE_SCRIPT}" PROPERTIES QT_RESOURCE_ALIAS "ThemePalettes.js")
 set(MIACODE_UI_QML_FILES
     src/app/ui/net/NetDownloadPage.qml
     src/app/ui/net/NetUploadPage.qml
@@ -706,6 +713,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/media/PvBatchCompressionDialog.qml
     src/app/ui/media/PrependBlankDialog.qml
     src/app/ui/preferences/PreferencesDialog.qml
+    src/app/ui/preferences/ThemePicker.qml
     src/app/ui/preferences/CompletionCandidateList.qml
     src/app/ui/preferences/CompletionCandidatesEditor.qml
     src/app/ui/pet/PetOverlay.qml
@@ -897,6 +905,7 @@ qt_add_qml_module(MiaCode
     RESOURCES
         ${MIACODE_UI_ICON_FILES}
         ${MIACODE_PET_ASSET_FILES}
+        ${MIACODE_THEME_PALETTE_SCRIPT}
 )
 
 set(MIACODE_TRANSLATION_TS_FILES

@@ -1,6 +1,8 @@
 #include "app/runtime/Shared.h"
 
 #include "app/services/ApplicationServices.h"
+#include "app/services/PreferenceDocument.h"
+#include "app/services/EditorTypography.h"
 
 #include "audio/bass/OfflineAudioDecoder.h"
 #include "common/DebugLog.h"
@@ -111,23 +113,10 @@ void appendStartupTimingStage(const QString& stage, qint64 elapsedMs, qint64 del
 
 QFont editorFont(int pointSize)
 {
-    QFont font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
-    static const QString bundledEditorFontFamily = []() -> QString {
-        const int fontId = QFontDatabase::addApplicationFont(QStringLiteral(":/fonts/maple_mono_cn.ttf"));
-        const QStringList families = QFontDatabase::applicationFontFamilies(fontId);
-        return families.isEmpty() ? QString() : families.first();
-    }();
-    if (!bundledEditorFontFamily.isEmpty()) {
-        font.setFamily(bundledEditorFontFamily);
-    }
-    font.setStyleHint(QFont::Monospace);
-    font.setFixedPitch(true);
-    if (pointSize > 0) {
-        font.setPointSize(pointSize);
-    }
-    font.setStyleStrategy(QFont::PreferAntialias);
-    font.setHintingPreference(QFont::PreferNoHinting);
-    return font;
+    const QString selectedFamily = PreferenceDocument::loadPreferencesObject()
+        .value(QStringLiteral("ui")).toObject()
+        .value(QStringLiteral("editor_text_font_family")).toString().trimmed();
+    return miacode::editor_typography::resolveFont(selectedFamily, pointSize);
 }
 
 int blockSpacingPixelsForPointSize(int pointSize, double spacingFactor)

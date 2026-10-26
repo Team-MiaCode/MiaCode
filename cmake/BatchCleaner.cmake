@@ -68,6 +68,7 @@ qt_add_qml_module(MiaCodeBatchCleaner
         ${MIACODE_BATCH_CLEANER_QML_FILES}
     RESOURCES
         ${MIACODE_BATCH_CLEANER_SHARED_ICON_FILES}
+        ${MIACODE_THEME_PALETTE_SCRIPT}
 )
 miacode_add_qrc(MiaCodeBatchCleaner resources/app_icons.qrc)
 

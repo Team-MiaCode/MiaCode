@@ -1,4 +1,5 @@
 #include "app/ui/editor/ScintillaEditorBridge.h"
+#include "app/ui/editor/EditorContextMenu.h"
 #include "editor/SimaiCompletionCatalog.h"
 #include "common/DebugLog.h"
 #include "common/DebugOptions.h"
@@ -941,13 +942,15 @@ void ScintillaEditorBridge::mousePressEvent(QMouseEvent* event)
             event->accept();
             return;
         }
-    }
-    ScintillaQuick_item::mousePressEvent(event);
-    if (event->button() == Qt::RightButton) {
+        prepareEditorContextMenu(*this, event->position());
         emit selectionChanged();
         updatePolish();
         emit contextMenuRequested(event->position().x(), event->position().y());
+        refreshSelection(!programmatic_);
+        event->accept();
+        return;
     }
+    ScintillaQuick_item::mousePressEvent(event);
     refreshSelection(!programmatic_);
 }
 void ScintillaEditorBridge::mouseReleaseEvent(QMouseEvent* event)
