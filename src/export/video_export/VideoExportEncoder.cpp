@@ -219,8 +219,6 @@ ExportRuntimeConfig loadExportRuntimeConfig()
     config.x264PresetOverride = qEnvironmentVariable("MIACODE_EXPORT_X264_PRESET").trimmed();
     config.x264CrfOverride = miacode::debug_options::envIntValue("MIACODE_EXPORT_X264_CRF", -1);
     config.x264BframesOverride = miacode::debug_options::envIntValue("MIACODE_EXPORT_X264_BFRAMES", -1);
-    config.premultipliedPipeOverride =
-        miacode::debug_options::exportPremultipliedPipeOverride();
 
     const std::optional<bool> gpuRenderOverride =
         miacode::debug_options::envOptionalFlagValue("MIACODE_EXPORT_ENABLE_GPU_RENDER");

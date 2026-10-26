@@ -21,6 +21,7 @@
 | 皮肤与素材 | scene selectors、AssetPaths、ChartAssetPaths、scene asset loader；预览/导出解析一致 |
 | 烟花范围与遮挡 | 烟花覆盖完整圆形画布，半径为逻辑画布宽度的一半；烟花层位于皮肤层下方，皮肤按素材透明度遮挡；预览与导出共用范围和层级 |
 | SFX | PreviewSfxTimeline / PreviewSfxTiming；运行时音频与 VideoExportAudioRenderPlan 使用相同事件语义 |
+| 导出光效合成 | GPU 读回保留预乘 RGB 与覆盖量；FFmpeg 按 RGB + 背景 × (1 − Alpha) 合成，保留零 Alpha 发光；快速与高质量共用此路径 |
 | 导出配置 | QML session / preferences → runtime snapshot → VideoExportSnapshot JSON → worker task |
 | 封面合成 | QmlCoverExportWindow/Session 与 `src/export/cover_export/`；窗口拥有自己的 engine 和捕获资源 |
 | HUD 字体与导出设置 | `PreviewHudState` 与导出页经偏好端口 `miacode::preferences` 读写 `app.video_export`；GUI、CLI 导出和导出 worker 在入口安装 `PreferenceDocumentProvider` |

@@ -273,6 +273,7 @@ void VideoExportQuickRenderBackend::shutdownOffscreenRenderer()
 
 void VideoExportQuickRenderBackend::setPreservePremultipliedReadback(bool preserve)
 {
+    session_.setPreservePremultipliedReadback(preserve);
     d3d11Session_.setPreservePremultipliedReadback(preserve);
 }
 

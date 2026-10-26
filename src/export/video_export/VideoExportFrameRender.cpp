@@ -79,10 +79,7 @@ namespace miacode::video_export::detail {
 // Every dimension derives from the shared PauseGlyphGeometry, which scales
 // from the frame's short side — one knob resizes the whole badge.
 //
-// `Format_RGBA8888` (straight alpha) is what the export pipeline feeds
-// FFmpeg — QPainter on this format composes correctly through Qt's
-// internal premultiplied path; the final straight-alpha output is what
-// FFmpeg's `overlay=…:alpha=straight` filter expects.
+// Export frames retain premultiplied RGB and coverage through packing.
 namespace {
 
 struct PauseGlyphGeometry {

@@ -193,7 +193,6 @@ struct ExportRuntimeConfig {
     QString x264PresetOverride;
     int x264CrfOverride = -1;
     int x264BframesOverride = -1;
-    std::optional<bool> premultipliedPipeOverride;
     ExportRenderBackendOptions renderBackend;
     ExportDiagOptions diag;
 };

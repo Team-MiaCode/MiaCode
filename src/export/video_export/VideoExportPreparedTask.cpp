@@ -1238,11 +1238,7 @@ VideoExportResult VideoExportController::exportPreparedTask(
             offscreenInitError.isEmpty() ? result.message : offscreenInitError);
         return result;
     }
-    const bool usePremultipliedPipe = miacode::video_export::shouldUsePremultipliedExportPipe(
-        d3d11SessionActive,
-        task.preset == VideoExportPreset::Fast,
-        exportConfig.premultipliedPipeOverride);
-    exportCanvas.setPreservePremultipliedReadback(usePremultipliedPipe);
+    exportCanvas.setPreservePremultipliedReadback(true);
 
     // Pre-roll maimai track-start intro (full-range exports only). The audio
     // plan already front-padded the timeline by introLeadSeconds, so frames
@@ -1358,25 +1354,22 @@ VideoExportResult VideoExportController::exportPreparedTask(
     );
     appendVideoExportLog(
         QStringLiteral("premultiplied_pipe"),
-        QStringLiteral("override=%1 enabled=%2 backend=%3 preset=%4")
-            .arg(exportConfig.premultipliedPipeOverride.has_value()
-                     ? (exportConfig.premultipliedPipeOverride.value() ? QStringLiteral("on")
-                                                                       : QStringLiteral("off"))
-                     : QStringLiteral("default"))
-            .arg(usePremultipliedPipe ? 1 : 0)
+        QStringLiteral("enabled=1 composition=emission_coverage backend=%1 preset=%2")
             .arg(d3d11SessionActive ? QStringLiteral("d3d11_qrhi")
                                     : QStringLiteral("opengl"))
             .arg(task.preset == VideoExportPreset::Fast ? QStringLiteral("fast")
                                                         : QStringLiteral("high_quality")));
 
-    // Fast D3D11 preserves premultiplied bytes by default and changes ffmpeg's
-    // overlay alpha mode. HighQuality, OpenGL, and the rollback override keep
-    // packing straight RGBA8888.
-    const QString overlayAlphaMode = usePremultipliedPipe
-        ? QStringLiteral("premultiplied")
-        : QStringLiteral("straight");
-    filterParts << QStringLiteral("[base][overlay_src]overlay=0:0:format=rgb:alpha=%1[vout]")
-                       .arg(overlayAlphaMode);
+    // Match QSG source-over: emission + background * (1 - coverage).
+    // RGB can exceed alpha, including visible emission at zero alpha. Keep the
+    // channels separate so overlay alpha conversion cannot discard that light.
+    // Planar RGB keeps the blend arithmetic independent of encoder YUV negotiation.
+    filterParts << QStringLiteral("[overlay_src]split[overlay_color][overlay_coverage]");
+    filterParts << QStringLiteral("[overlay_color]format=gbrp[overlay_emission]");
+    filterParts << QStringLiteral("[overlay_coverage]alphaextract,negate,format=gbrp[background_transmission]");
+    filterParts << QStringLiteral("[base]format=gbrp[base_rgb]");
+    filterParts << QStringLiteral("[base_rgb][background_transmission]blend=all_mode=multiply:shortest=1[base_transmitted]");
+    filterParts << QStringLiteral("[base_transmitted][overlay_emission]blend=all_mode=addition:shortest=1[vout]");
     const QString mappedVideoPad = encoderConfig.needsVaapiHwUpload
         ? QStringLiteral("[vout_hw]")
         : QStringLiteral("[vout]");
@@ -1839,7 +1832,7 @@ VideoExportResult VideoExportController::exportPreparedTask(
         qint64 packedFrameSize = 0;
         if (!preparePackedRgbaFrame(
                 frame,
-                usePremultipliedPipe,
+                true,
                 &convertedRgbaFrame,
                 &packedFrameScratch,
                 &packedFrameData,
@@ -1857,70 +1850,6 @@ VideoExportResult VideoExportController::exportPreparedTask(
         const quint64 packedHash = diagPipeHashEnabled
             ? fnv1a64Bytes(packedFrameData, packedFrameSize)
             : 0;
-
-        // Alpha-encoding sanity probe. We are claiming the bytes about to
-        // hit the FFmpeg pipe are straight-alpha RGBA8888 (declared via
-        // `-pix_fmt rgba` and consumed under `overlay=...:alpha=straight`).
-        // Premultiplied data masquerading as straight would manifest as
-        // every partial-alpha pixel having max(R,G,B) <= A. Conversely a
-        // single sampled pixel with max(R,G,B) > A is definitive proof
-        // the data really is straight.
-        //
-        // Sampling is gated to a tiny fixed set of frames (0, 1, 30, 60,
-        // 120) and a handful of fixed positions to keep the log to
-        // <= 5 short lines per export.
-        if (!usePremultipliedPipe
-            && packedFrameData != nullptr
-            && packedFrameSize >= static_cast<qint64>(frameWidth) * frameHeight * 4
-            && frameWidth > 0
-            && frameHeight > 0
-            && (frameIndex == 0 || frameIndex == 1 || frameIndex == 30
-                || frameIndex == 60 || frameIndex == 120)) {
-            static const double kSampleNorm[][2] = {
-                {0.50, 0.50}, {0.50, 0.20}, {0.50, 0.80},
-                {0.20, 0.50}, {0.80, 0.50}, {0.70, 0.30},
-                {0.55, 0.70}, {0.05, 0.05}, {0.95, 0.95},
-            };
-            const int sampleCount = static_cast<int>(sizeof(kSampleNorm) / sizeof(kSampleNorm[0]));
-            QStringList samplePieces;
-            samplePieces.reserve(sampleCount);
-            int partialAlphaCount = 0;
-            int strictlyStraightCount = 0;
-            for (int i = 0; i < sampleCount; ++i) {
-                const int sx = qBound(0, static_cast<int>(kSampleNorm[i][0] * frameWidth), frameWidth - 1);
-                const int sy = qBound(0, static_cast<int>(kSampleNorm[i][1] * frameHeight), frameHeight - 1);
-                const qint64 off = (static_cast<qint64>(sy) * frameWidth + sx) * 4;
-                const uchar r = static_cast<uchar>(packedFrameData[off + 0]);
-                const uchar g = static_cast<uchar>(packedFrameData[off + 1]);
-                const uchar b = static_cast<uchar>(packedFrameData[off + 2]);
-                const uchar a = static_cast<uchar>(packedFrameData[off + 3]);
-                const int rgbMax = qMax(qMax(r, g), b);
-                const bool partialAlpha = (a > 0 && a < 255);
-                const bool strictlyStraight = partialAlpha && (rgbMax > a);
-                if (partialAlpha) ++partialAlphaCount;
-                if (strictlyStraight) ++strictlyStraightCount;
-                samplePieces.append(QStringLiteral("(%1,%2)%3/%4/%5/%6%7")
-                    .arg(sx).arg(sy)
-                    .arg(static_cast<int>(r)).arg(static_cast<int>(g))
-                    .arg(static_cast<int>(b)).arg(static_cast<int>(a))
-                    .arg(strictlyStraight ? QStringLiteral("!") : QString()));
-            }
-            const QString alphaVerdict = strictlyStraightCount > 0
-                ? QStringLiteral("straight_confirmed")
-                : (partialAlphaCount == 0
-                    ? QStringLiteral("no_partial_alpha_sampled")
-                    : QStringLiteral("ambiguous_no_strict_straight_pixel"));
-            appendVideoExportLog(
-                QStringLiteral("alpha_sample"),
-                QStringLiteral("frame=%1 size=%2x%3 verdict=%4 partial=%5 strict_straight=%6 samples=%7")
-                    .arg(frameIndex)
-                    .arg(frameWidth).arg(frameHeight)
-                    .arg(alphaVerdict)
-                    .arg(partialAlphaCount)
-                    .arg(strictlyStraightCount)
-                    .arg(samplePieces.join(QLatin1Char(' ')))
-            );
-        }
 
         if (diagPipeHashEnabled && !traceItems.isEmpty()) {
             ++diagPipeHashObjectFrames;

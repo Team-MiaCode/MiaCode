@@ -51,7 +51,7 @@ void appendD3D11ExportSessionLog(const QString& scope, const QString& detail = Q
 }
 
 // Same conversion contract as the OpenGL session's
-// convertBottomUpPremultipliedReadbackToStraightRgba (sync pair — the encoded
+// convertBottomUpReadbackToRgba (sync pair — the encoded
 // frames from both backends must be pixel-identical), with two D3D11-specific
 // differences: the mapped staging rows are TOP-DOWN (no vertical flip) and the
 // source stride is the driver-chosen RowPitch, not width*4.

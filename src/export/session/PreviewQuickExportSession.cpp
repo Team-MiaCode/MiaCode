@@ -377,7 +377,7 @@ QImage PreviewQuickExportSession::renderFrame(QString* errorMessage)
     );
     gl->glPixelStorei(GL_PACK_ALIGNMENT, previousPackAlignment);
     QImage* readbackSlot = nextReadbackRingSlot();
-    if (!convertBottomUpPremultipliedReadbackToStraightRgba(
+    if (!convertBottomUpReadbackToRgba(
             reinterpret_cast<const uchar*>(directReadbackBuffer_.constData()),
             static_cast<qsizetype>(pixelSize.width()) * 4,
             pixelSize,
@@ -757,7 +757,7 @@ void PreviewQuickExportSession::resetReadbackRing()
     readbackRingIndex_ = 0;
 }
 
-bool PreviewQuickExportSession::convertBottomUpPremultipliedReadbackToStraightRgba(
+bool PreviewQuickExportSession::convertBottomUpReadbackToRgba(
     const uchar* sourceBytes,
     qsizetype sourceBytesPerRow,
     const QSize& imageSize,
@@ -795,15 +795,18 @@ bool PreviewQuickExportSession::convertBottomUpPremultipliedReadbackToStraightRg
     // returns nullptr, so the per-pixel `dst[...] = ...` store faults on a
     // near-null address. Allocating explicitly here routes any OOM through the
     // checked isNull() path instead of crashing the export worker.
+    const QImage::Format outputFormat = preservePremultipliedReadback_
+        ? QImage::Format_RGBA8888_Premultiplied
+        : QImage::Format_RGBA8888;
     if (frame->isNull()
         || frame->size() != safeSize
-        || frame->format() != QImage::Format_RGBA8888
+        || frame->format() != outputFormat
         || !frame->isDetached()) {
-        *frame = QImage(safeSize, QImage::Format_RGBA8888);
+        *frame = QImage(safeSize, outputFormat);
     }
     if (frame->isNull()) {
         if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("failed to allocate Quick export straight RGBA frame buffer");
+            *errorMessage = QStringLiteral("failed to allocate Quick export RGBA frame buffer");
         }
         return false;
     }
@@ -822,6 +825,10 @@ bool PreviewQuickExportSession::convertBottomUpPremultipliedReadbackToStraightRg
                     "Quick export readback scanLine returned null (out of memory?)");
             }
             return false;
+        }
+        if (preservePremultipliedReadback_) {
+            std::memcpy(outputRow, sourceRowBytes, static_cast<size_t>(expectedBytesPerRow));
+            continue;
         }
         for (int x = 0; x < safeSize.width(); ++x) {
             const uchar* src = sourceRowBytes + x * 4;
@@ -850,7 +857,7 @@ bool PreviewQuickExportSession::convertBottomUpPremultipliedReadbackToStraightRg
 
 // Convert worker. Pulls a (sourceBytes, size) handoff out of the
 // producer-set fields under convertMutex_, runs the existing
-// convertBottomUpPremultipliedReadbackToStraightRgba into the worker's
+// convertBottomUpReadbackToRgba into the worker's
 // own QImage, and signals back. The producer guarantees exclusive
 // access to the staging buffer between submit and wait, so the worker
 // can read sourceBytes lock-free during the conversion itself.
@@ -875,7 +882,7 @@ void PreviewQuickExportSession::convertWorkerLoop()
         }
         QImage output;
         QString err;
-        const bool ok = convertBottomUpPremultipliedReadbackToStraightRgba(
+        const bool ok = convertBottomUpReadbackToRgba(
             sourceBytes, sourceBytesPerRow, size, &output, &err);
         {
             std::lock_guard<std::mutex> lock(convertMutex_);
@@ -1138,7 +1145,7 @@ bool PreviewQuickExportSession::mapOffscreenReadbackPbo(
 
     const uchar* sourceBytes = static_cast<const uchar*>(mapped);
     QImage* readbackSlot = nextReadbackRingSlot();
-    const bool normalized = convertBottomUpPremultipliedReadbackToStraightRgba(
+    const bool normalized = convertBottomUpReadbackToRgba(
         sourceBytes,
         bytesPerRow,
         safeSize,
