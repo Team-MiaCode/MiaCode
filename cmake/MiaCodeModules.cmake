@@ -576,6 +576,7 @@ miacode_add_module(miacode_export
         src/export/video_export/VideoExportEstimateHistory.cpp
         src/export/video_export/VideoExportEstimateHistory.h
         src/export/video_export/VideoExportEncoder.cpp
+        src/export/video_export/VideoExportEncodingParameters.cpp
         src/export/video_export/VideoExportFrameRender.cpp
         src/export/video_export/VideoExportPendingFrameRedraw.h
         src/export/video_export/VideoExportPipeline.cpp

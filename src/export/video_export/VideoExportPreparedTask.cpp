@@ -742,21 +742,23 @@ VideoExportResult VideoExportController::exportPreparedTask(
     const SystemMemoryInfo memoryInfo = querySystemMemoryInfo();
     appendVideoExportLog(QStringLiteral("memory_snapshot"), memoryInfoToLog(memoryInfo));
     QString encoderProbeLog;
-    // The export preset controls both readback and encoder tuning. Fast prefers
-    // hardware encoding and uses a faster libx264 fallback; HighQuality keeps
-    // the existing compactness-oriented policy.
-    const VideoEncoderConfig encoderConfig = chooseVideoEncoder(
-        ffmpegPath,
-        frameWidth,
-        frameHeight,
-        task.fps,
-        task.preset,
-        task.sizePreset,
-        memoryInfo,
-        exportConfig,
-        &encoderProbeLog
-    );
+    VideoEncoderConfig encoderConfig = chooseVideoEncoder(
+        ffmpegPath, frameWidth, frameHeight, task.fps, exportConfig, &encoderProbeLog);
     appendVideoExportLog(QStringLiteral("encoder_select"), encoderProbeLog);
+    if (encoderConfig.codec.isEmpty()) {
+        result.message = QStringLiteral("Unable to select video encoder.");
+        result.details = withExportLogPath(encoderProbeLog);
+        appendVideoExportLog(QStringLiteral("fail_video_encoder_select"), encoderProbeLog);
+        return result;
+    }
+    applyVideoEncodingParameters(&encoderConfig, task.preset, task.sizePreset,
+        frameWidth, frameHeight, task.fps, memoryInfo, exportConfig);
+    appendVideoExportLog(QStringLiteral("encoding_parameters"),
+        QStringLiteral("preset=%1 sizePreset=%2 codec=%3 args=%4")
+            .arg(videoExportPresetToken(task.preset))
+            .arg(miacode::video_export::videoExportSizePresetToken(task.sizePreset))
+            .arg(encoderConfig.codec)
+            .arg(encoderConfig.extraArgs.join(QLatin1Char(' '))));
     if (encoderConfig.needsVaapiHwUpload) {
         if (encoderConfig.vaapiDevicePath.isEmpty()) {
             result.message = QStringLiteral("VAAPI encoder selected but no DRM render node was found.");
@@ -940,29 +942,12 @@ VideoExportResult VideoExportController::exportPreparedTask(
                     .arg(introPvUnderlay ? 1 : 0));
         }
     }
-    // On OpenGL, the export preset selects the readback path:
-    //   HighQuality (default) -> synchronous non-PBO readback
-    //       (renderFrameOffscreen): glReadPixels through a CPU pointer
-    //       the driver must serialize, so it cannot tear. ~20-30% slower at
-    //       1080p60.
-    //   Fast -> pipelined async glReadPixels(FBO->PBO): faster, but on some
-    //       GL drivers prone to per-frame horizontal-band tearing that the
-    //       in-engine fence could not fully prevent (observed on a GL 4.6
-    //       context whose fence wait never failed). Speed-over-fidelity.
-    // D3D11 uses its staging-ring pipeline in both presets because it retains
-    // the same deterministic Map/convert contract as the synchronous path.
-    //
-    // MIACODE_EXPORT_DISABLE_PBO_READBACK=1 is a hard diagnostic override that
-    // forces the synchronous path regardless of the quality choice.
-    const bool highQualityForcesSyncReadback =
-        task.preset == VideoExportPreset::HighQuality;
     const bool disablePboReadbackViaEnv =
         qEnvironmentVariableIntValue("MIACODE_EXPORT_DISABLE_PBO_READBACK") == 1;
     const bool requestOffscreenPboReadback =
         useOffscreenGpu
         && exportConfig.renderBackend.requestOffscreenPboReadback
-        && !disablePboReadbackViaEnv
-        && (d3d11SessionActive || !highQualityForcesSyncReadback);
+        && !disablePboReadbackViaEnv;
     QString offscreenPboError;
     bool useOffscreenPboReadback = false;
     if (requestOffscreenPboReadback) {
@@ -979,11 +964,6 @@ VideoExportResult VideoExportController::exportPreparedTask(
         appendVideoExportLog(
             QStringLiteral("pbo_readback_disabled_via_env"),
             QStringLiteral("MIACODE_EXPORT_DISABLE_PBO_READBACK=1"));
-    }
-    if (highQualityForcesSyncReadback && !d3d11SessionActive) {
-        appendVideoExportLog(
-            QStringLiteral("pbo_readback_disabled_by_quality"),
-            QStringLiteral("exportQuality=high_quality readback=synchronous"));
     }
     // P1/P5.3 — spell out which offscreen session the export uses (OpenGL
     // QQuickRenderControl by default; d3d11_qrhi via the hidden switch), the

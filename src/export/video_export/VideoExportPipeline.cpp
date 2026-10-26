@@ -106,6 +106,7 @@ bool shouldWriteSummaryExportStage(const QString& stage)
         QStringLiteral("audio_backend_select"),
         QStringLiteral("audio_mix_ok"),
         QStringLiteral("encoder_select"),
+        QStringLiteral("encoding_parameters"),
         QStringLiteral("skin_bootstrap"),
         QStringLiteral("render_backend"),
         QStringLiteral("d3d11_readback_pipeline"),

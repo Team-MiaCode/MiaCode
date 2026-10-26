@@ -602,6 +602,7 @@ miacode::LocalizedText localizeExportWorkerFailureForUiLanguage(
         {QStringLiteral("Unable to build export audio render plan."), "dialog.video_export.error.audio_failed"},
         {QStringLiteral("Failed to start WAV finalization."), "dialog.video_export.error.audio_failed"},
         {QStringLiteral("WAV finalization failed."), "dialog.video_export.error.audio_failed"},
+        {QStringLiteral("Unable to select video encoder."), "dialog.video_export.error.encode_failed"},
         {QStringLiteral("ffmpeg encode failed."), "dialog.video_export.error.encode_failed"},
         {QStringLiteral("ffmpeg process failed."), "dialog.video_export.error.encode_failed"},
         {QStringLiteral("ffmpeg exited unexpectedly during frame piping."), "dialog.video_export.error.encode_failed"},
