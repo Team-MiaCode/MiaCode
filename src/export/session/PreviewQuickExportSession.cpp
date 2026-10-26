@@ -1,4 +1,5 @@
 #include "export/session/PreviewQuickExportSession.h"
+#include "export/session/ExportQuickBackgroundItem.h"
 
 #include "common/DebugLog.h"
 #include "preview/quick_scene/PreviewQuickHudLayer.h"
@@ -67,6 +68,20 @@ PreviewQuickExportSession::~PreviewQuickExportSession()
 {
     stopConvertWorker();
     invalidate();
+}
+
+void PreviewQuickExportSession::setBackgroundFrame(const QImage& image, bool cacheable, bool fullFrame, qreal brightness)
+{
+    backgroundEnabled_ = true;
+    backgroundFullFrame_ = fullFrame;
+    backgroundBrightness_ = brightness;
+    frameState_.media.resolvedStageImage = image;
+    frameState_.media.resolvedStageImageCacheable = cacheable;
+    frameState_.media.stageMediaSerial = image.cacheKey();
+    if (backgroundItem_) {
+        backgroundItem_->setVisible(true);
+        backgroundItem_->setFrameState(frameState_, fullFrame, brightness);
+    }
 }
 
 void PreviewQuickExportSession::setFrameState(const miacode::preview::scene::PreviewFrameState& state)
@@ -217,6 +232,9 @@ bool PreviewQuickExportSession::initialize(
 
     rootItem_ = new QQuickItem(quickWindow_->contentItem());
 
+    backgroundItem_ = new ExportQuickBackgroundItem(rootItem_);
+    backgroundItem_->setZ(-1.0);
+    backgroundItem_->setVisible(backgroundEnabled_);
     sceneRoot_ = new PreviewQuickSceneRoot(rootItem_);
     sceneRoot_->setZ(0.0);
 
@@ -284,6 +302,7 @@ void PreviewQuickExportSession::invalidate()
         quickWindow_ = nullptr;
         rootItem_ = nullptr;
         sceneRoot_ = nullptr;
+    backgroundItem_ = nullptr;
         hudLayer_ = nullptr;
         renderControl_ = nullptr;
         context_ = nullptr;
@@ -303,6 +322,7 @@ void PreviewQuickExportSession::invalidate()
     quickWindow_ = nullptr;
     rootItem_ = nullptr;
     sceneRoot_ = nullptr;
+    backgroundItem_ = nullptr;
     hudLayer_ = nullptr;
 
     delete renderControl_;
@@ -1299,6 +1319,7 @@ void PreviewQuickExportSession::applyFrameSize()
     rootItem_->setPosition(QPointF(0.0, 0.0));
     rootItem_->setSize(QSizeF(frameSize_));
 
+    backgroundItem_->setSize(QSizeF(frameSize_));
     sceneRoot_->setPosition(QPointF(0.0, 0.0));
     sceneRoot_->setSize(QSizeF(frameSize_));
     sceneRoot_->update();
@@ -1436,6 +1457,9 @@ void PreviewQuickExportSession::setIntroFrame(int authoringFrame, bool active)
 
 void PreviewQuickExportSession::applyFrameState()
 {
+    if (backgroundItem_ && backgroundEnabled_) {
+        backgroundItem_->setFrameState(frameState_, backgroundFullFrame_, backgroundBrightness_);
+    }
     bindFrameStateIfNeeded();
     applyLayerFlagsIfNeeded();
     requestFrameRefresh();

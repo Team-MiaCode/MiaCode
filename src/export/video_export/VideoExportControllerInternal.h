@@ -336,6 +336,7 @@ struct ReadyFramePayload {
 // this frame was submitted with rather than the state of whichever frame the
 // loop has reached by then.
 struct ExportFrameRenderParams {
+    double outputSecond = 0.0;
     int frameIndex = -1;
     double exportSecond = 0.0;
     bool showTimestamp = false;
@@ -488,34 +489,8 @@ bool drainPendingExportFrame(
     ReadyFramePayload* readyFrame,
     QString* errorMessage
 );
-QImage buildCircularDimMaskImage(
-    int frameWidth,
-    int frameHeight,
-    double outerDimAlpha,
-    double innerDimAlpha,
-    double layoutRingDiameterRatio,
-    double layoutSquareScale,
-    bool smoothBrightness
-);
-QImage buildCircularMediaMaskImage(
-    int frameWidth,
-    int frameHeight,
-    double layoutSquareScale
-);
-QRectF staticMediaTargetRect(
-    const QSize& mediaSize,
-    const QSize& outputSize,
-    PreviewBackgroundScaleMode scaleMode);
-bool stageStaticBackgroundImageForExport(
-    const QString& sourcePath,
-    const QSize& outputSize,
-    PreviewBackgroundScaleMode scaleMode,
-    double layoutSquareScale,
-    const QString& stagedPath,
-    QString* detail);
 bool preparePackedRgbaFrame(
     const QImage& frame,
-    bool preservePremultiplied,
     QImage* convertedFrame,
     QByteArray* packedScratch,
     const char** data,
