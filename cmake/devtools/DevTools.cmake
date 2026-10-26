@@ -21,6 +21,7 @@ foreach(icon_file IN LISTS MIACODE_UI_ICON_FILES)
     configure_file("${icon_file}" "${_miacode_qml_spec_module_dir}/icons/${_icon_name}" COPYONLY)
 endforeach()
 file(WRITE "${_miacode_qml_spec_module_dir}/qmldir" "${_miacode_qml_spec_qmldir}")
+configure_file("${MIACODE_THEME_PALETTE_SCRIPT}" "${_miacode_qml_spec_module_dir}/ThemePalettes.js" COPYONLY)
 
 include(${CMAKE_CURRENT_LIST_DIR}/MiaCodeDevToolHelpers.cmake)
 

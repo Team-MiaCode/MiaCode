@@ -8,6 +8,7 @@
 
 #include <QCoreApplication>
 #include <QGuiApplication>
+#include <QFontDatabase>
 #include <QJsonObject>
 #include <QJsonValue>
 #include <QDate>
@@ -31,6 +32,7 @@ constexpr auto kPreviewDetached = "preview_detached";
 constexpr auto kPreviewCanvasFreeAspect = "preview_canvas_free_aspect";
 constexpr auto kPreviewHidePv = "preview_hide_pv";
 constexpr auto kFontSize = "ui_font_size";
+constexpr auto kEditorFontFamily = "editor_text_font_family";
 constexpr auto kUiScalePercent = "ui_scale_percent";
 constexpr auto kEditorAutoWrap = "editor_auto_wrap";
 constexpr auto kEditorScrollPastEnd = "editor_scroll_past_end";
@@ -294,6 +296,24 @@ QString WorkbenchSettings::activeThemeToken() const
 }
 bool WorkbenchSettings::darkTheme() const { return darkTheme_; }
 QFont WorkbenchSettings::codeFont() const { return codeFont_; }
+QString WorkbenchSettings::editorFontFamily() const
+{
+    const QString family = loadUiObject().value(QLatin1String(kEditorFontFamily)).toString();
+    return QFontDatabase::families().contains(family, Qt::CaseInsensitive) ? family : QString();
+}
+
+void WorkbenchSettings::setEditorFontFamily(const QString& family)
+{
+    const QString normalized = family.trimmed();
+    if (!normalized.isEmpty() && !QFontDatabase::families().contains(normalized, Qt::CaseInsensitive)) return;
+    if (normalized == editorFontFamily()) return;
+    const QFont previousFont = codeFont_;
+    storeUiValue(kEditorFontFamily, normalized);
+    reloadEditorSettings();
+    // An explicit choice can resolve to the same face as the default option.
+    if (codeFont_ == previousFont) emit editorSettingsChanged();
+}
+
 int WorkbenchSettings::editorBlockSpacing() const { return editorBlockSpacing_; }
 int WorkbenchSettings::fontSize() const { return fontSize_; }
 bool WorkbenchSettings::editorHalfWidthInputEnabled() const { return editorHalfWidthInputEnabled_; }
@@ -406,6 +426,7 @@ void WorkbenchSettings::setThemeModeToken(const QString& token)
 void WorkbenchSettings::setLightThemeToken(const QString& token)
 {
     const PreferenceDocument::ThemePalette next = PreferenceDocument::themePaletteFromToken(token);
+    if (PreferenceDocument::themePaletteIsDark(next)) return;
     if (next == PreferenceDocument::preferredLightTheme()) {
         return;
     }
@@ -416,6 +437,7 @@ void WorkbenchSettings::setLightThemeToken(const QString& token)
 void WorkbenchSettings::setDarkThemeToken(const QString& token)
 {
     const PreferenceDocument::ThemePalette next = PreferenceDocument::themePaletteFromToken(token);
+    if (!PreferenceDocument::themePaletteIsDark(next)) return;
     if (next == PreferenceDocument::preferredDarkTheme()) {
         return;
     }

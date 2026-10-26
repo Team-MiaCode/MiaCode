@@ -29,6 +29,10 @@ enum class ThemePalette {
     Dark,
     Legacy,
     LegacyLight,
+    Midnight,
+    Forest,
+    Paper,
+    Lavender,
 };
 
 struct LanguageOption {

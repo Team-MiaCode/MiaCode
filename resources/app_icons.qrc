@@ -4,5 +4,6 @@
         <file alias="icons/app-original.png">icons/app-original.png</file>
         <file alias="icons/checkmark.svg">icons/checkmark.svg</file>
         <file alias="config/shortcuts.json">shortcuts.json</file>
+        <file alias="themes/palettes.json">themes/palettes.json</file>
     </qresource>
 </RCC>
