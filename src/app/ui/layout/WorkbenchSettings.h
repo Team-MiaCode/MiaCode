@@ -47,6 +47,7 @@ class WorkbenchSettings final : public QObject
     Q_PROPERTY(bool darkTheme READ darkTheme NOTIFY themeChanged)
     Q_PROPERTY(bool blurMaterialsEnabled READ blurMaterialsEnabled WRITE setBlurMaterialsEnabled NOTIFY blurMaterialsEnabledChanged)
     Q_PROPERTY(QFont codeFont READ codeFont NOTIFY editorSettingsChanged)
+    Q_PROPERTY(QString editorFontFamily READ editorFontFamily WRITE setEditorFontFamily NOTIFY editorSettingsChanged)
     Q_PROPERTY(int editorBlockSpacing READ editorBlockSpacing NOTIFY editorSettingsChanged)
     Q_PROPERTY(int fontSize READ fontSize WRITE setFontSize NOTIFY fontSizeChanged)
     Q_PROPERTY(bool editorHalfWidthInputEnabled READ editorHalfWidthInputEnabled NOTIFY editorSettingsChanged)
@@ -96,6 +97,8 @@ public:
     bool blurMaterialsEnabled() const { return blurMaterialsEnabled_; }
     void setBlurMaterialsEnabled(bool enabled);
     QFont codeFont() const;
+    QString editorFontFamily() const;
+    void setEditorFontFamily(const QString& family);
     int editorBlockSpacing() const;
     int fontSize() const;
     bool editorHalfWidthInputEnabled() const;

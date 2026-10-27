@@ -310,11 +310,17 @@ PreferenceDocument::ThemePalette loadStoredThemePalette(const char* key)
 {
     const QJsonObject ui = PreferenceDocument::loadPreferencesObject()
                                .value(kUiSectionKey).toObject();
-    return PreferenceDocument::themePaletteFromToken(
+    const bool darkSlot = QLatin1String(key) == QLatin1String(kDarkThemeKey);
+    const auto palette = PreferenceDocument::themePaletteFromToken(
         ui.value(QLatin1String(key)).toString(
             QLatin1String(key) == QLatin1String(kLightThemeKey)
                 ? QStringLiteral("light")
                 : QStringLiteral("dark")));
+    // Older builds allowed assigning a palette to the opposite appearance slot.
+    if (PreferenceDocument::themePaletteIsDark(palette) != darkSlot) {
+        return darkSlot ? PreferenceDocument::ThemePalette::Dark : PreferenceDocument::ThemePalette::Light;
+    }
+    return palette;
 }
 
 void saveStoredLanguagePreference(PreferenceDocument::LanguagePreference preference)
@@ -499,6 +505,14 @@ QString PreferenceDocument::themePaletteToken(ThemePalette palette)
         return QStringLiteral("legacy");
     case ThemePalette::LegacyLight:
         return QStringLiteral("legacy_light");
+    case ThemePalette::Midnight:
+        return QStringLiteral("midnight");
+    case ThemePalette::Forest:
+        return QStringLiteral("forest");
+    case ThemePalette::Paper:
+        return QStringLiteral("paper");
+    case ThemePalette::Lavender:
+        return QStringLiteral("lavender");
     default:
         return QStringLiteral("dark");
     }
@@ -516,12 +530,17 @@ PreferenceDocument::ThemePalette PreferenceDocument::themePaletteFromToken(const
     if (normalized == QLatin1String("legacy_light")) {
         return ThemePalette::LegacyLight;
     }
+    if (normalized == QLatin1String("midnight")) return ThemePalette::Midnight;
+    if (normalized == QLatin1String("forest")) return ThemePalette::Forest;
+    if (normalized == QLatin1String("paper")) return ThemePalette::Paper;
+    if (normalized == QLatin1String("lavender")) return ThemePalette::Lavender;
     return ThemePalette::Dark;
 }
 
 bool PreferenceDocument::themePaletteIsDark(ThemePalette palette)
 {
-    return palette == ThemePalette::Dark || palette == ThemePalette::Legacy;
+    return palette == ThemePalette::Dark || palette == ThemePalette::Legacy
+        || palette == ThemePalette::Midnight || palette == ThemePalette::Forest;
 }
 
 PreferenceDocument::LanguagePreference PreferenceDocument::preferredLanguage()

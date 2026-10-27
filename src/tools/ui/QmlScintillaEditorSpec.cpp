@@ -1,6 +1,8 @@
 #include "scintillaquick_validation_access.h"
 #include "app/ui/editor/ScintillaDocumentAdapter.h"
 #include "app/ui/editor/ScintillaDslStyler.h"
+#include "app/services/EditorTypography.h"
+#include "app/ui/editor/EditorContextMenu.h"
 
 #include <QGuiApplication>
 #include <QEventLoop>
@@ -90,6 +92,36 @@ bool testEditor(QTextStream& out, const QString& capturePath)
     styler.follow(true, 0, 7);
     editor.send(SCI_SETSELECTION, 10, 2);
     if (!checkFrame(editor, initial + QLatin1Char('5'), out)) return false;
+
+    const auto anchorBefore = editor.send(SCI_GETANCHOR);
+    const auto caretBefore = editor.send(SCI_GETCURRENTPOS);
+    const auto undoBefore = editor.send(SCI_CANUNDO);
+    for (const auto& point : {QPointF(700, 400), QPointF(130, 10)}) {
+        miacode::ui::prepareEditorContextMenu(editor, point);
+        if (editor.send(SCI_GETANCHOR) != anchorBefore || editor.send(SCI_GETCURRENTPOS) != caretBefore
+            || editor.send(SCI_CANUNDO) != undoBefore) {
+            out << "context menu lost the existing selection" << Qt::endl;
+            return false;
+        }
+    }
+    editor.send(SCI_SETEMPTYSELECTION, 0);
+    const QPointF caretTarget(editor.send(SCI_POINTXFROMPOSITION, 0, 6),
+                              editor.send(SCI_POINTYFROMPOSITION, 0, 6) + 1);
+    miacode::ui::prepareEditorContextMenu(editor, caretTarget);
+    if (editor.send(SCI_GETCURRENTPOS) != 6 || !editor.send(SCI_GETSELECTIONEMPTY)) {
+        out << "context menu without selection did not move the caret" << Qt::endl;
+        return false;
+    }
+    editor.send(SCI_SETSELECTION, caretBefore, anchorBefore);
+    const QFont changedFont = miacode::editor_typography::resolveFont(
+        QFontDatabase::systemFont(QFontDatabase::GeneralFont).family(), 17);
+    editor.setProperty("font", changedFont);
+    styler.setAppearance(changedFont, palette);
+    if (editor.send(SCI_GETANCHOR) != anchorBefore || editor.send(SCI_GETCURRENTPOS) != caretBefore
+        || editor.send(SCI_CANUNDO) != undoBefore || document.text() != initial + QLatin1Char('5')) {
+        out << "font change lost editor state" << Qt::endl;
+        return false;
+    }
 
     QEventLoop loop;
     QObject::connect(&window, &QQuickWindow::frameSwapped, &loop, &QEventLoop::quit);
