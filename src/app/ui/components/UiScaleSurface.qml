@@ -16,6 +16,30 @@ Item {
     scale: scaleFactor
     transformOrigin: Item.TopLeft
 
+    function updateOverlaySize() {
+        if (!overlayItem || !hostWindow)
+            return
+        overlayItem.width = hostWindow.width / scaleFactor
+        overlayItem.height = hostWindow.height / scaleFactor
+    }
+
+    Component.onCompleted: updateOverlaySize()
+    onOverlayItemChanged: updateOverlaySize()
+    onHostWindowChanged: updateOverlaySize()
+    onScaleFactorChanged: updateOverlaySize()
+
+    Connections {
+        target: root.overlayItem
+        function onWidthChanged() { root.updateOverlaySize() }
+        function onHeightChanged() { root.updateOverlaySize() }
+    }
+
+    Connections {
+        target: root.hostWindow
+        function onWidthChanged() { root.updateOverlaySize() }
+        function onHeightChanged() { root.updateOverlaySize() }
+    }
+
     Binding {
         target: root.overlayItem
         property: "scale"
@@ -25,15 +49,5 @@ Item {
         target: root.overlayItem
         property: "transformOrigin"
         value: Item.TopLeft
-    }
-    Binding {
-        target: root.overlayItem
-        property: "width"
-        value: root.hostWindow ? root.hostWindow.width / root.scaleFactor : 0
-    }
-    Binding {
-        target: root.overlayItem
-        property: "height"
-        value: root.hostWindow ? root.hostWindow.height / root.scaleFactor : 0
     }
 }
