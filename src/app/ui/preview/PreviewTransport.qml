@@ -18,7 +18,7 @@ Item {
     // frequent stop/play pair then moves to the editor-adjacent edge, next to
     // the scrub area, while the lower-frequency options move away from it.
     property bool transportMirrored: false
-    readonly property real topEdgeCenterY: 0.5 / root.Screen.devicePixelRatio
+    readonly property real topEdgeCenterY: 0.5 / (root.Screen.devicePixelRatio * Theme.uiScale)
     signal detachRequested()
     signal dockRequested()
 
@@ -41,7 +41,7 @@ Item {
         y: root.topEdgeCenterY - height / 2
         z: 1
         height: root.topEdgeHighlighted ? Theme.splitHandleActiveThickness
-                                       : 1 / root.Screen.devicePixelRatio
+                                       : 1 / (root.Screen.devicePixelRatio * Theme.uiScale)
         color: root.topEdgeHighlighted ? Theme.colors.accent.focus : Theme.separatorColor
     }
 
