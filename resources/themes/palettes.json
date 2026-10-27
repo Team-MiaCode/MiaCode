@@ -808,7 +808,7 @@
           "laneOdd": "#05FFFFFF",
           "label": "#ACBBD2",
           "textSecondary": "#ACBBD2",
-          "waveStroke": "#7192C8"
+          "waveStroke": "#907192C8"
         }
       },
       "native": {
@@ -977,7 +977,7 @@
           "laneOdd": "#05FFFFFF",
           "label": "#ACBFB2",
           "textSecondary": "#ACBFB2",
-          "waveStroke": "#669B86"
+          "waveStroke": "#90669B86"
         }
       },
       "native": {
@@ -1146,7 +1146,7 @@
           "laneOdd": "#05000000",
           "label": "#706150",
           "textSecondary": "#706150",
-          "waveStroke": "#79542B"
+          "waveStroke": "#A679542B"
         }
       },
       "native": {
@@ -1315,7 +1315,7 @@
           "laneOdd": "#05000000",
           "label": "#70617F",
           "textSecondary": "#70617F",
-          "waveStroke": "#634780"
+          "waveStroke": "#A6634780"
         }
       },
       "native": {
