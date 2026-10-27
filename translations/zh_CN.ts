@@ -1310,12 +1310,12 @@ Failed: %2</source>
         <translation>深色主题</translation>
     </message>
     <message id="dialog.preferences.theme.legacy">
-        <source>Classic Dark</source>
-        <translation>经典深色</translation>
+        <source>Classic</source>
+        <translation>经典</translation>
     </message>
-    <message id="dialog.preferences.theme.legacy_light">
-        <source>Classic Light</source>
-        <translation>经典浅色</translation>
+    <message id="dialog.preferences.theme.default">
+        <source>Default</source>
+        <translation>默认</translation>
     </message>
     <message id="dialog.preferences.theme.light">
         <source>Light</source>

@@ -1310,12 +1310,12 @@ Failed: %2</translation>
         <translation>Dark theme</translation>
     </message>
     <message id="dialog.preferences.theme.legacy">
-        <source>Classic Dark</source>
-        <translation>Classic Dark</translation>
+        <source>Classic</source>
+        <translation>Classic</translation>
     </message>
-    <message id="dialog.preferences.theme.legacy_light">
-        <source>Classic Light</source>
-        <translation>Classic Light</translation>
+    <message id="dialog.preferences.theme.default">
+        <source>Default</source>
+        <translation>Default</translation>
     </message>
     <message id="dialog.preferences.theme.light">
         <source>Light</source>

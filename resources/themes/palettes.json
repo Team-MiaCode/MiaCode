@@ -690,7 +690,7 @@
           "controlDisabled": "#1B263B",
           "titleBar": "#141C2E",
           "activityBar": "#141C2E",
-          "statusBar": "#1B263B"
+          "statusBar": "#141C2E"
         },
         "border": {
           "normal": "#354662",
@@ -718,8 +718,8 @@
         "accent": {
           "primary": "#406CB2",
           "badge": "#406CB2",
-          "soft": "#23385C",
-          "focus": "#406CB2",
+          "soft": "#A8C4EC",
+          "focus": "#B3406CB2",
           "muted": "#375A94"
         },
         "scroll": {
@@ -815,7 +815,7 @@
         "windowBg": "#141C2E",
         "windowAltBg": "#1B263B",
         "toolbarBg": "#141C2E",
-        "statusBg": "#1B263B",
+        "statusBg": "#141C2E",
         "panelBg": "#1B263B",
         "cardBg": "#23324A",
         "cardAltBg": "#374256",
@@ -859,7 +859,7 @@
           "controlDisabled": "#1C3028",
           "titleBar": "#15241F",
           "activityBar": "#15241F",
-          "statusBar": "#1C3028"
+          "statusBar": "#15241F"
         },
         "border": {
           "normal": "#354E42",
@@ -887,8 +887,8 @@
         "accent": {
           "primary": "#31785E",
           "badge": "#31785E",
-          "soft": "#1F4135",
-          "focus": "#31785E",
+          "soft": "#A2CBB6",
+          "focus": "#B331785E",
           "muted": "#2C6650"
         },
         "scroll": {
@@ -984,7 +984,7 @@
         "windowBg": "#15241F",
         "windowAltBg": "#1C3028",
         "toolbarBg": "#15241F",
-        "statusBg": "#1C3028",
+        "statusBg": "#15241F",
         "panelBg": "#1C3028",
         "cardBg": "#253D32",
         "cardAltBg": "#384A42",
@@ -1026,14 +1026,14 @@
           "elevated": "#FFFCF4",
           "control": "#FFFCF4",
           "controlDisabled": "#F1E8D8",
-          "titleBar": "#FBF5E9",
-          "activityBar": "#FBF5E9",
-          "statusBar": "#F1E8D8"
+          "titleBar": "#F1E3CF",
+          "activityBar": "#F1E3CF",
+          "statusBar": "#94642E"
         },
         "border": {
           "normal": "#D3C1A5",
           "control": "#B4A48B",
-          "status": "#D3C1A5"
+          "status": "#765024"
         },
         "text": {
           "active": "#392F24",
@@ -1046,7 +1046,7 @@
           "heading": "#392F24",
           "onAccent": "#FFFFFF",
           "onDanger": "#FFFFFF",
-          "status": "#706150",
+          "status": "#FFFFFF",
           "chrome": "#706150"
         },
         "previewHud": {
@@ -1057,7 +1057,7 @@
           "primary": "#94642E",
           "badge": "#94642E",
           "soft": "#D7C2A8",
-          "focus": "#94642E",
+          "focus": "#B394642E",
           "muted": "#AB8558"
         },
         "scroll": {
@@ -1152,8 +1152,8 @@
       "native": {
         "windowBg": "#FBF5E9",
         "windowAltBg": "#F1E8D8",
-        "toolbarBg": "#FBF5E9",
-        "statusBg": "#F1E8D8",
+        "toolbarBg": "#F1E3CF",
+        "statusBg": "#94642E",
         "panelBg": "#F1E8D8",
         "cardBg": "#FFFCF4",
         "cardAltBg": "#D7CEBF",
@@ -1195,14 +1195,14 @@
           "elevated": "#FFFDFE",
           "control": "#FFFDFE",
           "controlDisabled": "#EEE7F6",
-          "titleBar": "#F7F3FC",
-          "activityBar": "#F7F3FC",
-          "statusBar": "#EEE7F6"
+          "titleBar": "#E8DEF4",
+          "activityBar": "#E8DEF4",
+          "statusBar": "#77549B"
         },
         "border": {
           "normal": "#CEBEDF",
           "control": "#AFA0BF",
-          "status": "#CEBEDF"
+          "status": "#5F437C"
         },
         "text": {
           "active": "#352840",
@@ -1215,7 +1215,7 @@
           "heading": "#352840",
           "onAccent": "#FFFFFF",
           "onDanger": "#FFFFFF",
-          "status": "#70617F",
+          "status": "#FFFFFF",
           "chrome": "#70617F"
         },
         "previewHud": {
@@ -1226,7 +1226,7 @@
           "primary": "#77549B",
           "badge": "#77549B",
           "soft": "#CABBDA",
-          "focus": "#77549B",
+          "focus": "#B377549B",
           "muted": "#9579B2"
         },
         "scroll": {
@@ -1321,8 +1321,8 @@
       "native": {
         "windowBg": "#F7F3FC",
         "windowAltBg": "#EEE7F6",
-        "toolbarBg": "#F7F3FC",
-        "statusBg": "#EEE7F6",
+        "toolbarBg": "#E8DEF4",
+        "statusBg": "#77549B",
         "panelBg": "#EEE7F6",
         "cardBg": "#FFFDFE",
         "cardAltBg": "#D4CCDD",

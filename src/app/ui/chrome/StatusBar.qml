@@ -48,7 +48,7 @@ Rectangle {
             objectName: "statusBarUpdateBadge"
             visible: root.updateAvailable
             text: qsTrId("status.update_available").arg(root.updateVersion)
-            color: Theme.colors.text.active
+            color: Theme.colors.text.status
             Layout.preferredWidth: implicitWidth
 
             MouseArea {
