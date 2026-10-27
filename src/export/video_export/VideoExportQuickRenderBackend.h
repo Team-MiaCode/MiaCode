@@ -7,6 +7,7 @@
 
 #include "core/video/PreviewRenderSettings.h"
 #include "export/video_export/VideoExportController.h"
+#include "export/video_export/VideoExportStageMediaSource.h"
 #include "export/session/PreviewQuickD3D11ExportSession.h"
 #include "export/session/PreviewQuickExportSession.h"
 #include "preview/runtime/PreviewSceneAssetRepository.h"
@@ -28,14 +29,14 @@ class VideoExportQuickRenderBackend
 public:
     bool bootstrap(
         const VideoExportTask& task,
-        bool stageMediaAvailable,
+        const QString& stageMediaPath,
         const QVector<TimelineNoteMarker>& noteMarkers,
         const MuriAnalysisReport& muriAnalysisReport,
         const QSize& frameSize,
         QString* errorMessage = nullptr
     );
 
-    void copyRenderStateFrom(const VideoExportQuickRenderBackend& source);
+    bool copyRenderStateFrom(const VideoExportQuickRenderBackend& source, QString* errorMessage);
 
     void setStageMediaAvailable(bool hasMedia);
     void setBackgroundBrightnessOuter(double brightness);
@@ -68,7 +69,6 @@ public:
         QString* errorMessage = nullptr
     );
     void shutdownOffscreenRenderer();
-    void setPreservePremultipliedReadback(bool preserve);
     bool supportsOffscreenPboReadback(QString* errorMessage = nullptr) const;
     void resetOffscreenPboReadback();
 
@@ -78,9 +78,9 @@ public:
     // `pvVideoUnderlay`: the PV-preview segment is composited under the overlay.
     bool setupIntro(const IntroBannerSpec& intro, bool pvVideoUnderlay,
                     QString* errorMessage = nullptr);
-    void setIntroFrame(int authoringFrame, bool active);
+    void setIntroFrame(int authoringFrame, bool active, double outputSecond);
     void setChartLayersVisible(bool visible);
-    bool renderOverlayFrameOffscreenPboStep(
+    bool renderFrameOffscreenPboStep(
         const QSize& outputSize,
         double playheadSeconds,
         bool showTimestamp,
@@ -92,13 +92,13 @@ public:
         double hudPlayheadSecondsOverride = std::numeric_limits<double>::quiet_NaN()
     );
 
-    QImage renderOverlayFrame(
+    QImage renderFrame(
         const QSize& outputSize,
         double playheadSeconds,
         bool showTimestamp,
         bool showObjectStatsHud,
         double hudPlayheadSecondsOverride = std::numeric_limits<double>::quiet_NaN());
-    QImage renderOverlayFrameOffscreen(
+    QImage renderFrameOffscreen(
         const QSize& outputSize,
         double playheadSeconds,
         bool showTimestamp,
@@ -134,6 +134,7 @@ public:
 
 private:
     void refreshAssetState();
+    bool updateBackgroundForRender(double playheadSeconds, QString* errorMessage);
     void syncSessionStateIfInitialized();
     void updateFrameStateForRender(
         double playheadSeconds,
@@ -141,6 +142,14 @@ private:
         bool showObjectStatsHud,
         double hudPlayheadSecondsOverride = std::numeric_limits<double>::quiet_NaN());
 
+    QString stageMediaPath_;
+    VideoExportStageMediaSource stageMedia_;
+    bool backgroundFade_ = false;
+    bool introPvPreview_ = false;
+    double introPvStartSecond_ = 0.0;
+    int introAuthoringFrame_ = 0;
+    double introOutputSecond_ = 0.0;
+    bool introActive_ = false;
     miacode::preview::runtime::PreviewSceneAssetRepository assets_;
     PreviewQuickExportSession session_;
     // P5 — the D3D11/QRhi session runs in parallel to the OpenGL one; state

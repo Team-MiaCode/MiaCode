@@ -548,6 +548,10 @@ miacode_add_module(miacode_export
         src/export/cover_export/CoverPvFrameSource.h
         src/export/cover_export/SceneFrameRenderer.cpp
         src/export/cover_export/SceneFrameRenderer.h
+        src/export/session/ExportQuickBackgroundItem.cpp
+        src/export/session/ExportQuickBackgroundItem.h
+        src/export/video_export/VideoExportStageMediaSource.cpp
+        src/export/video_export/VideoExportStageMediaSource.h
         src/export/session/PreviewQuickD3D11ExportSession.cpp
         src/export/session/PreviewQuickD3D11ExportSession.h
         src/export/session/PreviewQuickExportSession.cpp
@@ -572,9 +576,8 @@ miacode_add_module(miacode_export
         src/export/video_export/VideoExportEstimateHistory.cpp
         src/export/video_export/VideoExportEstimateHistory.h
         src/export/video_export/VideoExportEncoder.cpp
+        src/export/video_export/VideoExportEncodingParameters.cpp
         src/export/video_export/VideoExportFrameRender.cpp
-        src/export/video_export/VideoExportMediaTimeline.cpp
-        src/export/video_export/VideoExportMediaTimeline.h
         src/export/video_export/VideoExportPendingFrameRedraw.h
         src/export/video_export/VideoExportPipeline.cpp
         src/export/video_export/VideoExportPreparedTask.cpp
@@ -589,6 +592,13 @@ miacode_add_module(miacode_export
     PUBLIC miacode_audio_bass miacode_preview_quick Qt6::Quick Qt6::Qml
     QRC resources/intro.qrc
 )
+if (WIN32 OR APPLE)
+    target_include_directories(miacode_export PRIVATE "${MIACODE_FFMPEG_DEV_DIR}/include")
+else()
+    target_include_directories(miacode_export PRIVATE ${MIACODE_FFMPEG_INCLUDE_DIRS})
+endif()
+target_link_libraries(miacode_export PRIVATE
+    ${AVFORMAT_LIBRARY} ${AVCODEC_LIBRARY} ${AVUTIL_LIBRARY} ${SWSCALE_LIBRARY})
 if (WIN32)
     target_link_libraries(miacode_export PRIVATE
         d3d11        # D3D11 export session

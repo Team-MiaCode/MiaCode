@@ -252,8 +252,7 @@ struct VideoExportTask {
     // quality bump for charts with stereo BGM, transparent for casual
     // phone playback. Routed into ffmpeg as `-b:a <kbps>k`.
     int audioBitrateKbps = 192;
-    // Export-quality toggle. HighQuality uses compactness-oriented software
-    // tuning; Fast uses pipelined readback and prefers hardware encoding.
+    // Encoding quality settings apply to the selected hardware or software codec.
     VideoExportPreset preset = VideoExportPreset::HighQuality;
     VideoExportSizePreset sizePreset = VideoExportSizePreset::Standard;
     bool fullRangeExport = true;

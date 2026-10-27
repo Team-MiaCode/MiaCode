@@ -6,7 +6,7 @@ namespace miacode::intro {
 // window == durationFrames == cycle2End == 349 (the cycle-2 wipe starts at 195
 // = 3.25 s and spans 154 frames = 2.567 s, retracting fully at 349 = 5.817 s,
 // which is also where the chart hands off / audio starts). The chart-background
-// fade-from-black (5.6 s → 6.6 s) is a downstream ffmpeg filter that deliberately
+// fade-from-black (5.6 s → 6.6 s) is a GPU background layer that deliberately
 // extends PAST this hand-off. KEEP IN SYNC with src/intro/qml/IntroOverlay.qml —
 // if the QML timeline length changes, update kDurationFrames here too.
 inline constexpr int kAuthoringFps = 60;
@@ -48,14 +48,14 @@ inline constexpr double introDurationSeconds(bool pvPreview)
     return static_cast<double>(introDurationFrames(pvPreview)) / static_cast<double>(kAuthoringFps);
 }
 
-// Chart-background ("曲绘") fade-from-black. Applied to the ffmpeg BACKGROUND base
+// Chart-background ("曲绘") fade-from-black. Applied to the GPU background layer
 // (so the playfield outline + HUD, which live in the QSG overlay, are unaffected)
 // — NOT in the QML overlay. The bg is held black through the covered intro and the
 // early part of the full-range lead-in preview, then fades from pure black to full
 // brightness, COMPLETING exactly at chart 0 (so the 曲绘 is full when the song +
 // clock_count start). Only the DURATION is fixed here; the start is computed in the
 // controller as (chart-0 output second − duration), i.e. anchored to the lead-in,
-// not a fixed frame. See the VideoExportController bg-fade filter.
+// not a fixed frame. See VideoExportQuickRenderBackend::updateBackgroundForRender.
 inline constexpr int kBgFadeDurationFrames = 60;  // 1.00 s fade, ending AT chart 0
 inline constexpr double kBgFadeDurationSeconds =
     static_cast<double>(kBgFadeDurationFrames) / static_cast<double>(kAuthoringFps); // ~1.00 s

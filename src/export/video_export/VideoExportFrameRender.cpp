@@ -60,7 +60,7 @@
 #endif
 #include "export/video_export/VideoExportControllerInternal.h"
 
-// VideoExportFrameRender.cpp — lead-in pause overlay, ready-frame payload assembly, GPU/offscreen frame rendering + PBO drain, circular dim mask, static background staging, and packed-RGBA frame preparation.
+// VideoExportFrameRender.cpp — lead-in pause overlay, ready-frame payload assembly, GPU/offscreen frame rendering + PBO drain, and packed-RGBA frame preparation.
 //
 // Definitions extracted verbatim from the original VideoExportController.cpp
 // during the god-file split. All helpers live in the shared
@@ -79,10 +79,7 @@ namespace miacode::video_export::detail {
 // Every dimension derives from the shared PauseGlyphGeometry, which scales
 // from the frame's short side — one knob resizes the whole badge.
 //
-// `Format_RGBA8888` (straight alpha) is what the export pipeline feeds
-// FFmpeg — QPainter on this format composes correctly through Qt's
-// internal premultiplied path; the final straight-alpha output is what
-// FFmpeg's `overlay=…:alpha=straight` filter expects.
+// Opaque export frames retain their readback format through packing.
 namespace {
 
 struct PauseGlyphGeometry {
@@ -223,13 +220,13 @@ QImage renderExportFrameSynchronously(
 )
 {
     return useOffscreenGpu
-        ? exportBackend->renderOverlayFrameOffscreen(
+        ? exportBackend->renderFrameOffscreen(
               frameSize,
               params.exportSecond,
               params.showTimestamp,
               params.showObjectStatsHud,
               params.hudPlayheadSecondsOverride)
-        : exportBackend->renderOverlayFrame(
+        : exportBackend->renderFrame(
               frameSize,
               params.exportSecond,
               params.showTimestamp,
@@ -267,7 +264,7 @@ ExportFrameRenderStatus renderExportFrameWithConfiguredBackend(
         QImage completedFrame;
         bool completedFrameReady = false;
         QString pboStepError;
-        const bool pboStepOk = exportBackend->renderOverlayFrameOffscreenPboStep(
+        const bool pboStepOk = exportBackend->renderFrameOffscreenPboStep(
             frameSize,
             params.exportSecond,
             params.showTimestamp,
@@ -330,7 +327,7 @@ ExportFrameRenderStatus renderExportFrameWithConfiguredBackend(
                 redrawTimer.start();
                 if (pending.params.introApplied) {
                     exportBackend->setIntroFrame(
-                        pending.params.introAuthoringFrame, pending.params.introActive);
+                        pending.params.introAuthoringFrame, pending.params.introActive, pending.params.outputSecond);
                 }
                 QImage redrawnFrame = renderExportFrameSynchronously(
                     exportBackend, useOffscreenForRedraw, frameSize, pending.params);
@@ -366,7 +363,7 @@ ExportFrameRenderStatus renderExportFrameWithConfiguredBackend(
         // The redraws rewound the scene's intro state to older frames; put it
         // back where the current frame expects it.
         if (params.introApplied) {
-            exportBackend->setIntroFrame(params.introAuthoringFrame, params.introActive);
+            exportBackend->setIntroFrame(params.introAuthoringFrame, params.introActive, params.outputSecond);
         }
         frameTimer.restart();
     }
@@ -414,7 +411,7 @@ bool drainPendingExportFrame(
     bool drainedFrameReady = false;
     QString drainError;
     const ExportFrameRenderParams& drainParams = pendingPboFrames->front().params;
-    const bool drainOk = exportBackend->renderOverlayFrameOffscreenPboStep(
+    const bool drainOk = exportBackend->renderFrameOffscreenPboStep(
         frameSize,
         drainParams.exportSecond,
         drainParams.showTimestamp,
@@ -446,219 +443,8 @@ bool drainPendingExportFrame(
     return true;
 }
 
-QImage buildCircularDimMaskImage(
-    int frameWidth,
-    int frameHeight,
-    double outerDimAlpha,
-    double innerDimAlpha,
-    double layoutRingDiameterRatio,
-    double layoutSquareScale,
-    bool smoothBrightness
-)
-{
-    const int width = qMax(1, frameWidth);
-    const int height = qMax(1, frameHeight);
-    QImage mask(width, height, QImage::Format_RGBA8888);
-    mask.fill(Qt::transparent);
-
-    const int outerAlpha = qBound(0, qRound(outerDimAlpha * 255.0), 255);
-    const int innerAlpha = qBound(0, qRound(innerDimAlpha * 255.0), 255);
-    if (outerAlpha == 0 && innerAlpha == 0) {
-        return mask;
-    }
-
-    const double layoutSide = miacode::preview_video::layoutSquareSideForStage(
-        QRectF(0.0, 0.0, static_cast<double>(width), static_cast<double>(height)),
-        layoutSquareScale
-    );
-    const double outerRadius = qMax(1.0, layoutSide * 0.5);
-    const double centerX = (static_cast<double>(width) - 1.0) * 0.5;
-    const double centerY = (static_cast<double>(height) - 1.0) * 0.5;
-    constexpr double kCircleEdgeHalfWidth = 0.5;
-
-    for (int y = 0; y < height; ++y) {
-        uchar* row = mask.scanLine(y);
-        const double dy = static_cast<double>(y) - centerY;
-        for (int x = 0; x < width; ++x) {
-            const double dx = static_cast<double>(x) - centerX;
-            const double radius = std::sqrt(dx * dx + dy * dy);
-            const double interiorAlpha = miacode::preview_video::dimAlphaForRadius(
-                qMin(radius, qMax(0.0, outerRadius - miacode::preview_video::kGeometryEpsilon)),
-                outerDimAlpha,
-                innerDimAlpha,
-                layoutSide,
-                layoutRingDiameterRatio,
-                smoothBrightness
-            );
-            const double edgeT = qBound(
-                0.0,
-                (radius - (outerRadius - kCircleEdgeHalfWidth)) / (2.0 * kCircleEdgeHalfWidth),
-                1.0
-            );
-            const double smoothEdgeT = edgeT * edgeT * (3.0 - 2.0 * edgeT);
-            const double circleCoverage = 1.0 - smoothEdgeT;
-            const int alpha = qBound(
-                0,
-                qRound(
-                    (outerDimAlpha + (interiorAlpha - outerDimAlpha) * circleCoverage) * 255.0
-                ),
-                255
-            );
-            const int offset = x * 4;
-            row[offset + 0] = 0;
-            row[offset + 1] = 0;
-            row[offset + 2] = 0;
-            row[offset + 3] = static_cast<uchar>(alpha);
-        }
-    }
-    return mask;
-}
-
-QImage buildCircularMediaMaskImage(
-    int frameWidth,
-    int frameHeight,
-    double layoutSquareScale
-)
-{
-    const int width = qMax(1, frameWidth);
-    const int height = qMax(1, frameHeight);
-    QImage mask(width, height, QImage::Format_Grayscale8);
-    mask.fill(0);
-
-    const double layoutSide = miacode::preview_video::layoutSquareSideForStage(
-        QRectF(0.0, 0.0, static_cast<double>(width), static_cast<double>(height)),
-        layoutSquareScale
-    );
-    const double radius = qMax(1.0, layoutSide * 0.5);
-    const double centerX = (static_cast<double>(width) - 1.0) * 0.5;
-    const double centerY = (static_cast<double>(height) - 1.0) * 0.5;
-    constexpr double kCircleEdgeHalfWidth = 0.5;
-
-    for (int y = 0; y < height; ++y) {
-        uchar* row = mask.scanLine(y);
-        const double dy = static_cast<double>(y) - centerY;
-        for (int x = 0; x < width; ++x) {
-            const double dx = static_cast<double>(x) - centerX;
-            const double distance = std::sqrt(dx * dx + dy * dy);
-            const double edgeT = qBound(
-                0.0,
-                (distance - (radius - kCircleEdgeHalfWidth)) / (2.0 * kCircleEdgeHalfWidth),
-                1.0
-            );
-            const double smoothEdgeT = edgeT * edgeT * (3.0 - 2.0 * edgeT);
-            row[x] = static_cast<uchar>(qRound((1.0 - smoothEdgeT) * 255.0));
-        }
-    }
-    return mask;
-}
-
-QRectF staticMediaTargetRect(
-    const QSize& mediaSize,
-    const QSize& outputSize,
-    PreviewBackgroundScaleMode scaleMode)
-{
-    return miacode::preview::scene::mediaTargetRect(
-        mediaSize,
-        QRectF(0.0, 0.0, outputSize.width(), outputSize.height()),
-        scaleMode
-    );
-}
-
-bool stageStaticBackgroundImageForExport(
-    const QString& sourcePath,
-    const QSize& outputSize,
-    PreviewBackgroundScaleMode scaleMode,
-    double layoutSquareScale,
-    const QString& stagedPath,
-    QString* detail)
-{
-    if (detail != nullptr) {
-        detail->clear();
-    }
-
-    if (sourcePath.isEmpty() || outputSize.isEmpty() || stagedPath.isEmpty()) {
-        if (detail != nullptr) {
-            *detail = QStringLiteral("invalid_input");
-        }
-        return false;
-    }
-
-    QImageReader reader(sourcePath);
-    reader.setAutoTransform(true);
-    const QImage sourceImage = reader.read();
-    if (sourceImage.isNull()) {
-        if (detail != nullptr) {
-            *detail = QStringLiteral("read_failed error=%1").arg(reader.errorString());
-        }
-        return false;
-    }
-
-    QImage stagedImage(outputSize, QImage::Format_RGBA8888);
-    stagedImage.fill(Qt::black);
-
-    QPainter painter(&stagedImage);
-    painter.setRenderHint(QPainter::Antialiasing, true);
-    painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
-    if (scaleMode == PreviewBackgroundScaleMode::InnerCircleFitOuterFill) {
-        const QRectF stageRect(0.0, 0.0, outputSize.width(), outputSize.height());
-        const QRectF innerCircleRect = miacode::preview_video::centeredLayoutRectForStage(
-            stageRect,
-            layoutSquareScale
-        );
-        painter.drawImage(
-            staticMediaTargetRect(sourceImage.size(), outputSize, PreviewBackgroundScaleMode::FillCrop),
-            sourceImage,
-            miacode::preview::scene::mediaSourceRect(sourceImage.size(), PreviewBackgroundScaleMode::FillCrop)
-        );
-        QPainterPath innerCircleClip;
-        innerCircleClip.addEllipse(innerCircleRect);
-        painter.setClipPath(innerCircleClip);
-        painter.drawImage(
-            miacode::preview::scene::mediaTargetRect(
-                sourceImage.size(),
-                innerCircleRect,
-                PreviewBackgroundScaleMode::FitContain
-            ),
-            sourceImage,
-            miacode::preview::scene::mediaSourceRect(sourceImage.size(), PreviewBackgroundScaleMode::FitContain)
-        );
-    } else {
-        painter.drawImage(
-            staticMediaTargetRect(sourceImage.size(), outputSize, scaleMode),
-            sourceImage,
-            miacode::preview::scene::mediaSourceRect(sourceImage.size(), scaleMode)
-        );
-    }
-    painter.end();
-
-    if (!stagedImage.save(stagedPath)) {
-        if (detail != nullptr) {
-            *detail = QStringLiteral("save_failed path=%1").arg(stagedPath);
-        }
-        return false;
-    }
-
-    if (detail != nullptr) {
-        *detail = QStringLiteral("source=%1x%2 staged=%3x%4 mode=%5 path=%6")
-            .arg(sourceImage.width())
-            .arg(sourceImage.height())
-            .arg(stagedImage.width())
-            .arg(stagedImage.height())
-            .arg(scaleMode == PreviewBackgroundScaleMode::FitContain
-                    ? QStringLiteral("fit")
-                    : (scaleMode == PreviewBackgroundScaleMode::SquareFitContain
-                           ? QStringLiteral("square_fit")
-                           : (scaleMode == PreviewBackgroundScaleMode::InnerCircleFitOuterFill
-                                  ? QStringLiteral("inner_circle_fit_outer_fill")
-                                  : QStringLiteral("fill"))))
-            .arg(stagedPath);
-    }
-    return true;
-}
-
 bool preparePackedRgbaFrame(
     const QImage& frame,
-    bool preservePremultiplied,
     QImage* convertedFrame,
     QByteArray* packedScratch,
     const char** data,
@@ -673,9 +459,7 @@ bool preparePackedRgbaFrame(
     *data = nullptr;
     *size = 0;
 
-    const QImage::Format expectedFormat = preservePremultiplied
-        ? QImage::Format_RGBA8888_Premultiplied
-        : QImage::Format_RGBA8888;
+    const QImage::Format expectedFormat = QImage::Format_RGBA8888_Premultiplied;
     const QImage* rgba = &frame;
     if (rgba->format() != expectedFormat) {
         *convertedFrame = frame.convertToFormat(expectedFormat);

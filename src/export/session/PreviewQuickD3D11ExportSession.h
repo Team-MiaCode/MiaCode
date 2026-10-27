@@ -21,6 +21,7 @@ class QQuickRenderControl;
 class QQuickWindow;
 class PreviewQuickHudLayer;
 class PreviewQuickSceneRoot;
+class ExportQuickBackgroundItem;
 
 // P5 — D3D11/QRhi export session (plan P5.1/P5.2), parallel to the OpenGL
 // PreviewQuickExportSession (which stays the default + fallback path).
@@ -54,6 +55,7 @@ public:
     explicit PreviewQuickD3D11ExportSession(QObject* parent = nullptr);
     ~PreviewQuickD3D11ExportSession() override;
 
+    void setBackgroundFrame(const QImage& image, bool cacheable, bool fullFrame, qreal brightness);
     void setFrameState(const miacode::preview::scene::PreviewFrameState& state);
     void applyExportFrameTick(
         double playheadSeconds,
@@ -138,6 +140,10 @@ private:
     QQuickRenderControl* renderControl_ = nullptr;
     QQuickWindow* quickWindow_ = nullptr;
     QQuickItem* rootItem_ = nullptr;
+    ExportQuickBackgroundItem* backgroundItem_ = nullptr;
+    bool backgroundEnabled_ = false;
+    bool backgroundFullFrame_ = false;
+    qreal backgroundBrightness_ = 1.0;
     PreviewQuickSceneRoot* sceneRoot_ = nullptr;
     PreviewQuickHudLayer* hudLayer_ = nullptr;
     QQmlEngine* qmlEngine_ = nullptr;

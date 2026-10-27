@@ -77,15 +77,6 @@ bool shouldRequestOffscreenPboReadback(
     return true;
 }
 
-bool shouldUsePremultipliedExportPipe(
-    bool d3d11BackendActive,
-    bool fastPreset,
-    const std::optional<bool>& overrideValue
-)
-{
-    return d3d11BackendActive && fastPreset && overrideValue.value_or(true);
-}
-
 bool shouldRetryVideoExportWorkerAfterCrash(
     bool crashExit,
     bool pboRequestedForAttempt,
