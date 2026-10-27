@@ -290,6 +290,8 @@ Item {
             Math.ceil((preview.minimumHeight + detachedTitleBar.height + detachedToolBar.height) * Theme.uiScale))
         flags: {
             let value = Qt.Window
+            if (Qt.platform.os !== "windows" && alwaysOnTop)
+                value |= Qt.WindowStaysOnTopHint
             if (root.Window.window.platform.captionButtons) {
                 value |= Qt.CustomizeWindowHint
                         | Qt.WindowTitleHint
