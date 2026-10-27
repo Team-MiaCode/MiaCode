@@ -122,11 +122,6 @@ void pinMaterialContent(NSView* content, NSView* owner)
 
 namespace miacode::ui {
 
-void WindowChrome::setMacOsAlwaysOnTop(bool enabled)
-{
-    NSView* view = (__bridge NSView*)reinterpret_cast<void*>(window_->winId());
-    [view.window setLevel:enabled ? NSFloatingWindowLevel : NSNormalWindowLevel];
-}
 namespace {
 void configureNativeTitleBar(NSWindow* window, bool fullscreen = false)
 {
