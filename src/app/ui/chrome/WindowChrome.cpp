@@ -198,9 +198,8 @@ void WindowChrome::setAlwaysOnTop(bool enabled)
     SetWindowPos(reinterpret_cast<HWND>(window_->winId()),
         enabled ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
         SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
-#elif defined(Q_OS_MACOS)
-    setMacOsAlwaysOnTop(enabled);
 #else
+    // Keep Qt's window flags authoritative when the platform restores its level.
     window_->setFlag(Qt::WindowStaysOnTopHint, enabled);
 #endif
 }
