@@ -48,6 +48,26 @@ Default filenames:
 - preview profile: `miacode_preview_profile_summary.txt`
 - PV memory: `miacode_pv_memory_debug.log`
 
+### Net download diagnostics
+
+Downloads and preview resource transfers write JSON events to `miacode_runtime_debug.log`,
+including outside debug mode. They use the directory resolution above and the existing
+`MIACODE_RUNTIME_LOG_PATH` override.
+
+- `net/download/queue`: `operation_id`, zero-based `chart_index`, total chart count,
+  chart ID/title, resource, attempt, retry delay, resource result, publication and batch result.
+- `net/download/http`: `request_id`, original/final URL, output path, configured proxy,
+  timeout, connection/TLS/request/header/redirect stages, first-byte time, and progress
+  at most every five seconds. URLs omit user information, query strings and fragments.
+- `timeout` is recorded before aborting the reply. `complete` includes the Qt network
+  error number/text, HTTP status, HTTP/2 flag, received bytes, content length/type/encoding,
+  first/last data times, idle duration, file error, `CF-Ray` and `Retry-After`.
+
+Correlate a queue attempt with its HTTP events by URL and output path, then follow
+`request_id` through redirects and completion. `first_data_ms=-1` indicates that the
+request received zero body bytes; `idle_ms` distinguishes a stalled response from a
+transfer that reached its total timeout while receiving data.
+
 Crash breadcrumb path note:
 
 - `miacode_startup_beacon_<pid>.txt` and `miacode_op_chain_<pid>.log` are resolved at process startup from `MIACODE_OPLOG_SHADOW_PATH`, then `MIACODE_LOG_DIR`, then `%TEMP%`.

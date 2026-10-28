@@ -1,5 +1,6 @@
 #include "media_tools/net/NetProvider.h"
 #include "media_tools/net/NetClient.h"
+#include "common/DebugLog.h"
 
 #include <QCryptographicHash>
 #include <QDir>
@@ -70,6 +71,8 @@ public:
             }
         }
         if (root_.isEmpty() || !QDir().mkpath(root_)) { finish(error("file.write_failed")); return; }
+        trace("batch_start", {{"output_root", root_}, {"include_video", request_.parameters.value("includeVideo").toBool(true)},
+            {"create_zip", request_.parameters.value("createZip").toBool()}});
         nextChart();
     }
     void cancel() {
@@ -78,6 +81,22 @@ public:
         if (done_ && !worker_.isRunning()) finish(error("job.cancelled"));
     }
 private:
+    int resourceCount() const {
+        return request_.parameters.value("includeVideo").toBool(true) ? resources.size() : resources.size() - 1;
+    }
+    void trace(const char* event, QJsonObject fields = {}) const {
+        fields.insert("event", QLatin1String(event));
+        fields.insert("operation_id", operationId_);
+        fields.insert("operation", request_.operation);
+        fields.insert("chart_index", chartIndex_);
+        fields.insert("total", ids_.size());
+        fields.insert("chart_id", chart_.value("chartId"));
+        fields.insert("title", chart_.value("title"));
+        fields.insert("attempt", attempt_);
+        if (resourceIndex_ < resourceCount()) fields.insert("resource", resources[resourceIndex_].kind);
+        debug_log::appendLine(debug_log::Channel::Runtime, QStringLiteral("net/download/queue"),
+            QString::fromUtf8(QJsonDocument(fields).toJson(QJsonDocument::Compact)), true);
+    }
     bool cacheComplete(const NetProvider::Preview& preview) const {
         for (const auto& value : preview.handle.value("manifest").toObject().value("resources").toArray()) {
             const auto resource = value.toObject();
@@ -92,6 +111,7 @@ private:
     }
     void finish(QJsonObject failure = {}, QJsonValue result = QJsonValue::Null, bool blocked = false) {
         if (!done_) return;
+        trace("batch_complete", {{"error", failure}, {"blocked", blocked}, {"succeeded", succeeded_}, {"failed", failed_}});
         if (!preview_ && result.isNull()) {
             QJsonObject counts{{"total", ids_.size()}, {"succeeded", succeeded_}, {"failed", failed_},
                 {"pending", ids_.size() - succeeded_ - failed_}, {"cancelled", 0}, {"skipped", 0}, {"unknown", 0}};
@@ -129,10 +149,12 @@ private:
         entries_ = {};
         resourceIndex_ = 0;
         attempt_ = 0;
+        trace("chart_start", {{"staging_path", staging_->path()}});
         emitItem("running", "download");
         fetch();
     }
     void chartFailed(QJsonObject failure) {
+        trace("chart_failed", {{"error", failure}});
         emitItem("failed", "download", failure);
         ++failed_;
         staging_.reset();
@@ -141,8 +163,7 @@ private:
     }
     void fetch() {
         if (!done_ || cancelled_->load()) return;
-        const int count = request_.parameters.value("includeVideo").toBool(true) ? 4 : 3;
-        if (resourceIndex_ == count) { publish(); return; }
+        if (resourceIndex_ == resourceCount()) { publish(); return; }
         const auto resource = resources[resourceIndex_];
         NetHttpRequest http;
         http.url = QUrl(provider_.baseUrl_.toString() + QStringLiteral("/maichart/")
@@ -153,6 +174,7 @@ private:
             && request_.parameters.value("emptyChartPolicy").toString("allow_declared_empty") == QLatin1String("allow_declared_empty");
         http.headers = {{"Referer", "https://majdata.net/"}};
         ++attempt_;
+        trace("request_attempt", {{"url", http.url.toString()}, {"output_path", http.outputPath}, {"timeout_ms", http.timeoutMs}});
         emitItem("running", resource.kind, {}, {{"bytesReceived", "0"}, {"bytesTotal", QJsonValue::Null}, {"attempt", attempt_}});
         QPointer<NetResourceOperation> self(this);
         cancelHttp_ = provider_.transport_.request(http, [self](NetHttpResponse response) {
@@ -166,6 +188,9 @@ private:
     }
     void receive(NetHttpResponse response) {
         cancelHttp_ = {};
+        trace("resource_complete", {{"http_status", response.status}, {"error", response.error},
+            {"bytes_received", response.bytes}, {"elapsed_ms", response.elapsedMs}, {"cancelled", response.cancelled},
+            {"retry_after", QString::fromLatin1(response.retryAfter)}});
         if (cancelled_->load() || response.cancelled) { finish(error("job.cancelled")); return; }
         const auto resource = resources[resourceIndex_];
         const auto code = response.error.value("code").toString();
@@ -178,6 +203,7 @@ private:
             entries_.append(QJsonObject{{"kind", resource.kind}, {"state", "absent"}});
         } else if (!response.error.isEmpty()) {
             if (attempt_ < 3 && (code == QLatin1String("upstream.network") || code == QLatin1String("upstream.timeout") || response.status >= 500)) {
+                trace("retry_wait", {{"delay_ms", 800}, {"error", response.error}});
                 emitItem("retry_wait", resource.kind, response.error);
                 QTimer::singleShot(800, this, [this] { fetch(); });
                 return;
@@ -195,6 +221,7 @@ private:
         fetch();
     }
     void publish() {
+        trace("publish_start");
         emitItem("running", "publish");
         const auto staging = staging_;
         const auto cancelled = cancelled_;
@@ -274,6 +301,7 @@ private:
             }
             manifests_.append(result.manifest);
             ++succeeded_;
+            trace("chart_published", {{"output_path", result.directory}, {"zip_path", result.zip}});
             emitItem("succeeded", "complete", {}, {}, artifacts);
             staging_.reset();
             if (cancelled_->load()) finish(error("job.cancelled"));
@@ -291,6 +319,7 @@ private:
     QJsonArray ids_, entries_, manifests_, directories_, zips_;
     QJsonObject chart_;
     QString root_, cacheKey_;
+    const QString operationId_ = ref("download_");
     int chartIndex_ = -1, resourceIndex_ = 0, attempt_ = 0, succeeded_ = 0, failed_ = 0;
     bool preview_ = false;
 };
