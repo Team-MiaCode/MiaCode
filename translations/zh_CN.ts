@@ -2037,6 +2037,12 @@ Restore the backup from %1?</source>
         <source>Cannot open the chart file.</source>
         <translation>无法打开谱面文件。</translation>
     </message>
+    <message id="document.unsupported_file_type">
+        <source>Unsupported chart file type. Only .txt and .simai files can be opened.
+File: </source>
+        <translation>不支持此文件类型。只能打开 .txt 或 .simai 谱面文件。
+文件：</translation>
+    </message>
     <message id="document.cannot_replace">
         <source>Cannot replace:
 %1</source>

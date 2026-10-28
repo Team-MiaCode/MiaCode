@@ -95,6 +95,57 @@ bool verifyDifficultyCardProjection()
     return ok;
 }
 
+bool verifyUnsupportedOpenShowsError()
+{
+    QTemporaryDir directory;
+    if (!directory.isValid()) return false;
+    const QString path = directory.filePath(QStringLiteral("非谱面 file.mp4"));
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly) || file.write("synthetic non-chart file") < 0) return false;
+    file.close();
+    miacode::ChartWorkspace workspace;
+    miacode::ChartWorkspaceFileService files(workspace);
+    workspace.openSource(QStringLiteral("&title=keep\n&inote_5=(120){4}1,E\n"));
+    workspace.replaceActiveDifficultyChart(QStringLiteral("(120){4}2,E"));
+    miacode::AnalysisService analysis(workspace);
+    analysis.setDiagnosticsDeferred(true);
+    miacode::ShellNotifications notifications;
+    miacode::UiRequestService requests;
+    FakeBridge fake;
+    miacode::DocumentBridge* bridge = &fake;
+    miacode::PreviewSurface* preview = nullptr;
+    miacode::ui::DocumentModel model(notifications, workspace, files, analysis, requests, bridge, preview);
+    int notices = 0;
+    int replacements = 0;
+    QVariantMap notice;
+    QObject::connect(&requests, &miacode::UiRequestService::noticeRequested,
+        &model, [&](const QString&, const QVariantMap& value) { ++notices; notice = value; });
+    QObject::connect(&model, &miacode::ui::DocumentModel::documentReplaced,
+        &model, [&] { ++replacements; });
+    const auto before = workspace.snapshot();
+    bool ok = expect(!model.openFile(QUrl::fromLocalFile(path)) && notices == 1
+        && notice.value("severity") == QLatin1String("error")
+        && notice.value("title") == qtTrId("document.open_failed")
+        && notice.value("text").toString().startsWith(qtTrId("document.unsupported_file_type"))
+        && notice.value("text").toString().endsWith(QDir::toNativeSeparators(path)),
+        "a pasted unsupported path returns false and presents a file-type error with its path");
+    const auto after = workspace.snapshot();
+    ok &= expect(after.revision == before.revision && after.sourceText == before.sourceText
+        && after.filePath == before.filePath && after.dirty == before.dirty
+        && after.documentOpenGeneration == before.documentOpenGeneration && replacements == 0,
+        "a rejected open never replaces the edited document or publishes it to the runtime");
+    const QString validPath = directory.filePath(QStringLiteral("chart.simai"));
+    QFile validFile(validPath);
+    if (!validFile.open(QIODevice::WriteOnly) || validFile.write("&title=next\n&inote_5=(120){4}1,E\n") < 0)
+        return false;
+    validFile.close();
+    ok &= expect(model.openFile(QUrl::fromLocalFile(validPath)) && notices == 1
+        && workspace.document().title == QLatin1String("next") && replacements == 1,
+        "a supported chart can still be opened after dismissing the error");
+    analysis.shutdown();
+    return ok;
+}
+
 bool verifyRejectedDraftBlocksPersistenceAndLeave()
 {
     QTemporaryDir directory;
@@ -243,5 +294,6 @@ int main(int argc, char** argv)
     QCoreApplication app(argc, argv);
     QStandardPaths::setTestModeEnabled(true);
     app.setApplicationName(QStringLiteral("MiaCodeDocumentModelSaveSpec"));
-    return verifyDifficultyCardProjection() && verifyRejectedDraftBlocksPersistenceAndLeave() && verifyPickerDirectories() ? 0 : 1;
+    return verifyDifficultyCardProjection() && verifyUnsupportedOpenShowsError()
+        && verifyRejectedDraftBlocksPersistenceAndLeave() && verifyPickerDirectories() ? 0 : 1;
 }
