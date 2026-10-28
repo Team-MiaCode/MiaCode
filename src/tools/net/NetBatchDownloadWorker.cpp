@@ -5,6 +5,7 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFileInfo>
+#include <QScopeGuard>
 #include <QThread>
 
 #include <limits>
@@ -91,6 +92,12 @@ void NetBatchDownloadWorker::run()
         if (job.outputDirectoryPath.trimmed().isEmpty()) {
             job.outputDirectoryPath = chartDirectoryPathForTitle(request_.outputDirectory, job.chart.title, job.chart.id);
         }
+        const bool directoryExisted = QFileInfo::exists(job.outputDirectoryPath);
+        const auto cleanupEmptyDirectory = qScopeGuard([&]() {
+            if (!directoryExisted) {
+                QDir().rmdir(job.outputDirectoryPath);
+            }
+        });
         if (!QDir().mkpath(job.outputDirectoryPath)) {
             error = UiText::text(QStringLiteral("net.could_not_create_chart_folder"));
         }
