@@ -139,6 +139,7 @@ void AppBackgroundModel::chooseImage()
     }
     miacode::FileRequest request;
     request.title = miacode::localizedText("dialog.preferences.background.choose");
+    request.startPath = imagePath();
     request.nameFilters = {miacode::localizedText("dialog.preferences.background.image_filter")};
     uiRequests_->requestFile(request, [this](const QString& path) {
         if (!path.isEmpty()) {

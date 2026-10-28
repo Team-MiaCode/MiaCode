@@ -13,7 +13,25 @@ Item {
     required property var preferences
     required property var timelineSession
     required property var previewSession
+    property bool guideSettingsActive: false
+    readonly property bool guideSettingsAvailable: root.guideSettingsActive
+        && root.visible && timelineItem.visible
+    readonly property Item timelineGuideItem: timelineItem
+    readonly property Item timelineSettingsGuideItem: settingsMenu.contentItem
     signal analysisRowActivated(int difficultyId, var revision, int line, int column, int endColumn, double second)
+
+    onGuideSettingsAvailableChanged: {
+        // Let the menu's focus and close-policy bindings settle before opening.
+        if (root.guideSettingsAvailable)
+            Qt.callLater(root.openGuideSettingsMenu)
+        else
+            settingsMenu.close()
+    }
+
+    function openGuideSettingsMenu() {
+        if (root.guideSettingsAvailable)
+            settingsMenu.openAt(brightnessButton)
+    }
 
     Rectangle {
         width: parent.width
@@ -179,27 +197,14 @@ Item {
     }
 
     // Header controls share the tab row's edge inset, measured on their chrome.
-    AppDropDownButton {
+    TimelineZoomControl {
         id: zoomButton
 
         x: tabs.edgePadding - Theme.chromeInsetX + Theme.chromeHighlightOutset
         y: timelineItem.y + Math.max(0, (timelineItem.timelineTop - height) / 2)
         height: Theme.controlHighlightHeight + 2 * (Theme.chromeInsetY - Theme.chromeHighlightOutset)
         visible: timelineItem.visible
-        text: qsTrId("qml.1").arg(Math.round(root.timelineSession.stateBridge
-            ? root.timelineSession.stateBridge.zoomScale * 100
-            : 50))
-        sizeToLabels: zoomMenu.zoomLabels
-        tooltip: qsTrId("qml.timeline_zoom")
-        expanded: zoomMenu.active
-        Accessible.description: qsTrId("qml.open_timeline_zoom_presets")
-        onClicked: {
-            if (zoomMenu.active) {
-                zoomMenu.close()
-                return
-            }
-            zoomMenu.openAt(zoomButton)
-        }
+        stateBridge: root.timelineSession.stateBridge
     }
 
     IconButton {
@@ -224,15 +229,15 @@ Item {
         }
     }
 
-    TimelineZoomMenu {
-        id: zoomMenu
-        stateBridge: root.timelineSession.stateBridge
-    }
-
     TimelineSettingsMenu {
         id: settingsMenu
         stateBridge: root.timelineSession.stateBridge
         timelineSession: root.timelineSession
+        // The modal guide owns input and Escape while demonstrating this menu.
+        focus: !root.guideSettingsActive
+        closePolicy: root.guideSettingsActive ? Popup.NoAutoClose
+            : Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
+        z: root.guideSettingsActive ? 99 : 0
     }
 
     Item {

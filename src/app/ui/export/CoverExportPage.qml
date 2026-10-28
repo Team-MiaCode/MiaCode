@@ -938,20 +938,15 @@ Rectangle {
                                             currentValue: root.session ? root.session.longTextMode : "shrink"
                                             onPicked: function(value) { if (root.session) root.session.longTextMode = value }
                                         }
-                                        RowLayout {
-                                            Layout.fillWidth: true
-                                            AppSwitch {
-                                                Layout.fillWidth: true
-                                                text: qsTrId("cover.shadow")
-                                                checked: root.session ? root.session.cardShadow : false
-                                                onToggled: if (root.session) root.session.cardShadow = checked
-                                            }
-                                            AppSwitch {
-                                                Layout.fillWidth: true
-                                                text: qsTrId("cover.level_as_text")
-                                                checked: root.session ? root.session.levelTextRender : false
-                                                onToggled: if (root.session) root.session.levelTextRender = checked
-                                            }
+                                        AppSwitch {
+                                            text: qsTrId("cover.shadow")
+                                            checked: root.session ? root.session.cardShadow : false
+                                            onToggled: if (root.session) root.session.cardShadow = checked
+                                        }
+                                        AppSwitch {
+                                            text: qsTrId("cover.level_as_text")
+                                            checked: root.session ? root.session.levelTextRender : false
+                                            onToggled: if (root.session) root.session.levelTextRender = checked
                                         }
                                     }
 

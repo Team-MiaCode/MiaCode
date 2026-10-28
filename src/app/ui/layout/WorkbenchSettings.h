@@ -183,7 +183,7 @@ private:
     bool editorAutoWrap_ = true;
     bool editorScrollPastEnd_ = true;
     bool editorSelectionBeatDisplay_ = true;
-    bool editorOverviewRulerEnabled_ = true;
+    bool editorOverviewRulerEnabled_ = false;
     bool darkTheme_ = true;
     QString publishedThemeModeToken_;
     QString publishedLightThemeToken_;

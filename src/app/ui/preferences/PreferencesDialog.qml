@@ -102,7 +102,12 @@ AppDialog {
         value: root.visible && root.capturingId.length > 0
     }
     property var shortcutRows: []
-    readonly property var aboutInfo: root.preferences.aboutInfo()
+    // The map is built in C++ with qtTrId, so QML retranslation cannot see its
+    // dependencies. Read languageToken first to rebuild it after a switch.
+    readonly property var aboutInfo: {
+        root.preferencesModel.languageToken
+        return root.preferences.aboutInfo()
+    }
     readonly property real sidebarWidth: root.width < 650 ? 140 : 180
     readonly property int settingsRowHeight: Theme.controlMinHeight + 10
     readonly property int settingsLabelWidth: root.width < 650 ? 120 : 140

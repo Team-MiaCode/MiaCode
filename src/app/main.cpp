@@ -47,6 +47,7 @@
 
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <shellapi.h>
 #include <timeapi.h>
 #include <d3d11.h>
 #include <dxgi.h>
@@ -58,6 +59,7 @@
 #endif
 
 #include "app/MainEntrypoints.h"
+#include "app/StartupArguments.h"
 
 namespace {
 
@@ -91,31 +93,6 @@ bool wantsCliVideoExport(const QStringList& arguments)
 bool wantsCliVideoExportWorker(const QStringList& arguments)
 {
     return arguments.contains(QStringLiteral("--export-video-worker"));
-}
-
-QString startupOpenTargetFromArguments(const QStringList& arguments)
-{
-    for (int index = 1; index < arguments.size(); ++index) {
-        const QString argument = arguments.at(index).trimmed();
-        if (argument.isEmpty()) {
-            continue;
-        }
-        if (argument == QStringLiteral("--")) {
-            if (index + 1 < arguments.size()) {
-                return arguments.at(index + 1);
-            }
-            return QString();
-        }
-        if (argument == QStringLiteral("--rhi")) {
-            ++index;
-            continue;
-        }
-        if (argument.startsWith('-')) {
-            continue;
-        }
-        return arguments.at(index);
-    }
-    return QString();
 }
 
 void appendAppShutdownRuntimeLog(const QString& action, const QString& payload = QString())
@@ -267,9 +244,23 @@ int main(int argc, char* argv[])
 #endif
 
     QStringList rawArgs;
-    rawArgs.reserve(argc);
-    for (int index = 0; index < argc; ++index) {
-        rawArgs.append(QString::fromLocal8Bit(argv[index]));
+#ifdef Q_OS_WIN
+    // argv is the ANSI rendering of the command line: a chart path outside the
+    // system code page (a Japanese title on a GBK system) arrives as '?'. The
+    // launcher forwards the wide command line, so read that one.
+    int wideCount = 0;
+    if (LPWSTR* wideArgs = ::CommandLineToArgvW(::GetCommandLineW(), &wideCount)) {
+        for (int index = 0; index < wideCount; ++index) {
+            rawArgs.append(QString::fromWCharArray(wideArgs[index]));
+        }
+        ::LocalFree(wideArgs);
+    }
+#endif
+    if (rawArgs.isEmpty()) {
+        rawArgs.reserve(argc);
+        for (int index = 0; index < argc; ++index) {
+            rawArgs.append(QString::fromLocal8Bit(argv[index]));
+        }
     }
     const bool cliVideoExportRequested = wantsCliVideoExport(rawArgs);
     const bool cliVideoExportWorkerRequested = wantsCliVideoExportWorker(rawArgs);
@@ -287,7 +278,7 @@ int main(int argc, char* argv[])
 #endif
     const QString startupOpenTarget =
         !cliVideoExportRequested && !cliVideoExportWorkerRequested
-            ? startupOpenTargetFromArguments(rawArgs)
+            ? miacode::app::entry::startupOpenTargetFromArguments(rawArgs)
             : QString();
 
 #ifdef Q_OS_WIN

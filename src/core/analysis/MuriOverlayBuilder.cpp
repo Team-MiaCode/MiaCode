@@ -269,8 +269,10 @@ void buildOverlayActions(
             continue;
         }
         if (marker.type == QLatin1String("hold")) {
-            addPadWindow(padWindows, pad, marker.second, notePressEndSecond(marker), markerKey, marker.type);
-            addActionTrail(actionTrails, markerKey, marker.type, marker.second, notePressEndSecond(marker), handRadius, {miacode::muri::padCenter(pad)});
+            if (!marker.slideHead) {
+                addPadWindow(padWindows, pad, marker.second, notePressEndSecond(marker), markerKey, marker.type);
+                addActionTrail(actionTrails, markerKey, marker.type, marker.second, notePressEndSecond(marker), handRadius, {miacode::muri::padCenter(pad)});
+            }
             continue;
         }
         if (marker.type == QLatin1String("touch")) {

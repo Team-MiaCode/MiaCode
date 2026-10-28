@@ -138,6 +138,9 @@ struct PreviewAudioCompletion {
     PausePreviewResult pauseResult;
     QString detail;
     int nativeErrorCode = 0;
+    // No output engine served this command: the backend is missing, degraded,
+    // or its device failed to initialize. The GUI may continue without audio.
+    bool audioEngineUnavailable = false;
     quint64 workerThreadId = 0;
     qint64 queueDelayNs = 0;
     qint64 executionDurationNs = 0;

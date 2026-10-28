@@ -1,3 +1,4 @@
+#include "app/services/FileDialogPreferences.h"
 #include "common/LocalizedText.h"
 
 #include "app/ui/document/ChartTransformCommands.h"
@@ -13,6 +14,7 @@
 #include "app/services/ChartBannerData.h"
 #include "core/chart/ChartAssetPaths.h"
 #include "common/DebugLog.h"
+#include "common/FileWriteFailure.h"
 #include "app/services/Id3TagReader.h"
 #include "app/services/ProjectPreferences.h"
 #include "core/chart/document/SimaiDocument.h"
@@ -526,17 +528,26 @@ void DocumentModel::requestMetadataAudio(std::function<void(const QString&)> onS
     // itself: preselecting maidata.txt would offer the one file it must not read.
     const QString chartPath = currentFilePath();
     const QString trackPath = miacode::chart_assets::resolveTrackPath(chartPath);
-    if (QFileInfo(trackPath).suffix().compare(QStringLiteral("mp3"), Qt::CaseInsensitive) == 0) {
-        request.startPath = trackPath;
-    } else if (!chartPath.isEmpty()) {
-        request.startPath = QFileInfo(chartPath).absolutePath();
+    request.startPath = miacode::file_dialog_preferences::storedChartDirectory(
+        miacode::file_dialog_preferences::ChartPurpose::MetadataAudio, chartPath);
+    if (request.startPath.isEmpty()) {
+        request.startPath = miacode::file_dialog_preferences::chartDirectory(
+            miacode::file_dialog_preferences::ChartPurpose::MetadataAudio, chartPath);
+        if (QFileInfo(trackPath).suffix().compare(QStringLiteral("mp3"), Qt::CaseInsensitive) == 0
+            && QFileInfo(trackPath).absolutePath() == request.startPath) {
+            request.startPath = trackPath;
+        }
     }
     request.nameFilters = {
         miacode::localizedText("track_metadata.metadata_audio_file_filter"),
         miacode::localizedText("qml.all_files"),
     };
-    uiRequests_->requestFile(request, [callback = std::move(onSelected)](const QString& path) {
-        if (callback && !path.trimmed().isEmpty()) callback(QDir::cleanPath(path));
+    const auto generation = documentGeneration_;
+    uiRequests_->requestFile(request, [this, chartPath, generation, callback = std::move(onSelected)](const QString& path) {
+        if (path.trimmed().isEmpty() || generation != documentGeneration_) return;
+        miacode::file_dialog_preferences::rememberChartFile(
+            miacode::file_dialog_preferences::ChartPurpose::MetadataAudio, chartPath, path);
+        if (callback) callback(QDir::cleanPath(path));
     });
 }
 
@@ -599,11 +610,14 @@ void DocumentModel::writeExtractedCover(
     QString backupPath;
     if (!existingBgPath.isEmpty()) {
         backupPath = miacode::chart_media_import::nextBackupPath(existingBgPath);
-        if (!QFile::rename(existingBgPath, backupPath)) {
+        QFile existing(existingBgPath);
+        if (!existing.rename(backupPath)) {
             if (preview() != nullptr) preview()->refreshMediaAfterFileOperation();
             uiRequests_->postNotice(
                 miacode::NoticeSeverity::Error, title,
-                miacode::localizedText("track_metadata.failed_to_write_bg_jpg"));
+                miacode::fileWriteFailureText(
+                    QFileInfo(existingBgPath).fileName(), existing.error(), existing.errorString()),
+                QDir::toNativeSeparators(existingBgPath));
             return;
         }
     }
@@ -614,13 +628,17 @@ void DocumentModel::writeExtractedCover(
         && cover.save(&output, "JPG", 92)
         && output.commit();
     if (!written) {
+        // Read the reason before cancelWriting() resets it.
+        const QFileDevice::FileError writeError = output.error();
+        const QString systemError = output.errorString();
         output.cancelWriting();
         QFile::remove(bgPath);
         if (!backupPath.isEmpty()) QFile::rename(backupPath, existingBgPath);
         if (preview() != nullptr) preview()->refreshMediaAfterFileOperation();
         uiRequests_->postNotice(
             miacode::NoticeSeverity::Error, title,
-            miacode::localizedText("track_metadata.failed_to_write_bg_jpg"));
+            miacode::fileWriteFailureText(QFileInfo(bgPath).fileName(), writeError, systemError),
+            QDir::toNativeSeparators(bgPath));
         return;
     }
     if (preview() != nullptr) preview()->refreshMediaAfterFileOperation();
@@ -695,13 +713,17 @@ void DocumentModel::requestChartMediaImport(miacode::ChartMediaService::Kind kin
     const bool video = kind == miacode::ChartMediaService::Kind::Video;
     miacode::FileRequest request;
     request.title = miacode::localizedText(video ? "track_metadata.import_background_video" : "track_metadata.import_file");
-    request.startPath = QFileInfo(chartPath).absolutePath();
+    const auto purpose = video ? miacode::file_dialog_preferences::ChartPurpose::Video
+                               : miacode::file_dialog_preferences::ChartPurpose::Image;
+    request.startPath = miacode::file_dialog_preferences::chartDirectory(purpose, chartPath);
     request.nameFilters = {
         miacode::localizedText(video ? "track_metadata.video_file_filter" : "track_metadata.image_file_filter"),
         miacode::localizedText("qml.all_files"),
     };
-    uiRequests_->requestFile(request, [this, kind](const QString& sourcePath) {
-        if (sourcePath.trimmed().isEmpty() || uiRequests_ == nullptr) return;
+    const auto generation = documentGeneration_;
+    uiRequests_->requestFile(request, [this, kind, purpose, chartPath, generation](const QString& sourcePath) {
+        if (sourcePath.trimmed().isEmpty() || uiRequests_ == nullptr || generation != documentGeneration_) return;
+        miacode::file_dialog_preferences::rememberChartFile(purpose, chartPath, sourcePath);
         if (!miacode::ChartMediaService::sourceIsSupported(sourcePath, kind)) {
             uiRequests_->postNotice(
                 miacode::NoticeSeverity::Warning,
@@ -997,12 +1019,17 @@ void DocumentModel::createDocumentFromPickedAudio()
     }
     miacode::FileRequest request;
     request.title = miacode::localizedText("document.choose_audio");
+    request.startPath = miacode::file_dialog_preferences::recentDirectory(
+        miacode::file_dialog_preferences::Purpose::NewChartAudio,
+        fileDialogLocation(false).value(QStringLiteral("folder")).toUrl().toLocalFile());
     request.nameFilters = {
         miacode::localizedText("document.audio_files_filter").arg(patterns.join(QLatin1Char(' '))),
         miacode::localizedText("qml.all_files"),
     };
     requests->requestFile(request, [this](const QString& audioPath) {
         if (!audioPath.trimmed().isEmpty()) {
+            miacode::file_dialog_preferences::rememberFile(
+                miacode::file_dialog_preferences::Purpose::NewChartAudio, audioPath);
             createChartBesideAudio(QDir::cleanPath(audioPath));
         }
     });
@@ -1312,9 +1339,12 @@ bool DocumentModel::saveDifficultySection(int difficultyId)
     if (!hasDocument() || fileService_ == nullptr) return false;
     if (!finishPendingEdits()) return false;
     if (workspace_->isNetPreview()) { saveSectionOrAskForPath(0, {}); return true; }
-    if (!runWorkspaceMutation([&] { return fileService_->save(difficultyId).accepted; })) {
-        uiRequests_->postNotice(miacode::NoticeSeverity::Error,
-            miacode::localizedText("document.save_failed"), miacode::localizedText("document.cannot_write_chart"));
+    miacode::ChartWorkspaceFileResult saveResult;
+    if (!runWorkspaceMutation([&] {
+            saveResult = fileService_->save(difficultyId);
+            return saveResult.accepted;
+        })) {
+        noticeChartSaveFailed(saveResult);
         return false;
     }
     publishWorkspaceCommit(WorkspaceCommitKind::SavePoint);
@@ -1331,6 +1361,32 @@ bool DocumentModel::revertDifficultyChart(int difficultyId)
     }
     publishWorkspaceCommit(WorkspaceCommitKind::SourceReplacement);
     return true;
+}
+
+QVariantMap DocumentModel::fileDialogLocation(bool saveMode) const
+{
+    const auto app = PreferenceDocument::loadPreferencesObject().value(QStringLiteral("app")).toObject();
+    const bool netPreview = workspace_ != nullptr && workspace_->isNetPreview();
+    QString lastDirectory = app.value(QStringLiteral("last_open_dir")).toString();
+    // Older runtimes also remembered preview cache locations. They cannot be
+    // used as save destinations, and must not seed the regular Open dialog.
+    if (netPreview && QDir::cleanPath(lastDirectory) == QFileInfo(currentFilePath()).absolutePath()) {
+        lastDirectory.clear();
+    }
+    QString directory;
+    if (netPreview && miacode::file_dialog_preferences::validDirectory(lastDirectory).isEmpty()) {
+        directory = miacode::file_dialog_preferences::validDirectory(
+            QStandardPaths::writableLocation(QStandardPaths::DesktopLocation));
+        if (directory.isEmpty()) directory = QDir::homePath();
+    } else {
+        directory = miacode::file_dialog_preferences::documentDirectory(
+            lastDirectory, netPreview ? QString() : currentFilePath());
+    }
+    if (!saveMode) return {{QStringLiteral("folder"), QUrl::fromLocalFile(directory)}};
+    const QString path = !netPreview && !currentFilePath().isEmpty() ? currentFilePath()
+        : QDir(directory).filePath(netPreview ? QStringLiteral("maidata.txt") : QStringLiteral("chart.txt"));
+    return {{QStringLiteral("folder"), QUrl::fromLocalFile(QFileInfo(path).absolutePath())},
+            {QStringLiteral("file"), QUrl::fromLocalFile(path)}};
 }
 
 bool DocumentModel::openFile(const QUrl& fileUrl)
@@ -1445,14 +1501,16 @@ void DocumentModel::saveSectionOrAskForPath(
         return;
     }
     if (!workspace_->snapshot().filePath.isEmpty() && !workspace_->isNetPreview()) {
-        const bool saved = runWorkspaceMutation(
-            [&] { return fileService_->save(difficultyId).accepted; });
+        miacode::ChartWorkspaceFileResult saveResult;
+        const bool saved = runWorkspaceMutation([&] {
+            saveResult = fileService_->save(difficultyId);
+            return saveResult.accepted;
+        });
         if (saved) {
             writeUnifiedDesignerPreference(currentFilePath(), unifiedDesignerEnabled_);
             publishWorkspaceCommit(WorkspaceCommitKind::SavePoint);
         } else {
-            uiRequests_->postNotice(miacode::NoticeSeverity::Error,
-                miacode::localizedText("document.save_failed"), miacode::localizedText("document.cannot_write_chart"));
+            noticeChartSaveFailed(saveResult);
         }
         finish(saved);
         return;
@@ -1466,7 +1524,7 @@ void DocumentModel::saveSectionOrAskForPath(
     miacode::FileRequest request;
     request.title = miacode::localizedText("action.save_as");
     request.saveMode = true;
-    if (workspace_->isNetPreview()) request.startPath = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
+    request.startPath = fileDialogLocation(true).value(QStringLiteral("file")).toUrl().toLocalFile();
     request.nameFilters = {miacode::localizedText("qml.simai_files_txt_simai"), miacode::localizedText("qml.all_files_2")};
     const qulonglong generation = documentGeneration_;
     requests->requestFile(request, [this, difficultyId, generation, finish](const QString& path) {
@@ -1478,14 +1536,16 @@ void DocumentModel::saveSectionOrAskForPath(
         }
         // 首次保存遵守请求范围，其他难度的修改保留在工作区。
         if (!finishPendingEdits()) { finish(false); return; }
-        const bool saved = runWorkspaceMutation(
-            [&] { return fileService_->saveAs(path, difficultyId).accepted; });
+        miacode::ChartWorkspaceFileResult saveResult;
+        const bool saved = runWorkspaceMutation([&] {
+            saveResult = fileService_->saveAs(path, difficultyId);
+            return saveResult.accepted;
+        });
         if (saved) {
             writeUnifiedDesignerPreference(currentFilePath(), unifiedDesignerEnabled_);
             publishWorkspaceCommit(WorkspaceCommitKind::SavePoint);
         } else {
-            uiRequests_->postNotice(miacode::NoticeSeverity::Error,
-                miacode::localizedText("document.save_failed"), miacode::localizedText("document.cannot_write_chart"));
+            noticeChartSaveFailed(saveResult);
         }
         finish(saved);
     });
@@ -1499,11 +1559,12 @@ bool DocumentModel::saveMetadataImmediately()
     if (closeDecisionPending_) return true;
     if (workspace_ == nullptr || !workspace_->metadataDirty()
         || currentFilePath().isEmpty()) return true;
+    miacode::ChartWorkspaceFileResult saveResult;
     if (fileService_ == nullptr || !runWorkspaceMutation([&] {
-            return fileService_->save(miacode::ChartWorkspace::MetadataSection).accepted;
+            saveResult = fileService_->save(miacode::ChartWorkspace::MetadataSection);
+            return saveResult.accepted;
         })) {
-        uiRequests_->postNotice(miacode::NoticeSeverity::Error,
-            miacode::localizedText("document.save_failed"), miacode::localizedText("document.cannot_write_chart"));
+        noticeChartSaveFailed(saveResult);
         return false;
     }
     writeUnifiedDesignerPreference(currentFilePath(), workspace_->unifiedDesignerEnabled());
@@ -1613,11 +1674,12 @@ bool DocumentModel::save()
     if (workspace_->isNetPreview()) { saveSectionOrAskForPath(0, {}); return true; }
     if (fileService_ == nullptr) return false;
     const int sectionId = saveSectionDifficultyId();
+    miacode::ChartWorkspaceFileResult saveResult;
     if (!runWorkspaceMutation([&] {
-            return fileService_->save(sectionId).accepted;
+            saveResult = fileService_->save(sectionId);
+            return saveResult.accepted;
         })) {
-        uiRequests_->postNotice(miacode::NoticeSeverity::Error,
-            miacode::localizedText("document.save_failed"), miacode::localizedText("document.cannot_write_chart"));
+        noticeChartSaveFailed(saveResult);
         return false;
     }
     writeUnifiedDesignerPreference(currentFilePath(), unifiedDesignerEnabled_);
@@ -1631,9 +1693,12 @@ bool DocumentModel::saveWholeDocument()
     if (!finishPendingEdits()) return false;
     if (workspace_->isNetPreview()) { saveSectionOrAskForPath(0, {}); return true; }
     if (fileService_ == nullptr) return false;
-    if (!runWorkspaceMutation([&] { return fileService_->save(0).accepted; })) {
-        uiRequests_->postNotice(miacode::NoticeSeverity::Error,
-            miacode::localizedText("document.save_failed"), miacode::localizedText("document.cannot_write_chart"));
+    miacode::ChartWorkspaceFileResult saveResult;
+    if (!runWorkspaceMutation([&] {
+            saveResult = fileService_->save(0);
+            return saveResult.accepted;
+        })) {
+        noticeChartSaveFailed(saveResult);
         return false;
     }
     writeUnifiedDesignerPreference(currentFilePath(), unifiedDesignerEnabled_);
@@ -1838,6 +1903,21 @@ bool DocumentModel::runWorkspaceMutation(const std::function<bool()>& mutate)
     return ok;
 }
 
+void DocumentModel::noticeChartSaveFailed(const miacode::ChartWorkspaceFileResult& result)
+{
+    // No failed file means the save stopped before writing, so there is no system reason to name.
+    if (result.failedPath.isEmpty()) {
+        uiRequests_->postNotice(miacode::NoticeSeverity::Error,
+            miacode::localizedText("document.save_failed"), miacode::localizedText("document.cannot_write_chart"));
+        return;
+    }
+    uiRequests_->postNotice(miacode::NoticeSeverity::Error,
+        miacode::localizedText("document.save_failed"),
+        miacode::fileWriteFailureText(
+            QFileInfo(result.failedPath).fileName(), result.fileError, result.systemError),
+        QDir::toNativeSeparators(result.failedPath));
+}
+
 void DocumentModel::publishWorkspaceCommit(
     WorkspaceCommitKind kind, bool replacement, bool usedSystemEncoding)
 {
@@ -1915,9 +1995,12 @@ bool DocumentModel::saveToPath(const QString& path)
 {
     if (!hasDocument() || fileService_ == nullptr || path.trimmed().isEmpty()) return false;
     if (!finishPendingEdits()) return false;
-    if (!runWorkspaceMutation([&] { return fileService_->saveAs(path, 0).accepted; })) {
-        uiRequests_->postNotice(miacode::NoticeSeverity::Error,
-            miacode::localizedText("document.save_failed"), miacode::localizedText("document.cannot_write_chart"));
+    miacode::ChartWorkspaceFileResult saveResult;
+    if (!runWorkspaceMutation([&] {
+            saveResult = fileService_->saveAs(path, 0);
+            return saveResult.accepted;
+        })) {
+        noticeChartSaveFailed(saveResult);
         return false;
     }
     publishWorkspaceCommit(WorkspaceCommitKind::SavePoint);

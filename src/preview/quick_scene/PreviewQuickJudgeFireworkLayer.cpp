@@ -30,7 +30,7 @@ struct FireworkGlowField {
     float axisX, axisY, inverseReach, inverseWidth;
     float centerX, centerY, weight, padding;
 };
-constexpr int kFireworkMaterialUniformBufferSize = 176 + kFireworkGlowFieldCount * sizeof(FireworkGlowField);
+constexpr int kFireworkMaterialUniformBufferSize = 192 + kFireworkGlowFieldCount * sizeof(FireworkGlowField);
 constexpr qreal kFireworkQuadRadiusMin = 1.0;
 constexpr int kFireworkClipSegments = 64;
 constexpr int kFireworkRenderFlagDrawStripe = 0x1;
@@ -109,7 +109,8 @@ std::array<FireworkGlowField, kFireworkGlowFieldCount> fireworkGlowFields(float 
         return values;
     }();
     const float lightRetirement = qBound(0.0f, (time + 1.0f / 30.0f - .567f) / .433f, 1.0f);
-    const float dispersion = fireworkSmoothStep(time / 1.067f / .100f) * (1.0f - std::pow(lightRetirement, 4.0f));
+    const float dispersion = fireworkSmoothStep((time + 1.0f / 30.0f) / .050f)
+        * (1.0f - std::pow(lightRetirement, 4.0f));
     std::array<FireworkGlowField, kFireworkGlowFieldCount> fields{};
     for (int i = 0; i < kFireworkGlowFieldCount; ++i) {
         const auto& shape = shapes[i];
@@ -126,22 +127,6 @@ std::array<FireworkGlowField, kFireworkGlowFieldCount> fireworkGlowFields(float 
             .88f + .12f * shape.variation, 0.0f};
     }
     return fields;
-}
-
-QImage solidFireworkBallImage(const QImage& sourceImage)
-{
-    QImage image = sourceImage.convertToFormat(QImage::Format_RGBA8888);
-    const float edgeWidth = 2.0f / image.width();
-    for (int y = 0; y < image.height(); ++y) {
-        auto* pixels = image.scanLine(y);
-        for (int x = 0; x < image.width(); ++x) {
-            const float radial = std::hypot((x + .5f) / image.width() * 2.0f - 1.0f,
-                (y + .5f) / image.height() * 2.0f - 1.0f);
-            const float coverage = 1.0f - fireworkSmoothStep((radial - .85f + edgeWidth) / (2.0f * edgeWidth));
-            pixels[x * 4 + 3] = static_cast<uchar>(qRound(255.0f * coverage));
-        }
-    }
-    return image.convertToFormat(QImage::Format_RGBA8888_Premultiplied);
 }
 
 class PreviewQuickJudgeFireworkMaterial;
@@ -290,6 +275,7 @@ public:
             && qFuzzyCompare(clipRadius_ + 1.0f, otherMaterial->clipRadius_ + 1.0f)
             && qFuzzyCompare(outerRadius_ + 1.0f, otherMaterial->outerRadius_ + 1.0f)
             && qFuzzyCompare(fireworkAlpha_ + 1.0f, otherMaterial->fireworkAlpha_ + 1.0f)
+            && qFuzzyCompare(fireworkBrightness_ + 1.0f, otherMaterial->fireworkBrightness_ + 1.0f)
             && qFuzzyCompare(fireworkRotationDegrees_ + 1.0f, otherMaterial->fireworkRotationDegrees_ + 1.0f)
             && qFuzzyCompare(holeRadius_ + 1.0f, otherMaterial->holeRadius_ + 1.0f)
             && qFuzzyCompare(holeMaskRadius_ + 1.0f, otherMaterial->holeMaskRadius_ + 1.0f)
@@ -320,6 +306,7 @@ public:
         float clipRadius,
         float outerRadius,
         float fireworkAlpha,
+        float fireworkBrightness,
         float fireworkRotationDegrees,
         float holeRadius,
         float holeMaskRadius,
@@ -346,6 +333,7 @@ public:
         clipRadius_ = clipRadius;
         outerRadius_ = outerRadius;
         fireworkAlpha_ = fireworkAlpha;
+        fireworkBrightness_ = fireworkBrightness;
         fireworkRotationDegrees_ = fireworkRotationDegrees;
         holeRadius_ = holeRadius;
         holeMaskRadius_ = holeMaskRadius;
@@ -375,6 +363,7 @@ public:
     float clipRadius() const { return clipRadius_; }
     float outerRadius() const { return outerRadius_; }
     float fireworkAlpha() const { return fireworkAlpha_; }
+    float fireworkBrightness() const { return fireworkBrightness_; }
     float fireworkRotationDegrees() const { return fireworkRotationDegrees_; }
     float holeRadius() const { return holeRadius_; }
     float holeMaskRadius() const { return holeMaskRadius_; }
@@ -402,6 +391,7 @@ private:
     float clipRadius_ = 0.0f;
     float outerRadius_ = 0.0f;
     float fireworkAlpha_ = 0.0f;
+    float fireworkBrightness_ = 1.0f;
     float fireworkRotationDegrees_ = 0.0f;
     float holeRadius_ = 0.0f;
     float holeMaskRadius_ = 0.0f;
@@ -489,6 +479,10 @@ bool PreviewQuickJudgeFireworkMaterialShader::updateUniformData(
         sizeof(FireworkGlowField) * kFireworkGlowFieldCount);
     std::memcpy(uniformData->data() + 160 + sizeof(FireworkGlowField) * kFireworkGlowFieldCount,
         material->starsUvTransform.data(), sizeof(float) * 4);
+    static const int diagnosticLayer = qEnvironmentVariableIntValue("MIACODE_FIREWORK_DIAGNOSTIC_LAYER");
+    const float brightnessControls[4] = {material->fireworkBrightness(), float(diagnosticLayer), 0.0f, 0.0f};
+    std::memcpy(uniformData->data() + 176 + sizeof(FireworkGlowField) * kFireworkGlowFieldCount,
+        brightnessControls, sizeof(brightnessControls));
     return true;
 }
 
@@ -634,6 +628,7 @@ public:
             static_cast<float>(layerState.clipRadius),
             static_cast<float>(layerState.outerRadius),
             static_cast<float>(layerState.fireworkAlpha),
+            static_cast<float>(layerState.fireworkBrightness),
             static_cast<float>(layerState.fireworkRotationDegrees),
             static_cast<float>(layerState.holeRadius),
             static_cast<float>(layerState.holeMaskRadius),
@@ -864,12 +859,18 @@ QSGNode* PreviewQuickJudgeFireworkLayer::updateNode(
     brightBlockTexture->setFiltering(QSGTexture::Linear);
 
     const QImage& ballSource = useTexture ? *sourceImage : fallbackFireworkTextureImage();
-    if (colorBallSourceKey_ != ballSource.cacheKey()) {
-        colorBallImage_ = solidFireworkBallImage(ballSource);
-        colorBallSourceKey_ = ballSource.cacheKey();
+    if (colorBallRadianceSourceKey_ != ballSource.cacheKey()) {
+        colorBallRadianceImage_ = ballSource.convertToFormat(QImage::Format_ARGB32);
+        for (int y = 0; y < colorBallRadianceImage_.height(); ++y) {
+            auto* pixels = reinterpret_cast<QRgb*>(colorBallRadianceImage_.scanLine(y));
+            for (int x = 0; x < colorBallRadianceImage_.width(); ++x) {
+                pixels[x] = qRgb(qRed(pixels[x]), qGreen(pixels[x]), qBlue(pixels[x]));
+            }
+        }
+        colorBallRadianceSourceKey_ = ballSource.cacheKey();
     }
     QSGTexture* bigBallTexture = textures->retainedTextureForImage(
-        QStringLiteral("judge_firework_color_ball"), colorBallImage_, true);
+        QStringLiteral("judge_firework_color_ball"), colorBallRadianceImage_, true);
     if (bigBallTexture == nullptr) return nullptr;
     bigBallTexture->setFiltering(QSGTexture::Linear);
     bigBallTexture->setMipmapFiltering(QSGTexture::Linear);

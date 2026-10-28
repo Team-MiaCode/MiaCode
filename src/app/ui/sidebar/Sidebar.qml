@@ -67,7 +67,7 @@ Item {
     }
 
     ActivityBar {
-        netEnabled: root.pages.netEnabled
+        netUploadEnabled: root.pages.netUploadEnabled
         id: activityBar
         visible: !root.efficientMode
         width: root.efficientMode ? 0 : implicitWidth
@@ -77,10 +77,8 @@ Item {
         anchors.bottom: parent.bottom
         activeView: root.viewState.activeSidebarView
         documentAvailable: root.documentSession.hasDocument
+        networkActive: root.viewState.netEditorActive
         toolsAvailable: true
-        chartEditorAvailable: root.documentSession.hasDocument
-            && root.documentSession.currentDifficultyId > 0 && !root.pages.overlayActive
-        normalizationEnabled: root.pages.activePageId !== "export"
         onViewRequested: viewId => root.activateView(viewId)
         onToolRequested: function(toolId) {
             if (toolId === "net-download" || toolId === "net-upload") {
@@ -91,8 +89,6 @@ Item {
                 return
             if (toolId.startsWith("media."))
                 root.mediaToolRequested(toolId.substring(6))
-            else if (toolId === "normalize")
-                root.pages.openNormalizeWholeChart()
         }
         onSettingsRequested: root.settingsRequested()
     }

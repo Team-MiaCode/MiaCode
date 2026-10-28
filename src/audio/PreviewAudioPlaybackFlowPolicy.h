@@ -27,6 +27,8 @@ struct Completion {
     double effectiveSecond = 0.0;
     bool success = false;
     bool degraded = false;
+    // The worker had no output engine. Playback proceeds on the visual clock alone.
+    bool audioUnavailable = false;
 };
 
 struct State {
@@ -49,6 +51,8 @@ struct Decision {
     bool matchesPending = false;
     bool commitsWorkerSecond = false;
     bool commitsAudioPreparation = false;
+    // Committed without audio; the effective second is the requested visual second.
+    bool proceedsWithoutAudio = false;
 };
 
 struct TickDecision {
@@ -367,12 +371,17 @@ inline Decision decideCompletion(State state, const Completion& completion)
         && completion.generation == state.currentGeneration
         && completion.transactionId == state.activeTransactionId
         && completion.sequence == expectedSequence;
+    // Without an output engine there is no worker second to wait for: the
+    // wall clock already drives the visual timeline, so it becomes the anchor.
+    decision.proceedsWithoutAudio = decision.matchesPending && completion.audioUnavailable;
     decision.commitsWorkerSecond = decision.matchesPending
-        && completion.success
-        && !completion.degraded;
+        && ((completion.success && !completion.degraded) || decision.proceedsWithoutAudio);
     if (!decision.commitsWorkerSecond) {
         return decision;
     }
+    const double effectiveSecond = decision.proceedsWithoutAudio
+        ? state.requestedVisualSecond
+        : completion.effectiveSecond;
 
     if (completion.kind == CompletionKind::Prepare) {
         decision.state.pendingPrepareSequence = 0;
@@ -382,8 +391,8 @@ inline Decision decideCompletion(State state, const Completion& completion)
     } else {
         decision.state.pendingRetainedSequence = 0;
     }
-    decision.state.effectiveWorkerSecond = completion.effectiveSecond;
-    decision.state.transportAnchorSecond = completion.effectiveSecond;
+    decision.state.effectiveWorkerSecond = effectiveSecond;
+    decision.state.transportAnchorSecond = effectiveSecond;
     if (state.pendingPlayingSeekSequence == 0) {
         decision.commitsAudioPreparation = true;
         decision.state.audioPrepared = true;

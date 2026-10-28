@@ -506,6 +506,7 @@ void PreviewAudioWorker::execute(
         completion.error = CommandError::BackendUnavailable;
         completion.success = false;
         completion.detail = QStringLiteral("preview audio backend is unavailable");
+        completion.audioEngineUnavailable = true;
         completion.nativeErrorCode = backend != nullptr ? backend->nativeErrorCode() : 0;
         completion.executionDurationNs = steadyNowNs() - startedAtNs;
         finishCompletion(completion, nullptr, std::nullopt, policy.usesAssetGeneration);
@@ -627,6 +628,7 @@ void PreviewAudioWorker::execute(
                 completion.success = false;
                 completion.error = CommandError::BackendFailure;
                 completion.detail = QStringLiteral("audio engine unavailable after prepare");
+                completion.audioEngineUnavailable = true;
                 completion.nativeErrorCode = backend->nativeErrorCode();
             }
             break;
@@ -645,6 +647,7 @@ void PreviewAudioWorker::execute(
                 completion.success = false;
                 completion.error = CommandError::BackendFailure;
                 completion.detail = QStringLiteral("audio engine unavailable after start");
+                completion.audioEngineUnavailable = true;
                 completion.nativeErrorCode = backend->nativeErrorCode();
             }
             break;
@@ -654,6 +657,7 @@ void PreviewAudioWorker::execute(
                 completion.success = false;
                 completion.error = CommandError::BackendFailure;
                 completion.detail = QStringLiteral("audio engine unavailable after retained resume");
+                completion.audioEngineUnavailable = true;
                 completion.nativeErrorCode = backend->nativeErrorCode();
             }
             break;
@@ -663,6 +667,7 @@ void PreviewAudioWorker::execute(
                 completion.success = false;
                 completion.error = CommandError::BackendFailure;
                 completion.detail = QStringLiteral("audio engine unavailable after retained seek");
+                completion.audioEngineUnavailable = true;
                 completion.nativeErrorCode = backend->nativeErrorCode();
             }
             break;
@@ -1101,6 +1106,7 @@ void PreviewAudioWorker::finishCompletion(
     completion.success = false;
     completion.detail = QStringLiteral("asset generation was superseded before final publication");
     completion.nativeErrorCode = 0;
+    completion.audioEngineUnavailable = false;
     deliverCompletion(completion);
 }
 

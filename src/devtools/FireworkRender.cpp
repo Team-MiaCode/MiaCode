@@ -33,7 +33,10 @@ int main(int argc, char** argv)
     parser.addOption({"size", "Square side in pixels.", "pixels", "720"});
     parser.addOption({"fps", "Frames per second.", "fps", "60"});
     parser.addOption({"times", "Comma-separated frame times in seconds.", "seconds"});
+    parser.addOption({"brightness", "Firework brightness in percent (50-120).", "percent", "100"});
+    parser.addOption({"component", "Layer: 0 all, 1 large ball, 2 small ball, 3 halo, 4 sectors, 5 core, 6 stars, 7 coverage.", "layer", "0"});
     parser.process(app);
+    qputenv("MIACODE_FIREWORK_DIAGNOSTIC_LAYER", parser.value("component").toLatin1());
     const int side = parser.value("size").toInt();
     const int fps = parser.value("fps").toInt();
     const QString output = parser.value("output");
@@ -57,6 +60,8 @@ int main(int argc, char** argv)
     state.media.stageMediaSerial = 1;
     state.render.backgroundBrightnessOuter = 0.0;
     state.render.backgroundBrightnessInner = 0.4;
+    state.render.fireworkBrightness = miacode::preview_video::normalizedFireworkBrightness(
+        parser.value("brightness").toDouble() / 100.0);
     state.render.showTimestamp = false;
     state.render.showObjectStatsHud = false;
     state.render.showChartInfoHud = false;

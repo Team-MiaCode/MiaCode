@@ -211,6 +211,7 @@ public:
         double previewMaxOutputSeconds = 0.0;  // 0 = full; >0 caps output (intro preview)
         miacode::preview_gameplay::CenterDisplayMode centerDisplayMode =
             miacode::preview_gameplay::kDefaultCenterDisplayMode;
+        double fireworkBrightness = miacode::preview_video::kFireworkBrightnessDefault;
         bool smoothBrightness = miacode::preview_video::kSmoothBrightnessDefault;
         double backgroundBrightnessOuter = miacode::preview_video::kBackgroundBrightnessDefault;
         double backgroundBrightnessInner = miacode::preview_video::kBackgroundBrightnessInnerDefault;

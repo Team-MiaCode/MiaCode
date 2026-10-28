@@ -117,6 +117,7 @@ public:
     QVector<SimaiRawField> extraFields;
 
 private:
+    QString preamble_;
     QMap<int, SimaiDifficultyData> difficulties_;
     // `&des_N` names for slots that have no chart. Kept disjoint from
     // difficulties_ (a slot is in one map or the other, never both) so a
