@@ -125,6 +125,8 @@ public:
         if (file) {
             if (!response.error.isEmpty()) file->cancelWriting();
             else if (!file->commit()) response.error = error(QStringLiteral("file.write_failed"));
+            // Release the temporary file before callbacks clean up its directory.
+            file.reset();
         }
         response.elapsedMs = elapsed.elapsed();
         if (!reply && response.cancelled) response.error = error(QStringLiteral("job.cancelled"));
