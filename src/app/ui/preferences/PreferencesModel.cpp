@@ -6,6 +6,7 @@
 #include "app/runtime/Shared.h"
 #include "app/ui/preferences/LocaleService.h"
 #include "app/services/PreferenceDocument.h"
+#include "app/services/EditorTypography.h"
 
 #include <QVariantMap>
 #include <QCoreApplication>
@@ -238,7 +239,11 @@ void PreferencesModel::setEditorFontFamily(const QString& family)
 
 QVariantList PreferencesModel::editorFontOptions(const QString& filter) const
 {
-    QVariantList rows{option(QString(), qtTrId("dialog.preferences.font.default"))};
+    const QString defaultFamily = miacode::editor_typography::resolveFont(QString()).family();
+    QVariantMap defaultRow = option(QString(), defaultFamily + QStringLiteral(" · ")
+                                    + qtTrId("dialog.preferences.font.default_suffix"));
+    defaultRow.insert(QStringLiteral("family"), defaultFamily);
+    QVariantList rows{defaultRow};
     QStringList families = QFontDatabase::families();
     std::sort(families.begin(), families.end(), [](const QString& left, const QString& right) {
         return QString::localeAwareCompare(left, right) < 0;

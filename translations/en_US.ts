@@ -1317,6 +1317,34 @@ Failed: %2</translation>
         <source>Default</source>
         <translation>Default</translation>
     </message>
+    <message id="dialog.preferences.theme.default_dark">
+        <source>Default Dark</source>
+        <translation>Default Dark</translation>
+    </message>
+    <message id="dialog.preferences.theme.default_light">
+        <source>Default Light</source>
+        <translation>Default Light</translation>
+    </message>
+    <message id="dialog.preferences.theme.legacy_dark">
+        <source>Classic Dark</source>
+        <translation>Classic Dark</translation>
+    </message>
+    <message id="dialog.preferences.theme.legacy_light">
+        <source>Classic Light</source>
+        <translation>Classic Light</translation>
+    </message>
+    <message id="dialog.preferences.theme.catppuccin_mocha">
+        <source>Catppuccin Mocha</source>
+        <translation>Mocha</translation>
+    </message>
+    <message id="dialog.preferences.theme.catppuccin_latte">
+        <source>Catppuccin Latte</source>
+        <translation>Latte</translation>
+    </message>
+    <message id="dialog.preferences.theme.nord">
+        <source>Nord</source>
+        <translation>Nord</translation>
+    </message>
     <message id="dialog.preferences.theme.light">
         <source>Light</source>
         <translation>Light</translation>
@@ -2395,7 +2423,7 @@ File: </translation>
     </message>
     <message id="media_tools.audio_processing_track">
         <source>Audio Processing track.mp3</source>
-        <translation>Audio Processing track.mp3</translation>
+        <translation>Audio Processing</translation>
     </message>
     <message id="media_tools.audio_video_processing">
         <source>Audio/Video Processing</source>
@@ -2771,7 +2799,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="media_tools.video_processing_pv">
         <source>Video Processing pv.mp4</source>
-        <translation>Video Processing pv.mp4</translation>
+        <translation>Video Processing</translation>
     </message>
     <message id="menu.clear_elements">
         <source>Clear Elements</source>
@@ -4943,6 +4971,7 @@ Error: %1</translation>
         <source>Search installed fonts…</source>
         <translation>Search installed fonts…</translation>
     </message>
+    <message id="dialog.preferences.font.default_suffix"><source>Default</source><translation>Default</translation></message>
     <message id="dialog.preferences.font.default">
         <source>Default font</source>
         <translation>Default font</translation>
@@ -4979,6 +5008,8 @@ Error: %1</translation>
         <source>Comment</source>
         <translation>Comment</translation>
     </message>
+    <message id="dialog.preferences.theme.noah"><source>Noa</source><translation>Noa</translation></message>
+    <message id="qml.track_mp3_filter"><source>Audio file (track.mp3)</source><translation>Audio file (track.mp3)</translation></message>
 </context>
 <context>
     <!-- Qt loads qtbase texts for the system locale; this context keeps the

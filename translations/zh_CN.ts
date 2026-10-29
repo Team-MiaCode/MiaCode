@@ -1317,6 +1317,34 @@ Failed: %2</source>
         <source>Default</source>
         <translation>默认</translation>
     </message>
+    <message id="dialog.preferences.theme.default_dark">
+        <source>Default Dark</source>
+        <translation>默认深色</translation>
+    </message>
+    <message id="dialog.preferences.theme.default_light">
+        <source>Default Light</source>
+        <translation>默认浅色</translation>
+    </message>
+    <message id="dialog.preferences.theme.legacy_dark">
+        <source>Classic Dark</source>
+        <translation>经典深色</translation>
+    </message>
+    <message id="dialog.preferences.theme.legacy_light">
+        <source>Classic Light</source>
+        <translation>经典浅色</translation>
+    </message>
+    <message id="dialog.preferences.theme.catppuccin_mocha">
+        <source>Catppuccin Mocha</source>
+        <translation>摩卡</translation>
+    </message>
+    <message id="dialog.preferences.theme.catppuccin_latte">
+        <source>Catppuccin Latte</source>
+        <translation>拿铁</translation>
+    </message>
+    <message id="dialog.preferences.theme.nord">
+        <source>Nord</source>
+        <translation>北境</translation>
+    </message>
     <message id="dialog.preferences.theme.light">
         <source>Light</source>
         <translation>浅色</translation>
@@ -2395,7 +2423,7 @@ File: </source>
     </message>
     <message id="media_tools.audio_processing_track">
         <source>Audio Processing track.mp3</source>
-        <translation>音频处理 track.mp3</translation>
+        <translation>音频处理</translation>
     </message>
     <message id="media_tools.audio_video_processing">
         <source>Audio/Video Processing</source>
@@ -2771,7 +2799,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="media_tools.video_processing_pv">
         <source>Video Processing pv.mp4</source>
-        <translation>视频处理 pv.mp4</translation>
+        <translation>视频处理</translation>
     </message>
     <message id="menu.clear_elements">
         <source>Clear Elements</source>
@@ -4943,6 +4971,7 @@ Error: %1</source>
         <source>Search installed fonts…</source>
         <translation>搜索已安装字体…</translation>
     </message>
+    <message id="dialog.preferences.font.default_suffix"><source>Default</source><translation>默认</translation></message>
     <message id="dialog.preferences.font.default">
         <source>Default font</source>
         <translation>默认字体</translation>
@@ -4979,6 +5008,8 @@ Error: %1</source>
         <source>Comment</source>
         <translation>注释</translation>
     </message>
+    <message id="dialog.preferences.theme.noah"><source>Noa</source><translation>诺亚</translation></message>
+    <message id="qml.track_mp3_filter"><source>Audio file (track.mp3)</source><translation>音频文件 (track.mp3)</translation></message>
 </context>
 <context>
     <!-- Qt loads qtbase texts for the system locale; this context keeps the

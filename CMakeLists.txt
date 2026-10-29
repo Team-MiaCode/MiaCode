@@ -696,6 +696,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/sidebar/ChartFieldSidebar.qml
     src/app/ui/sidebar/DifficultyList.qml
     src/app/ui/sidebar/ExportSidebarPage.qml
+    src/app/ui/sidebar/UtilitySidebarPage.qml
     src/app/ui/export/ExportRangeSelector.qml
     src/app/ui/export/ExportVideoPage.qml
     src/app/ui/export/CoverExportPage.qml

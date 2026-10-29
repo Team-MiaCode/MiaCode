@@ -59,13 +59,8 @@ Rectangle {
                 spacing: 10
 
                 AppButton {
-                    text: qsTrId("action.new")
-                    emphasized: true
-                    onClicked: root.newRequested()
-                }
-
-                AppButton {
                     text: qsTrId("action.open")
+                    emphasized: true
                     onClicked: root.openRequested()
                 }
             }

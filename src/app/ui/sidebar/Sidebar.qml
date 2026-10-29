@@ -10,6 +10,7 @@ Item {
     required property var commands
     required property var pages
     property bool compact: false
+    property string pendingChartEditor: ""
     readonly property bool efficientMode: preferences.efficientSidebarEnabled
     readonly property bool primarySidebarVisible: compact || viewState.sidebarVisible
     readonly property Item navigationItem: efficientMode ? efficientSidebar : activityBar
@@ -17,8 +18,10 @@ Item {
         ? efficientSidebar.navigationContentItem : chartSidebar.navigationContentItem
     readonly property real activityBarWidth: activityBar.width
     readonly property Item cornerSourceItem: efficientMode ? efficientSidebar.cornerSourceItem
-        : root.viewState.activeSidebarView === "export"
-        ? exportSidebar.cornerSourceItem : chartSidebar.cornerSourceItem
+        : root.viewState.activeSidebarView === "export" ? exportSidebar.cornerSourceItem
+        : root.viewState.activeSidebarView === "network" ? networkSidebar.cornerSourceItem
+        : root.viewState.activeSidebarView === "tools" ? toolsSidebar.cornerSourceItem
+        : chartSidebar.cornerSourceItem
 
     signal settingsRequested()
     signal mediaToolRequested(string toolId)
@@ -29,7 +32,9 @@ Item {
             root.preferences.sidebarVisible = true
             Qt.callLater(efficientSidebar.showTools)
         } else {
-            activityBar.showMediaToolsMenu()
+            root.viewState.activeSidebarView = "tools"
+            root.viewState.sidebarVisible = true
+            root.preferences.sidebarVisible = true
         }
     }
 
@@ -38,9 +43,9 @@ Item {
     // Activity Bar 只负责功能域导航。再次选择当前功能时，桌面端切换
     // Primary Sidebar；紧凑布局直接关闭当前覆盖层。
     function activateView(viewId) {
-        const pageAlreadyActive = viewId === "export"
-            ? root.pages.activePageId === "export"
-            : !root.pages.overlayActive
+        const pageAlreadyActive = viewId === "export" ? root.pages.activePageId === "export"
+            : viewId === "chart" ? !root.pages.overlayActive && !root.viewState.netEditorActive
+            : true
         if (viewState.activeSidebarView === viewId && pageAlreadyActive) {
             if (compact) {
                 viewState.compactPanel = ""
@@ -51,8 +56,17 @@ Item {
             return
         }
 
-        if (viewId === "chart" && root.pages.overlayActive)
-            root.pages.leaveOverlayPage()
+        if (viewId === "chart" && root.documentSession.hasDocument) {
+            const lastChartEditor = root.viewState.lastChartEditor()
+            if (root.pages.overlayActive) {
+                root.pendingChartEditor = lastChartEditor
+                root.pages.rememberEditorReturnTarget(lastChartEditor)
+                if (!root.pages.leaveOverlayPage())
+                    root.pendingChartEditor = ""
+            } else if (lastChartEditor.length > 0) {
+                root.viewState.activateEditor(lastChartEditor)
+            }
+        }
 
         viewState.activeSidebarView = viewId
         if (!viewState.sidebarVisible) {
@@ -63,7 +77,20 @@ Item {
         if (viewId === "export" && root.documentSession.hasDocument) {
             root.pages.rememberEditorReturnTarget(root.viewState.activeEditorKey)
             root.pages.openVideoExportPage()
+        } else if (viewId === "network") {
+            root.pages.openNetPage("net-download")
         }
+    }
+
+    Connections {
+        target: root.pages
+        function onOverlayPageLeft() {
+            const key = root.pendingChartEditor
+            root.pendingChartEditor = ""
+            if (key.length > 0 && root.viewState.containsEditor(key))
+                root.viewState.activateEditor(key)
+        }
+        function onNavigationRejected() { root.pendingChartEditor = "" }
     }
 
     ActivityBar {
@@ -126,6 +153,25 @@ Item {
             toolsMenuActive: activityBar.toolsMenuActive
             onToolsRequested: activityBar.showMediaToolsMenu(efficientSidebar.toolsItem)
             onSettingsRequested: root.settingsRequested()
+        }
+
+        UtilitySidebarPage {
+            id: networkSidebar
+            anchors.fill: parent
+            visible: !root.efficientMode && root.viewState.activeSidebarView === "network"
+            mode: "network"
+            pages: root.pages
+            documentAvailable: root.documentSession.hasDocument
+        }
+
+        UtilitySidebarPage {
+            id: toolsSidebar
+            anchors.fill: parent
+            visible: !root.efficientMode && root.viewState.activeSidebarView === "tools"
+            mode: "tools"
+            pages: root.pages
+            documentAvailable: root.documentSession.hasDocument
+            onToolRequested: toolId => root.mediaToolRequested(toolId)
         }
 
         ExportSidebarPage {

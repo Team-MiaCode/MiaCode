@@ -292,6 +292,7 @@ Item {
         height: 0
 
         AppMenu {
+            retainBackdrop: true
             id: fileMenu
             title: root.menuTitle(qsTrId("menu.file"))
             // 新建 / 打开 keep v1's Ctrl+Shift+N / Ctrl+Shift+O rather than the
@@ -300,15 +301,6 @@ Item {
             // transform.toggle_ex and preview.speed_down; two window-context
             // shortcuts on one sequence are ambiguous to Qt, which then fires
             // NEITHER. qml_shortcut_binding_spec guards the whole class.
-            AppMenuAction {
-                text: qsTrId("action.new")
-                shortcut: root.shortcuts.revision >= 0
-                    ? root.shortcuts.sequence("file.new", "Ctrl+Shift+N")
-                    : ""
-                shortcutText: root.shortcuts.displayText("file.new", "Ctrl+Shift+N")
-                enabled: root.commandsEnabled
-                onTriggered: root.commands.newDocumentRequested()
-            }
             AppMenuAction {
                 text: qsTrId("action.open")
                 shortcut: root.shortcuts.revision >= 0
@@ -319,6 +311,7 @@ Item {
                 onTriggered: root.commands.openRequested()
             }
             AppMenu {
+                retainBackdrop: true
                 id: recentMenu
                 title: qsTrId("cover.open_recent")
                 enabled: root.commandsEnabled
@@ -349,6 +342,7 @@ Item {
                 }
             }
             AppMenu {
+                retainBackdrop: true
                 id: restoreBackupMenu
                 title: qsTrId("qml.restore_backup")
                 enabled: root.commandsEnabled
@@ -411,6 +405,7 @@ Item {
         }
 
         AppMenu {
+            retainBackdrop: true
             id: editMenu
             title: root.menuTitle(qsTrId("metadata.edit_e"))
             AppMenuAction {
@@ -469,16 +464,18 @@ Item {
                 enabled: root.commandsEnabled && root.editorCommandsEnabled
                 onTriggered: root.commands.selectCurrentLineRequested()
             }
-        }
-
-        AppMenu {
-            id: toolsMenu
-            title: root.menuTitle(qsTrId("menu.tools"))
+            AppMenuSeparator {}
             AppMenuAction {
                 text: qsTrId("dialog.unsaved_field_changes.field.metadata")
                 enabled: root.commandsEnabled && root.toolCommandsEnabled
                 onTriggered: root.commands.metadataRequested()
             }
+        }
+
+        AppMenu {
+            retainBackdrop: true
+            id: toolsMenu
+            title: root.menuTitle(qsTrId("menu.tools"))
             AppMenuAction {
                 text: qsTrId("qml.latency_calibration")
                 enabled: root.commandsEnabled && root.toolCommandsEnabled
@@ -507,6 +504,7 @@ Item {
         }
 
         AppMenu {
+            retainBackdrop: true
             id: adjustMenu
             objectName: "adjustMenu"
             title: root.menuTitle(qsTrId("menu.transform"))
@@ -577,6 +575,7 @@ Item {
             }
 
             AppMenu {
+                retainBackdrop: true
                 id: adjustMoreMenu
                 objectName: "adjustMoreMenu"
                 enabled: root.commandsEnabled && root.chartCommandsEnabled
@@ -606,6 +605,7 @@ Item {
         }
 
         AppMenu {
+            retainBackdrop: true
             id: previewMenu
             title: root.menuTitle(qsTrId("metadata.preview_p"))
             // The native menu owns these bindings on macOS so Cocoa can render
@@ -649,6 +649,7 @@ Item {
         }
 
         AppMenu {
+            retainBackdrop: true
             id: extrasMenu
             title: root.menuTitle(qsTrId("menu.extras"))
             // Cocoa guesses action roles from the leading word (About / Config /
@@ -672,6 +673,7 @@ Item {
 
     // Overflowed top-level AppMenus are inserted via addMenu() as submenus.
     AppMenu {
+        retainBackdrop: true
         id: overflowMenu
     }
 }

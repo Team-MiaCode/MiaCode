@@ -40,7 +40,7 @@ ColumnLayout {
                 readonly property var previewColors: (Theme.themeCatalog[modelData.value] || Theme.themeCatalog.dark).colors
                 Layout.fillWidth: true
                 Layout.minimumWidth: 100
-                implicitHeight: 108
+                implicitHeight: 124
                 padding: 8
                 hoverEnabled: true
                 objectName: "themeTile_" + modelData.value
@@ -51,9 +51,9 @@ ColumnLayout {
 
                 background: Rectangle {
                     radius: Theme.controlRadius
-                    color: tile.hovered ? Theme.colors.buttonState.hover : Theme.colors.background.elevated
+                    color: tile.hovered ? tile.previewColors.buttonState.hover : tile.previewColors.background.panel
                     border.width: tile.selected || tile.visualFocus ? 2 : 1
-                    border.color: tile.selected || tile.visualFocus ? Theme.colors.accent.primary : Theme.colors.border.normal
+                    border.color: tile.selected || tile.visualFocus ? tile.previewColors.accent.primary : tile.previewColors.border.normal
                 }
                 contentItem: ColumnLayout {
                     spacing: 6
@@ -80,13 +80,22 @@ ColumnLayout {
                             width: parent.width - x - 8
                             spacing: 3
                             Text {
-                                text: "(180){4}"
-                                font.family: Theme.codeFont.family
-                                font.pixelSize: 12
-                                color: tile.previewColors.syntax.keyword
-                            }
-                            Text {
-                                text: "1,2,3,4,"
+                                width: parent.width
+                                textFormat: Text.StyledText
+                                wrapMode: Text.WrapAnywhere
+                                text: {
+                                    const syntax = tile.previewColors.syntax
+                                    const note = syntax.note || tile.previewColors.text.editor
+                                    const beat = syntax.beat || syntax.keyword
+                                    return "<font color='" + syntax.keyword + "'>(180)</font>"
+                                        + "<font color='" + beat + "'>{4}</font>"
+                                        + "<font color='" + note + "'>1</font>,"
+                                        + "<font color='" + note + "'>2x-5</font>"
+                                        + "<font color='" + syntax.duration + "'>[8:1]</font>,"
+                                        + "<font color='" + note + "'>3b</font>,"
+                                        + "<font color='" + note + "'>4h</font>"
+                                        + "<font color='" + syntax.duration + "'>[4:1]</font>,"
+                                }
                                 font.family: Theme.codeFont.family
                                 font.pixelSize: 12
                                 color: tile.previewColors.text.editor
@@ -108,7 +117,7 @@ ColumnLayout {
                             Layout.fillWidth: true
                             objectName: "themeLabel_" + tile.modelData.value
                             text: tile.modelData.label
-                            color: Theme.colors.text.active
+                            color: tile.previewColors.text.active
                             font.family: Theme.uiFont
                             font.pixelSize: Theme.secondaryFontSize
                             elide: Text.ElideRight
@@ -118,7 +127,7 @@ ColumnLayout {
                             height: 7
                             radius: 4
                             visible: tile.selected
-                            color: Theme.colors.accent.primary
+                            color: tile.previewColors.accent.primary
                         }
                     }
                 }

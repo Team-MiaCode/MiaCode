@@ -4,6 +4,19 @@ import QtQuick
 import "ThemePalettes.js" as PaletteData
 
 QtObject {
+    property bool miaMiaCode: false
+    readonly property string brandName: miaMiaCode ? "MiaMiaCode" : "MiaCode"
+    readonly property string brandDisplayText: {
+        if (!miaMiaCode)
+            return brandName
+        const colors = darkTheme
+            ? ["#FF7187", "#FF9A63", "#FFD166", "#C8EC75", "#76DEA3", "#68D8E8", "#79B8FF", "#9E9BFF", "#C99BFA", "#F28FD0"]
+            : ["#BD2643", "#A84C13", "#8C6A00", "#5F7900", "#087749", "#007782", "#1766AE", "#4A58B8", "#824BAA", "#A72F79"]
+        let result = ""
+        for (let i = 0; i < brandName.length; ++i)
+            result += "<font color='" + colors[i] + "'>" + brandName[i] + "</font>"
+        return result
+    }
     property var preferences: null
     property var appBackground: null
     property var windowChrome: null
@@ -110,7 +123,7 @@ QtObject {
     readonly property real popupBlurScale: 0.5
     readonly property real popupShadowOpacity: darkTheme ? 0.28 : 0.14
     readonly property real dialogShadowOpacity: darkTheme ? 0.34 : 0.18
-    readonly property real followHighlightOpacity: darkTheme ? 0.5 : 0.65
+    readonly property real followHighlightOpacity: activeThemeToken === "noah" ? 0.26 : darkTheme ? 0.5 : 0.65
     readonly property color popupTintColor: {
         const c = Qt.color(colors.background.elevated)
         return Qt.rgba(c.r, c.g, c.b, popupTintOpacity)

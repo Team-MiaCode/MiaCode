@@ -1391,6 +1391,35 @@ QVariantMap DocumentModel::fileDialogLocation(bool saveMode) const
 
 bool DocumentModel::openFile(const QUrl& fileUrl)
 {
+    const QString path = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
+    const QFileInfo info(path);
+    if (info.fileName().compare(QStringLiteral("track.mp3"), Qt::CaseInsensitive) == 0) {
+        const QString chartPath = info.absoluteDir().filePath(QStringLiteral("maidata.txt"));
+        if (QFileInfo::exists(chartPath))
+            return openFileWithOrigin(QUrl::fromLocalFile(chartPath), ChartDocumentOrigin::Local);
+        QFile chart(chartPath);
+        if (!chart.open(QIODevice::WriteOnly | QIODevice::NewOnly)) {
+            if (QFileInfo::exists(chartPath))
+                return openFileWithOrigin(QUrl::fromLocalFile(chartPath), ChartDocumentOrigin::Local);
+            if (uiRequests_ != nullptr)
+                uiRequests_->postNotice(miacode::NoticeSeverity::Error,
+                    miacode::localizedText("document.new_failed"),
+                    miacode::localizedText("document.cannot_write_file").arg(QDir::toNativeSeparators(chartPath)));
+            return false;
+        }
+        const QByteArray content = SimaiDocument::createEmpty().toText().toUtf8();
+        if (chart.write(content) != content.size() || !chart.flush()) {
+            chart.close();
+            chart.remove();
+            if (uiRequests_ != nullptr)
+                uiRequests_->postNotice(miacode::NoticeSeverity::Error,
+                    miacode::localizedText("document.new_failed"),
+                    miacode::localizedText("document.cannot_write_file").arg(QDir::toNativeSeparators(chartPath)));
+            return false;
+        }
+        chart.close();
+        return openFileWithOrigin(QUrl::fromLocalFile(chartPath), ChartDocumentOrigin::Local);
+    }
     return openFileWithOrigin(fileUrl, ChartDocumentOrigin::Local);
 }
 
