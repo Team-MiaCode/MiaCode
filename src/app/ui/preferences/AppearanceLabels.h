@@ -22,6 +22,10 @@ inline QVariantList themeOptions()
         QVariantMap{{"value", "catppuccin_latte"}, {"label", qtTrId("dialog.preferences.theme.catppuccin_latte")}},
         QVariantMap{{"value", "nord"}, {"label", qtTrId("dialog.preferences.theme.nord")}},
         QVariantMap{{"value", "noah"}, {"label", qtTrId("dialog.preferences.theme.noah")}},
+        QVariantMap{{"value", "yuzu"}, {"label", qtTrId("dialog.preferences.theme.yuzu")}},
+        QVariantMap{{"value", "sky"}, {"label", qtTrId("dialog.preferences.theme.sky")}},
+        QVariantMap{{"value", "dracula"}, {"label", qtTrId("dialog.preferences.theme.dracula")}},
+        QVariantMap{{"value", "tokyo_night"}, {"label", qtTrId("dialog.preferences.theme.tokyo_night")}},
     };
 }
 

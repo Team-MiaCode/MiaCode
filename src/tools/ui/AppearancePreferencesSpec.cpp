@@ -51,8 +51,8 @@ int main(int argc, char** argv)
     expect(translator.load(QStringLiteral(":/i18n/en_US.qm")), "compiled English catalog loads");
     app.installTranslator(&translator);
     const auto& catalog = UiTheme::themeCatalog();
-    const QStringList tokens{"dark", "light", "legacy", "legacy_light", "midnight", "forest", "paper", "lavender", "catppuccin_mocha", "catppuccin_latte", "nord", "noah"};
-    expect(catalog.size() == tokens.size(), "eleven bundled themes");
+    const QStringList tokens{"dark", "light", "legacy", "legacy_light", "midnight", "forest", "paper", "lavender", "catppuccin_mocha", "catppuccin_latte", "nord", "noah", "yuzu", "sky", "dracula", "tokyo_night"};
+    expect(catalog.size() == tokens.size(), "bundled theme count matches the options");
     const QVariantList options = miacode::ui::appearance_labels::themeOptions();
     for (const QString& token : tokens) {
         const auto palette = PreferenceDocument::themePaletteFromToken(token);
@@ -129,7 +129,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import MiaCode.UI
 ApplicationWindow {
-    width: 840; height: 360
+    width: 840; height: 720
     color: Theme.colors.background.surface
     QtObject {
         id: previewPreferences

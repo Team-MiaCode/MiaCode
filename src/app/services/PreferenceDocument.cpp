@@ -521,6 +521,14 @@ QString PreferenceDocument::themePaletteToken(ThemePalette palette)
         return QStringLiteral("nord");
     case ThemePalette::Noah:
         return QStringLiteral("noah");
+    case ThemePalette::Yuzu:
+        return QStringLiteral("yuzu");
+    case ThemePalette::Sky:
+        return QStringLiteral("sky");
+    case ThemePalette::Dracula:
+        return QStringLiteral("dracula");
+    case ThemePalette::TokyoNight:
+        return QStringLiteral("tokyo_night");
     default:
         return QStringLiteral("dark");
     }
@@ -546,6 +554,10 @@ PreferenceDocument::ThemePalette PreferenceDocument::themePaletteFromToken(const
     if (normalized == QLatin1String("catppuccin_latte")) return ThemePalette::CatppuccinLatte;
     if (normalized == QLatin1String("nord")) return ThemePalette::Nord;
     if (normalized == QLatin1String("noah")) return ThemePalette::Noah;
+    if (normalized == QLatin1String("yuzu")) return ThemePalette::Yuzu;
+    if (normalized == QLatin1String("sky")) return ThemePalette::Sky;
+    if (normalized == QLatin1String("dracula")) return ThemePalette::Dracula;
+    if (normalized == QLatin1String("tokyo_night")) return ThemePalette::TokyoNight;
     return ThemePalette::Dark;
 }
 
@@ -554,7 +566,8 @@ bool PreferenceDocument::themePaletteIsDark(ThemePalette palette)
     return palette == ThemePalette::Dark || palette == ThemePalette::Legacy
         || palette == ThemePalette::Midnight
         || palette == ThemePalette::CatppuccinMocha || palette == ThemePalette::Nord
-        || palette == ThemePalette::Noah;
+        || palette == ThemePalette::Noah || palette == ThemePalette::Dracula
+        || palette == ThemePalette::TokyoNight;
 }
 
 PreferenceDocument::LanguagePreference PreferenceDocument::preferredLanguage()

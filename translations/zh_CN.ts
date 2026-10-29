@@ -5008,6 +5008,10 @@ Error: %1</source>
         <source>Comment</source>
         <translation>注释</translation>
     </message>
+    <message id="dialog.preferences.theme.yuzu"><source>Yuzu</source><translation>柚子</translation></message>
+    <message id="dialog.preferences.theme.sky"><source>Sky Blue</source><translation>天蓝</translation></message>
+    <message id="dialog.preferences.theme.dracula"><source>Dracula</source><translation>德古拉</translation></message>
+    <message id="dialog.preferences.theme.tokyo_night"><source>Tokyo Night</source><translation>东京之夜</translation></message>
     <message id="dialog.preferences.theme.noah"><source>Noa</source><translation>诺亚</translation></message>
     <message id="qml.track_mp3_filter"><source>Audio file (track.mp3)</source><translation>音频文件 (track.mp3)</translation></message>
 </context>
