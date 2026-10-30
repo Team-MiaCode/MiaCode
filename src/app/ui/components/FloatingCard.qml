@@ -17,6 +17,8 @@ Item {
     property real shadowOpacity: Theme.popupShadowOpacity
     property real shadowVerticalOffset: 2
     property Component tintDelegate: null
+    property bool retainBackdrop: false
+    property bool backdropCreated: false
     readonly property bool materialActive: backdrop.active
     readonly property Item backdropSource: root.Window.window?.backdropSource ?? null
 
@@ -32,8 +34,11 @@ Item {
     Loader {
         id: backdrop
         anchors.fill: parent
-        active: Theme.blurMaterialsEnabled && root.popup !== null && root.popup.visible
+        active: Theme.blurMaterialsEnabled && root.popup !== null
+                && (root.popup.visible || (root.retainBackdrop && root.backdropCreated))
                 && root.backdropSource !== null && root.width > 0 && root.height > 0
+        visible: root.popup !== null && root.popup.visible
+        onActiveChanged: if (active) root.backdropCreated = true
         sourceComponent: BackdropBlur {
             sourceItem: root.backdropSource
             popup: root.popup

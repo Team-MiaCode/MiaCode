@@ -50,8 +50,8 @@ Rectangle {
             objectName: "majnetActivityButton"
             iconSource: Qt.resolvedUrl("icons/globe.svg")
             tooltip: qsTrId("net.ui.majnet")
-            selected: root.networkActive || majnetPopup.active
-            onClicked: majnetPopup.popup(majnetButton, majnetButton.width, 0)
+            selected: root.activeView === "network"
+            onClicked: root.viewRequested("network")
         }
         ActivityButton {
             id: toolsButton
@@ -59,22 +59,9 @@ Rectangle {
             filledIconSource: Qt.resolvedUrl("icons/tools-fill.svg")
             tooltip: qsTrId("qml.tools")
             enabled: root.toolsAvailable
-            selected: toolsPopup.active
-            onClicked: {
-                if (toolsPopup.active)
-                    toolsPopup.close()
-                else
-                    toolsPopup.popup(toolsButton, toolsButton.width, 0)
-            }
+            selected: root.activeView === "tools"
+            onClicked: root.viewRequested("tools")
         }
-    }
-
-    // Keep the left navigation entry and the top-level Majnet menu identical.
-    MajnetActionsMenu {
-        id: majnetPopup
-        uploadEnabled: root.netUploadEnabled
-        onDownloadRequested: root.toolRequested("net-download")
-        onUploadRequested: root.toolRequested("net-upload")
     }
 
     AppMenu {

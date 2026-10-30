@@ -73,6 +73,20 @@ bool testEditor(QTextStream& out, const QString& capturePath)
     styler.style();
     if (!checkFrame(editor, initial, out)) return false;
 
+    const QByteArray syntaxSample("(180){4}1,2x-5>7^1[8:1],3b,4h[4:1],ABCDE,<HS*2>, ||b>");
+    document.activate(QStringLiteral("difficulty:5"), QString::fromUtf8(syntaxSample));
+    styler.reset();
+    styler.style();
+    for (char ch : QByteArray("x->^bhABCDE")) {
+        if (editor.send(SCI_GETSTYLEAT, syntaxSample.indexOf(ch)) != 5) return false;
+    }
+    if (editor.send(SCI_GETSTYLEAT, syntaxSample.indexOf('[')) != 2
+        || editor.send(SCI_GETSTYLEAT, syntaxSample.indexOf('H')) != 6
+        || editor.send(SCI_GETSTYLEAT, syntaxSample.lastIndexOf('b')) != 3) return false;
+    document.activate(QStringLiteral("difficulty:5"), initial);
+    styler.reset();
+    styler.style();
+
     editor.send(SCI_GOTOPOS, editor.send(SCI_GETLENGTH));
     QKeyEvent key(QEvent::KeyPress, Qt::Key_5, Qt::NoModifier, QStringLiteral("5"));
     QCoreApplication::sendEvent(&editor, &key);

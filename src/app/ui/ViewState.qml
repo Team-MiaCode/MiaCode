@@ -65,6 +65,16 @@ QtObject {
         bookmarkGroupsExpanded = next
     }
 
+    function lastChartEditor() {
+        for (let index = editorHistory.length - 1; index >= 0; --index) {
+            const key = editorHistory[index]
+            if (containsEditor(key) && (key === metadataEditorKey || key === latencyEditorKey
+                    || key.startsWith("difficulty:")))
+                return key
+        }
+        return ""
+    }
+
     function recordEditorUse(key) {
         const history = editorHistory.filter(item => item !== key)
         history.push(key)

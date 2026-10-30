@@ -155,7 +155,7 @@ Item {
         onAboutRequested: preferencesDialog.openPage("about")
         onSetupWizardRequested: setupWizard.open()
         onPreferencesRequested: preferencesDialog.open()
-        onNewDocumentRequested: root.commands.newDocument()
+        onNewDocumentRequested: root.showOpenFileDialog()
         onOpenRecentRequested: path => root.commands.openRecentDocument(path)
         onRestoreBackupRequested: path => root.commands.restoreBackupDocument(path)
         onCloseDocumentRequested: {
@@ -224,7 +224,13 @@ Item {
     // projection in step with it even when a page is opened by a runtime signal
     // (for example, exporting a selection from the source editor).
     function syncSidebarViewToPage() {
-        state.activeSidebarView = root.pages.activePageId === "export" ? "export" : "chart"
+        const page = root.pages.activePageId
+        if (page === "export")
+            state.activeSidebarView = "export"
+        else if (page.startsWith("net-"))
+            state.activeSidebarView = "network"
+        else if (state.activeSidebarView !== "tools")
+            state.activeSidebarView = "chart"
     }
 
     function undo() {
@@ -253,6 +259,7 @@ Item {
     function showOpenFileDialog() {
         const location = root.documentSession.fileDialogLocation(false)
         openFileDialog.currentFolder = location.folder
+        openFileDialog.nameFilters = root.documentSession.openFileNameFilters()
         openFileDialog.selectedFile = ""
         openFileDialog.open()
     }
@@ -475,9 +482,8 @@ Item {
 
     FileDialog {
         id: openFileDialog
-        title: qsTrId("qml.open_simai_file")
+        title: qsTrId("action.open")
         fileMode: FileDialog.OpenFile
-        nameFilters: [qsTrId("qml.simai_files_txt_simai"), qsTrId("qml.all_files_2")]
         onAccepted: root.requestOpenFile(selectedFile)
     }
 

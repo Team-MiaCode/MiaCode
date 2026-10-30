@@ -178,6 +178,7 @@ public:
 
     // Fresh values for every open, shared by the shell and save-before-leave.
     Q_INVOKABLE QVariantMap fileDialogLocation(bool saveMode) const;
+    Q_INVOKABLE QStringList openFileNameFilters() const;
     Q_INVOKABLE bool openFile(const QUrl& fileUrl);
     QJsonObject documentIdentity() const;
     net::NetEnginePort::Cancel openNetPreview(const QString& path, const QJsonObject& expected,
@@ -357,8 +358,8 @@ private:
     // a never-saved chart wrote nothing and said nothing: the file service
     // refused an empty path and the prompt just went away.
     void createChartBesideAudio(const QString& audioPath, bool overwriteExisting = false);
-    void ensureTrackCopyThenCreate(const QString& audioPath, const QString& targetPath);
-    void createEmptyDocumentAt(const QString& targetPath, const QString& sourceAudioPath);
+    bool ensureTrackCopyThenCreate(const QString& audioPath, const QString& targetPath);
+    bool createEmptyDocumentAt(const QString& targetPath, const QString& sourceAudioPath);
     void handleDroppedAudio(const QString& audioPath, std::function<void()> finished);
     void leaveThenCreateDroppedChart(const QString& audioPath, bool overwriteExisting,
                                      std::function<void()> finished);

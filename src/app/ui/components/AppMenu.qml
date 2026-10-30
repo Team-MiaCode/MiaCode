@@ -7,6 +7,7 @@ Menu {
     id: root
     popupType: Popup.Item
 
+    property bool retainBackdrop: false
     property bool closing: false
     readonly property bool active: root.visible && !root.closing
     enter: Transition {
@@ -87,6 +88,7 @@ Menu {
         reposition()
 
     background: FloatingCard {
+        retainBackdrop: root.retainBackdrop
         popup: root
     }
 }

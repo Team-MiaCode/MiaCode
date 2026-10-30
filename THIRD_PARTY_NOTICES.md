@@ -8,6 +8,10 @@ MiaCode project-owned source code and build/maintenance scripts use [GNU GPLv3](
 
 | Component | Location / Use | License / Notes |
 | --- | --- | --- |
+| Catppuccin palette | Adapted colors in resources/themes/palettes.json | MIT License, Copyright (c) 2021 Catppuccin; see licenses/Catppuccin-MIT.txt. |
+| Nord palette | Adapted colors in resources/themes/palettes.json | MIT License, Copyright (c) 2016-present Sven Greb; see licenses/Nord-MIT.txt. |
+| Dracula Theme | Theme palette | MIT License. See [licenses/Dracula-MIT.txt](licenses/Dracula-MIT.txt). |
+| Tokyo Night | Theme palette | MIT License. See [licenses/TokyoNight-MIT.txt](licenses/TokyoNight-MIT.txt). |
 | Qt 6.10 | Application framework, widgets, Qt Quick, multimedia, deployment tools. The top-level build requires Qt 6.10. | Qt is available under commercial and open-source licenses. Confirm the intended distribution model and comply with Qt redistribution obligations. |
 | FFmpeg | Export executable and preview decode SDK | Preview uses LGPL shared libraries. Export runs a separate GPL executable carrying libx264. Build sources, flags, and distribution layout are documented in [third_party/ffmpeg/README.md](third_party/ffmpeg/README.md). |
 | QtAVPlayer | Vendored preview video decode backend under [third_party/QtAVPlayer](third_party/QtAVPlayer) | MIT License, see [third_party/QtAVPlayer/LICENSE](third_party/QtAVPlayer/LICENSE). |
