@@ -114,6 +114,15 @@ void applyId3Metadata(SimaiDocument& document, const QString& audioPath)
     }
 }
 
+miacode::LocalizedText audioFileNameFilter()
+{
+    QStringList patterns;
+    for (const QString& extension : miacode::chart_assets::supportedTrackFileExtensions()) {
+        patterns << QStringLiteral("*.%1").arg(extension);
+    }
+    return miacode::localizedText("document.audio_files_filter").arg(patterns.join(QLatin1Char(' ')));
+}
+
 QString uniqueChartFolder(const QString& parentDirectory, const QString& folder)
 {
     QString target = QDir(parentDirectory).filePath(folder);
@@ -1013,17 +1022,13 @@ void DocumentModel::createDocumentFromPickedAudio()
     if (requests == nullptr || fileService_ == nullptr) {
         return;
     }
-    QStringList patterns;
-    for (const QString& extension : miacode::chart_assets::supportedTrackFileExtensions()) {
-        patterns << QStringLiteral("*.%1").arg(extension);
-    }
     miacode::FileRequest request;
     request.title = miacode::localizedText("document.choose_audio");
     request.startPath = miacode::file_dialog_preferences::recentDirectory(
         miacode::file_dialog_preferences::Purpose::NewChartAudio,
         fileDialogLocation(false).value(QStringLiteral("folder")).toUrl().toLocalFile());
     request.nameFilters = {
-        miacode::localizedText("document.audio_files_filter").arg(patterns.join(QLatin1Char(' '))),
+        audioFileNameFilter(),
         miacode::localizedText("qml.all_files"),
     };
     requests->requestFile(request, [this](const QString& audioPath) {
@@ -1227,7 +1232,7 @@ void DocumentModel::createChartBesideAudio(const QString& audioPath, bool overwr
         });
 }
 
-void DocumentModel::ensureTrackCopyThenCreate(
+bool DocumentModel::ensureTrackCopyThenCreate(
     const QString& audioPath, const QString& targetPath)
 {
     miacode::UiRequestService* const requests = uiRequests_;
@@ -1238,8 +1243,7 @@ void DocumentModel::ensureTrackCopyThenCreate(
     // Already named track.<ext>: nothing to copy, and copying would mean
     // copying a file onto itself.
     if (audioInfo.fileName().compare(trackName, Qt::CaseInsensitive) == 0) {
-        createEmptyDocumentAt(targetPath, audioPath);
-        return;
+        return createEmptyDocumentAt(targetPath, audioPath);
     }
 
     const QString trackPath = audioInfo.absoluteDir().filePath(trackName);
@@ -1250,7 +1254,7 @@ void DocumentModel::ensureTrackCopyThenCreate(
                     miacode::NoticeSeverity::Error, miacode::localizedText("document.new_failed"),
                     miacode::localizedText("document.cannot_replace").arg(QDir::toNativeSeparators(trackPath)));
             }
-            return;
+            return false;
         }
         if (!QFile::copy(audioPath, trackPath)) {
             if (requests != nullptr) {
@@ -1258,7 +1262,7 @@ void DocumentModel::ensureTrackCopyThenCreate(
                     miacode::NoticeSeverity::Error, miacode::localizedText("document.new_failed"),
                     miacode::localizedText("document.cannot_write").arg(QDir::toNativeSeparators(trackPath)));
             }
-            return;
+            return false;
         }
         // The engine resolves a track by trying track.mp3, .wav, .flac, .ogg in
         // that order, so a copy landing on a later extension while an earlier
@@ -1273,15 +1277,14 @@ void DocumentModel::ensureTrackCopyThenCreate(
                 miacode::localizedText("document.existing_track_preferred")
                     .arg(QFileInfo(resolved).fileName(), QFileInfo(trackPath).fileName()));
         }
-        createEmptyDocumentAt(targetPath, audioPath);
+        return createEmptyDocumentAt(targetPath, audioPath);
     };
 
     if (!QFileInfo::exists(trackPath)) {
-        copyThenCreate();
-        return;
+        return copyThenCreate();
     }
     if (requests == nullptr) {
-        return;
+        return false;
     }
     requests->requestConfirmation(
         miacode::localizedText("document.file_already_exists"),
@@ -1293,13 +1296,14 @@ void DocumentModel::ensureTrackCopyThenCreate(
                 copyThenCreate();
             }
         });
+    return true;
 }
 
-void DocumentModel::createEmptyDocumentAt(const QString& targetPath, const QString& sourceAudioPath)
+bool DocumentModel::createEmptyDocumentAt(const QString& targetPath, const QString& sourceAudioPath)
 {
     miacode::UiRequestService* const requests = uiRequests_;
     if (fileService_ == nullptr) {
-        return;
+        return false;
     }
     SimaiDocument document = SimaiDocument::createEmpty();
     applyId3Metadata(document, sourceAudioPath);
@@ -1310,17 +1314,18 @@ void DocumentModel::createEmptyDocumentAt(const QString& targetPath, const QStri
                 miacode::localizedText("document.file_already_exists"),
                 miacode::localizedText("document.cannot_write_file").arg(QDir::toNativeSeparators(targetPath)));
         }
-        return;
+        return false;
     }
     // Written, then opened the same way any chart is: the workspace parses it
     // and takes the fresh file as its save point, so a new document starts
     // clean rather than dirty-on-arrival.
     if (!openFile(QUrl::fromLocalFile(targetPath))) {
-        return;
+        return false;
     }
     if (bridge() != nullptr) {
         bridge()->noteRecentDocument(targetPath);
     }
+    return true;
 }
 
 void DocumentModel::closeDocument()
@@ -1389,36 +1394,20 @@ QVariantMap DocumentModel::fileDialogLocation(bool saveMode) const
             {QStringLiteral("file"), QUrl::fromLocalFile(path)}};
 }
 
+QStringList DocumentModel::openFileNameFilters() const
+{
+    return {audioFileNameFilter().text(), qtTrId("qml.simai_files_txt_simai"), qtTrId("qml.all_files_2")};
+}
+
 bool DocumentModel::openFile(const QUrl& fileUrl)
 {
     const QString path = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
     const QFileInfo info(path);
-    if (info.fileName().compare(QStringLiteral("track.mp3"), Qt::CaseInsensitive) == 0) {
+    if (miacode::chart_assets::isSupportedTrackFilePath(path)) {
         const QString chartPath = info.absoluteDir().filePath(QStringLiteral("maidata.txt"));
         if (QFileInfo::exists(chartPath))
             return openFileWithOrigin(QUrl::fromLocalFile(chartPath), ChartDocumentOrigin::Local);
-        QFile chart(chartPath);
-        if (!chart.open(QIODevice::WriteOnly | QIODevice::NewOnly)) {
-            if (QFileInfo::exists(chartPath))
-                return openFileWithOrigin(QUrl::fromLocalFile(chartPath), ChartDocumentOrigin::Local);
-            if (uiRequests_ != nullptr)
-                uiRequests_->postNotice(miacode::NoticeSeverity::Error,
-                    miacode::localizedText("document.new_failed"),
-                    miacode::localizedText("document.cannot_write_file").arg(QDir::toNativeSeparators(chartPath)));
-            return false;
-        }
-        const QByteArray content = SimaiDocument::createEmpty().toText().toUtf8();
-        if (chart.write(content) != content.size() || !chart.flush()) {
-            chart.close();
-            chart.remove();
-            if (uiRequests_ != nullptr)
-                uiRequests_->postNotice(miacode::NoticeSeverity::Error,
-                    miacode::localizedText("document.new_failed"),
-                    miacode::localizedText("document.cannot_write_file").arg(QDir::toNativeSeparators(chartPath)));
-            return false;
-        }
-        chart.close();
-        return openFileWithOrigin(QUrl::fromLocalFile(chartPath), ChartDocumentOrigin::Local);
+        return ensureTrackCopyThenCreate(path, chartPath);
     }
     return openFileWithOrigin(fileUrl, ChartDocumentOrigin::Local);
 }

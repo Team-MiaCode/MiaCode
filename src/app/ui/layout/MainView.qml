@@ -259,6 +259,7 @@ Item {
     function showOpenFileDialog() {
         const location = root.documentSession.fileDialogLocation(false)
         openFileDialog.currentFolder = location.folder
+        openFileDialog.nameFilters = root.documentSession.openFileNameFilters()
         openFileDialog.selectedFile = ""
         openFileDialog.open()
     }
@@ -483,7 +484,6 @@ Item {
         id: openFileDialog
         title: qsTrId("action.open")
         fileMode: FileDialog.OpenFile
-        nameFilters: [qsTrId("qml.track_mp3_filter"), qsTrId("qml.simai_files_txt_simai")]
         onAccepted: root.requestOpenFile(selectedFile)
     }
 
