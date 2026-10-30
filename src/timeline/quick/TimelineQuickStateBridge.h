@@ -4,6 +4,7 @@
 #include <QMetaObject>
 #include <QObject>
 #include <QFont>
+#include <QRectF>
 #include <QSize>
 #include <QString>
 #include <QStringList>
@@ -44,6 +45,7 @@ public:
 
     void setQuickViewportSize(const QSize& viewportSize);
     int timelineTop() const;
+    QRectF noteViewportRect() const;
 
     void clear();
     void setTimelineData(const TimelineRenderSnapshot& snapshot);

@@ -6,6 +6,7 @@
 #include <QMetaObject>
 #include <QPointer>
 #include <QQuickItem>
+#include <QRectF>
 #include <QTimer>
 
 #include <memory>
@@ -37,6 +38,7 @@ class TimelineQuickItem : public QQuickItem
     Q_PROPERTY(bool viewportLockEnabled READ viewportLockEnabled WRITE setViewportLockEnabled NOTIFY viewportLockEnabledChanged)
     Q_PROPERTY(bool followProgressEnabled READ followProgressEnabled WRITE setFollowProgressEnabled NOTIFY followProgressEnabledChanged)
     Q_PROPERTY(int timelineTop READ timelineTop NOTIFY sceneMetricsChanged)
+    Q_PROPERTY(QRectF noteViewportRect READ noteViewportRect NOTIFY noteViewportRectChanged)
     Q_PROPERTY(int minimumViewportHeight READ minimumViewportHeight CONSTANT)
     Q_PROPERTY(bool ready READ isReady NOTIFY readyChanged)
     Q_PROPERTY(QString hoverTooltipText READ hoverTooltipText NOTIFY hoverTooltipChanged)
@@ -68,6 +70,7 @@ public:
     bool followProgressEnabled() const;
     void setFollowProgressEnabled(bool enabled);
     int timelineTop() const;
+    QRectF noteViewportRect() const;
     int minimumViewportHeight() const;
     bool isReady() const;
     QString hoverTooltipText() const;
@@ -86,6 +89,7 @@ signals:
     void viewportLockEnabledChanged();
     void followProgressEnabledChanged();
     void sceneMetricsChanged();
+    void noteViewportRectChanged();
     void readyChanged();
     void hoverTooltipChanged();
     void timelineSurfaceReady();
@@ -116,6 +120,7 @@ protected:
 
 private:
     void syncSourceState();
+    void syncNoteViewportRect();
     void updateReadyState(bool ready);
     bool canBecomeReady() const;
     miacode::timeline::TimelineSceneState currentSceneState() const;
@@ -143,6 +148,7 @@ private:
     bool cachedViewportLockEnabled_ = false;
     bool cachedFollowProgressEnabled_ = true;
     int cachedTimelineTop_ = 0;
+    QRectF cachedNoteViewportRect_;
     bool ready_ = false;
     QString hoverTooltipText_;
     QPointF hoverTooltipPosition_;
