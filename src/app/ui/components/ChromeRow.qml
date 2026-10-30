@@ -8,6 +8,7 @@ ItemDelegate {
 
     property bool selected: false
     property alias stateColors: chrome.stateColors
+    property alias highlightFillsBounds: chrome.fillBounds
 
     readonly property bool chromeSelected: root.selected || root.highlighted
 

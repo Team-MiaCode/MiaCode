@@ -155,9 +155,20 @@ Item {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 columns: width >= 650 ? 4 : 3
+                uniformCellWidths: true
                 columnSpacing: 10
                 rowSpacing: 8
-                Caption { Layout.columnSpan: selectionActions.columns === 4 ? 1 : 3; Layout.fillWidth: true; Layout.minimumWidth: 0; text: root.net.errorText || root.net.statusText || qsTrId("net.ui.query_hint"); elide: Text.ElideRight }
+                Caption {
+                    Layout.columnSpan: selectionActions.columns === 4 ? 1 : 3
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    Layout.minimumHeight: Theme.controlMinHeight
+                    Layout.maximumHeight: Theme.controlMinHeight
+                    text: root.net.errorText || root.net.statusText || qsTrId("net.ui.query_hint")
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                    verticalAlignment: Text.AlignVCenter
+                }
                 AppButton { Layout.fillWidth: true; Layout.minimumWidth: 0; text: qsTrId("net.select_all"); enabled: !root.net.working && root.net.resultCount > 0; onClicked: root.net.selectAll(true) }
                 AppButton { Layout.fillWidth: true; Layout.minimumWidth: 0; text: qsTrId("net.ui.clear_selection"); enabled: !root.net.working && root.net.resultCount > 0; onClicked: root.net.selectAll(false) }
                 AppButton { Layout.fillWidth: true; Layout.minimumWidth: 0; text: qsTrId("net.ui.view_log"); selected: root.logVisible; onClicked: root.logVisible = !root.logVisible }
