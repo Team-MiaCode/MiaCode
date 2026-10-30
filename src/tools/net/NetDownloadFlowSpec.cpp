@@ -136,12 +136,59 @@ int main(int argc, char** argv) {
     ok &= check(result.result.toObject().value("counts").toObject().value("failed") == 1
         && QFileInfo::exists(QDir(directory).filePath("pv.mp4")), "publication conflict preserves existing output");
     server.statuses.insert("/maichart/retry/track", 500);
+    const auto publishedEntries = QDir(output.path()).entryList(QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot);
     result = download("retry", false, false);
     ok &= check(server.paths.count("/maichart/retry/track") == 3
         && result.result.toObject().value("counts").toObject().value("failed") == 1, "resource retries are bounded to three attempts");
+    ok &= check(QDir(output.path()).entryList(QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot) == publishedEntries,
+        "first-resource failure cleans staging and preserves published directories");
+    server.statuses.insert("/maichart/partial/image?fullImage=true", 500);
+    result = download("partial", false, false);
+    ok &= check(result.result.toObject().value("counts").toObject().value("failed") == 1
+        && server.paths.count("/maichart/partial/track") == 1
+        && server.paths.count("/maichart/partial/image?fullImage=true") == 3
+        && QDir(output.path()).entryList(QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot) == publishedEntries,
+        "later-resource failure cleans downloaded files and staging directory");
     server.statuses.insert("/maichart/blocked/track", 403);
     result = download("blocked", true, false);
-    ok &= check(result.blocked && server.paths.count("/maichart/blocked/chart") == 0, "blocked response stops resource queue");
+    ok &= check(result.blocked && server.paths.count("/maichart/blocked/chart") == 0
+        && QDir(output.path()).entryList(QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot) == publishedEntries,
+        "blocked response stops resource queue and cleans staging directory");
+    server.statuses.insert("/maichart/limited/track", 429);
+    result = download("limited", false, false);
+    ok &= check(result.blocked
+        && QDir(output.path()).entryList(QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot) == publishedEntries,
+        "rate-limited response cleans staging directory");
+
+    const auto createdRoot = QDir(output.path()).filePath("new-download-root");
+    ok &= check(QDir().mkpath(createdRoot), "download page creates the selected output root before granting it");
+    const auto createdGrant = provider.grantDirectory("desktop", createdRoot);
+    result = run(provider, "net.downloads.create", {{"providerId", "majdata"}, {"chartIds", QJsonArray{"retry"}},
+        {"destination", QJsonObject{{"kind", "directory_grant"}, {"grantRef", createdGrant}}}, {"includeVideo", false}}, {"item_1"});
+    ok &= check(result.result.toObject().value("counts").toObject().value("failed") == 1
+        && QFileInfo(createdRoot).isDir()
+        && QDir(createdRoot).entryList(QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot).isEmpty(),
+        "failed download leaves the output root created by the page empty");
+
+    QEventLoop partialCancelLoop;
+    NetTaskResult partialCancellation;
+    NetEnginePort::Cancel partialCancel;
+    bool partialFinished = false;
+    partialCancel = provider.execute({"desktop", "net.downloads.create", {{"providerId", "majdata"},
+        {"chartIds", QJsonArray{"cancel_partial"}},
+        {"destination", QJsonObject{{"kind", "directory_grant"}, {"grantRef", createdGrant}}}, {"includeVideo", false}}, {"item_1"}},
+        [&](NetTaskEvent event) {
+            if (event.state == "running" && event.phase == "image")
+                QTimer::singleShot(0, &partialCancelLoop, [&] { partialCancel(); });
+        },
+        [&](NetTaskResult value) { partialCancellation = value; partialFinished = true; partialCancelLoop.quit(); });
+    QTimer::singleShot(10000, &partialCancelLoop, [&] { partialCancel(); partialCancelLoop.quit(); });
+    partialCancelLoop.exec();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    ok &= check(partialFinished && partialCancellation.error.value("code") == "job.cancelled"
+        && server.paths.count("/maichart/cancel_partial/track") == 1
+        && QDir(createdRoot).entryList(QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot).isEmpty(),
+        "cancellation after first resource cleans files and staging while retaining output root");
     const QJsonObject prepare{{"providerId", "majdata"}, {"chartId", "absent"}, {"remoteVersion", "v1"}};
     auto preview = run(provider, "net.previews.prepare", prepare);
     const int requests = server.paths.size();

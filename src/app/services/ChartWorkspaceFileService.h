@@ -33,7 +33,8 @@ public:
     // "save" and "what is on screen" drift apart.
     ChartWorkspace& workspace() const { return *workspace_; }
 
-    // Reads maidata (or a chart directory's maidata.txt) into the workspace.
+    // Reads .txt/.simai (or a chart directory's maidata.txt) into the workspace.
+    // Unsupported extensions fail before reading, with unsupported_file_type.
     // Chart-body validation issues are returned on `issues` and do not fail
     // the open: an empty or invalid inote is still a loaded document.
     ChartWorkspaceFileResult open(const QString& path, ChartDocumentOrigin origin = ChartDocumentOrigin::Local) const;

@@ -125,6 +125,8 @@ public:
         if (file) {
             if (!response.error.isEmpty()) file->cancelWriting();
             else if (!file->commit()) response.error = error(QStringLiteral("file.write_failed"));
+            // Release the temporary file before callbacks clean up its directory.
+            file.reset();
         }
         response.elapsedMs = elapsed.elapsed();
         if (!reply && response.cancelled) response.error = error(QStringLiteral("job.cancelled"));
@@ -185,7 +187,11 @@ NetTransportPort::Cancel NetHttpTransport::request(const NetHttpRequest& value, 
         }
         if (transfer->response.error.isEmpty()) {
             QNetworkRequest request(value.url);
-            request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
+            // Downloads redirect from the API host to the CDN, so GETs follow safe
+            // redirects; POSTs stay manual so credentials are never forwarded.
+            request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                value.method == QLatin1String("GET") ? QNetworkRequest::NoLessSafeRedirectPolicy
+                                                     : QNetworkRequest::ManualRedirectPolicy);
             request.setRawHeader("User-Agent", "MiaCode/2 Net");
             request.setRawHeader("Accept", "*/*");
             for (const auto& header : value.headers) request.setRawHeader(header.first, header.second);

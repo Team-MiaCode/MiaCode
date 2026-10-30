@@ -1,6 +1,7 @@
 #include "core/analysis/MuriRuntimeModelBuilder.h"
 
 #include "common/TaskCancellation.h"
+#include "core/analysis/MuriTimeIndex.h"
 
 #include <algorithm>
 
@@ -60,26 +61,45 @@ QVector<TimelineNoteMarker> prepareRuntimeMarkers(const QVector<TimelineNoteMark
         slides.append(motion);
     }
 
-    for (TimelineNoteMarker& marker : prepared) {
+    QVector<MuriTimeInterval> starts;
+    for (int index = 0; index < noteMarkers.size(); ++index) {
+        const auto& marker = noteMarkers.at(index);
+        if (isSlideLike(marker) && !marker.isMine && !marker.trackMine) {
+            starts.append({marker.slideTraceSecond, marker.slideTraceSecond, index});
+        }
+    }
+    const MuriTimeIndex slideStarts(std::move(starts));
+    QVector<MuriTimeInterval> spans;
+    for (int index = 0; index < slides.size(); ++index) {
+        const auto& slide = slides.at(index);
+        spans.append({slide.firstAreaExitSecond, slide.criticalSecond, index});
+    }
+    const MuriTimeIndex slideSpans(std::move(spans));
+
+    for (int index = 0; index < prepared.size(); ++index) {
         miacode::task::CancellationScope::checkpoint();
+        const auto& marker = prepared.at(index);
         if (marker.type != QLatin1String("hold")
             || marker.endSecond - marker.second > kFakeHoldDurationSeconds + 1e-9) {
             continue;
         }
         // Keep the hold in the chart. Only its simulated hand behaves as a tap,
         // which can be supplied by the slide shooting from the same lane.
-        for (const auto& slide : noteMarkers) {
+        for (int slideIndex : slideStarts.intersecting(
+                 marker.second - kTapOnSlideThresholdSeconds,
+                 marker.second + kTapOnSlideThresholdSeconds)) {
+            const auto& slide = noteMarkers.at(slideIndex);
             if (isSlideLike(slide) && !slide.isMine && !slide.trackMine
                 && slide.lane == marker.lane
                 && qAbs(slide.slideTraceSecond - marker.second) < kTapOnSlideThresholdSeconds) {
-                marker.slideHead = true;
+                if (!marker.slideHead) prepared[index].slideHead = true;
                 break;
             }
         }
     }
 
     for (const SlideMotion& ending : slides) {
-        auto& marker = prepared[ending.markerIndex];
+        const auto& marker = prepared.at(ending.markerIndex);
         if (marker.beforeSlide) {
             continue;
         }
@@ -90,7 +110,8 @@ QVector<TimelineNoteMarker> prepareRuntimeMarkers(const QVector<TimelineNoteMark
         if (!sampleRuntimeHandAction(ending.segments.constLast(), sampleSecond, &tail) || !tail.hasTangent) {
             continue;
         }
-        for (const SlideMotion& containing : slides) {
+        for (int index : slideSpans.intersecting(marker.endSecond, marker.endSecond)) {
+            const auto& containing = slides.at(index);
             miacode::task::CancellationScope::checkpoint();
             if (containing.markerIndex == ending.markerIndex
                 || marker.endSecond <= containing.firstAreaExitSecond
@@ -102,11 +123,11 @@ QVector<TimelineNoteMarker> prepareRuntimeMarkers(const QVector<TimelineNoteMark
                 if (sampleRuntimeHandAction(segment, sampleSecond, &point) && point.hasTangent
                     && pointDistance(tail.center, point.center) < kSlideMergeDistance
                     && tangentDelta(tail.tangent, point.tangent) < kSlideMergeTangentDelta) {
-                    marker.beforeSlide = true;
+                    prepared[ending.markerIndex].beforeSlide = true;
                     break;
                 }
             }
-            if (marker.beforeSlide) {
+            if (prepared.at(ending.markerIndex).beforeSlide) {
                 break;
             }
         }
@@ -117,7 +138,7 @@ QVector<TimelineNoteMarker> prepareRuntimeMarkers(const QVector<TimelineNoteMark
 QHash<QString, MarkerSourceRef> buildMarkerSourceRefs(const QVector<TimelineNoteMarker>& noteMarkers)
 {
     QHash<QString, MarkerSourceRef> refs;
-    refs.reserve(noteMarkers.size() * 2);
+    refs.reserve(noteMarkers.size());
 
     for (int index = 0; index < noteMarkers.size(); ++index) {
         miacode::task::CancellationScope::checkpoint();

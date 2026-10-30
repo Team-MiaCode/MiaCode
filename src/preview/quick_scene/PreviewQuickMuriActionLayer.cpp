@@ -7,6 +7,7 @@
 QSGNode* PreviewQuickMuriActionLayer::updateNode(
     QSGNode* oldNode,
     const miacode::preview::scene::PreviewFrameState& state,
+    const QVector<int>& visibleIndices,
     const QSize& renderSize,
     QQuickWindow* window,
     PreviewTextureRepository* textures
@@ -21,7 +22,8 @@ QSGNode* PreviewQuickMuriActionLayer::updateNode(
             miacode::preview::scene::playfieldRectForStage(
                 miacode::preview::scene::stageRectForSize(renderSize),
                 state.render.layoutSquareScale
-            )
+            ),
+            visibleIndices
         ).circles
     );
 }

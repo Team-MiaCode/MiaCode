@@ -45,6 +45,7 @@ AnalysisProjection projectAnalysis(const AnalysisProjectionInput& input)
 
     result.available = true;
     result.pending = false;
+    result.validationPending = false;
     result.validationRows.reserve(input.validation.issues.size());
     for (const DocumentValidationProjectionIssue& issue : input.validation.issues) {
         AnalysisRow row;
@@ -81,15 +82,17 @@ AnalysisProjection projectAnalysis(
     result.revision = documentRevision;
     if (activeDifficultyId <= 0) {
         result.pending = false;
+        result.validationPending = false;
         return result;
     }
 
     const bool current = snapshot.difficultyId == activeDifficultyId
         && snapshot.revision == documentRevision;
-    if (!current || snapshot.pending || !snapshot.available) return result;
+    if (!current || (!snapshot.validationReady && !snapshot.available)) return result;
 
     result.available = true;
-    result.pending = false;
+    result.pending = snapshot.pending;
+    result.validationPending = false;
     result.noteMarkers = snapshot.noteMarkers;
     result.validationRows.reserve(snapshot.validation.issues.size());
     for (const SimaiValidationIssue& issue : snapshot.validation.issues) {

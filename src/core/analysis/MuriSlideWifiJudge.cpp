@@ -637,8 +637,15 @@ QHash<QString, RuntimeSlideJudgeResult> simulateRuntimeSlideAndWifiJudgments(
 {
     QVector<RuntimeSlideNoteState> slideNotes;
     QVector<RuntimeWifiNoteState> wifiNotes;
-    slideNotes.reserve(noteMarkers.size());
-    wifiNotes.reserve(noteMarkers.size());
+    qsizetype slideCount = 0;
+    qsizetype wifiCount = 0;
+    for (const auto& marker : noteMarkers) {
+        miacode::task::CancellationScope::checkpoint();
+        if (marker.type == QLatin1String("slide")) ++slideCount;
+        else if (marker.type == QLatin1String("wifi")) ++wifiCount;
+    }
+    slideNotes.reserve(slideCount);
+    wifiNotes.reserve(wifiCount);
 
     for (const TimelineNoteMarker& marker : noteMarkers) {
         miacode::task::CancellationScope::checkpoint();
@@ -695,6 +702,22 @@ QHash<QString, RuntimeSlideJudgeResult> simulateRuntimeSlideAndWifiJudgments(
         return pads;
     }();
 
+    const auto sortedStarts = [](const auto& runtimeNotes) {
+        QVector<int> indices;
+        indices.reserve(runtimeNotes.size());
+        for (int index = 0; index < runtimeNotes.size(); ++index) indices.append(index);
+        std::sort(indices.begin(), indices.end(), [&](int left, int right) {
+            return runtimeNotes.at(left).availableSecond < runtimeNotes.at(right).availableSecond;
+        });
+        return indices;
+    };
+    const auto slideStarts = sortedStarts(slideNotes);
+    const auto wifiStarts = sortedStarts(wifiNotes);
+    QVector<int> activeSlides;
+    QVector<int> activeWifis;
+    int nextSlide = 0;
+    int nextWifi = 0;
+
     QHash<QString, RuntimePadEvent> previousPadStates;
     QVector<int> activeActionIndices;
     int actionPointer = 0;
@@ -749,14 +772,21 @@ QHash<QString, RuntimeSlideJudgeResult> simulateRuntimeSlideAndWifiJudgments(
             }
         }
 
-        for (RuntimeSlideNoteState& note : slideNotes) {
-            miacode::task::CancellationScope::checkpoint();
-            updateRuntimeSlideNote(&note, nowSecond, padStates, padUpThisTick);
-        }
-        for (RuntimeWifiNoteState& note : wifiNotes) {
-            miacode::task::CancellationScope::checkpoint();
-            updateRuntimeWifiNote(&note, nowSecond, padStates, padUpThisTick);
-        }
+        const auto advanceNotes = [&](auto& runtimeNotes, const auto& starts,
+                                      int& next, auto& active, auto update) {
+            while (next < starts.size()
+                   && runtimeNotes.at(starts.at(next)).availableSecond <= nowSecond + kPadTimeEpsilon) {
+                active.append(starts.at(next++));
+            }
+            active.erase(std::remove_if(active.begin(), active.end(), [&](int index) {
+                miacode::task::CancellationScope::checkpoint();
+                auto& note = runtimeNotes[index];
+                update(&note, nowSecond, padStates, padUpThisTick);
+                return note.judged;
+            }), active.end());
+        };
+        advanceNotes(slideNotes, slideStarts, nextSlide, activeSlides, updateRuntimeSlideNote);
+        advanceNotes(wifiNotes, wifiStarts, nextWifi, activeWifis, updateRuntimeWifiNote);
 
         previousPadStates = padStates;
 

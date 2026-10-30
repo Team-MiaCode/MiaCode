@@ -402,8 +402,9 @@ AppDialog {
                             onPicked: function(value) { root.preferencesModel.themeModeToken = value }
                         }
 
-                        PreferenceCombo {
+                        ThemePicker {
                             objectName: "preferencesLightThemeCombo"
+                            darkPalette: false
                             visible: root.preferencesModel.themeModeToken !== "dark"
                             label: qsTrId("dialog.preferences.theme.light_palette")
                             options: root.preferencesModel.themePaletteOptions
@@ -411,8 +412,9 @@ AppDialog {
                             onPicked: function(value) { root.preferencesModel.lightThemeToken = value }
                         }
 
-                        PreferenceCombo {
+                        ThemePicker {
                             objectName: "preferencesDarkThemeCombo"
+                            darkPalette: true
                             visible: root.preferencesModel.themeModeToken !== "light"
                             label: qsTrId("dialog.preferences.theme.dark_palette")
                             options: root.preferencesModel.themePaletteOptions
@@ -548,6 +550,62 @@ AppDialog {
                         PreferenceGroup {
                             title: qsTrId("dialog.preferences.group.typography")
                             first: true
+
+                            AppTextField {
+                                id: fontSearch
+                                objectName: "preferencesFontSearch"
+                                Layout.fillWidth: true
+                                placeholderText: qsTrId("dialog.preferences.font.search")
+                                Accessible.name: placeholderText
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                PreferenceCombo {
+                                    objectName: "preferencesFontFamilyCombo"
+                                    label: qsTrId("dialog.preferences.font.family")
+                                    options: {
+                                        const selected = root.preferencesModel.editorFontFamily
+                                        return root.preferencesModel.editorFontOptions(fontSearch.text)
+                                    }
+                                    currentValue: root.preferencesModel.editorFontFamily
+                                    fontFamilyRole: "family"
+                                    defaultFontFamily: Theme.codeFont.family
+                                    onPicked: function(value) { root.preferencesModel.editorFontFamily = value }
+                                }
+                                AppButton {
+                                    objectName: "preferencesResetFontButton"
+                                    text: qsTrId("dialog.preferences.font.reset")
+                                    enabled: root.preferencesModel.editorFontFamily.length > 0
+                                    onClicked: root.preferencesModel.editorFontFamily = ""
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                implicitHeight: fontPreview.implicitHeight + 24
+                                radius: Theme.controlRadius
+                                color: Theme.colors.background.surface
+                                border.color: Theme.colors.border.normal
+                                FontMetrics {
+                                    id: fontPreviewMetrics
+                                    font: Theme.codeFont
+                                }
+                                Text {
+                                    id: fontPreview
+                                    objectName: "preferencesFontPreview"
+                                    x: 12
+                                    y: 12
+                                    width: parent.width - 24
+                                    text: "(180){4}1,2,3,4,\n1-5[4:1],2h[8:1],B1,\n|| " + qsTrId("dialog.preferences.font.sample")
+                                    textFormat: Text.PlainText
+                                    font: Theme.codeFont
+                                    lineHeightMode: Text.FixedHeight
+                                    lineHeight: fontPreviewMetrics.height + Theme.codeBlockSpacing
+                                    color: Theme.colors.text.editor
+                                    wrapMode: Text.Wrap
+                                }
+                            }
 
                             PreferenceSlider {
                                 objectName: "preferencesFontSizeSlider"

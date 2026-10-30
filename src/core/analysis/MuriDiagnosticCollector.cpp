@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include <QHash>
+#include <QSet>
 
 #include "core/chart/model/TimelineData.h"
 #include "core/analysis/MuriTypes.h"  // muriKindDisplayName, makeMarkerAnalysisKey
@@ -14,31 +14,19 @@ namespace miacode::muri::detail {
 
 // File-local helpers (no header declaration — private to this TU).
 
-QVector<MuriDiagnostic> dedupeDenseOverlapDiagnostics(const QVector<MuriDiagnostic>& diagnostics)
+void dedupeDenseOverlapDiagnostics(QVector<MuriDiagnostic>& diagnostics)
 {
-    QVector<MuriDiagnostic> deduped;
-    deduped.reserve(diagnostics.size());
-
-    QHash<qint64, int> keptOverlapCountBySecond;
-    keptOverlapCountBySecond.reserve(diagnostics.size());
-
-    for (const MuriDiagnostic& diagnostic : diagnostics) {
+    QSet<qint64> overlapSeconds;
+    const auto end = std::remove_if(diagnostics.begin(), diagnostics.end(), [&](const auto& diagnostic) {
         miacode::task::CancellationScope::checkpoint();
-        if (diagnostic.kind != MuriKind::Overlap) {
-            deduped.append(diagnostic);
-            continue;
-        }
-
-        const qint64 secondKey = static_cast<qint64>(std::llround(diagnostic.second * 1000000.0));
-        const int keptCount = keptOverlapCountBySecond.value(secondKey, 0);
-        if (keptCount >= 1) {
-            continue;
-        }
-        keptOverlapCountBySecond.insert(secondKey, keptCount + 1);
-        deduped.append(diagnostic);
-    }
-
-    return deduped;
+        if (diagnostic.kind != MuriKind::Overlap) return false;
+        const qint64 second = static_cast<qint64>(std::llround(diagnostic.second * 1000000.0));
+        if (overlapSeconds.contains(second)) return true;
+        overlapSeconds.insert(second);
+        return false;
+    });
+    diagnostics.erase(end, diagnostics.end());
+    diagnostics.squeeze();
 }
 
 bool slideKeyUsesCcwJudgeSprite(const QString& key)
@@ -204,7 +192,7 @@ void MuriDiagnosticCollector::finalize()
         }
         return a.col < b.col;
     });
-    diagnostics = dedupeDenseOverlapDiagnostics(diagnostics);
+    dedupeDenseOverlapDiagnostics(diagnostics);
     std::sort(judgeSpriteEvents.begin(), judgeSpriteEvents.end(), [](const MuriJudgeSpriteEvent& a, const MuriJudgeSpriteEvent& b) {
         miacode::task::CancellationScope::checkpoint();
         if (!qFuzzyCompare(a.second + 1.0, b.second + 1.0)) {

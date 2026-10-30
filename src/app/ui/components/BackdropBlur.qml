@@ -50,8 +50,7 @@ Item {
     }
 
     function sampleRect(item) {
-        const p = root.mapToItem(item, -padding, -padding)
-        return Qt.rect(p.x, p.y, sampleWidth, sampleHeight)
+        return root.mapToItem(item, -padding, -padding, sampleWidth, sampleHeight)
     }
 
     function updateSourceRects() {

@@ -246,7 +246,7 @@ bool Bootstrap::start(const QString& startupOpenTarget)
         rootWindow_ = window;
         const auto activateRootWindow = [window]() {
             window->setWindowStates(window->windowStates() & ~Qt::WindowMinimized);
-            window->show();
+            window->setVisible(true);
             window->raise();
             window->requestActivate();
         };

@@ -15,7 +15,7 @@ class WorkbenchSettings;
 // by the settings page and reports what changed.
 //
 // Language is applied live through LocaleService (QTranslator + retranslate).
-// Theme still needs a restart for full effect; restartRequired tracks theme only.
+// Font and theme choices are applied through WorkbenchSettings immediately.
 class PreferencesModel final : public QObject
 {
     Q_OBJECT
@@ -44,6 +44,7 @@ public:
     Q_PROPERTY(int uiScalePercent READ uiScalePercent WRITE setUiScalePercent NOTIFY interfaceChanged)
 
     // Editor
+    Q_PROPERTY(QString editorFontFamily READ editorFontFamily WRITE setEditorFontFamily NOTIFY editorChanged)
     Q_PROPERTY(int editorFontSize READ editorFontSize WRITE setEditorFontSize NOTIFY editorChanged)
     Q_PROPERTY(int editorFontSizeMinimum READ editorFontSizeMinimum CONSTANT)
     Q_PROPERTY(int editorFontSizeMaximum READ editorFontSizeMaximum CONSTANT)
@@ -102,6 +103,9 @@ public:
     void setUiScalePercent(int percent);
 
     int editorFontSize() const;
+    QString editorFontFamily() const;
+    void setEditorFontFamily(const QString& family);
+    Q_INVOKABLE QVariantList editorFontOptions(const QString& filter = QString()) const;
     void setEditorFontSize(int pointSize);
     int editorFontSizeMinimum() const { return kEditorFontSizeMinimum; }
     int editorFontSizeMaximum() const { return kEditorFontSizeMaximum; }

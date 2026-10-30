@@ -627,7 +627,7 @@ Item {
             readonly property real activeLineCenterOffset:
                 lineCenterOffset(Theme.splitHandleActiveThickness)
             readonly property real idleLineCenterOffset:
-                lineCenterOffset(1 / root.Screen.devicePixelRatio)
+                lineCenterOffset(1 / (root.Screen.devicePixelRatio * Theme.uiScale))
             // 两个宿主属于同一 SplitView；显式坐标依赖随预览布局变化更新。
             readonly property real targetCenter: lineSnapAvailable
                 ? previewHost.y + preview.y + root.transportItem.y

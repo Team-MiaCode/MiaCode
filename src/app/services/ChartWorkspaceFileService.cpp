@@ -163,6 +163,11 @@ ChartWorkspaceFileResult ChartWorkspaceFileService::open(const QString& path, Ch
     if (inputInfo.isDir()) {
         normalizedPath = QDir(inputInfo.absoluteFilePath()).filePath(QStringLiteral("maidata.txt"));
     }
+    // A native file dialog's name filter can be bypassed by pasting a path.
+    // Reject unsupported types before reading or parsing their contents.
+    if (!chart_assets::supportedChartFileExtensions().contains(QFileInfo(normalizedPath).suffix().toLower())) {
+        return {false, workspace_->snapshot().revision, QStringLiteral("unsupported_file_type"), {}};
+    }
     QFile file(normalizedPath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         return {false, workspace_->snapshot().revision, QStringLiteral("open_failed"), {}};

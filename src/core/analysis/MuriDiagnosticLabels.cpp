@@ -1,5 +1,7 @@
 #include "core/analysis/MuriDiagnosticLabels.h"
 
+#include <algorithm>
+
 #include <limits>
 
 #include <QHash>
@@ -251,7 +253,7 @@ QHash<QString, const TimelineNoteMarker*> buildMarkerLookup(const QVector<Timeli
 QHash<QString, QString> buildMarkerConfigLabels(const QVector<TimelineNoteMarker>& noteMarkers)
 {
     QHash<QString, QString> labels;
-    labels.reserve(noteMarkers.size() * 2);
+    labels.reserve(noteMarkers.size());
 
     for (const TimelineNoteMarker& marker : noteMarkers) {
         labels.insert(makeMarkerAnalysisKey(marker), formatMarkerConfigLabel(marker));
@@ -284,7 +286,7 @@ QString slideStartLookupKey(int lane, double second)
 QHash<QString, QString> buildSyntheticSlideHeadOwnerKeys(const QVector<TimelineNoteMarker>& noteMarkers)
 {
     QHash<QString, QString> ownerKeys;
-    ownerKeys.reserve(noteMarkers.size() * 2);
+    ownerKeys.reserve(std::count_if(noteMarkers.cbegin(), noteMarkers.cend(), shouldCreateHeadStarJudgeNote));
     for (const TimelineNoteMarker& marker : noteMarkers) {
         if (!shouldCreateHeadStarJudgeNote(marker)) {
             continue;

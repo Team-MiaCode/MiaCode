@@ -1,3 +1,52 @@
+miacode_add_dev_tool(appearance_translations_spec TEST
+    SOURCES
+        src/tools/ui/AppearanceTranslationsSpec.cpp
+        src/app/services/PreferenceDocument.cpp
+        src/app/ui/preferences/LocaleService.cpp
+        src/app/ui/preferences/LocaleService.h
+        src/app/ui/preferences/ApplicationMenuTranslation.cpp
+        resources/fonts.qrc
+    LIBS miacode_base Qt6::Quick Qt6::QuickControls2 Qt6::Test
+    INCLUDES src
+)
+qt_add_resources(appearance_translations_spec "appearance_translations_i18n"
+    PREFIX "/i18n" BASE "${CMAKE_CURRENT_BINARY_DIR}"
+    FILES ${MIACODE_TRANSLATION_QM_FILES})
+add_dependencies(appearance_translations_spec miacode_lrelease)
+target_compile_definitions(appearance_translations_spec PRIVATE
+    "MIACODE_SOURCE_ROOT=\"${CMAKE_CURRENT_SOURCE_DIR}\""
+    "MIACODE_QML_SPEC_IMPORT_ROOT=\"${MIACODE_QML_SPEC_IMPORT_ROOT}\"")
+set_tests_properties(appearance_translations_spec PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+if(MSVC)
+    target_compile_options(appearance_translations_spec PRIVATE /utf-8)
+endif()
+if(APPLE)
+    target_sources(appearance_translations_spec PRIVATE src/app/ui/preferences/ApplicationMenuTranslationMac.mm)
+    target_link_libraries(appearance_translations_spec PRIVATE "-framework AppKit")
+endif()
+
+miacode_add_dev_tool(appearance_preferences_spec TEST
+    SOURCES
+        src/tools/ui/AppearancePreferencesSpec.cpp
+        src/app/services/PreferenceDocument.cpp
+        src/app/ui/theme/UiTheme.cpp
+        src/app/ui/theme/ThemeVariantResolver.cpp
+        resources/app_icons.qrc
+        resources/fonts.qrc
+    LIBS miacode_base Qt6::Quick Qt6::QuickControls2 Qt6::Test
+    INCLUDES src
+)
+target_compile_definitions(appearance_preferences_spec PRIVATE
+    "MIACODE_QML_SPEC_IMPORT_ROOT=\"${MIACODE_QML_SPEC_IMPORT_ROOT}\"")
+qt_add_resources(appearance_preferences_spec "appearance_preferences_i18n"
+    PREFIX "/i18n" BASE "${CMAKE_CURRENT_BINARY_DIR}"
+    FILES ${MIACODE_TRANSLATION_QM_FILES})
+add_dependencies(appearance_preferences_spec miacode_lrelease)
+set_tests_properties(appearance_preferences_spec PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+if(MSVC)
+    target_compile_options(appearance_preferences_spec PRIVATE /utf-8)
+endif()
+
 miacode_add_dev_tool(qml_scintilla_editor_spec TEST
     SOURCES
         src/tools/ui/QmlScintillaEditorSpec.cpp

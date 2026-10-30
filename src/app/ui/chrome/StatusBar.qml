@@ -26,7 +26,7 @@ Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        height: 1 / Screen.devicePixelRatio
+        height: 1 / (Screen.devicePixelRatio * Theme.uiScale)
         color: Theme.separatorColor
     }
 
@@ -48,7 +48,7 @@ Rectangle {
             objectName: "statusBarUpdateBadge"
             visible: root.updateAvailable
             text: qsTrId("status.update_available").arg(root.updateVersion)
-            color: Theme.colors.text.active
+            color: Theme.colors.text.status
             Layout.preferredWidth: implicitWidth
 
             MouseArea {

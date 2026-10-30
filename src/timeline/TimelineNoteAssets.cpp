@@ -40,7 +40,9 @@ const QPixmap& iconForType(const miacode::timeline::TimelineNoteAssetSet& assets
 
 namespace miacode::timeline {
 
-TimelineNoteAssetSet loadTimelineNoteAssets(const QString& skinDirectory)
+static TimelineNoteAssetSet loadTimelineNoteAssetsImpl(
+    const QString& skinDirectory,
+    QHash<QString, TimelineNoteMetrics>* metrics)
 {
     TimelineNoteAssetSet assets;
     const QString notesDir = skinDirectory.trimmed().isEmpty()
@@ -61,12 +63,17 @@ TimelineNoteAssetSet loadTimelineNoteAssets(const QString& skinDirectory)
         return QPixmap();
     };
 
-    const auto putIcon = [&assets](const QString& key, const QPixmap& pix, int basePixelSize) {
+    const auto putIcon = [&assets, metrics](const QString& key, const QPixmap& pix, int basePixelSize) {
         if (pix.isNull()) {
             return;
         }
-        assets.noteIcons.insert(key, pix);
-        assets.noteIconBasePixelSizes.insert(key, qMax(1, basePixelSize));
+        const int pixelSize = qMax(1, basePixelSize);
+        if (metrics != nullptr) {
+            metrics->insert(key, TimelineNoteMetrics{pix.size(), pixelSize});
+        } else {
+            assets.noteIcons.insert(key, pix);
+            assets.noteIconBasePixelSizes.insert(key, pixelSize);
+        }
     };
 
     const auto loadIcon = [&loadRawIcon, &putIcon](const QString& key, const QStringList& fileNames, int basePixelSize) {
@@ -316,6 +323,32 @@ TimelineNoteAssetSet loadTimelineNoteAssets(const QString& skinDirectory)
     return assets;
 }
 
+TimelineNoteAssetSet loadTimelineNoteAssets(const QString& skinDirectory)
+{
+    return loadTimelineNoteAssetsImpl(skinDirectory, nullptr);
+}
+
+QSize TimelineNoteMetrics::targetSize(qreal scale) const
+{
+    if (sourceSize.isEmpty()) {
+        return QSize();
+    }
+    const qreal normalizedScale = scale > 0.0 ? scale : 1.0;
+    const int targetBox = qMax(1, qRound(static_cast<qreal>(basePixelSize) * normalizedScale));
+    QSize size = sourceSize;
+    size.scale(targetBox, targetBox, Qt::KeepAspectRatio);
+    size.setWidth(qMax(1, size.width()));
+    size.setHeight(qMax(1, size.height()));
+    return size;
+}
+
+QHash<QString, TimelineNoteMetrics> loadTimelineNoteMetrics(const QString& skinDirectory)
+{
+    QHash<QString, TimelineNoteMetrics> metrics;
+    loadTimelineNoteAssetsImpl(skinDirectory, &metrics);
+    return metrics;
+}
+
 int transformedPixmapScalePermille(qreal scale)
 {
     return qMax(1, qRound(scale * 1000.0));
@@ -389,15 +422,9 @@ QSize targetSizeForNoteType(
         return QSize();
     }
 
-    const qreal normalizedScale = scale > 0.0 ? scale : 1.0;
-    const int targetBox = qMax(
-        1,
-        qRound(static_cast<qreal>(noteIconBasePixelSizeForType(assets, type, fallbackPixelSize)) * normalizedScale));
-    QSize targetSize(base.width(), base.height());
-    targetSize.scale(targetBox, targetBox, Qt::KeepAspectRatio);
-    targetSize.setWidth(qMax(1, targetSize.width()));
-    targetSize.setHeight(qMax(1, targetSize.height()));
-    return targetSize;
+    return TimelineNoteMetrics{
+        base.size(), noteIconBasePixelSizeForType(assets, type, fallbackPixelSize)
+    }.targetSize(scale);
 }
 
 QPixmap transformNotePixmapToTargetSize(

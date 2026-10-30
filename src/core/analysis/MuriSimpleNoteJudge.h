@@ -6,6 +6,7 @@
 #include "core/analysis/MuriDiagnosticCollector.h"
 
 struct TimelineNoteMarker;
+struct MuriStaticReference;
 
 namespace miacode::muri::detail {
 
@@ -17,6 +18,7 @@ void collectSimpleNoteRuntimeDiagnostics(
     const QVector<TimelineNoteMarker>& noteMarkers,
     const MuriRenderOptions& renderOptions,
     MuriDiagnosticCollector& collector,
-    double staticTapOnSlideThresholdSeconds);
+    double staticTapOnSlideThresholdSeconds,
+    const QVector<MuriStaticReference>& staticReferences);
 
 }  // namespace miacode::muri::detail

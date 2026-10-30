@@ -5,15 +5,11 @@
 #include <QtMath>
 
 #include "core/chart/parser/SimaiParser.h"
+#include "common/TaskCancellation.h"
 
 namespace {
 
 using miacode::muri::MuriPanelEntry;
-
-QString muriPanelEntryDedupeKey(MuriKind kind, int line, int col)
-{
-    return QStringLiteral("%1|%2|%3").arg(static_cast<int>(kind)).arg(qMax(1, line)).arg(qMax(1, col));
-}
 
 bool keepDenseOverlapPanelIssue(MuriKind kind, double second, QHash<qint64, int>* keptOverlapCountBySecond)
 {
@@ -147,8 +143,8 @@ MuriDetailArgs buildMuriStaticReferenceDetailArgs(
     const MuriStaticReference& reference,
     MuriDetailKind* detailKind)
 {
-    const QString affectedText = muriStaticReferenceConfigText(reference.affected);
-    const QString causeText = muriStaticReferenceConfigText(reference.cause);
+    const QString affectedText = muriStaticReferenceConfigText(*reference.affected);
+    const QString causeText = muriStaticReferenceConfigText(*reference.cause);
     const double gapMs = qAbs(reference.deltaSecond) * 1000.0;
     MuriDetailArgs args;
     args.left = causeText;
@@ -213,12 +209,12 @@ MuriPanelEntry makeMuriPanelEntry(const MuriStaticReference& reference)
     entry.isStatic = true;
     entry.kind = reference.kind;
     entry.alertLevel = reference.alertLevel;
-    const MuriPanelAnchor affectedAnchor = muriPanelAnchorFromReferenceNote(reference.affected);
+    const MuriPanelAnchor affectedAnchor = muriPanelAnchorFromReferenceNote(*reference.affected);
     const MuriPanelAnchor anchor = affectedAnchor;
-    entry.second = anchor.valid ? anchor.second : reference.affected.second;
-    entry.occurrenceSecond = reference.affected.second;
-    entry.line = anchor.valid ? anchor.line : reference.affected.line;
-    entry.col = anchor.valid ? anchor.col : reference.affected.col;
+    entry.second = anchor.valid ? anchor.second : reference.affected->second;
+    entry.occurrenceSecond = reference.affected->second;
+    entry.line = anchor.valid ? anchor.line : reference.affected->line;
+    entry.col = anchor.valid ? anchor.col : reference.affected->col;
     entry.detailArgs = buildMuriStaticReferenceDetailArgs(reference, &entry.detailKind);
     entry.rawDetail = renderMuriDetail(
         entry.detailKind,
@@ -231,43 +227,57 @@ MuriPanelEntry makeMuriPanelEntry(const MuriStaticReference& reference)
 
 namespace miacode::muri {
 
+QVector<MuriPanelEntrySource> selectVisibleMuriPanelEntries(
+    const MuriAnalysisReport& analysisReport,
+    const QVector<MuriStaticReference>& staticReferences)
+{
+    QVector<MuriPanelEntrySource> sources;
+    sources.reserve(analysisReport.diagnostics.size());
+    QHash<qint64, int> keptOverlapCountBySecond;
+    QSet<QPair<int, QPair<int, int>>> keptIssueKeys;
+    const auto append = [&](MuriPanelEntrySource source) {
+        if (!keepDenseOverlapPanelIssue(source.kind, source.second, &keptOverlapCountBySecond)) return;
+        const auto key = qMakePair(static_cast<int>(source.kind),
+                                  qMakePair(qMax(1, source.line), qMax(1, source.col)));
+        if (keptIssueKeys.contains(key)) return;
+        keptIssueKeys.insert(key);
+        sources.append(source);
+    };
+    for (int index = 0; index < staticReferences.size(); ++index) {
+        miacode::task::CancellationScope::checkpoint();
+        const auto& reference = staticReferences.at(index);
+        append({true, index, reference.kind, reference.alertLevel,
+                reference.affected->second, reference.affected->line, reference.affected->col});
+    }
+    for (int index = 0; index < analysisReport.diagnostics.size(); ++index) {
+        miacode::task::CancellationScope::checkpoint();
+        const auto& diagnostic = analysisReport.diagnostics.at(index);
+        append({false, index, diagnostic.kind, diagnostic.alertLevel,
+                diagnostic.anchorSecond, diagnostic.line, diagnostic.col});
+    }
+    return sources;
+}
+
+MuriPanelEntry resolveMuriPanelEntry(
+    const MuriPanelEntrySource& source,
+    const MuriAnalysisReport& analysisReport,
+    const QVector<MuriStaticReference>& staticReferences)
+{
+    return source.isStatic ? makeMuriPanelEntry(staticReferences.at(source.index))
+                           : makeMuriPanelEntry(analysisReport.diagnostics.at(source.index));
+}
+
 QVector<MuriPanelEntry> buildVisibleMuriPanelEntries(
     const MuriAnalysisReport& analysisReport,
     const QVector<MuriStaticReference>& staticReferences)
 {
+    const auto sources = selectVisibleMuriPanelEntries(analysisReport, staticReferences);
     QVector<MuriPanelEntry> entries;
-    entries.reserve(analysisReport.diagnostics.size() + staticReferences.size());
-
-    QHash<qint64, int> keptOverlapCountBySecond;
-    QSet<QString> keptIssueKeys;
-    keptIssueKeys.reserve(analysisReport.diagnostics.size() + staticReferences.size());
-
-    for (const MuriStaticReference& reference : staticReferences) {
-        const MuriPanelEntry entry = makeMuriPanelEntry(reference);
-        if (!keepDenseOverlapPanelIssue(entry.kind, entry.second, &keptOverlapCountBySecond)) {
-            continue;
-        }
-        const QString dedupeKey = muriPanelEntryDedupeKey(entry.kind, entry.line, entry.col);
-        if (keptIssueKeys.contains(dedupeKey)) {
-            continue;
-        }
-        keptIssueKeys.insert(dedupeKey);
-        entries.append(entry);
+    entries.reserve(sources.size());
+    for (const auto& source : sources) {
+        miacode::task::CancellationScope::checkpoint();
+        entries.append(resolveMuriPanelEntry(source, analysisReport, staticReferences));
     }
-
-    for (const MuriDiagnostic& diagnostic : analysisReport.diagnostics) {
-        const MuriPanelEntry entry = makeMuriPanelEntry(diagnostic);
-        if (!keepDenseOverlapPanelIssue(entry.kind, entry.second, &keptOverlapCountBySecond)) {
-            continue;
-        }
-        const QString dedupeKey = muriPanelEntryDedupeKey(entry.kind, entry.line, entry.col);
-        if (keptIssueKeys.contains(dedupeKey)) {
-            continue;
-        }
-        keptIssueKeys.insert(dedupeKey);
-        entries.append(entry);
-    }
-
     return entries;
 }
 

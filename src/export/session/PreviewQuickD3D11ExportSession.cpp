@@ -1,4 +1,5 @@
 #include "export/session/PreviewQuickD3D11ExportSession.h"
+#include "export/session/ExportQuickBackgroundItem.h"
 
 #include "common/DebugLog.h"
 #include "common/GpuDevicePolicy.h"
@@ -51,7 +52,7 @@ void appendD3D11ExportSessionLog(const QString& scope, const QString& detail = Q
 }
 
 // Same conversion contract as the OpenGL session's
-// convertBottomUpPremultipliedReadbackToStraightRgba (sync pair — the encoded
+// convertBottomUpReadbackToRgba (sync pair — the encoded
 // frames from both backends must be pixel-identical), with two D3D11-specific
 // differences: the mapped staging rows are TOP-DOWN (no vertical flip) and the
 // source stride is the driver-chosen RowPitch, not width*4.
@@ -221,6 +222,20 @@ PreviewQuickD3D11ExportSession::PreviewQuickD3D11ExportSession(QObject* parent)
 PreviewQuickD3D11ExportSession::~PreviewQuickD3D11ExportSession()
 {
     invalidate();
+}
+
+void PreviewQuickD3D11ExportSession::setBackgroundFrame(const QImage& image, bool cacheable, bool fullFrame, qreal brightness)
+{
+    backgroundEnabled_ = true;
+    backgroundFullFrame_ = fullFrame;
+    backgroundBrightness_ = brightness;
+    frameState_.media.resolvedStageImage = image;
+    frameState_.media.resolvedStageImageCacheable = cacheable;
+    frameState_.media.stageMediaSerial = image.cacheKey();
+    if (backgroundItem_) {
+        backgroundItem_->setVisible(true);
+        backgroundItem_->setFrameState(frameState_, fullFrame, brightness);
+    }
 }
 
 void PreviewQuickD3D11ExportSession::setFrameState(
@@ -415,6 +430,9 @@ bool PreviewQuickD3D11ExportSession::initialize(QString* errorMessage)
 
     rootItem_ = new QQuickItem(quickWindow_->contentItem());
 
+    backgroundItem_ = new ExportQuickBackgroundItem(rootItem_);
+    backgroundItem_->setZ(-1.0);
+    backgroundItem_->setVisible(backgroundEnabled_);
     sceneRoot_ = new PreviewQuickSceneRoot(rootItem_);
     sceneRoot_->setZ(0.0);
 
@@ -445,6 +463,7 @@ void PreviewQuickD3D11ExportSession::invalidate()
     quickWindow_ = nullptr;
     rootItem_ = nullptr;
     sceneRoot_ = nullptr;
+    backgroundItem_ = nullptr;
     hudLayer_ = nullptr;
 
     delete renderControl_;
@@ -799,6 +818,7 @@ void PreviewQuickD3D11ExportSession::applyFrameSize()
     rootItem_->setPosition(QPointF(0.0, 0.0));
     rootItem_->setSize(QSizeF(frameSize_));
 
+    backgroundItem_->setSize(QSizeF(frameSize_));
     sceneRoot_->setPosition(QPointF(0.0, 0.0));
     sceneRoot_->setSize(QSizeF(frameSize_));
     sceneRoot_->update();
@@ -930,6 +950,9 @@ void PreviewQuickD3D11ExportSession::setIntroFrame(int authoringFrame, bool acti
 
 void PreviewQuickD3D11ExportSession::applyFrameState()
 {
+    if (backgroundItem_ && backgroundEnabled_) {
+        backgroundItem_->setFrameState(frameState_, backgroundFullFrame_, backgroundBrightness_);
+    }
     bindFrameStateIfNeeded();
     applyLayerFlagsIfNeeded();
     requestFrameRefresh();

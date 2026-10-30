@@ -71,8 +71,7 @@ Item {
     }
 
     component AnalysisTab: BottomTab {
-        required property var issueRows
-        readonly property var issueCounts: root.countIssues(issueRows)
+        required property var issueCounts
         count: issueCounts.errors > 0 ? issueCounts.errors : issueCounts.warnings
         countColor: issueCounts.errors > 0
             ? Theme.colors.danger.primary : Theme.colors.accent.badge
@@ -96,14 +95,14 @@ Item {
         AnalysisTab {
             visible: root.timelineSession.validationTabVisible
             text: root.timelineSession.validationTabLabel
-            issueRows: root.analysisSession.validationRows
+            issueCounts: root.countIssues(root.analysisSession.validationRows)
             checked: root.timelineSession.currentTabId === "validation"
             onClicked: root.timelineSession.setCurrentTabId("validation")
         }
         AnalysisTab {
             visible: root.timelineSession.muriTabVisible
             text: root.timelineSession.muriTabLabel
-            issueRows: root.analysisSession.muriRows
+            issueCounts: ({ errors: root.analysisSession.muriIssueCount, warnings: root.analysisSession.muriWarningCount })
             checked: root.timelineSession.currentTabId === "muri"
             onClicked: root.timelineSession.setCurrentTabId("muri")
         }

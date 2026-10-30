@@ -1445,7 +1445,10 @@ bool DocumentModel::openFileWithOrigin(const QUrl& fileUrl, ChartDocumentOrigin 
             return result.accepted;
         })) {
         uiRequests_->postNotice(miacode::NoticeSeverity::Error,
-            miacode::localizedText("dialog.open_startup_target.missing.title"), miacode::localizedText("document.cannot_open_chart"));
+            miacode::localizedText("document.open_failed"),
+            result.error == QLatin1String("unsupported_file_type")
+                ? miacode::localizedText("document.unsupported_file_type") + QDir::toNativeSeparators(path)
+                : miacode::localizedText("document.cannot_open_chart"));
         return false;
     }
     if (!result.issues.isEmpty()) {

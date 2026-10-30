@@ -131,6 +131,49 @@ bool verifyFailedOpenRetainsWorkspace(QTextStream& out)
                   QStringLiteral("failed open leaves the current workspace untouched"), out);
 }
 
+bool verifyOpenFileTypes(QTextStream& out)
+{
+    QTemporaryDir directory;
+    if (!directory.isValid()) return false;
+    const QByteArray source = "&title=synthetic\n&lv_5=12\n&inote_5=(120){4}1,E\n";
+    miacode::ChartWorkspace workspace;
+    miacode::ChartWorkspaceFileService files(workspace);
+    workspace.openSource(QString::fromUtf8(source), directory.filePath(QStringLiteral("original.txt")), 5);
+    workspace.replaceActiveDifficultyChart(QStringLiteral("(120){4}2,E"));
+    const auto before = workspace.snapshot();
+    bool ok = true;
+    const QStringList unsupportedNames{QStringLiteral("视频 sample.mp4"), QStringLiteral("track.mp3"),
+        QStringLiteral("cover.png"), QStringLiteral("archive.zip"), QStringLiteral("maidata.txt.exe"),
+        QStringLiteral("no-extension")};
+    for (const QString& name : unsupportedNames) {
+        const QString path = directory.filePath(name);
+        // Even valid chart content must not bypass the file-type boundary.
+        if (!writeBytes(path, source)) return false;
+        const auto result = files.open(path);
+        const auto after = workspace.snapshot();
+        ok &= expect(!result.accepted && result.error == QLatin1String("unsupported_file_type")
+            && result.revision == before.revision && after.revision == before.revision
+            && after.documentOpenGeneration == before.documentOpenGeneration
+            && after.filePath == before.filePath && after.sourceText == before.sourceText
+            && after.activeDifficultyId == before.activeDifficultyId && after.dirty == before.dirty,
+            QStringLiteral("unsupported path %1 leaves the edited document untouched").arg(name), out);
+    }
+    ok &= expect(files.open(directory.filePath(QStringLiteral("missing.mp4"))).error
+            == QLatin1String("unsupported_file_type"),
+        QStringLiteral("unsupported file types are rejected before attempting a read"), out);
+    for (const QString& name : {QStringLiteral("maidata.txt"), QStringLiteral("chart.simai"),
+                               QStringLiteral("大写 文件.TXT"), QStringLiteral("chart.SiMaI")}) {
+        const QString path = directory.filePath(name);
+        if (!writeBytes(path, source)) return false;
+        ok &= expect(files.open(path).accepted && workspace.document().title == QLatin1String("synthetic"),
+                     QStringLiteral("supported path %1 still opens").arg(name), out);
+    }
+    ok &= expect(files.open(directory.path()).accepted
+        && workspace.snapshot().filePath == directory.filePath(QStringLiteral("maidata.txt")),
+        QStringLiteral("opening a chart directory still resolves maidata.txt"), out);
+    return ok;
+}
+
 QByteArray readBytes(const QString& path)
 {
     QFile file(path);
@@ -305,6 +348,7 @@ int main()
     if (!verifyOpenSaveAndSaveAs(out)
         || !verifySavedFieldsAndDifficultyStructure(out)
         || !verifyOpenAcceptsEmptyInoteFile(out)
+        || !verifyOpenFileTypes(out)
         || !verifyProjectSaveAs(out, miacode::ChartDocumentOrigin::Local)
         || !verifyProjectSaveAs(out, miacode::ChartDocumentOrigin::NetPreview)
         || !verifyExternalVideoSaveAs(out)

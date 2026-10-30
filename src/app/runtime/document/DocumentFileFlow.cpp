@@ -8,7 +8,6 @@
 #include "audio/QtPreviewSfxRuntime.h"
 #include "core/chart/parser/SimaiParser.h"
 #include "app/quick_shell/QuickShellPreviewCompositeSurface.h"
-#include "app/quick_shell/QuickShellPreviewSurfacePolicy.h"
 #include "core/chart/ChartAssetPaths.h"
 #include "common/CrashRecovery.h"
 #include "common/DebugLog.h"
@@ -58,7 +57,8 @@ PreparedDocumentOpenPayload prepareDocumentOpenPayload(const QString& path, bool
 {
     PreparedDocumentOpenPayload payload;
     payload.normalizedPath = path.isEmpty() ? QString() : QDir::cleanPath(path);
-    if (payload.normalizedPath.isEmpty()) {
+    if (payload.normalizedPath.isEmpty()
+        || !miacode::chart_assets::isChartDocumentPath(payload.normalizedPath)) {
         return payload;
     }
 
@@ -127,6 +127,20 @@ bool miacode::runtime::DocumentSessionHost::openFileAtPath(const QString& path, 
     const QString normalizedPath = path.isEmpty() ? QString() : QDir::cleanPath(path);
     if (normalizedPath.isEmpty()) {
         _mc_op_.fail(QStringLiteral("empty path"));
+        return false;
+    }
+
+    if (!miacode::chart_assets::supportedChartFileExtensions().contains(QFileInfo(normalizedPath).suffix().toLower())) {
+        if (showErrors) {
+            if (miacode::UiRequestService* const requests = session_.uiRequestService()) {
+                requests->postNotice(
+                    miacode::NoticeSeverity::Error,
+                    miacode::localizedText("document.open_failed"),
+                    miacode::localizedText("document.unsupported_file_type") + QDir::toNativeSeparators(normalizedPath)
+                );
+            }
+        }
+        _mc_op_.fail(QStringLiteral("unsupported file type"));
         return false;
     }
 

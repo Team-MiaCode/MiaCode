@@ -1,4 +1,5 @@
 #include "app/ui/editor/ScintillaEditorBridge.h"
+#include "app/ui/editor/EditorContextMenu.h"
 #include "editor/SimaiCompletionCatalog.h"
 #include "common/DebugLog.h"
 #include "common/DebugOptions.h"
@@ -469,7 +470,16 @@ void ScintillaEditorBridge::refreshDiagnostics()
     bool overviewRowsChanged = false;
     if (documentSession_ && !documentSession_->validationPending()
         && documentSession_->validationRevision() == documentSession_->documentRevision()) {
-        const QVariantList rows = documentSession_->syntaxIssues();
+        QVector<AnalysisDecoration> rows;
+        const auto issues = documentSession_->syntaxIssues();
+        rows.reserve(issues.size());
+        for (const auto& value : issues) {
+            const auto row = value.toMap();
+            rows.append({row.value(QStringLiteral("line")).toInt(),
+                         row.value(QStringLiteral("column")).toInt(),
+                         row.value(QStringLiteral("endColumn")).toInt(),
+                         row.value(QStringLiteral("severity")) == QStringLiteral("warning")});
+        }
         if (overviewSyntaxRows_ != rows) {
             overviewSyntaxRows_ = rows;
             overviewRowsChanged = true;
@@ -486,7 +496,7 @@ void ScintillaEditorBridge::refreshDiagnostics()
         if (documentSession_ && analysisSession_->available()
             && analysisSession_->difficultyId() == documentSession_->currentDifficultyId()
             && analysisSession_->revision() == documentSession_->documentRevision()) {
-            const QVariantList rows = analysisSession_->muriRows();
+            const auto rows = analysisSession_->muriDecorationRows();
             if (overviewMuriRows_ != rows) {
                 overviewMuriRows_ = rows;
                 overviewRowsChanged = true;
@@ -571,19 +581,18 @@ void ScintillaEditorBridge::refreshOverviewProjection()
         QVector<MarkerInterval> intervals;
         const int documentLineCount = documentSession_ && documentSession_->currentDifficultyId() > 0
             ? int(send(SCI_GETLINECOUNT)) : 0;
-        const auto appendDiagnosticRows = [this, &intervals, documentLineCount](const QVariantList& rows) {
-            for (const QVariant& value : rows) {
-                const QVariantMap row = value.toMap();
-                const int line = row.value(QStringLiteral("line")).toInt();
+        const auto appendDiagnosticRows = [this, &intervals, documentLineCount](const QVector<AnalysisDecoration>& rows) {
+            for (const auto& row : rows) {
+                const int line = row.line;
                 if (line <= 0 || line > documentLineCount) continue;
                 const int logicalLine = line - 1;
                 const int start = document_.lineStart(logicalLine);
                 const int end = document_.utf16Position(send(SCI_GETLINEENDPOSITION, logicalLine));
-                const int column = qMax(1, row.value(QStringLiteral("column")).toInt());
+                const int column = qMax(1, row.column);
                 const int position = start + qMin(column - 1, qMax(0, end - start));
                 const int displayLine = overviewDisplayLineForPosition(position);
                 if (displayLine < 0 || displayLine >= overviewDisplayLineCount_) continue;
-                const int lane = row.value(QStringLiteral("severity")) == QStringLiteral("warning") ? 0 : 2;
+                const int lane = row.warning ? 0 : 2;
                 intervals.append({lane, displayLine, displayLine});
             }
         };
@@ -933,13 +942,15 @@ void ScintillaEditorBridge::mousePressEvent(QMouseEvent* event)
             event->accept();
             return;
         }
-    }
-    ScintillaQuick_item::mousePressEvent(event);
-    if (event->button() == Qt::RightButton) {
+        prepareEditorContextMenu(*this, event->position());
         emit selectionChanged();
         updatePolish();
         emit contextMenuRequested(event->position().x(), event->position().y());
+        refreshSelection(!programmatic_);
+        event->accept();
+        return;
     }
+    ScintillaQuick_item::mousePressEvent(event);
     refreshSelection(!programmatic_);
 }
 void ScintillaEditorBridge::mouseReleaseEvent(QMouseEvent* event)

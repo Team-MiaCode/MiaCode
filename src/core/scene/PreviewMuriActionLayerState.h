@@ -11,7 +11,8 @@ struct PreviewMuriActionLayerState {
 
 PreviewMuriActionLayerState buildPreviewMuriActionLayerState(
     const PreviewFrameState& state,
-    const QRectF& playfieldRect
+    const QRectF& playfieldRect,
+    const QVector<int>& visibleIndices
 );
 
 }  // namespace miacode::preview::scene

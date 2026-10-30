@@ -1310,12 +1310,12 @@ Failed: %2</source>
         <translation>ダークテーマ</translation>
     </message>
     <message id="dialog.preferences.theme.legacy">
-        <source>Classic Dark</source>
-        <translation>クラシックダーク</translation>
+        <source>Classic</source>
+        <translation>クラシック</translation>
     </message>
-    <message id="dialog.preferences.theme.legacy_light">
-        <source>Classic Light</source>
-        <translation>クラシックライト</translation>
+    <message id="dialog.preferences.theme.default">
+        <source>Default</source>
+        <translation>デフォルト</translation>
     </message>
     <message id="dialog.preferences.theme.light">
         <source>Light</source>
@@ -2036,6 +2036,12 @@ Restore the backup from %1?</source>
     <message id="document.cannot_open_chart">
         <source>Cannot open the chart file.</source>
         <translation>譜面ファイルを開けません。</translation>
+    </message>
+    <message id="document.unsupported_file_type">
+        <source>Unsupported chart file type. Only .txt and .simai files can be opened.
+File: </source>
+        <translation>未対応のファイル形式です。.txt または .simai の譜面ファイルのみ開けます。
+ファイル：</translation>
     </message>
     <message id="document.cannot_replace">
         <source>Cannot replace:
@@ -4928,6 +4934,50 @@ Error: %1</source>
     <message id="file_picker.native_failed">
         <source>Could not open the system folder picker.</source>
         <translation>システムのフォルダー選択画面を開けませんでした。</translation>
+    </message>
+    <message id="dialog.preferences.font.family">
+        <source>Chart text font</source>
+        <translation>譜面テキストのフォント</translation>
+    </message>
+    <message id="dialog.preferences.font.search">
+        <source>Search installed fonts…</source>
+        <translation>インストール済みフォントを検索…</translation>
+    </message>
+    <message id="dialog.preferences.font.default">
+        <source>Default font</source>
+        <translation>既定のフォント</translation>
+    </message>
+    <message id="dialog.preferences.font.monospace">
+        <source>Monospace</source>
+        <translation>等幅</translation>
+    </message>
+    <message id="dialog.preferences.font.reset">
+        <source>Restore default</source>
+        <translation>既定に戻す</translation>
+    </message>
+    <message id="dialog.preferences.font.sample">
+        <source>Example chart comment</source>
+        <translation>譜面のコメント例</translation>
+    </message>
+    <message id="dialog.preferences.theme.midnight">
+        <source>Midnight</source>
+        <translation>ミッドナイト</translation>
+    </message>
+    <message id="dialog.preferences.theme.forest">
+        <source>Forest</source>
+        <translation>フォレスト</translation>
+    </message>
+    <message id="dialog.preferences.theme.paper">
+        <source>Warm Paper</source>
+        <translation>ウォームペーパー</translation>
+    </message>
+    <message id="dialog.preferences.theme.lavender">
+        <source>Lavender</source>
+        <translation>ラベンダー</translation>
+    </message>
+    <message id="dialog.preferences.theme.comment_sample">
+        <source>Comment</source>
+        <translation>コメント</translation>
     </message>
 </context>
 <context>

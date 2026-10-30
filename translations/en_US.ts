@@ -1310,12 +1310,12 @@ Failed: %2</translation>
         <translation>Dark theme</translation>
     </message>
     <message id="dialog.preferences.theme.legacy">
-        <source>Classic Dark</source>
-        <translation>Classic Dark</translation>
+        <source>Classic</source>
+        <translation>Classic</translation>
     </message>
-    <message id="dialog.preferences.theme.legacy_light">
-        <source>Classic Light</source>
-        <translation>Classic Light</translation>
+    <message id="dialog.preferences.theme.default">
+        <source>Default</source>
+        <translation>Default</translation>
     </message>
     <message id="dialog.preferences.theme.light">
         <source>Light</source>
@@ -2036,6 +2036,12 @@ Restore the backup from %1?</translation>
     <message id="document.cannot_open_chart">
         <source>Cannot open the chart file.</source>
         <translation>Cannot open the chart file.</translation>
+    </message>
+    <message id="document.unsupported_file_type">
+        <source>Unsupported chart file type. Only .txt and .simai files can be opened.
+File: </source>
+        <translation>Unsupported chart file type. Only .txt and .simai files can be opened.
+File: </translation>
     </message>
     <message id="document.cannot_replace">
         <source>Cannot replace:
@@ -4928,6 +4934,50 @@ Error: %1</translation>
     <message id="file_picker.native_failed">
         <source>Could not open the system folder picker.</source>
         <translation>Could not open the system folder picker.</translation>
+    </message>
+    <message id="dialog.preferences.font.family">
+        <source>Chart text font</source>
+        <translation>Chart text font</translation>
+    </message>
+    <message id="dialog.preferences.font.search">
+        <source>Search installed fonts…</source>
+        <translation>Search installed fonts…</translation>
+    </message>
+    <message id="dialog.preferences.font.default">
+        <source>Default font</source>
+        <translation>Default font</translation>
+    </message>
+    <message id="dialog.preferences.font.monospace">
+        <source>Monospace</source>
+        <translation>Monospace</translation>
+    </message>
+    <message id="dialog.preferences.font.reset">
+        <source>Restore default</source>
+        <translation>Restore default</translation>
+    </message>
+    <message id="dialog.preferences.font.sample">
+        <source>Example chart comment</source>
+        <translation>Example chart comment</translation>
+    </message>
+    <message id="dialog.preferences.theme.midnight">
+        <source>Midnight</source>
+        <translation>Midnight</translation>
+    </message>
+    <message id="dialog.preferences.theme.forest">
+        <source>Forest</source>
+        <translation>Forest</translation>
+    </message>
+    <message id="dialog.preferences.theme.paper">
+        <source>Warm Paper</source>
+        <translation>Warm Paper</translation>
+    </message>
+    <message id="dialog.preferences.theme.lavender">
+        <source>Lavender</source>
+        <translation>Lavender</translation>
+    </message>
+    <message id="dialog.preferences.theme.comment_sample">
+        <source>Comment</source>
+        <translation>Comment</translation>
     </message>
 </context>
 <context>

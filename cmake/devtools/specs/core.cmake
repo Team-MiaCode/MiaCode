@@ -176,13 +176,6 @@ miacode_add_dev_tool(video_export_audio_render_plan_spec TEST
     INCLUDES src
 )
 
-miacode_add_dev_tool(video_export_media_timeline_spec TEST
-    SOURCES
-        src/tools/video_export/VideoExportMediaTimelineSpec.cpp
-    LIBS miacode_export Qt6::Core Qt6::Gui
-    INCLUDES src
-)
-
 miacode_add_dev_tool(chart_zip_packager_spec TEST
     SOURCES
         src/tools/zip_export/ChartZipPackagerSpec.cpp

@@ -105,25 +105,26 @@ public:
     void setStageMediaPresentationMode(
         miacode::preview::scene::PreviewStageMediaPresentationMode mode,
         bool requestUpdate = true);
-    void setExternalStageMediaDebugState(
-        miacode::preview::scene::PreviewExternalStageMediaType mediaType,
-        bool videoPlaybackActive,
-        double playbackSecond,
-        double clockDeltaSeconds,
-        qint64 videoFrameAgeMs,
-        bool videoFrameStalled,
-        bool requestUpdate = true);
-    void setExternalStageMediaProfileSummary(
-        bool separateSurfaceActive,
-        bool hasResolvedMedia,
-        bool hasVideoMedia,
-        const QString& mediaTypeName,
-        qint64 videoFrameCountTotal,
-        double videoFrameRate,
-        double videoFrameIntervalAvgMs,
-        double videoFrameIntervalMaxMs,
-        qint64 videoFrameStallCount,
-        const QString& videoDecodeDesc = QString());
+    struct ExternalStageMediaState {
+        miacode::preview::scene::PreviewExternalStageMediaType mediaType =
+            miacode::preview::scene::PreviewExternalStageMediaType::None;
+        bool separateSurfaceActive = false;
+        bool hasResolvedMedia = false;
+        bool hasVideoMedia = false;
+        QString mediaTypeName;
+        bool videoPlaybackActive = false;
+        double playbackSecond = 0.0;
+        double clockDeltaSeconds = 0.0;
+        qint64 videoFrameAgeMs = -1;
+        bool videoFrameStalled = false;
+        qint64 videoFrameCountTotal = 0;
+        double videoFrameRate = 0.0;
+        double videoFrameIntervalAvgMs = 0.0;
+        double videoFrameIntervalMaxMs = 0.0;
+        qint64 videoFrameStallCount = 0;
+        QString videoDecodeDesc;
+    };
+    void setExternalStageMediaState(const ExternalStageMediaState& state, bool requestUpdate = true);
     void setFramePacingDebugState(
         bool usesDisplayRefreshPacing,
         double targetFps,

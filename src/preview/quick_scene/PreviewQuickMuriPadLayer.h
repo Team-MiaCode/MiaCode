@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/scene/PreviewFrameState.h"
+#include "core/scene/PreviewMuriPadLayerState.h"
 
 class QQuickWindow;
 class QSGNode;
@@ -12,8 +12,12 @@ public:
     QSGNode* updateNode(
         QSGNode* oldNode,
         const miacode::preview::scene::PreviewFrameState& state,
+        const QVector<int>& visibleIndices,
         const QSize& renderSize,
         QQuickWindow* window,
         PreviewTextureRepository* textures
     ) const;
+
+private:
+    mutable miacode::preview::scene::PreviewMuriPadLayerCache cache_;
 };

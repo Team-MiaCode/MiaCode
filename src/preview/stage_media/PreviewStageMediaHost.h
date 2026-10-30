@@ -12,6 +12,7 @@
 #include <QVector>
 #include <QUrl>
 #include <QString>
+#include <memory>
 
 class QVideoSink;
 // Desktop preview decode backend: FFmpeg via QtAVPlayer (vendored under
@@ -20,6 +21,7 @@ class QVideoSink;
 // is held by value for frame-replay when a VideoOutput attaches late.
 #include <QVideoFrame>
 class QAVPlayer;
+struct PreviewVideoFrameDeliveryState;
 
 class PreviewStageMediaHost : public QObject
 {
@@ -162,6 +164,8 @@ private:
     using PvMemoryBoundary = miacode::preview::pv_memory::BoundaryReason;
 
     void clearMedia();
+    void sealPendingVideoFrameDelivery();
+    void updateVideoFrameCoalescing();
     void reloadCurrentMediaPreservingPlayback();
     QString resolveMediaPath(const QString& chartPath) const;
     QString resolveStageMediaPath(const QString& chartPath, const QString& chartVideoOverridePath) const;
@@ -260,6 +264,8 @@ private:
     // played (song audio is BASS-owned).
     QAVPlayer* player_ = nullptr;
     QMetaObject::Connection videoFrameConnection_;
+    QMetaObject::Connection videoFrameBoundaryConnection_;
+    std::shared_ptr<PreviewVideoFrameDeliveryState> videoFrameDelivery_;
     QMetaObject::Connection seekedConnection_;
     bool videoBackendLoaded_ = false;
     bool softwareDecodeFallbackTried_ = false;

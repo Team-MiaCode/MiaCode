@@ -1,8 +1,10 @@
 #include "core/analysis/MuriSimpleNoteJudge.h"
 
 #include "common/TaskCancellation.h"
+#include "core/analysis/MuriTimeIndex.h"
 
 #include <algorithm>
+#include <set>
 
 #include <QHash>
 #include <QMap>
@@ -74,6 +76,7 @@ void updateSimpleNoteLateBad(JudgeableSimpleNote* note, double nowSecond)
 
 bool findOccupyingPadCause(
     const QVector<MuriPadWindow>& padWindows,
+    const QHash<QString, MuriTimeIndex>& padWindowIndices,
     const QHash<QString, MarkerSourceRef>& markerRefs,
     const QString& pad,
     double momentSecond,
@@ -84,13 +87,13 @@ bool findOccupyingPadCause(
         return false;
     }
 
+    const auto padIndex = padWindowIndices.constFind(normalizedPadToken(pad));
+    if (padIndex == padWindowIndices.cend()) return false;
     int bestIndex = -1;
-    for (int index = 0; index < padWindows.size(); ++index) {
+    for (int index : padIndex->intersecting(
+             momentSecond - kPadTimeEpsilon, momentSecond + kPadTimeEpsilon)) {
         miacode::task::CancellationScope::checkpoint();
         const MuriPadWindow& window = padWindows.at(index);
-        if (normalizedPadToken(window.pad) != normalizedPadToken(pad)) {
-            continue;
-        }
         if (window.sourceMarkerKey == excludeMarkerKey) {
             continue;
         }
@@ -148,26 +151,12 @@ bool findOccupyingPadCause(
 }
 
 bool matchesStaticSlideEndOverlap(
-    const QVector<MuriStaticReference>& staticReferences,
+    const QSet<QPair<QString, QString>>& staticOverlaps,
     const JudgeableSimpleNote& note,
     const RuntimePadEvent& cause)
 {
-    if (cause.sourceMarkerKey.isEmpty()
-        || (cause.sourceType != QLatin1String("slide")
-            && cause.sourceType != QLatin1String("wifi"))) {
-        return false;
-    }
-
-    for (const MuriStaticReference& reference : staticReferences) {
-        miacode::task::CancellationScope::checkpoint();
-        if (reference.kind != MuriKind::Overlap
-            || reference.affected.markerKey != note.markerKey
-            || reference.cause.markerKey != cause.sourceMarkerKey) {
-            continue;
-        }
-        return true;
-    }
-    return false;
+    return (cause.sourceType == QLatin1String("slide") || cause.sourceType == QLatin1String("wifi"))
+        && staticOverlaps.contains(qMakePair(note.markerKey, cause.sourceMarkerKey));
 }
 
 bool consumeRuntimePadEvent(
@@ -285,26 +274,71 @@ void simulateSimpleNoteJudgments(
         timelineTicks.insert(it.key(), true);
     }
 
+    QVector<QVector<int>> childrenByTopLevel;
+    QVector<QStringList> padsByTopLevel;
+    QVector<std::pair<double, int>> starts;
+    childrenByTopLevel.reserve(topLevelNotes.size());
+    padsByTopLevel.reserve(topLevelNotes.size());
+    starts.reserve(topLevelNotes.size());
+    for (int index = 0; index < topLevelNotes.size(); ++index) {
+        miacode::task::CancellationScope::checkpoint();
+        const auto& topLevel = topLevelNotes.at(index);
+        QVector<int> children = topLevel.touchGroupIndex >= 0
+            ? touchGroups.at(topLevel.touchGroupIndex).childNoteIndices
+            : QVector<int>{topLevel.simpleNoteIndex};
+        double start = std::numeric_limits<double>::infinity();
+        QStringList pads;
+        for (int child : children) {
+            const auto& note = notes->at(child);
+            start = qMin(start, note.momentSecond - note.availableSeconds - kPadTimeEpsilon);
+            if (!pads.contains(note.pad)) pads.append(note.pad);
+        }
+        childrenByTopLevel.append(std::move(children));
+        padsByTopLevel.append(std::move(pads));
+        starts.append({start, index});
+    }
+    std::sort(starts.begin(), starts.end());
+    int nextStart = 0;
+    std::set<int> active;
+    QHash<QString, std::set<int>> activeByPad;
+
     for (auto tickIt = timelineTicks.constBegin(); tickIt != timelineTicks.constEnd(); ++tickIt) {
         miacode::task::CancellationScope::checkpoint();
         const int tick = tickIt.key();
         const double nowSecond = tickToSecond(tick);
+        while (nextStart < starts.size() && starts.at(nextStart).first <= nowSecond) {
+            const int index = starts.at(nextStart++).second;
+            active.insert(index);
+            for (const auto& pad : padsByTopLevel.at(index)) activeByPad[pad].insert(index);
+        }
 
         const QMap<QString, RuntimePadEvent> events = eventsByTick.value(tick);
         for (auto eventIt = events.constBegin(); eventIt != events.constEnd(); ++eventIt) {
             miacode::task::CancellationScope::checkpoint();
             const RuntimePadEvent& event = eventIt.value();
-            for (const RuntimeTopLevelNote& topLevel : topLevelNotes) {
+            const auto candidates = activeByPad.constFind(event.pad);
+            if (candidates == activeByPad.cend()) continue;
+            for (int index : candidates.value()) {
                 miacode::task::CancellationScope::checkpoint();
-                if (consumeRuntimePadEvent(notes, touchGroups, topLevel, nowSecond, event)) {
+                if (consumeRuntimePadEvent(notes, touchGroups, topLevelNotes.at(index), nowSecond, event)) {
                     break;
                 }
             }
         }
 
-        for (const RuntimeTopLevelNote& topLevel : topLevelNotes) {
+        for (auto it = active.begin(); it != active.end();) {
             miacode::task::CancellationScope::checkpoint();
-            updateRuntimeTopLevelNote(notes, touchGroups, topLevel, nowSecond);
+            const int index = *it;
+            updateRuntimeTopLevelNote(notes, touchGroups, topLevelNotes.at(index), nowSecond);
+            const auto& children = childrenByTopLevel.at(index);
+            const bool finished = std::all_of(children.cbegin(), children.cend(),
+                [notes](int child) { return notes->at(child).judged; });
+            if (finished) {
+                for (const auto& pad : padsByTopLevel.at(index)) activeByPad[pad].erase(index);
+                it = active.erase(it);
+            } else {
+                ++it;
+            }
         }
     }
 }
@@ -684,15 +718,13 @@ void collectSimpleNoteRuntimeDiagnostics(
     const QVector<TimelineNoteMarker>& noteMarkers,
     const MuriRenderOptions& renderOptions,
     MuriDiagnosticCollector& collector,
-    double staticTapOnSlideThresholdSeconds)
+    double staticTapOnSlideThresholdSeconds,
+    const QVector<MuriStaticReference>& staticReferences)
 {
     const double normalizedStaticTapOnSlideThresholdSeconds = qBound(
         static_cast<double>(miacode::muri::kStaticTapOnSlideThresholdMinMs) / 1000.0,
         staticTapOnSlideThresholdSeconds,
         static_cast<double>(miacode::muri::kStaticTapOnSlideThresholdMaxMs) / 1000.0);
-    const QVector<MuriStaticReference> staticReferences = buildStaticMuriReferences(
-        noteMarkers,
-        normalizedStaticTapOnSlideThresholdSeconds);
     const QHash<QString, MarkerSourceRef> markerRefs = buildMarkerSourceRefs(noteMarkers);
     const QHash<QString, const TimelineNoteMarker*> markerLookup = buildMarkerLookup(noteMarkers);
     const QHash<QString, QString> markerConfigLabels = buildMarkerConfigLabels(noteMarkers);
@@ -707,6 +739,22 @@ void collectSimpleNoteRuntimeDiagnostics(
         buildRuntimeTopLevelNotes(notes, touchGroups, touchGroupByChildNoteIndex);
     const QVector<MuriPadWindow> runtimePadWindows =
         buildRuntimePadWindows(noteMarkers, notes, noteIndexByMarkerKey, touchGroups, touchGroupByChildNoteIndex);
+    QHash<QString, QVector<MuriTimeInterval>> windowsByPad;
+    for (int index = 0; index < runtimePadWindows.size(); ++index) {
+        const auto& window = runtimePadWindows.at(index);
+        windowsByPad[normalizedPadToken(window.pad)].append({window.startSecond, window.endSecond, index});
+    }
+    QHash<QString, MuriTimeIndex> padWindowIndices;
+    for (auto it = windowsByPad.begin(); it != windowsByPad.end(); ++it) {
+        padWindowIndices.insert(it.key(), MuriTimeIndex(std::move(it.value())));
+    }
+    QSet<QPair<QString, QString>> staticOverlaps;
+    for (const auto& reference : staticReferences) {
+        miacode::task::CancellationScope::checkpoint();
+        if (reference.kind == MuriKind::Overlap) {
+            staticOverlaps.insert(qMakePair(reference.affected->markerKey, reference.cause->markerKey));
+        }
+    }
     QSet<QString> multiTouchMarkerKeys;
     collectSimpleNoteMultiTouchDiagnostics(
         noteMarkers,
@@ -814,6 +862,7 @@ void collectSimpleNoteRuntimeDiagnostics(
         if (note.lateBad && overlapCause.sourceMarkerKey.isEmpty()) {
             findOccupyingPadCause(
                 runtimePadWindows,
+                padWindowIndices,
                 markerRefs,
                 note.pad,
                 note.momentSecond,
@@ -825,7 +874,7 @@ void collectSimpleNoteRuntimeDiagnostics(
         // The runtime late result would duplicate the panel and anchor it to
         // the earlier slide head.
         if (note.lateBad
-            && matchesStaticSlideEndOverlap(staticReferences, note, overlapCause)) {
+            && matchesStaticSlideEndOverlap(staticOverlaps, note, overlapCause)) {
             continue;
         }
 

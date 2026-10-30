@@ -1,4 +1,5 @@
 #include "app/ui/preferences/PreferencesModel.h"
+#include "app/ui/preferences/AppearanceLabels.h"
 
 #include "app/ui/layout/WorkbenchSettings.h"
 #include "app/services/PreferencesStore.h"
@@ -8,6 +9,7 @@
 
 #include <QVariantMap>
 #include <QCoreApplication>
+#include <QFontDatabase>
 #include <algorithm>
 
 namespace miacode::ui {
@@ -35,6 +37,10 @@ PreferencesModel::PreferencesModel(miacode::PreferencesStore*& storeSlot,
     reloadCompletionCandidates();
     connect(&settings, &WorkbenchSettings::editorSettingsChanged,
             this, &PreferencesModel::reloadCompletionCandidates);
+    connect(&settings, &WorkbenchSettings::editorSettingsChanged,
+            this, &PreferencesModel::editorChanged);
+    connect(&settings, &WorkbenchSettings::themeChanged,
+            this, &PreferencesModel::interfaceChanged);
     connect(&completionDurations_, &CompletionCandidateModel::savedValuesChanged,
             this, &PreferencesModel::persistCompletionCandidates);
     connect(&completionDivisions_, &CompletionCandidateModel::savedValuesChanged,
@@ -48,6 +54,7 @@ PreferencesModel::PreferencesModel(miacode::PreferencesStore*& storeSlot,
                 completionDurations_.retranslateErrors();
                 completionDivisions_.retranslateErrors();
                 emit interfaceChanged();
+                emit editorChanged();
                 emit performanceChanged();
             });
 }
@@ -113,18 +120,12 @@ void PreferencesModel::setThemeModeToken(const QString& token)
         return;
     }
     settings_->setThemeModeToken(token);
-    restartRequired_ = true;
     emit interfaceChanged();
 }
 
 QVariantList PreferencesModel::themePaletteOptions() const
 {
-    return QVariantList{
-        option(QStringLiteral("dark"), qtTrId("dialog.preferences.theme.dark")),
-        option(QStringLiteral("light"), qtTrId("dialog.preferences.theme.light")),
-        option(QStringLiteral("legacy"), qtTrId("dialog.preferences.theme.legacy")),
-        option(QStringLiteral("legacy_light"), qtTrId("dialog.preferences.theme.legacy_light")),
-    };
+    return appearance_labels::themeOptions();
 }
 
 QVariantList PreferencesModel::sidebarModeOptions() const
@@ -155,7 +156,6 @@ void PreferencesModel::setLightThemeToken(const QString& token)
         return;
     }
     settings_->setLightThemeToken(token);
-    restartRequired_ = true;
     emit interfaceChanged();
 }
 
@@ -170,7 +170,6 @@ void PreferencesModel::setDarkThemeToken(const QString& token)
         return;
     }
     settings_->setDarkThemeToken(token);
-    restartRequired_ = true;
     emit interfaceChanged();
 }
 
@@ -225,6 +224,37 @@ void PreferencesModel::setUiScalePercent(int percent)
     if (settings_ != nullptr) {
         settings_->setUiScalePercent(percent);
     }
+}
+
+QString PreferencesModel::editorFontFamily() const
+{
+    return settings_ != nullptr ? settings_->editorFontFamily() : QString();
+}
+
+void PreferencesModel::setEditorFontFamily(const QString& family)
+{
+    if (settings_ != nullptr) settings_->setEditorFontFamily(family);
+}
+
+QVariantList PreferencesModel::editorFontOptions(const QString& filter) const
+{
+    QVariantList rows{option(QString(), qtTrId("dialog.preferences.font.default"))};
+    QStringList families = QFontDatabase::families();
+    std::sort(families.begin(), families.end(), [](const QString& left, const QString& right) {
+        return QString::localeAwareCompare(left, right) < 0;
+    });
+    std::stable_partition(families.begin(), families.end(), [](const QString& family) {
+        return QFontDatabase::isFixedPitch(family);
+    });
+    const QString selected = editorFontFamily();
+    for (const QString& family : families) {
+        if (!family.contains(filter.trimmed(), Qt::CaseInsensitive) && family != selected) continue;
+        const bool fixed = QFontDatabase::isFixedPitch(family);
+        QVariantMap row = option(family, appearance_labels::fontLabel(family, fixed));
+        row.insert(QStringLiteral("family"), family);
+        rows.append(row);
+    }
+    return rows;
 }
 
 int PreferencesModel::editorFontSize() const

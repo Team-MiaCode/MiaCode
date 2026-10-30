@@ -434,38 +434,45 @@ HudInformationLayout layoutObjectStatistics(const HudInformationLayoutKey& key, 
     return {};
 }
 
-void drawOutlinedHudText(
-    QPainter& painter,
-    const QPointF& baseline,
-    const QString& text,
-    const QFont& font,
-    qreal outlineWidth,
-    const QPointF& shadowOffset,
-    const QColor& fillColor)
+struct OutlinedHudText {
+    QPainterPath glyphs;
+    QPainterPath shadow;
+    qreal outlineWidth = 0.0;
+    QColor fillColor;
+
+    QRectF bounds() const
+    {
+        const qreal margin = outlineWidth * 0.6;
+        return glyphs.boundingRect().united(shadow.boundingRect())
+            .adjusted(-margin, -margin, margin, margin);
+    }
+};
+
+OutlinedHudText layoutOutlinedHudText(const QPointF& baseline, const QString& text,
+    const QFont& font, qreal outlineWidth, const QPointF& shadowOffset, const QColor& fillColor)
 {
-    QPainterPath path;
-    path.addText(baseline, font, text);
-    painter.save();
+    OutlinedHudText result;
+    result.glyphs.addText(baseline, font, text);
+    result.shadow.addText(baseline + shadowOffset, font, text);
+    result.outlineWidth = outlineWidth;
+    result.fillColor = fillColor;
+    return result;
+}
+
+void drawOutlinedHudText(QPainter& painter, const OutlinedHudText& text)
+{
+    QPainterStateGuard painterState(&painter);
     painter.setRenderHint(QPainter::Antialiasing, true);
-    // Soft, slightly-dilated black drop shadow — approximates MajdataPlay's
-    // CenterInfoDisplayer TMP underlay (Jua-Regular SDF material: _UnderlayColor
-    // black, offset (0.59, -0.86) => down-right, _UnderlaySoftness 1, _UnderlayDilate 1).
-    // Filled+stroked offset glyph copy mimics the dilated, softened underlay better
-    // than an outline-only stroke.
-    QPainterPath shadowPath;
-    shadowPath.addText(baseline + shadowOffset, font, text);
     const QColor shadowColor(0, 0, 0, 160);
-    painter.setPen(QPen(shadowColor, outlineWidth * 1.2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.setPen(QPen(shadowColor, text.outlineWidth * 1.2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     painter.setBrush(shadowColor);
-    painter.drawPath(shadowPath);
-    // Neutral-grey rim — matches TMP _OutlineColor rgb(185,185,185) at full opacity (a=1).
-    painter.setPen(QPen(QColor(185, 185, 185, 255), outlineWidth, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.drawPath(text.shadow);
+    painter.setPen(QPen(QColor(185, 185, 185, 255), text.outlineWidth, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     painter.setBrush(Qt::NoBrush);
-    painter.drawPath(path);
+    painter.drawPath(text.glyphs);
     painter.setPen(Qt::NoPen);
-    painter.setBrush(fillColor);
-    painter.drawPath(path);
-    painter.restore();
+    painter.setBrush(text.fillColor);
+    painter.drawPath(text.glyphs);
 }
 
 QString formatCenterAchievement(double value)
@@ -825,7 +832,7 @@ void paintPreviewHudOverlay(
     const QColor& shadowColor,
     HudInformationLayoutCache* informationLayoutCache)
 {
-    QRectF debugRegion;
+    qreal debugBottom = 0;
     QRectF timestampRegion;
     const auto* state = &stateRef;
     const auto drawHudText = [&](QPainter& target,
@@ -836,17 +843,7 @@ void paintPreviewHudOverlay(
                                  qreal shadowOffset) {
         drawHudTextWithColors(
             target, tag, baseline, text, font, shadowOffset, textColor, shadowColor);
-        if (tag.startsWith(QLatin1String("debug."))) {
-            const QFontMetrics metrics(font, target.device());
-            QRectF bounds = metrics.boundingRect(text);
-            const auto glyphs = hudGlyphVerticalBounds(font, metrics, {text});
-            if (glyphs.valid) {
-                bounds.setTop(glyphs.top);
-                bounds.setBottom(glyphs.bottom);
-            }
-            debugRegion = debugRegion.united(bounds.translated(baseline)
-                .adjusted(0, 0, shadowOffset, shadowOffset));
-        } else if (tag == QLatin1String("timestamp")) {
+        if (tag == QLatin1String("timestamp")) {
             const QFontMetrics metrics(font, target.device());
             timestampRegion = QRectF(metrics.boundingRect(QStringLiteral("-88:88:888")))
                 .translated(baseline).adjusted(0, 0, shadowOffset, shadowOffset);
@@ -1045,9 +1042,12 @@ void paintPreviewHudOverlay(
             );
         }
         const QFontMetrics metrics(fpsFont, painter.device());
-        const auto glyphs = hudGlyphVerticalBounds(fpsFont, metrics, debugLines);
+        // Keep row geometry stable when decoder names and counters change.
+        const auto glyphs = hudGlyphVerticalBounds(fpsFont, metrics,
+            {QStringLiteral("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ()/.:@+-")});
         const qreal advance = hudLineAdvance(fpsFont, metrics, glyphs, shadowOffset);
         const qreal ascent = glyphs.valid ? -glyphs.top : metrics.ascent();
+        const qreal descent = glyphs.valid ? glyphs.bottom : metrics.descent();
         const qreal bearing = informationLeftBearing(metrics, debugLines);
         for (int i = 0; i < debugLines.size(); ++i) {
             drawHudText(painter, QStringLiteral("debug.%1").arg(i),
@@ -1055,6 +1055,8 @@ void paintPreviewHudOverlay(
                     stageRect.top() + hudPadding + ascent + i * advance),
                 debugLines[i], fpsFont, shadowOffset);
         }
+        debugBottom = stageRect.top() + hudPadding + ascent
+            + (debugLines.size() - 1) * advance + descent + shadowOffset;
     }
 
     // The HUD honours `hudPlayheadSecondsOverride` when finite so callers
@@ -1097,7 +1099,7 @@ void paintPreviewHudOverlay(
     key.stage = stageRect;
     key.playfield = playfield;
     key.timestamp = timestampRegion;
-    key.chartTop = debugRegion.isEmpty() ? stageRect.top() + hudPadding : debugRegion.bottom() + hudPadding;
+    key.chartTop = debugBottom > 0 ? debugBottom + hudPadding : stageRect.top() + hudPadding;
     key.padding = hudPadding;
     key.shadow = shadowOffset;
     key.minimumPointSize = qMax(1, qRound(6 * hudScale));
@@ -1164,17 +1166,23 @@ void paintPreviewHudOverlay(
     }
 }
 
-void paintCenterDisplay(
-    QPainter& painter,
+struct CenterDisplayLayout {
+    OutlinedHudText title;
+    OutlinedHudText value;
+    qreal scale = 1.0;
+    QRectF bounds;
+};
+
+static CenterDisplayLayout layoutCenterDisplay(
     const miacode::preview::scene::PreviewFrameState& state,
     const QSize& canvasSize)
 {
     if (state.render.centerDisplayMode == miacode::preview_gameplay::CenterDisplayMode::Off) {
-        return;
+        return {};
     }
-    if (canvasSize.isEmpty()) return;
-    QPainterStateGuard painterState(&painter);
-    const QRectF stageRect = hudReferenceStage(painter, canvasSize);
+    if (canvasSize.isEmpty()) return {};
+    const qreal scale = qMin(canvasSize.width(), canvasSize.height()) / 1080.0;
+    const QRectF stageRect(0, 0, canvasSize.width() / scale, canvasSize.height() / scale);
     // Size/position the center display in the playfield's 1080 logical space, the same
     // design space MajdataPlay's CenterInfoDisplayer lives in, so it tracks the notes ring
     // (and the "Stage Display Scale" / layoutSquareScale) instead of the stage HUD reference.
@@ -1185,7 +1193,7 @@ void paintCenterDisplay(
     const QString title = centerDisplayTitle(state.render.centerDisplayMode);
     const QString value = centerDisplayValue(state.render.centerDisplayMode, stats);
     if (title.isEmpty() || value.isEmpty()) {
-        return;
+        return {};
     }
     // MajdataPlay reference (1080 design space): value TMP fontSize 65, header 44,
     // header centered below the value (which is centered on the playfield centre).
@@ -1230,10 +1238,68 @@ void paintCenterDisplay(
     // font's local space (so the larger value glyph casts a proportionally larger shadow).
     const QPointF titleShadow(titlePixelSize * 0.035, titlePixelSize * 0.051);
     const QPointF valueShadow(valuePixelSize * 0.035, valuePixelSize * 0.051);
-    drawOutlinedHudText(painter, titleBaseline, title, titleFont,
-        qMax<qreal>(1.5, titlePixelSize * 0.05), titleShadow, titleColor);
-    drawOutlinedHudText(painter, valueBaseline, value, valueFont,
-        qMax<qreal>(2.0, valuePixelSize * 0.05), valueShadow, valueColor);
+    const qreal titleOutline = qMax<qreal>(1.5, titlePixelSize * 0.05);
+    const qreal valueOutline = qMax<qreal>(2.0, valuePixelSize * 0.05);
+    CenterDisplayLayout layout;
+    layout.scale = scale;
+    layout.title = layoutOutlinedHudText(titleBaseline, title, titleFont,
+        titleOutline, titleShadow, titleColor);
+    layout.value = layoutOutlinedHudText(valueBaseline, value, valueFont,
+        valueOutline, valueShadow, valueColor);
+    const QRectF bounds = layout.title.bounds().united(layout.value.bounds());
+    layout.bounds = QRectF(bounds.topLeft() * scale, bounds.size() * scale);
+    return layout;
+}
+
+static void paintCenterDisplayLayout(QPainter& painter, const CenterDisplayLayout& layout)
+{
+    QPainterStateGuard painterState(&painter);
+    painter.scale(layout.scale, layout.scale);
+    drawOutlinedHudText(painter, layout.title);
+    drawOutlinedHudText(painter, layout.value);
+}
+
+CenterDisplayKey centerDisplayKey(
+    const miacode::preview::scene::PreviewFrameState& state,
+    const QSize& canvasSize, qreal dpr)
+{
+    return {centerDisplayTitle(state.render.centerDisplayMode),
+        centerDisplayValue(state.render.centerDisplayMode, state.hudStatsSnapshot),
+        centerDisplayHeaderColor(state.render.centerDisplayMode),
+        centerDisplayValueColor(state.render.centerDisplayMode, state.hudStatsSnapshot),
+        state.hudFontSettings.path(miacode::preview::scene::PreviewHudFontArea::CenterDisplay),
+        canvasSize, state.render.layoutSquareScale, dpr};
+}
+
+void paintCenterDisplay(QPainter& painter,
+    const miacode::preview::scene::PreviewFrameState& state, const QSize& canvasSize)
+{
+    paintCenterDisplayLayout(painter, layoutCenterDisplay(state, canvasSize));
+}
+
+CenterDisplayImage rasterizeCenterDisplay(
+    const miacode::preview::scene::PreviewFrameState& state,
+    const QSize& canvasSize, qreal dpr)
+{
+    const auto layout = layoutCenterDisplay(state, canvasSize);
+    const QRectF bounds = layout.bounds;
+    if (bounds.isEmpty()) return {};
+    // Align the crop to physical pixels and retain antialiasing coverage.
+    const QRect pixelRect = QRectF(bounds.topLeft() * dpr, bounds.size() * dpr)
+        .adjusted(-2, -2, 2, 2).toAlignedRect()
+        .intersected(QRect(0, 0, qRound(canvasSize.width() * dpr), qRound(canvasSize.height() * dpr)));
+    if (pixelRect.isEmpty()) return {};
+    CenterDisplayImage result;
+    result.rect = QRectF(QPointF(pixelRect.topLeft()) / dpr, QSizeF(pixelRect.size()) / dpr);
+    result.image = QImage(pixelRect.size(), QImage::Format_ARGB32_Premultiplied);
+    result.image.setDevicePixelRatio(dpr);
+    result.image.fill(Qt::transparent);
+    QPainter painter(&result.image);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setRenderHint(QPainter::TextAntialiasing, true);
+    painter.translate(-result.rect.topLeft());
+    paintCenterDisplayLayout(painter, layout);
+    return result;
 }
 
 }  // namespace miacode::preview::hud

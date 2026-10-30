@@ -446,6 +446,7 @@ void PreviewStageMediaHost::handleDecodedVideoFrame(const QVideoFrame& frame,
         const double endSeconds = ptsSeconds + (durationSeconds > 0.0 ? durationSeconds : 0.0);
         settlePendingSeekAcks(ptsSeconds, endSeconds);
     }
+    updateVideoFrameCoalescing();
     updateClockDelta();
     updateVideoFrameStallState(true);
     emit playbackPositionChanged(lastTimelineSecond_);

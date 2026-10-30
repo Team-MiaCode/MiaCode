@@ -28,6 +28,7 @@ class QQuickRenderControl;
 class QQuickWindow;
 class PreviewQuickHudLayer;
 class PreviewQuickSceneRoot;
+class ExportQuickBackgroundItem;
 
 struct PreviewQuickExportRenderStats {
     qint64 renderNs = 0;
@@ -46,6 +47,7 @@ public:
     explicit PreviewQuickExportSession(QObject* parent = nullptr);
     ~PreviewQuickExportSession() override;
 
+    void setBackgroundFrame(const QImage& image, bool cacheable, bool fullFrame, qreal brightness);
     void setFrameState(const miacode::preview::scene::PreviewFrameState& state);
     void applyExportFrameTick(
         double playheadSeconds,
@@ -92,6 +94,11 @@ public:
     void invalidate();
     bool isInitialized() const;
 
+    void setPreservePremultipliedReadback(bool preserve)
+    {
+        preservePremultipliedReadback_ = preserve;
+    }
+
     QImage renderFrame(QString* errorMessage = nullptr);
     bool supportsOffscreenPboReadback(QString* errorMessage = nullptr) const;
     void resetOffscreenPboReadback();
@@ -114,7 +121,7 @@ private:
     QImage* nextReadbackRingSlot();
     // Release every staging-ring buffer (called on teardown/reset).
     void resetReadbackRing();
-    bool convertBottomUpPremultipliedReadbackToStraightRgba(
+    bool convertBottomUpReadbackToRgba(
         const uchar* sourceBytes,
         qsizetype sourceBytesPerRow,
         const QSize& imageSize,
@@ -152,6 +159,10 @@ private:
     QQuickRenderControl* renderControl_ = nullptr;
     QQuickWindow* quickWindow_ = nullptr;
     QQuickItem* rootItem_ = nullptr;
+    ExportQuickBackgroundItem* backgroundItem_ = nullptr;
+    bool backgroundEnabled_ = false;
+    bool backgroundFullFrame_ = false;
+    qreal backgroundBrightness_ = 1.0;
     PreviewQuickSceneRoot* sceneRoot_ = nullptr;
     PreviewQuickHudLayer* hudLayer_ = nullptr;
     QQmlEngine* qmlEngine_ = nullptr;
@@ -161,7 +172,8 @@ private:
     QOpenGLContext* context_ = nullptr;
     QOpenGLFramebufferObject* framebuffer_ = nullptr;
     QByteArray directReadbackBuffer_;
-    // Synchronous (non-PBO) readback staging ring. The converted straight-RGBA
+    bool preservePremultipliedReadback_ = false;
+    // Synchronous (non-PBO) readback staging ring. The converted RGBA
     // frame is handed to the FFmpeg pipe via zero-copy (the pump keeps it alive
     // through `packet.frameOwner`), so the buffer a frame was written into stays
     // referenced while it is in flight. A single reused QImage would therefore
@@ -172,7 +184,7 @@ private:
     // is reused in place with no allocation; only if the pipe consumer fell
     // behind (slot still in flight) does the convert step reallocate that slot —
     // gracefully, via its checked allocation path. See
-    // convertBottomUpPremultipliedReadbackToStraightRgba().
+    // convertBottomUpReadbackToRgba().
     static constexpr int kReadbackRingSize = 8;
     QImage readbackRing_[kReadbackRingSize];
     int readbackRingIndex_ = 0;

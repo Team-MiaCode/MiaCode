@@ -2,6 +2,7 @@
 
 #include <QColor>
 #include <QString>
+#include <QVariantMap>
 
 namespace UiTheme {
 
@@ -49,5 +50,6 @@ struct Colors {
 ResolvedTheme resolvedTheme();
 bool isDarkTheme();
 const Colors& colors();
+const QVariantMap& themeCatalog();
 
 }  // namespace UiTheme

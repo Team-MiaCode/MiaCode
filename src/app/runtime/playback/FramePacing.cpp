@@ -6,7 +6,6 @@
 #include "audio/QtPreviewSfxRuntime.h"
 #include "core/chart/parser/SimaiParser.h"
 #include "app/quick_shell/QuickShellPreviewCompositeSurface.h"
-#include "app/quick_shell/QuickShellPreviewSurfacePolicy.h"
 #include "core/chart/ChartAssetPaths.h"
 #include "app/runtime/ContentDurationConfig.h"
 #include "common/DebugLog.h"

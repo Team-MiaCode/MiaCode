@@ -1,4 +1,5 @@
 #include "core/analysis/MuriAnalyzer.h"
+#include "core/analysis/MuriStaticChecker.h"
 
 #include "common/TaskCancellation.h"
 
@@ -652,7 +653,15 @@ QVector<RuntimeHandAction> buildRuntimeHandActions(
     using namespace miacode::muri;
 
     QVector<RuntimeHandAction> actions;
-    actions.reserve(notes.size() + touchGroups.size() + noteMarkers.size() * 3);
+    qsizetype actionCapacity = notes.size() + touchGroups.size();
+    if (includeSlideLike) {
+        for (const auto& marker : noteMarkers) {
+            miacode::task::CancellationScope::checkpoint();
+            if (marker.type == QLatin1String("slide")) actionCapacity += marker.slideSegmentPoints.size();
+            else if (marker.type == QLatin1String("wifi")) actionCapacity += 2;
+        }
+    }
+    actions.reserve(actionCapacity);
 
     for (int noteIndex = 0; noteIndex < notes.size(); ++noteIndex) {
         miacode::task::CancellationScope::checkpoint();
@@ -1218,45 +1227,47 @@ MuriAnalysisReport MuriAnalyzer::analyze(
 MuriAnalysisReport MuriAnalyzer::analyze(
     const QVector<TimelineNoteMarker>& sourceMarkers,
     const MuriRenderOptions& renderOptions,
-    double staticTapOnSlideThresholdSeconds)
+    double staticTapOnSlideThresholdSeconds,
+    QVector<MuriStaticReference>* staticReferences)
 {
-    const QVector<TimelineNoteMarker> noteMarkers = prepareRuntimeMarkers(sourceMarkers);
+    QVector<MuriStaticReference> references = miacode::muri::buildStaticMuriReferences(
+        sourceMarkers, staticTapOnSlideThresholdSeconds);
     MuriAnalysisReport report;
-    QStringList signatureParts;
-    signatureParts.reserve(noteMarkers.size());
-    for (const TimelineNoteMarker& marker : noteMarkers) {
-        miacode::task::CancellationScope::checkpoint();
-        signatureParts.append(makeMarkerAnalysisKey(marker));
-    }
-    report.sourceSignature = signatureParts.join(QLatin1Char(';'));
-
     MuriDiagnosticCollector collector;
-    buildOverlayActions(
-        noteMarkers,
-        &report.padWindows,
-        &report.actionTrails,
-        miacode::muri::handRadiusForOptions(renderOptions));
-    collectSimpleNoteRuntimeDiagnostics(
-        noteMarkers,
-        renderOptions,
-        collector,
-        staticTapOnSlideThresholdSeconds);
+    QHash<QString, MarkerSourceRef> markerRefs;
+    QHash<QString, RuntimeSlideJudgeResult> runtimeSlideResults;
+    {
+        const QVector<TimelineNoteMarker> noteMarkers = prepareRuntimeMarkers(sourceMarkers);
+        for (const TimelineNoteMarker& marker : noteMarkers) {
+            miacode::task::CancellationScope::checkpoint();
+            if (!report.sourceSignature.isEmpty()) report.sourceSignature += QLatin1Char(';');
+            report.sourceSignature += makeMarkerAnalysisKey(marker);
+        }
 
-    const MuriRuntimeModel runtimeModel = MuriRuntimeModelBuilder::build(noteMarkers);
-    const QHash<QString, MarkerSourceRef>& markerRefs = runtimeModel.markerRefs;
+        collectSimpleNoteRuntimeDiagnostics(
+            noteMarkers,
+            renderOptions,
+            collector,
+            staticTapOnSlideThresholdSeconds,
+            references);
+
+        {
+            MuriRuntimeModel runtimeModel = MuriRuntimeModelBuilder::build(noteMarkers);
+            runtimeSlideResults = simulateRuntimeSlideAndWifiJudgments(
+                noteMarkers, runtimeModel.notes, runtimeModel.touchGroups,
+                runtimeModel.touchGroupByChildNoteIndex, renderOptions);
+            markerRefs = std::move(runtimeModel.markerRefs);
+        }
+        buildOverlayActions(
+            noteMarkers, &report.padWindows, &report.actionTrails,
+            miacode::muri::handRadiusForOptions(renderOptions));
+        report.padWindows.squeeze();
+        report.actionTrails.squeeze();
+
+    }
+    const auto& noteMarkers = sourceMarkers;
     const QHash<QString, QString> markerConfigLabels = buildMarkerConfigLabels(noteMarkers);
     const QHash<QString, QString> syntheticSlideHeadOwnerKeys = buildSyntheticSlideHeadOwnerKeys(noteMarkers);
-    const QHash<QString, int>& noteIndexByMarkerKey = runtimeModel.noteIndexByMarkerKey;
-    const QVector<JudgeableSimpleNote>& runtimeNotes = runtimeModel.notes;
-    const QHash<int, int>& touchGroupByChildNoteIndex = runtimeModel.touchGroupByChildNoteIndex;
-    const QVector<RuntimeTouchGroup>& runtimeTouchGroups = runtimeModel.touchGroups;
-    const QHash<QString, RuntimeSlideJudgeResult> runtimeSlideResults =
-        simulateRuntimeSlideAndWifiJudgments(
-            noteMarkers,
-            runtimeNotes,
-            runtimeTouchGroups,
-            touchGroupByChildNoteIndex,
-            renderOptions);
 
     std::sort(report.padWindows.begin(), report.padWindows.end(), [](const MuriPadWindow& a, const MuriPadWindow& b) {
         miacode::task::CancellationScope::checkpoint();
@@ -1272,10 +1283,15 @@ MuriAnalysisReport MuriAnalyzer::analyze(
         return a.sourceMarkerKey < b.sourceMarkerKey;
     });
 
-    QHash<QString, QVector<int>> windowsByPad;
+    QHash<QString, QVector<MuriTimeInterval>> intervalsByPad;
     for (int index = 0; index < report.padWindows.size(); ++index) {
         miacode::task::CancellationScope::checkpoint();
-        windowsByPad[report.padWindows.at(index).pad].append(index);
+        const auto& window = report.padWindows.at(index);
+        intervalsByPad[window.pad].append({window.startSecond, window.endSecond, index});
+    }
+    QHash<QString, MuriTimeIndex> windowsByPad;
+    for (auto it = intervalsByPad.begin(); it != intervalsByPad.end(); ++it) {
+        windowsByPad.insert(it.key(), MuriTimeIndex(std::move(it.value())));
     }
 
     for (const TimelineNoteMarker& marker : noteMarkers) {
@@ -1289,7 +1305,7 @@ MuriAnalysisReport MuriAnalyzer::analyze(
         const QString markerKey = makeMarkerAnalysisKey(marker);
         if (marker.type == QLatin1String("slide")) {
             MarkerMuriState state = buildSlideState(marker, windowsByPad, report.padWindows);
-            const RuntimeSlideJudgeResult runtimeResult = runtimeSlideResults.value(markerKey);
+            const RuntimeSlideJudgeResult runtimeResult = runtimeSlideResults.take(markerKey);
             applyRuntimeJudgeResultToState(runtimeResult, &state);
             if (runtimeResult.valid) {
                 if (runtimeResult.judgeBad) {
@@ -1359,7 +1375,7 @@ MuriAnalysisReport MuriAnalyzer::analyze(
 
         if (marker.type == QLatin1String("wifi")) {
             MarkerMuriState state = buildWifiState(marker);
-            const RuntimeSlideJudgeResult runtimeResult = runtimeSlideResults.value(markerKey);
+            const RuntimeSlideJudgeResult runtimeResult = runtimeSlideResults.take(markerKey);
             applyRuntimeJudgeResultToState(runtimeResult, &state);
             if (runtimeResult.valid) {
                 if (runtimeResult.judgeBad) {
@@ -1423,5 +1439,6 @@ MuriAnalysisReport MuriAnalyzer::analyze(
     collector.finalize();
     report.diagnostics = std::move(collector.diagnostics);
     report.judgeSpriteEvents = std::move(collector.judgeSpriteEvents);
+    if (staticReferences != nullptr) *staticReferences = std::move(references);
     return report;
 }

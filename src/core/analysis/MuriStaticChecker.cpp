@@ -1,6 +1,7 @@
 #include "core/analysis/MuriStaticChecker.h"
 
 #include "common/TaskCancellation.h"
+#include "core/analysis/MuriTimeIndex.h"
 
 #include <algorithm>
 
@@ -17,31 +18,19 @@ namespace {
 constexpr double kStaticOverlayThresholdSeconds = 6.0 / miacode::muri::kJudgeTps;
 constexpr double kStaticTimeEpsilonSeconds = 1e-9;
 
-QVector<MuriStaticReference> dedupeDenseOverlapReferences(const QVector<MuriStaticReference>& references)
+void dedupeDenseOverlapReferences(QVector<MuriStaticReference>& references)
 {
-    QVector<MuriStaticReference> deduped;
-    deduped.reserve(references.size());
-
-    QHash<qint64, int> keptOverlapCountBySecond;
-    keptOverlapCountBySecond.reserve(references.size());
-
-    for (const MuriStaticReference& reference : references) {
+    QSet<qint64> overlapSeconds;
+    const auto end = std::remove_if(references.begin(), references.end(), [&](const auto& reference) {
         miacode::task::CancellationScope::checkpoint();
-        if (reference.kind != MuriKind::Overlap) {
-            deduped.append(reference);
-            continue;
-        }
-
-        const qint64 secondKey = qRound64(reference.affected.second * 1000000.0);
-        const int keptCount = keptOverlapCountBySecond.value(secondKey, 0);
-        if (keptCount >= 1) {
-            continue;
-        }
-        keptOverlapCountBySecond.insert(secondKey, keptCount + 1);
-        deduped.append(reference);
-    }
-
-    return deduped;
+        if (reference.kind != MuriKind::Overlap) return false;
+        const qint64 second = qRound64(reference.affected->second * 1000000.0);
+        if (overlapSeconds.contains(second)) return true;
+        overlapSeconds.insert(second);
+        return false;
+    });
+    references.erase(end, references.end());
+    references.squeeze();
 }
 
 bool isSlideLike(const TimelineNoteMarker& marker)
@@ -260,62 +249,62 @@ bool isLastAreaOccupancyMoment(
         && noteSecond <= endSecond + collideExtraDeltaSeconds + kStaticTimeEpsilonSeconds;
 }
 
-MuriStaticReferenceNote staticReferenceNoteFromMarker(const TimelineNoteMarker& marker)
+std::shared_ptr<MuriStaticReferenceNote> staticReferenceNoteFromMarker(const TimelineNoteMarker& marker)
 {
-    MuriStaticReferenceNote note;
-    note.markerKey = makeMarkerAnalysisKey(marker);
-    note.markerType = marker.type;
-    note.pad = markerPadToken(marker);
-    note.slideDisplayKey = marker.slideDisplayKey;
-    note.slideTrackKey = marker.slideTrackKey;
-    note.line = marker.sourceLine;
-    note.col = marker.sourceCol;
-    note.lane = marker.lane;
-    note.endLane = marker.endLane;
-    note.second = marker.second;
-    note.endSecond = marker.endSecond;
-    note.slideTraceSecond = marker.slideTraceSecond;
-    note.hasProtection = marker.isEx;
+    auto note = std::make_shared<MuriStaticReferenceNote>();
+    note->markerKey = makeMarkerAnalysisKey(marker);
+    note->markerType = marker.type;
+    note->pad = markerPadToken(marker);
+    note->slideDisplayKey = marker.slideDisplayKey;
+    note->slideTrackKey = marker.slideTrackKey;
+    note->line = marker.sourceLine;
+    note->col = marker.sourceCol;
+    note->lane = marker.lane;
+    note->endLane = marker.endLane;
+    note->second = marker.second;
+    note->endSecond = marker.endSecond;
+    note->slideTraceSecond = marker.slideTraceSecond;
+    note->hasProtection = marker.isEx;
     return note;
 }
 
 MuriStaticReference lastAreaOccupancyOverlap(
-    const MuriStaticReferenceNote& affected,
-    const TimelineNoteMarker& slideLike)
+    const MuriStaticReferenceNotePtr& affected,
+    const MuriStaticReferenceNotePtr& slideLike)
 {
     MuriStaticReference record;
     record.kind = MuriKind::Overlap;
     record.alertLevel = MuriAlertLevel::Muri;
     record.affected = affected;
-    record.cause = staticReferenceNoteFromMarker(slideLike);
+    record.cause = slideLike;
     return record;
 }
 
-MuriStaticReferenceNote staticReferenceNoteFromHeadStar(const TimelineNoteMarker& marker)
+MuriStaticReferenceNotePtr staticReferenceNoteFromHeadStar(const TimelineNoteMarker& marker)
 {
-    MuriStaticReferenceNote note = staticReferenceNoteFromMarker(marker);
-    note.markerKey = slideHeadStarMarkerKey(marker);
-    note.markerType = QStringLiteral("tap");
-    note.pad = lanePadToken(marker.lane);
-    note.col = slideHeadStarSourceCol(marker);
-    note.endLane = marker.lane;
-    note.endSecond = -1.0;
-    note.slideTraceSecond = -1.0;
-    note.slideDisplayKey.clear();
-    note.slideTrackKey.clear();
-    note.hasProtection = marker.headEx;
-    note.headStarTapLike = true;
+    auto note = staticReferenceNoteFromMarker(marker);
+    note->markerKey = slideHeadStarMarkerKey(marker);
+    note->markerType = QStringLiteral("tap");
+    note->pad = lanePadToken(marker.lane);
+    note->col = slideHeadStarSourceCol(marker);
+    note->endLane = marker.lane;
+    note->endSecond = -1.0;
+    note->slideTraceSecond = -1.0;
+    note->slideDisplayKey.clear();
+    note->slideTrackKey.clear();
+    note->hasProtection = marker.headEx;
+    note->headStarTapLike = true;
     return note;
 }
 
 struct StaticHeadStarTarget {
-    MuriStaticReferenceNote note;
+    MuriStaticReferenceNotePtr note;
     QString pad;
     double second = -1.0;
 };
 
 struct StaticOverlapCandidate {
-    MuriStaticReferenceNote note;
+    MuriStaticReferenceNotePtr note;
     QString pad;
     bool tapLike = false;
     bool holdLike = false;
@@ -341,7 +330,7 @@ QVector<StaticHeadStarTarget> buildStaticHeadStarTargets(const QVector<TimelineN
 
         StaticHeadStarTarget target;
         target.note = staticReferenceNoteFromHeadStar(marker);
-        target.pad = target.note.pad;
+        target.pad = target.note->pad;
         target.second = marker.second;
         targets.append(target);
     }
@@ -406,6 +395,28 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
         }
     }
 
+    using detail::MuriTimeIndex;
+    using detail::MuriTimeInterval;
+    QVector<MuriTimeInterval> noteTimes;
+    for (int index : nonSlideIndices) {
+        const auto& note = noteMarkers.at(index);
+        noteTimes.append({note.second, note.second, index});
+    }
+    const MuriTimeIndex nonSlideTimes(std::move(noteTimes));
+    QVector<MuriTimeInterval> headTimes;
+    for (int index = 0; index < headStarTargets.size(); ++index) {
+        const double second = headStarTargets.at(index).second;
+        headTimes.append({second, second, index});
+    }
+    const MuriTimeIndex headStarTimes(std::move(headTimes));
+
+    QVector<MuriStaticReferenceNotePtr> sourceNotes(noteMarkers.size());
+    const auto sourceNote = [&](int index) -> const MuriStaticReferenceNotePtr& {
+        auto& note = sourceNotes[index];
+        if (!note) note = staticReferenceNoteFromMarker(noteMarkers.at(index));
+        return note;
+    };
+
     QVector<MuriStaticReference> records;
     records.reserve(128);
 
@@ -451,7 +462,8 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
             }
         }
 
-        for (int noteIndex : nonSlideIndices) {
+        for (int noteIndex : nonSlideTimes.intersecting(slide.slideTraceSecond - kStaticTimeEpsilonSeconds,
+                 slide.endSecond + normalizedCollideThresholdSeconds + kStaticTimeEpsilonSeconds)) {
             miacode::task::CancellationScope::checkpoint();
             const TimelineNoteMarker& note = noteMarkers.at(noteIndex);
             const QString notePad = markerPadToken(note);
@@ -472,15 +484,15 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                 && headDeltaSecond + kStaticTimeEpsilonSeconds >= miacode::muri::kTapOnSlideThresholdSeconds
                 && headDeltaSecond <= normalizedCollideThresholdSeconds + kStaticTimeEpsilonSeconds) {
                 MuriStaticReference record;
-                const MuriStaticReferenceNote affected = staticReferenceNoteFromMarker(note);
+                const MuriStaticReferenceNotePtr& affected = sourceNote(noteIndex);
                 record.kind = MuriKind::SlideHeadTap;
                 record.alertLevel = downgradeProtectedReferenceAlertLevel(
                     slideHeadTapAlertLevel(
                         slideKeysWithTapOnSlideHead.contains(makeMarkerAnalysisKey(slide)),
                         qAbs(slide.slideTraceSecond - note.second)),
-                    affected.hasProtection);
+                    affected->hasProtection);
                 record.affected = affected;
-                record.cause = staticReferenceNoteFromMarker(slide);
+                record.cause = sourceNote(slideIndex);
                 record.deltaSecond = slide.slideTraceSecond - note.second;
                 record.hasDelta = true;
                 record.slideHeadHasTapOnSlide =
@@ -497,15 +509,15 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                     continue;
                 }
                 MuriStaticReference record;
-                const MuriStaticReferenceNote affected = staticReferenceNoteFromMarker(note);
+                const MuriStaticReferenceNotePtr& affected = sourceNote(noteIndex);
                 record.kind = MuriKind::TapOnSlide;
                 record.alertLevel = downgradeProtectedReferenceAlertLevel(
                     tapOnSlideAlertLevel(
                         qAbs(collide.enterSecond - note.second),
                         normalizedCollideThresholdSeconds),
-                    affected.hasProtection);
+                    affected->hasProtection);
                 record.affected = affected;
-                record.cause = staticReferenceNoteFromMarker(slide);
+                record.cause = sourceNote(slideIndex);
                 record.deltaSecond = collide.enterSecond - note.second;
                 record.hasDelta = true;
                 records.append(record);
@@ -519,11 +531,13 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                     slide.endSecond,
                     normalizedCollideThresholdSeconds,
                     collideExtraDeltaSeconds)) {
-                records.append(lastAreaOccupancyOverlap(staticReferenceNoteFromMarker(note), slide));
+                records.append(lastAreaOccupancyOverlap(sourceNote(noteIndex), sourceNote(slideIndex)));
             }
         }
 
-        for (const StaticHeadStarTarget& target : headStarTargets) {
+        for (int targetIndex : headStarTimes.intersecting(slide.slideTraceSecond - kStaticTimeEpsilonSeconds,
+                 slide.endSecond + normalizedCollideThresholdSeconds + kStaticTimeEpsilonSeconds)) {
+            const auto& target = headStarTargets.at(targetIndex);
             miacode::task::CancellationScope::checkpoint();
             if (target.pad.isEmpty()) {
                 continue;
@@ -539,15 +553,15 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                 && headDeltaSecond + kStaticTimeEpsilonSeconds >= miacode::muri::kTapOnSlideThresholdSeconds
                 && headDeltaSecond <= normalizedCollideThresholdSeconds + kStaticTimeEpsilonSeconds) {
                 MuriStaticReference record;
-                const MuriStaticReferenceNote affected = target.note;
+                const MuriStaticReferenceNotePtr affected = target.note;
                 record.kind = MuriKind::SlideHeadTap;
                 record.alertLevel = downgradeProtectedReferenceAlertLevel(
                     slideHeadTapAlertLevel(
                         slideKeysWithTapOnSlideHead.contains(makeMarkerAnalysisKey(slide)),
                         qAbs(slide.slideTraceSecond - target.second)),
-                    affected.hasProtection);
+                    affected->hasProtection);
                 record.affected = affected;
-                record.cause = staticReferenceNoteFromMarker(slide);
+                record.cause = sourceNote(slideIndex);
                 record.deltaSecond = slide.slideTraceSecond - target.second;
                 record.hasDelta = true;
                 record.slideHeadHasTapOnSlide =
@@ -564,15 +578,15 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                     continue;
                 }
                 MuriStaticReference record;
-                const MuriStaticReferenceNote affected = target.note;
+                const MuriStaticReferenceNotePtr affected = target.note;
                 record.kind = MuriKind::TapOnSlide;
                 record.alertLevel = downgradeProtectedReferenceAlertLevel(
                     tapOnSlideAlertLevel(
                         qAbs(collide.enterSecond - target.second),
                         normalizedCollideThresholdSeconds),
-                    affected.hasProtection);
+                    affected->hasProtection);
                 record.affected = affected;
-                record.cause = staticReferenceNoteFromMarker(slide);
+                record.cause = sourceNote(slideIndex);
                 record.deltaSecond = collide.enterSecond - target.second;
                 record.hasDelta = true;
                 records.append(record);
@@ -586,7 +600,7 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                     slide.endSecond,
                     normalizedCollideThresholdSeconds,
                     collideExtraDeltaSeconds)) {
-                records.append(lastAreaOccupancyOverlap(target.note, slide));
+                records.append(lastAreaOccupancyOverlap(target.note, sourceNote(slideIndex)));
             }
         }
     }
@@ -610,7 +624,8 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
             wifi.slideTraceSecond + miacode::muri::kTapOnSlideThresholdSeconds);
         const double collideEndSecond = criticalSecond + normalizedCollideThresholdSeconds;
 
-        for (int noteIndex : nonSlideIndices) {
+        for (int noteIndex : nonSlideTimes.intersecting(wifi.slideTraceSecond - kStaticTimeEpsilonSeconds,
+                 wifi.endSecond + normalizedCollideThresholdSeconds + kStaticTimeEpsilonSeconds)) {
             miacode::task::CancellationScope::checkpoint();
             const TimelineNoteMarker& note = noteMarkers.at(noteIndex);
             if (!isTapMarker(note) && !isHoldMarker(note)) {
@@ -626,15 +641,15 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                 && headDeltaSecond + kStaticTimeEpsilonSeconds >= miacode::muri::kTapOnSlideThresholdSeconds
                 && headDeltaSecond <= normalizedCollideThresholdSeconds + kStaticTimeEpsilonSeconds) {
                 MuriStaticReference record;
-                const MuriStaticReferenceNote affected = staticReferenceNoteFromMarker(note);
+                const MuriStaticReferenceNotePtr& affected = sourceNote(noteIndex);
                 record.kind = MuriKind::SlideHeadTap;
                 record.alertLevel = downgradeProtectedReferenceAlertLevel(
                     slideHeadTapAlertLevel(
                         slideKeysWithTapOnSlideHead.contains(makeMarkerAnalysisKey(wifi)),
                         qAbs(wifi.slideTraceSecond - note.second)),
-                    affected.hasProtection);
+                    affected->hasProtection);
                 record.affected = affected;
-                record.cause = staticReferenceNoteFromMarker(wifi);
+                record.cause = sourceNote(wifiIndex);
                 record.deltaSecond = wifi.slideTraceSecond - note.second;
                 record.hasDelta = true;
                 record.slideHeadHasTapOnSlide =
@@ -645,15 +660,15 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
             if (endLanes.contains(note.lane)
                 && markerMomentInRange(note.second, collideStartSecond, collideEndSecond)) {
                 MuriStaticReference record;
-                const MuriStaticReferenceNote affected = staticReferenceNoteFromMarker(note);
+                const MuriStaticReferenceNotePtr& affected = sourceNote(noteIndex);
                 record.kind = MuriKind::TapOnSlide;
                 record.alertLevel = downgradeProtectedReferenceAlertLevel(
                     tapOnSlideAlertLevel(
                         qAbs(criticalSecond - note.second),
                         normalizedCollideThresholdSeconds),
-                    affected.hasProtection);
+                    affected->hasProtection);
                 record.affected = affected;
-                record.cause = staticReferenceNoteFromMarker(wifi);
+                record.cause = sourceNote(wifiIndex);
                 record.deltaSecond = criticalSecond - note.second;
                 record.hasDelta = true;
                 records.append(record);
@@ -666,11 +681,13 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                     wifi.endSecond,
                     normalizedCollideThresholdSeconds,
                     collideExtraDeltaSeconds)) {
-                records.append(lastAreaOccupancyOverlap(staticReferenceNoteFromMarker(note), wifi));
+                records.append(lastAreaOccupancyOverlap(sourceNote(noteIndex), sourceNote(wifiIndex)));
             }
         }
 
-        for (const StaticHeadStarTarget& target : headStarTargets) {
+        for (int targetIndex : headStarTimes.intersecting(wifi.slideTraceSecond - kStaticTimeEpsilonSeconds,
+                 wifi.endSecond + normalizedCollideThresholdSeconds + kStaticTimeEpsilonSeconds)) {
+            const auto& target = headStarTargets.at(targetIndex);
             miacode::task::CancellationScope::checkpoint();
             if (target.second + kStaticTimeEpsilonSeconds < wifi.slideTraceSecond
                 || target.second > wifi.endSecond + normalizedCollideThresholdSeconds + kStaticTimeEpsilonSeconds) {
@@ -678,19 +695,19 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
             }
 
             const double headDeltaSecond = target.second - wifi.slideTraceSecond;
-            if (target.note.lane == wifi.lane
+            if (target.note->lane == wifi.lane
                 && headDeltaSecond + kStaticTimeEpsilonSeconds >= miacode::muri::kTapOnSlideThresholdSeconds
                 && headDeltaSecond <= normalizedCollideThresholdSeconds + kStaticTimeEpsilonSeconds) {
                 MuriStaticReference record;
-                const MuriStaticReferenceNote affected = target.note;
+                const MuriStaticReferenceNotePtr affected = target.note;
                 record.kind = MuriKind::SlideHeadTap;
                 record.alertLevel = downgradeProtectedReferenceAlertLevel(
                     slideHeadTapAlertLevel(
                         slideKeysWithTapOnSlideHead.contains(makeMarkerAnalysisKey(wifi)),
                         qAbs(wifi.slideTraceSecond - target.second)),
-                    affected.hasProtection);
+                    affected->hasProtection);
                 record.affected = affected;
-                record.cause = staticReferenceNoteFromMarker(wifi);
+                record.cause = sourceNote(wifiIndex);
                 record.deltaSecond = wifi.slideTraceSecond - target.second;
                 record.hasDelta = true;
                 record.slideHeadHasTapOnSlide =
@@ -698,31 +715,31 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
                 records.append(record);
             }
 
-            if (endLanes.contains(target.note.lane)
+            if (endLanes.contains(target.note->lane)
                 && markerMomentInRange(target.second, collideStartSecond, collideEndSecond)) {
                 MuriStaticReference record;
-                const MuriStaticReferenceNote affected = target.note;
+                const MuriStaticReferenceNotePtr affected = target.note;
                 record.kind = MuriKind::TapOnSlide;
                 record.alertLevel = downgradeProtectedReferenceAlertLevel(
                     tapOnSlideAlertLevel(
                         qAbs(criticalSecond - target.second),
                         normalizedCollideThresholdSeconds),
-                    affected.hasProtection);
+                    affected->hasProtection);
                 record.affected = affected;
-                record.cause = staticReferenceNoteFromMarker(wifi);
+                record.cause = sourceNote(wifiIndex);
                 record.deltaSecond = criticalSecond - target.second;
                 record.hasDelta = true;
                 records.append(record);
             }
 
-            if (endLanes.contains(target.note.lane)
+            if (endLanes.contains(target.note->lane)
                 && isLastAreaOccupancyMoment(
                     target.second,
                     criticalSecond,
                     wifi.endSecond,
                     normalizedCollideThresholdSeconds,
                     collideExtraDeltaSeconds)) {
-                records.append(lastAreaOccupancyOverlap(target.note, wifi));
+                records.append(lastAreaOccupancyOverlap(target.note, sourceNote(wifiIndex)));
             }
         }
     }
@@ -738,7 +755,7 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
         }
 
         StaticOverlapCandidate candidate;
-        candidate.note = staticReferenceNoteFromMarker(note);
+        candidate.note = sourceNote(noteIndex);
         candidate.pad = pad;
         candidate.tapLike = isTapLikeMarker(note);
         candidate.holdLike = isHoldLikeMarker(note);
@@ -798,10 +815,25 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
         overlapCandidates.append(candidate);
     }
 
+    QHash<QString, QVector<MuriTimeInterval>> intervalsByPad;
+    for (int index = 0; index < overlapCandidates.size(); ++index) {
+        const auto& candidate = overlapCandidates.at(index);
+        intervalsByPad[candidate.pad].append({candidate.note->second,
+            qMax(candidate.note->second, candidate.note->endSecond), index});
+    }
+    QHash<QString, MuriTimeIndex> overlapIndices;
+    for (auto it = intervalsByPad.begin(); it != intervalsByPad.end(); ++it) {
+        overlapIndices.insert(it.key(), MuriTimeIndex(std::move(it.value())));
+    }
+
     for (int i = 0; i < overlapCandidates.size(); ++i) {
         miacode::task::CancellationScope::checkpoint();
         const StaticOverlapCandidate& candidate = overlapCandidates.at(i);
-        for (int j = 0; j < overlapCandidates.size(); ++j) {
+        const auto& timeIndex = overlapIndices.constFind(candidate.pad).value();
+        for (int j : timeIndex.intersecting(
+                 candidate.note->second - kStaticOverlayThresholdSeconds - kStaticTimeEpsilonSeconds,
+                 qMax(candidate.note->second, candidate.note->endSecond)
+                     + kStaticOverlayThresholdSeconds + kStaticTimeEpsilonSeconds)) {
             miacode::task::CancellationScope::checkpoint();
             if (i == j) {
                 continue;
@@ -815,25 +847,25 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
             if (candidate.tapLike) {
                 if (other.tapLike) {
                     overlap = (i < j)
-                        && qAbs(candidate.note.second - other.note.second)
+                        && qAbs(candidate.note->second - other.note->second)
                             <= kStaticOverlayThresholdSeconds + kStaticTimeEpsilonSeconds;
-                } else if (other.holdLike && other.note.endSecond >= 0.0) {
+                } else if (other.holdLike && other.note->endSecond >= 0.0) {
                     overlap = markerMomentInRange(
-                        candidate.note.second,
-                        other.note.second - kStaticOverlayThresholdSeconds,
-                        other.note.endSecond + kStaticOverlayThresholdSeconds);
+                        candidate.note->second,
+                        other.note->second - kStaticOverlayThresholdSeconds,
+                        other.note->endSecond + kStaticOverlayThresholdSeconds);
                 }
-            } else if (candidate.holdLike && candidate.note.endSecond >= 0.0) {
-                if (other.holdLike && other.note.endSecond >= 0.0 && i < j) {
+            } else if (candidate.holdLike && candidate.note->endSecond >= 0.0) {
+                if (other.holdLike && other.note->endSecond >= 0.0 && i < j) {
                     overlap =
                         markerMomentInRange(
-                            candidate.note.second,
-                            other.note.second - kStaticOverlayThresholdSeconds,
-                            other.note.endSecond + kStaticOverlayThresholdSeconds)
+                            candidate.note->second,
+                            other.note->second - kStaticOverlayThresholdSeconds,
+                            other.note->endSecond + kStaticOverlayThresholdSeconds)
                         || markerMomentInRange(
-                            other.note.second,
-                            candidate.note.second - kStaticOverlayThresholdSeconds,
-                            candidate.note.endSecond + kStaticOverlayThresholdSeconds);
+                            other.note->second,
+                            candidate.note->second - kStaticOverlayThresholdSeconds,
+                            candidate.note->endSecond + kStaticOverlayThresholdSeconds);
                 }
             }
 
@@ -851,25 +883,26 @@ QVector<MuriStaticReference> buildStaticMuriReferences(
 
     std::sort(records.begin(), records.end(), [](const MuriStaticReference& a, const MuriStaticReference& b) {
         miacode::task::CancellationScope::checkpoint();
-        if (!qFuzzyCompare(a.affected.second + 1.0, b.affected.second + 1.0)) {
-            return a.affected.second < b.affected.second;
+        if (!qFuzzyCompare(a.affected->second + 1.0, b.affected->second + 1.0)) {
+            return a.affected->second < b.affected->second;
         }
-        if (a.affected.line != b.affected.line) {
-            return a.affected.line < b.affected.line;
+        if (a.affected->line != b.affected->line) {
+            return a.affected->line < b.affected->line;
         }
-        if (a.affected.col != b.affected.col) {
-            return a.affected.col < b.affected.col;
+        if (a.affected->col != b.affected->col) {
+            return a.affected->col < b.affected->col;
         }
         if (a.kind != b.kind) {
             return static_cast<int>(a.kind) < static_cast<int>(b.kind);
         }
-        if (a.cause.line != b.cause.line) {
-            return a.cause.line < b.cause.line;
+        if (a.cause->line != b.cause->line) {
+            return a.cause->line < b.cause->line;
         }
-        return a.cause.col < b.cause.col;
+        return a.cause->col < b.cause->col;
     });
 
-    return dedupeDenseOverlapReferences(records);
+    dedupeDenseOverlapReferences(records);
+    return records;
 }
 
 }  // namespace miacode::muri

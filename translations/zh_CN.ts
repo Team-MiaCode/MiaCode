@@ -1310,12 +1310,12 @@ Failed: %2</source>
         <translation>深色主题</translation>
     </message>
     <message id="dialog.preferences.theme.legacy">
-        <source>Classic Dark</source>
-        <translation>经典深色</translation>
+        <source>Classic</source>
+        <translation>经典</translation>
     </message>
-    <message id="dialog.preferences.theme.legacy_light">
-        <source>Classic Light</source>
-        <translation>经典浅色</translation>
+    <message id="dialog.preferences.theme.default">
+        <source>Default</source>
+        <translation>默认</translation>
     </message>
     <message id="dialog.preferences.theme.light">
         <source>Light</source>
@@ -2036,6 +2036,12 @@ Restore the backup from %1?</source>
     <message id="document.cannot_open_chart">
         <source>Cannot open the chart file.</source>
         <translation>无法打开谱面文件。</translation>
+    </message>
+    <message id="document.unsupported_file_type">
+        <source>Unsupported chart file type. Only .txt and .simai files can be opened.
+File: </source>
+        <translation>不支持此文件类型。只能打开 .txt 或 .simai 谱面文件。
+文件：</translation>
     </message>
     <message id="document.cannot_replace">
         <source>Cannot replace:
@@ -4928,6 +4934,50 @@ Error: %1</source>
     <message id="file_picker.native_failed">
         <source>Could not open the system folder picker.</source>
         <translation>无法打开系统文件夹选择窗口。</translation>
+    </message>
+    <message id="dialog.preferences.font.family">
+        <source>Chart text font</source>
+        <translation>谱面文本字体</translation>
+    </message>
+    <message id="dialog.preferences.font.search">
+        <source>Search installed fonts…</source>
+        <translation>搜索已安装字体…</translation>
+    </message>
+    <message id="dialog.preferences.font.default">
+        <source>Default font</source>
+        <translation>默认字体</translation>
+    </message>
+    <message id="dialog.preferences.font.monospace">
+        <source>Monospace</source>
+        <translation>等宽</translation>
+    </message>
+    <message id="dialog.preferences.font.reset">
+        <source>Restore default</source>
+        <translation>恢复默认</translation>
+    </message>
+    <message id="dialog.preferences.font.sample">
+        <source>Example chart comment</source>
+        <translation>谱面注释示例</translation>
+    </message>
+    <message id="dialog.preferences.theme.midnight">
+        <source>Midnight</source>
+        <translation>午夜蓝</translation>
+    </message>
+    <message id="dialog.preferences.theme.forest">
+        <source>Forest</source>
+        <translation>森林绿</translation>
+    </message>
+    <message id="dialog.preferences.theme.paper">
+        <source>Warm Paper</source>
+        <translation>暖纸</translation>
+    </message>
+    <message id="dialog.preferences.theme.lavender">
+        <source>Lavender</source>
+        <translation>柔紫</translation>
+    </message>
+    <message id="dialog.preferences.theme.comment_sample">
+        <source>Comment</source>
+        <translation>注释</translation>
     </message>
 </context>
 <context>
