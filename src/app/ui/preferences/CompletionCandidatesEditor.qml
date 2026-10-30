@@ -56,6 +56,7 @@ Item {
         objectName: "completionCustomizeToggle"
         width: parent.width
         implicitHeight: Theme.controlMinHeight + 10
+        highlightFillsBounds: true
         leftPadding: 0
         rightPadding: 6
         text: qsTrId("preferences.completion.customize")
