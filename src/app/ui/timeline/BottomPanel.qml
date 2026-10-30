@@ -361,16 +361,15 @@ Item {
         }
     }
 
-    // The playback-rate HUD sits over the timeline, not over the preview stage:
-    // while editing, the timeline is where the eyes already are, and the canvas
-    // stays unobscured. Declared last so it paints above every bottom tab —
-    // QML stacking is declaration order — and anchored to the panel body rather
-    // than to timelineItem so it still shows while 语法 or 无理 is in front.
+    // The panel bounds let the HUD extend above a compact note viewport.
+    // Keep it above every bottom tab so tab switches preserve the notification.
     PreviewRateToast {
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: tabs.bottom
-        anchors.bottom: parent.bottom
+        anchors.fill: parent
+        noteViewportRect: Qt.rect(
+            timelineItem.x + timelineItem.noteViewportRect.x,
+            timelineItem.y + timelineItem.noteViewportRect.y,
+            timelineItem.noteViewportRect.width,
+            timelineItem.noteViewportRect.height)
         previewSession: root.previewSession
     }
 
