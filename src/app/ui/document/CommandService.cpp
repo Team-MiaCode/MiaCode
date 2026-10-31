@@ -31,7 +31,7 @@ void CommandService::whenDocumentMayBeLeft(std::function<void()> proceed)
 
 void CommandService::openDocument(const QUrl& fileUrl)
 {
-    whenDocumentMayBeLeft([this, fileUrl]() { document_->openFile(fileUrl); });
+    whenDocumentMayBeLeft([this, fileUrl]() { document_->openChartFile(fileUrl); });
 }
 
 void CommandService::openRecentDocument(const QString& path)

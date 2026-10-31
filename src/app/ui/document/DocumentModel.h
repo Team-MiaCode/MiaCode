@@ -180,6 +180,7 @@ public:
     Q_INVOKABLE QVariantMap fileDialogLocation(bool saveMode) const;
     Q_INVOKABLE QStringList openFileNameFilters() const;
     Q_INVOKABLE bool openFile(const QUrl& fileUrl);
+    bool openChartFile(const QUrl& fileUrl);
     QJsonObject documentIdentity() const;
     net::NetEnginePort::Cancel openNetPreview(const QString& path, const QJsonObject& expected,
                                              net::NetEnginePort::Done done);

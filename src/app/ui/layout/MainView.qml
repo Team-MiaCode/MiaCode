@@ -155,7 +155,7 @@ Item {
         onAboutRequested: preferencesDialog.openPage("about")
         onSetupWizardRequested: setupWizard.open()
         onPreferencesRequested: preferencesDialog.open()
-        onNewDocumentRequested: root.showOpenFileDialog()
+        onNewDocumentRequested: root.commands.newDocument()
         onOpenRecentRequested: path => root.commands.openRecentDocument(path)
         onRestoreBackupRequested: path => root.commands.restoreBackupDocument(path)
         onCloseDocumentRequested: {

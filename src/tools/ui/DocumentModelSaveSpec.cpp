@@ -255,8 +255,23 @@ bool verifyPickerDirectories()
     QObject::connect(&requests, &miacode::UiRequestService::fileRequested,
                      [&](const QString& nextId, const QVariantMap& value) { id = nextId; request = value; });
     const auto folder = [&] { return request.value("startFolder").toUrl().toLocalFile(); };
+    int invalidAudioNotices = 0;
+    QObject::connect(&requests, &miacode::UiRequestService::noticeRequested,
+                     [&](const QString&, const QVariantMap&) { ++invalidAudioNotices; });
+    model.createDocumentFromPickedAudio();
+    const auto newFilters = request.value("nameFilters").toStringList();
+    const auto openFilters = model.openFileNameFilters();
+    bool ok = expect(newFilters.size() == 1 && openFilters.size() == 1
+        && openFilters.first() == qtTrId("qml.simai_files_txt_simai"),
+        "new picker offers audio only; open picker offers charts only");
+    requests.submitFileResult(id, QUrl::fromLocalFile(directory.filePath("documents/not_audio.txt")));
+    ok &= expect(invalidAudioNotices == 1 && !QFileInfo::exists(directory.filePath("documents/maidata.txt")),
+                 "new chart rejects a non-audio path without creating a chart");
+    ok &= expect(!model.openChartFile(QUrl::fromLocalFile(directory.filePath("documents/song.mp3")))
+        && invalidAudioNotices == 2 && !QFileInfo::exists(directory.filePath("documents/maidata.txt")),
+        "open chart rejects an audio path without creating a chart");
     model.saveWholeDocument();
-    bool ok = expect(folder() == directory.filePath("documents")
+    ok &= expect(folder() == directory.filePath("documents")
         && request.value("startFile").toUrl().fileName() == QLatin1String("maidata.txt"),
         "first network-preview save uses remembered documents folder and maidata name");
     requests.cancelFileRequest(id);
@@ -284,6 +299,16 @@ bool verifyPickerDirectories()
     model.importChartBackgroundImage();
     ok &= expect(folder() == directory.filePath("images"), "video selection does not overwrite image source history");
     requests.cancelFileRequest(id);
+    root.mkpath("new_chart");
+    const QString audioPath = directory.filePath("new_chart/song.mp3");
+    QFile audio(audioPath);
+    if (!audio.open(QIODevice::WriteOnly) || audio.write("audio fixture") < 0) return false;
+    audio.close();
+    model.createDocumentFromPickedAudio();
+    requests.submitFileResult(id, QUrl::fromLocalFile(audioPath));
+    ok &= expect(QFileInfo::exists(directory.filePath("new_chart/track.mp3"))
+        && QFileInfo::exists(directory.filePath("new_chart/maidata.txt")),
+        "new chart from an audio file creates a track and chart beside it");
     analysis.shutdown();
     return ok;
 }

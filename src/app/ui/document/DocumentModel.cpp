@@ -1027,12 +1027,17 @@ void DocumentModel::createDocumentFromPickedAudio()
     request.startPath = miacode::file_dialog_preferences::recentDirectory(
         miacode::file_dialog_preferences::Purpose::NewChartAudio,
         fileDialogLocation(false).value(QStringLiteral("folder")).toUrl().toLocalFile());
-    request.nameFilters = {
-        audioFileNameFilter(),
-        miacode::localizedText("qml.all_files"),
-    };
+    request.nameFilters = {audioFileNameFilter()};
     requests->requestFile(request, [this](const QString& audioPath) {
         if (!audioPath.trimmed().isEmpty()) {
+            if (!miacode::chart_assets::isSupportedTrackFilePath(audioPath)) {
+                if (uiRequests_ != nullptr) {
+                    uiRequests_->postNotice(miacode::NoticeSeverity::Error,
+                        miacode::localizedText("document.new_failed"),
+                        miacode::localizedText("track_metadata.unsupported_media_file"));
+                }
+                return;
+            }
             miacode::file_dialog_preferences::rememberFile(
                 miacode::file_dialog_preferences::Purpose::NewChartAudio, audioPath);
             createChartBesideAudio(QDir::cleanPath(audioPath));
@@ -1396,7 +1401,12 @@ QVariantMap DocumentModel::fileDialogLocation(bool saveMode) const
 
 QStringList DocumentModel::openFileNameFilters() const
 {
-    return {audioFileNameFilter().text(), qtTrId("qml.simai_files_txt_simai"), qtTrId("qml.all_files_2")};
+    return {qtTrId("qml.simai_files_txt_simai")};
+}
+
+bool DocumentModel::openChartFile(const QUrl& fileUrl)
+{
+    return openFileWithOrigin(fileUrl, ChartDocumentOrigin::Local);
 }
 
 bool DocumentModel::openFile(const QUrl& fileUrl)
