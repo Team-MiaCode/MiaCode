@@ -21,6 +21,26 @@ QString decodeError(const char* operation, int code)
     av_strerror(code, text, sizeof(text));
     return QStringLiteral("%1: %2").arg(QString::fromLatin1(operation), QString::fromUtf8(text));
 }
+
+// The display matrix moved from the stream to AVCodecParameters in FFmpeg 6.1.
+// Older releases (the 4.4 packaged by Ubuntu 22.04, for instance) expose it only
+// on the AVStream.
+void displayMatrix(const AVStream* stream, const uint8_t** data, int* size)
+{
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(60, 31, 100)
+    const AVPacketSideData* side = av_packet_side_data_get(
+        stream->codecpar->coded_side_data, stream->codecpar->nb_coded_side_data,
+        AV_PKT_DATA_DISPLAYMATRIX);
+    *data = side != nullptr ? side->data : nullptr;
+    *size = side != nullptr ? side->size : 0;
+#else
+    int streamSize = 0;
+    const uint8_t* streamData = av_stream_get_side_data(
+        stream, AV_PKT_DATA_DISPLAYMATRIX, &streamSize);
+    *data = streamData;
+    *size = streamSize;
+#endif
+}
 }
 
 struct VideoExportStageMediaSource::Data
@@ -132,10 +152,11 @@ bool VideoExportStageMediaSource::open(const QString& path, const QSize& outputS
     }
     const AVRational aspect = av_guess_sample_aspect_ratio(d->format, stream, nullptr);
     if (aspect.num > 0 && aspect.den > 0) d->pixelAspect = av_q2d(aspect);
-    const auto* matrix = av_packet_side_data_get(stream->codecpar->coded_side_data,
-        stream->codecpar->nb_coded_side_data, AV_PKT_DATA_DISPLAYMATRIX);
-    if (matrix && matrix->size >= 9 * sizeof(int32_t)) {
-        const double angle = av_display_rotation_get(reinterpret_cast<const int32_t*>(matrix->data));
+    const uint8_t* matrixData = nullptr;
+    int matrixSize = 0;
+    displayMatrix(stream, &matrixData, &matrixSize);
+    if (matrixData != nullptr && matrixSize >= 9 * static_cast<int>(sizeof(int32_t))) {
+        const double angle = av_display_rotation_get(reinterpret_cast<const int32_t*>(matrixData));
         if (qIsFinite(angle)) d->rotation = -angle;
     }
     return true;
