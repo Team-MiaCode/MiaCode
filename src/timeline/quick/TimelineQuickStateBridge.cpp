@@ -300,6 +300,18 @@ int TimelineQuickStateBridge::timelineTop() const
     return layoutMetricsValid_ ? layoutMetrics_.timelineTop : 0;
 }
 
+QRectF TimelineQuickStateBridge::noteViewportRect() const
+{
+    if (!layoutMetricsValid_) {
+        return QRectF();
+    }
+    return QRectF(
+        layoutMetrics_.timelineLeft,
+        layoutMetrics_.timelineTop,
+        qMax(0, layoutMetrics_.viewportSize.width() - layoutMetrics_.timelineLeft),
+        layoutMetrics_.timelineHeight);
+}
+
 QSize TimelineQuickStateBridge::effectiveViewportSize() const
 {
     if (quickViewportSize_.isValid()) {

@@ -1056,6 +1056,11 @@ int TimelineQuickItem::timelineTop() const
     return cachedTimelineTop_;
 }
 
+QRectF TimelineQuickItem::noteViewportRect() const
+{
+    return cachedNoteViewportRect_;
+}
+
 int TimelineQuickItem::minimumViewportHeight() const
 {
     return miacode::timeline::TimelineSceneStateBuilder::minimumViewportHeight();
@@ -1151,10 +1156,23 @@ void TimelineQuickItem::syncSourceState()
         cachedTimelineTop_ = nextTimelineTop;
         emit sceneMetricsChanged();
     }
+    syncNoteViewportRect();
     if (!canBecomeReady()) {
         updateReadyState(false);
     }
     update();
+}
+
+void TimelineQuickItem::syncNoteViewportRect()
+{
+    const QRectF nextRect = stateBridge_ != nullptr
+        ? stateBridge_->noteViewportRect().intersected(boundingRect())
+        : QRectF();
+    if (cachedNoteViewportRect_ == nextRect) {
+        return;
+    }
+    cachedNoteViewportRect_ = nextRect;
+    emit noteViewportRectChanged();
 }
 
 void TimelineQuickItem::updateReadyState(bool ready)
@@ -1621,6 +1639,8 @@ void TimelineQuickItem::updatePolish()
     if (stateBridge_ != nullptr) {
         stateBridge_->setQuickViewportSize(pendingViewportSize_);
     }
+    // Fractional size changes can keep the same rounded render viewport.
+    syncNoteViewportRect();
 }
 
 void TimelineQuickItem::itemChange(ItemChange change, const ItemChangeData& value)

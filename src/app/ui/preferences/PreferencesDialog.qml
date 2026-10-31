@@ -94,6 +94,7 @@ AppDialog {
     footer: null
 
     property int currentPageIndex: 0
+    property int versionTapCount: 0
     property string capturingId: ""
 
     Binding {
@@ -127,6 +128,7 @@ AppDialog {
             completionCustomizer.expanded = false
     }
     onAboutToShow: {
+        root.versionTapCount = 0
         root.capturingId = ""
         completionCustomizer.expanded = false
         root.refreshShortcuts()
@@ -597,8 +599,20 @@ AppDialog {
                                     x: 12
                                     y: 12
                                     width: parent.width - 24
-                                    text: "(180){4}1,2,3,4,\n1-5[4:1],2h[8:1],B1,\n|| " + qsTrId("dialog.preferences.font.sample")
-                                    textFormat: Text.PlainText
+                                    text: {
+                                        const keyword = Theme.colors.syntax.keyword
+                                        const beat = Theme.colors.syntax.beat || keyword
+                                        const note = Theme.colors.syntax.note || Theme.colors.text.editor
+                                        const duration = Theme.colors.syntax.duration
+                                        const comment = Theme.colors.syntax.comment
+                                        const sample = qsTrId("dialog.preferences.font.sample")
+                                            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                                        return "<font color='" + keyword + "'>(180)</font><font color='" + beat + "'>{4}</font><font color='" + note + "'>1</font>,<font color='" + note + "'>2</font>,<font color='" + note + "'>3</font>,<font color='" + note + "'>4</font>,<br>"
+                                            + "<font color='" + note + "'>1-5</font><font color='" + duration + "'>[4:1]</font>,<font color='" + note + "'>2h</font>"
+                                            + "<font color='" + duration + "'>[8:1]</font>,<font color='" + note + "'>B1</font>,<br>"
+                                            + "<font color='" + comment + "'>|| " + sample + "</font>"
+                                    }
+                                    textFormat: Text.StyledText
                                     font: Theme.codeFont
                                     lineHeightMode: Text.FixedHeight
                                     lineHeight: fontPreviewMetrics.height + Theme.codeBlockSpacing
@@ -989,16 +1003,28 @@ AppDialog {
                         ColumnLayout {
                             spacing: 2
                             Text {
-                                text: "MiaCode"
+                                text: Theme.brandDisplayText
+                                textFormat: Text.StyledText
+                                Accessible.name: Theme.brandName
                                 color: Theme.colors.text.active
                                 font.family: Theme.uiFont
                                 font.pixelSize: Theme.uiFontSize + 6
                                 font.bold: true
                             }
-                            Text {
+                            ChromeRow {
                                 objectName: "aboutVersion"
                                 text: "v" + root.aboutInfo.version
-                                color: Theme.colors.text.secondary
+                                leftPadding: Theme.chromePadding
+                                rightPadding: Theme.chromePadding
+                                implicitHeight: Theme.controlMinHeight
+                                Accessible.name: text
+                                onClicked: {
+                                    root.versionTapCount += 1
+                                    if (root.versionTapCount >= 10) {
+                                        root.versionTapCount = 0
+                                        Theme.miaMiaCode = true
+                                    }
+                                }
                             }
                             Text {
                                 objectName: "aboutUpdateHint"

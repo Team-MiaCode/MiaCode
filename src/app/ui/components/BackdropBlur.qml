@@ -93,6 +93,7 @@ Item {
 
         ShaderEffectSource {
             id: sceneSample
+            live: root.visible
             anchors.fill: parent
             sourceItem: root.sourceItem
             sourceRect: root.sceneRect
@@ -101,6 +102,7 @@ Item {
         ShaderEffectSource {
             anchors.fill: parent
             sourceItem: root.overlaySource
+            live: root.visible
             sourceRect: root.overlayRect
             textureSize: Qt.size(capture.width, capture.height)
         }
@@ -108,6 +110,7 @@ Item {
 
     ShaderEffectSource {
         id: sample
+        live: root.visible
         width: capture.width
         height: capture.height
         sourceItem: root.overlaySource ? capture : null
