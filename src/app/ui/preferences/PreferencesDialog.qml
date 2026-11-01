@@ -8,6 +8,7 @@ AppDialog {
     id: root
 
     required property var preferencesModel
+    required property var previewSettings
     required property var shortcuts
     required property var preferences
     required property var appBackground
@@ -656,6 +657,13 @@ AppDialog {
                                 options: root.preferencesModel.inputHandlingOptions
                                 currentValue: root.preferencesModel.editorInputHandlingMode
                                 onPicked: function(value) { root.preferencesModel.editorInputHandlingMode = value }
+                            }
+
+                            PreferenceSwitch {
+                                objectName: "preferencesTouchPadAuthoringSwitch"
+                                text: root.previewSettings.labels.touchPadAuthoringShortcut || ""
+                                checked: root.previewSettings.values.touchPadAuthoringShortcut === true
+                                onToggled: root.previewSettings.setValue("touchPadAuthoringShortcut", checked)
                             }
 
                             PreferenceSwitch {
