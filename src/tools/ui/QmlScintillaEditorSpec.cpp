@@ -35,6 +35,75 @@ bool checkFrame(ScintillaQuick_item& editor, const QString& expected, QTextStrea
         && frame.text_rect.width() > 0 && frame.text_rect.height() > 0;
 }
 
+bool testUndoSelection(QTextStream& out)
+{
+    ScintillaQuick_item editor;
+    miacode::ui::ScintillaDocumentAdapter document(editor);
+    QObject::connect(&editor, &ScintillaQuick_item::notificationReceived, &editor,
+        [&](const ScintillaQuick_notification& notification) {
+            const int flags = int(notification.modificationType);
+            if (notification.code != Scintilla::Notification::Modified
+                || !(flags & (SC_MOD_INSERTTEXT | SC_MOD_DELETETEXT))) return;
+            document.applyChange(notification.position,
+                flags & SC_MOD_DELETETEXT ? QString::fromUtf8(notification.text).size() : 0,
+                flags & SC_MOD_INSERTTEXT ? notification.text : QByteArray{});
+        });
+    const QString original = QStringLiteral("中文😀(120){4}1,2,3,4,");
+    const int start = original.indexOf(QStringLiteral("1,2,"));
+    const int end = start + 4;
+    const auto selectionMatches = [&](int anchor, int caret) {
+        return editor.send(SCI_GETANCHOR) == document.bytePosition(anchor)
+            && editor.send(SCI_GETCURRENTPOS) == document.bytePosition(caret);
+    };
+    document.activate(QStringLiteral("difficulty:5"), original);
+    editor.send(SCI_SETSELECTION, document.bytePosition(end), document.bytePosition(start));
+    editor.send(SCI_CLEAR);
+    const QString deleted = document.text();
+    document.activate(QStringLiteral("difficulty:6"), QStringLiteral("7,8,"));
+    document.activate(QStringLiteral("difficulty:5"), deleted);
+    document.undo();
+    if (document.text() != original || !selectionMatches(start, end)) {
+        out << "undo deletion did not restore text and its selection after switching difficulties" << Qt::endl;
+        return false;
+    }
+    editor.send(SCI_SETSELECTION, document.bytePosition(start), document.bytePosition(end));
+    editor.sends(SCI_REPLACESEL, 0, "A1,");
+    document.undo();
+    if (document.text() != original || !selectionMatches(end, start)) {
+        out << "undo replacement did not restore the reversed selection" << Qt::endl;
+        return false;
+    }
+    editor.send(SCI_REDO);
+    if (document.text() != QString(original).replace(start, end - start, QStringLiteral("A1,"))) {
+        out << "selection restoration broke redo" << Qt::endl;
+        return false;
+    }
+    document.undo();
+    editor.send(SCI_SETSELECTION, document.bytePosition(end), document.bytePosition(start));
+    editor.send(SCI_BEGINUNDOACTION);
+    editor.send(SCI_SETTARGETSTART, document.bytePosition(start));
+    editor.send(SCI_SETTARGETEND, document.bytePosition(end));
+    editor.sends(SCI_REPLACETARGET, 6, "8,7,6,");
+    editor.send(SCI_ADDUNDOACTION, 42, 0);
+    editor.send(SCI_ENDUNDOACTION);
+    editor.send(SCI_SETSELECTION, document.bytePosition(start + 6), document.bytePosition(start));
+    document.undo();
+    if (document.text() != original || !selectionMatches(start, end)) {
+        out << "undo grouped range transform did not restore its original selection" << Qt::endl;
+        return false;
+    }
+    editor.send(SCI_SETEMPTYSELECTION, document.bytePosition(end));
+    QKeyEvent key(QEvent::KeyPress, Qt::Key_5, Qt::NoModifier, QStringLiteral("5"));
+    QCoreApplication::sendEvent(&editor, &key);
+    document.undo();
+    if (document.text() != original || !selectionMatches(end, end)) {
+        out << "plain typing undo changed the normal caret behavior" << Qt::endl;
+        return false;
+    }
+    out << "undo selection checks passed" << Qt::endl;
+    return true;
+}
+
 bool testEditor(QTextStream& out, const QString& capturePath)
 {
     QQuickWindow window;
@@ -239,7 +308,8 @@ int main(int argc, char** argv)
         ? QSGRendererInterface::Direct3D11 : QSGRendererInterface::Software);
     QGuiApplication app(argc, argv);
     QTextStream out(stdout);
-    const bool passed = testEditor(out, argc > 1 ? QString::fromLocal8Bit(argv[1]) : QString{})
+    const bool passed = testUndoSelection(out)
+        && testEditor(out, argc > 1 ? QString::fromLocal8Bit(argv[1]) : QString{})
         && testWindowLayout(out);
     out << (passed ? "PASS" : "FAIL") << Qt::endl;
     return passed ? 0 : 1;
