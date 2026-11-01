@@ -207,6 +207,23 @@ std::shared_ptr<const PreviewStandardFireworkEffect> PreviewStandardFireworkEffe
     return effect;
 }
 
+PreviewStandardFireworkSprite PreviewStandardFireworkEffect::sampleRainbow(double elapsedSeconds) const
+{
+    for (const auto& emitter : data_->emitters) {
+        if (emitter.material != PreviewStandardFireworkMaterial::Rainbow) continue;
+        const double age = elapsedSeconds - emitter.delay;
+        const double life = emitter.life.sample(0.0, 0.0);
+        if (age < 0.0 || age >= life) return {};
+        const double time = age / life;
+        PreviewStandardFireworkSprite sprite;
+        sprite.material = emitter.material;
+        sprite.diameter = emitter.size.sample(0.0, 0.0) * 100.0 * emitter.sizeCurve.sample(time, 0.0);
+        sprite.color = emitter.colorHigh.sample(time);
+        return sprite;
+    }
+    return {};
+}
+
 PreviewStandardFireworkBurst PreviewStandardFireworkEffect::createBurst(quint32 seed) const
 {
     auto data = std::make_shared<PreviewStandardFireworkBurst::Data>();
