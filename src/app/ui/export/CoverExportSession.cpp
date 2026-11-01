@@ -953,7 +953,7 @@ void CoverExportSession::bindLiveChartScene(QObject* scene)
         return;
     }
     lastLiveChartScene_ = liveScene;
-    liveScene->setLayerFlags(miacode::preview::scene::kPreviewExportOverlayRenderLayers);
+    liveScene->setLayerFlags(miacode::preview::scene::kPreviewCoverRenderLayers);
     liveScene->setFrameState(
         frameRenderer_ != nullptr && chartFrameAvailable_ ? frameRenderer_->frameState() : nullptr);
     sceneBinder_->setFrameState(
