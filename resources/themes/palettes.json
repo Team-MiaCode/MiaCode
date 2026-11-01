@@ -957,9 +957,9 @@
           "selected": "#B02F45"
         },
         "syntax": {
-          "keyword": "#965233",
-          "duration": "#725092",
-          "comment": "#507A50",
+          "keyword": "#B24714",
+          "duration": "#7E3FC1",
+          "comment": "#37774A",
           "error": "#B02F45",
           "warning": "#895D08"
         },
@@ -1126,9 +1126,9 @@
           "selected": "#B02F45"
         },
         "syntax": {
-          "keyword": "#2D698F",
-          "duration": "#725098",
-          "comment": "#5B7C54",
+          "keyword": "#006D9F",
+          "duration": "#8641C7",
+          "comment": "#4B7A37",
           "error": "#B02F45",
           "warning": "#895D08"
         },
@@ -1295,9 +1295,9 @@
           "selected": "#B02F45"
         },
         "syntax": {
-          "keyword": "#3D733F",
-          "duration": "#8E5830",
-          "comment": "#547956",
+          "keyword": "#007845",
+          "duration": "#B04B00",
+          "comment": "#786086",
           "error": "#B02F45",
           "warning": "#895D08"
         },
@@ -2142,9 +2142,9 @@
           "selected": "#B02F45"
         },
         "syntax": {
-          "keyword": "#286388",
-          "duration": "#73508E",
-          "comment": "#647630",
+          "keyword": "#006FA8",
+          "duration": "#8440C3",
+          "comment": "#667500",
           "error": "#B02F45",
           "warning": "#895D08"
         },
@@ -2311,9 +2311,9 @@
           "selected": "#B02F45"
         },
         "syntax": {
-          "keyword": "#965130",
-          "duration": "#714E8E",
-          "comment": "#53764A",
+          "keyword": "#B04410",
+          "duration": "#8039BD",
+          "comment": "#317540",
           "error": "#B02F45",
           "warning": "#895D08"
         },
