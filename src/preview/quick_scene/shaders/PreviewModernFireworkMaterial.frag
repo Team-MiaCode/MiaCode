@@ -27,7 +27,7 @@ layout(std140, binding = 0) uniform buf {
 const float kBrightBlockSpeed = 1.73;
 const float kSectorSpanDegrees = 12.0;
 const float kSectorStepDegrees = 24.0;
-const float kSectorPhaseDegrees = -106.0;
+const float kSectorPhaseDegrees = -12.0;
 const vec2 kPatternGridCount = vec2(64.0, 128.0);
 const int kRenderFlagDrawStripe = 0x1;
 const int kRenderFlagDrawBigBall = 0x2;
@@ -63,9 +63,9 @@ vec3 sectorBaseColor(int index)
 
 vec3 cyclingSectorColor(int sectorIndex)
 {
-    // Reference frames advance one palette slot every 1/9 second, independently of rotation.
-    int stepIndex = int(floor(max(0.0, timing.w - 0.003) * 9.0));
-    int colorIndex = (sectorIndex + 1 - stepIndex) % 5;
+    // Match Standard's clockwise colour order and playhead-based palette phase.
+    int stepIndex = int(floor(timing.z * 9.0));
+    int colorIndex = (3 + sectorIndex - stepIndex) % 5;
     return sectorBaseColor((colorIndex + 5) % 5);
 }
 
@@ -219,7 +219,7 @@ float bigColorBallFadeProgress()
 float bigColorBallBlurProgress(float elapsed)
 {
     float onset = clamp((0.95 - colorBallBig.y) / (0.95 - 0.44), 0.0, 1.0);
-    float retirement = smoothstep(0.050, 0.880, elapsed);
+    float retirement = smoothstep(0.060, 0.800, elapsed);
     return 0.20 + 0.25 * onset + 0.55 * retirement;
 }
 
@@ -255,7 +255,7 @@ vec4 sampleBlurredColorBallLayer(vec2 localPos, float radius, float alpha, float
 
 vec4 sampleFirework(vec2 texCoord)
 {
-    float exitProgress = smoothstep(0.90, 1.10, timing.w + 1.0 / 30.0);
+    float exitProgress = smoothstep(0.86, 1.10, timing.w + 1.0 / 30.0);
     float exitScale = mix(1.0, 1.045, exitProgress);
     vec2 localPos = (texCoord * 2.0 - 1.0) * quadRadius / exitScale;
     float radius = length(localPos);
@@ -263,8 +263,8 @@ vec4 sampleFirework(vec2 texCoord)
     float pixelWidth = max(0.75, 0.5 * length(abs(dFdx(localPos)) + abs(dFdy(localPos))));
 
     float fireworkBrightness = brightnessAndPatternOffset.x;
-    // 120% is the reference appearance; 100% attenuates it for chart readability.
-    float boost = clamp((fireworkBrightness - 1.0) / 0.20, 0.0, 1.0);
+    // The default 100% setting uses half of the available highlight boost.
+    float boost = clamp((fireworkBrightness - 0.80) / 0.40, 0.0, 1.0);
     float centerGain = min(fireworkBrightness, 1.0) * mix(0.96, 1.0, boost);
     float triggerPeak = 1.0 - clamp((0.95 - colorBallBig.y) / (0.95 - 0.44), 0.0, 1.0);
     float washGain = pow(clamp((fireworkBrightness - 0.50) / 0.50, 0.0, 1.0), 2.0)
@@ -312,8 +312,8 @@ vec4 sampleFirework(vec2 texCoord)
         if (sectorCoverage > 0.0) {
             // Opacity travels outward behind the expanding edge, ahead of the full dwell.
             float fieldDistance = clamp(radius / clipRadius, 0.0, 1.0);
-            float arrivalSecond = 0.065 + fieldDistance * 0.065;
-            float launchAlpha = smoothstep(arrivalSecond, arrivalSecond + 0.05, timing.w);
+            float arrivalSecond = 0.045 + fieldDistance * 0.055;
+            float launchAlpha = smoothstep(arrivalSecond, arrivalSecond + 0.06, timing.w);
             // The travelling head sharpens before settling into the outer edge feather.
             float headProgress = smoothstep(0.36, 1.0, outerRadius / clipRadius);
             float headFeather = mix(0.24, 0.20, headProgress);
@@ -330,8 +330,8 @@ vec4 sampleFirework(vec2 texCoord)
             float blockLeadingLength = clipRadius * 0.14;
             float blockOutwardExtension = clipRadius * 0.055;
             // Both waves start at the root and follow the same decelerating travel curve.
-            float firstFront = brightBlockTravel(max(0.0, timing.w - (0.10 - 5.0 / 30.0)));
-            float secondFront = min(0.78, brightBlockTravel(max(0.0, timing.w - (0.43 - 1.0 / 30.0))));
+            float firstFront = brightBlockTravel(max(0.0, timing.w - (0.12 - 5.0 / 30.0)));
+            float secondFront = min(0.78, brightBlockTravel(max(0.0, timing.w - (0.39 - 1.0 / 30.0))));
             float firstBlockCenter = clipRadius * firstFront - blockLeadingLength;
             float secondBlockCenter = clipRadius * secondFront - blockLeadingLength;
             float firstBlock = movingBallFieldMask(
@@ -341,7 +341,7 @@ vec4 sampleFirework(vec2 texCoord)
                 blockTrailingLength,
                 blockLeadingLength + min(blockOutwardExtension, clipRadius * firstFront),
                 clipRadius
-            ) * smoothstep(0.10 - 5.0 / 30.0, 0.12 - 5.0 / 30.0, timing.w);
+            ) * smoothstep(0.12 - 5.0 / 30.0, 0.155 - 5.0 / 30.0, timing.w);
             float secondBlock = movingBallFieldMask(
                 localPos,
                 exitScale,
@@ -349,7 +349,7 @@ vec4 sampleFirework(vec2 texCoord)
                 blockTrailingLength,
                 blockLeadingLength + min(blockOutwardExtension, clipRadius * secondFront),
                 clipRadius
-            ) * smoothstep(0.43 - 1.0 / 30.0, 0.45 - 1.0 / 30.0, timing.w);
+            ) * smoothstep(0.39 - 1.0 / 30.0, 0.43 - 1.0 / 30.0, timing.w);
             float brightBlockLight = max(firstBlock, secondBlock);
             float colorRise = smoothstep(0.16, 0.34, timing.x);
             float radialTint = smoothstep(0.05, 1.0, fieldDistance);
@@ -384,7 +384,7 @@ vec4 sampleFirework(vec2 texCoord)
         float washRadius = clipRadius * mix(0.42, 1.08, washSpread);
         float washFeather = clipRadius * mix(0.32, 0.18, washSpread);
         float washEdge = 1.0 - smoothstep(washRadius - washFeather, washRadius + washFeather, radius);
-        float washRetirement = smoothstep(0.86, 1.10, washTime);
+        float washRetirement = smoothstep(0.80, 1.07, washTime);
         float washClearRadius = clipRadius * mix(-0.30, 1.30, washRetirement);
         float washClear = smoothstep(washClearRadius - clipRadius * 0.26,
             washClearRadius + clipRadius * 0.26, radius);
@@ -393,15 +393,15 @@ vec4 sampleFirework(vec2 texCoord)
     }
 
     vec4 rootLayer = vec4(0.0);
-    float lightRetirement = clamp((timing.w + 1.0 / 30.0 - 0.567) / 0.433, 0.0, 1.0);
+    float lightRetirement = clamp((timing.w + 1.0 / 30.0 - 0.480) / 0.440, 0.0, 1.0);
     float lightReturn = lightRetirement * lightRetirement;
     float lightShrink = 1.0 - lightReturn;
 
     if (fireworkActive && fireworkAlpha > 0.0 && lightShrink > 0.0) {
         // Independent light emission: soft radiance with no filled spike boundary.
-        float burstProgress = clamp((timing.w + 1.0 / 30.0) / 0.050, 0.0, 1.0);
+        float burstProgress = clamp((timing.w + 1.0 / 30.0) / 0.075, 0.0, 1.0);
         float outward = burstProgress * burstProgress * (3.0 - 2.0 * burstProgress);
-        float roundness = 1.0 - pow(lightRetirement, 4.0);
+        float roundness = 1.0 - pow(lightRetirement, 3.0);
         float dispersion = outward * roundness;
         vec2 lightPoint = localPos / (clipRadius * lightShrink * 0.75);
         float coreWidth = mix(0.030, 0.060, dispersion);
@@ -439,7 +439,7 @@ vec4 sampleFirework(vec2 texCoord)
     if (drawColorBallBig) {
         vec4 underBall = layerColor;
         float elapsed = timing.w + 1.0 / 30.0;
-        float haloRetirement = smoothstep(0.10, 0.32, elapsed);
+        float haloRetirement = smoothstep(0.065, 0.24, elapsed);
         float haloOpacity = smoothstep(0.0, 0.033, elapsed) * 0.95 * (1.0 - haloRetirement);
         float haloRadius = colorBallBigRadius * mix(1.0, 1.06, haloRetirement);
         vec2 haloPoint = localPos / max(radius, 1.0) * haloRadius * 0.72;
@@ -459,7 +459,7 @@ vec4 sampleFirework(vec2 texCoord)
         float ballOpacity = colorBallBigAlpha * mix(0.90, 1.0, max(triggerPeak, boost));
         float triggerLightAlpha = 0.95 * min(fireworkBrightness, 1.0) * mix(0.80, 1.0, boost);
         float settled = bigColorBallFadeProgress();
-        float peakHold = 1.0 - smoothstep(0.090, 0.200, elapsed);
+        float peakHold = 1.0 - smoothstep(0.070, 0.170, elapsed);
         float ballLightAlpha = mix(ballOpacity * mix(1.0, 1.25, boost), triggerLightAlpha, peakHold);
         float goldRadius = clipRadius * 0.12;
         float goldField = exp(-dot(localPos, localPos) / (goldRadius * goldRadius));
@@ -478,7 +478,7 @@ vec4 sampleFirework(vec2 texCoord)
 
     }
     if (drawColorBallSmall) {
-        float retirement = clamp(timing.x / 0.150, 0.0, 1.0);
+        float retirement = clamp(timing.x / 0.180, 0.0, 1.0);
         vec4 ball = sampleSoftColorBallLayer(
             localPos, colorBallRadius, colorBallAlpha, sourceAspect, useTextureBall, retirement);
         layerColor = compositeSourceOver(ball, layerColor);

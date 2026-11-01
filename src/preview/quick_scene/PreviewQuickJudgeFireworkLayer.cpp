@@ -67,7 +67,7 @@ std::array<ModernFireworkStarState, kModernFireworkStarCount> modernFireworkStar
         {184,490,20},{155,535,9},{218,557,13},{149,287,19},
         {187,225,8},{220,183,13},{95,398,10},{333,78,9}
     }};
-    constexpr float lateDelays[8] = {.39f,.53f,.28f,.34f,.61f,.46f,.65f,.58f};
+    constexpr float lateDelays[8] = {.34f,.45f,.23f,.29f,.50f,.39f,.54f,.48f};
     std::array<ModernFireworkStarState, kModernFireworkStarCount> stars{};
     const float rotation = angleSeed * 6.28318530718f / 4096.0f;
     const float cosAngle = std::cos(rotation), sinAngle = std::sin(rotation);
@@ -75,24 +75,25 @@ std::array<ModernFireworkStarState, kModernFireworkStarCount> modernFireworkStar
         const auto& point = positions[i];
         const float variation = static_cast<float>((i * 17 + 7) % 29) / 28.0f;
         const float delay = i >= 24 ? lateDelays[i - 24]
-            : (point[2] >= 18 ? .068f : (i == 5 || i == 11) ? .085f : .145f) + variation * .065f;
+            : (point[2] >= 18 ? .025f : (i == 5 || i == 11) ? .040f : .070f) + variation * .050f;
         const float age = clipTime - delay;
         const float x = (point[0] - 360.0f) / 350.0f;
         const float y = (point[1] - 360.0f) / 350.0f;
-        const float travelLifetime = (.97f / std::hypot(x, y) - 1.0f) / .55f;
-        const float desiredStart = .10f + variation * .08f;
-        const float desiredDuration = .28f + static_cast<float>((i * 11 + 3) % 23) / 22.0f * .16f;
+        const float travelLifetime = (.97f / std::hypot(x, y) - 1.0f) / .45f;
+        const float desiredStart = .035f + variation * .035f;
+        const float desiredDuration = .33f + static_cast<float>((i * 11 + 3) % 23) / 22.0f * .10f;
         const float lifetime = qMin(qMin(desiredStart + desiredDuration, travelLifetime), 1.0f - delay);
         const float shrinkStart = desiredStart * lifetime / (desiredStart + desiredDuration);
         const float departure = qBound(0.0f, (age - shrinkStart) / (lifetime - shrinkStart), 1.0f);
         if (age < 0.0f || departure >= 1.0f) {
             continue;
         }
-        const float distance = clipRadius * (1.0f + .55f * age);
+        const float distance = clipRadius * (1.0f + .45f * age);
         const float width = .66f + static_cast<float>((i % 12 + (i / 12) * 2) % 5) * .035f;
         stars[i] = {(x * cosAngle - y * sinAngle) * distance,
             (x * sinAngle + y * cosAngle) * distance,
-            point[2] / 350.0f * clipRadius * (1.0f - modernFireworkSmoothStep(departure)) / width, 1.0f};
+            point[2] / 350.0f * clipRadius * (1.0f - departure) * (1.0f - departure) / width,
+            1.0f - modernFireworkSmoothStep((age / lifetime - .68f) / .32f)};
     }
     return stars;
 }
@@ -110,9 +111,9 @@ std::array<ModernFireworkGlowField, kModernFireworkGlowFieldCount> modernFirewor
         }
         return values;
     }();
-    const float lightRetirement = qBound(0.0f, (time + 1.0f / 30.0f - .567f) / .433f, 1.0f);
-    const float dispersion = modernFireworkSmoothStep((time + 1.0f / 30.0f) / .050f)
-        * (1.0f - std::pow(lightRetirement, 4.0f));
+    const float lightRetirement = qBound(0.0f, (time + 1.0f / 30.0f - .480f) / .440f, 1.0f);
+    const float dispersion = modernFireworkSmoothStep((time + 1.0f / 30.0f) / .075f)
+        * (1.0f - std::pow(lightRetirement, 3.0f));
     std::array<ModernFireworkGlowField, kModernFireworkGlowFieldCount> fields{};
     for (int i = 0; i < kModernFireworkGlowFieldCount; ++i) {
         const auto& shape = shapes[i];
@@ -296,7 +297,7 @@ public:
         float sourceAspect,
         float clipTimeSeconds,
         float life01,
-        float starAngleSeed,
+        float paletteTimeSeconds,
         const std::array<ModernFireworkGlowField, kModernFireworkGlowFieldCount>& glowFields,
         const QRectF& sourceRectNormalized
     )
@@ -323,7 +324,7 @@ public:
         sourceAspect_ = sourceAspect;
         clipTimeSeconds_ = clipTimeSeconds;
         life01_ = life01;
-        starAngleSeed_ = starAngleSeed;
+        paletteTimeSeconds_ = paletteTimeSeconds;
         glowFields_ = glowFields;
         sourceRectNormalized_ = sourceRectNormalized;
     }
@@ -354,7 +355,7 @@ public:
     float sourceAspect() const { return sourceAspect_; }
     float clipTimeSeconds() const { return clipTimeSeconds_; }
     float life01() const { return life01_; }
-    float starAngleSeed() const { return starAngleSeed_; }
+    float paletteTimeSeconds() const { return paletteTimeSeconds_; }
     const std::array<ModernFireworkGlowField, kModernFireworkGlowFieldCount>& glowFields() const { return glowFields_; }
     QRectF sourceRectNormalized() const { return sourceRectNormalized_; }
 
@@ -382,7 +383,7 @@ private:
     float sourceAspect_ = 1.0f;
     float clipTimeSeconds_ = 0.0f;
     float life01_ = 0.0f;
-    float starAngleSeed_ = 0.0f;
+    float paletteTimeSeconds_ = 0.0f;
     std::array<ModernFireworkGlowField, kModernFireworkGlowFieldCount> glowFields_{};
     QRectF sourceRectNormalized_;
 };
@@ -439,7 +440,7 @@ bool ModernFireworkShader::updateUniformData(
     const float timing[4] = {
         material->clipTimeSeconds() / 1.067f,
         material->life01(),
-        material->starAngleSeed(),
+        material->paletteTimeSeconds(),
         material->clipTimeSeconds()
     };
 
@@ -535,6 +536,7 @@ public:
 
     void updateNode(
         const miacode::preview::scene::PreviewJudgeFireworkLayerState& layerState,
+        float paletteTimeSeconds,
         QSGTexture* texture, QSGTexture* brightBlockTexture, QSGTexture* bigBallTexture,
         bool useTexture, const QRectF& normalizedSourceRect, float sourceAspect, float smoothBlendStart)
     {
@@ -583,7 +585,7 @@ public:
             sourceNode_->markDirty(QSGNode::DirtyGeometry);
         }
         const float animationTime = static_cast<float>(miacode::preview_gameplay::judgeEffectFireworkAnimationTime(layerState.clipTimeSeconds));
-        const float exitScale = 1.0f + .045f * modernFireworkSmoothStep((animationTime + 1.0f / 30.0f - .90f) / .20f);
+        const float exitScale = 1.0f + .045f * modernFireworkSmoothStep((animationTime + 1.0f / 30.0f - .86f) / .24f);
         const QRectF stageBounds(layerState.clipCenter.x() - layerState.clipRadius,
             layerState.clipCenter.y() - layerState.clipRadius,
             layerState.clipRadius * 2.0, layerState.clipRadius * 2.0);
@@ -622,7 +624,7 @@ public:
             static_cast<float>(miacode::preview_gameplay::judgeEffectFireworkAnimationTime(
                 layerState.clipTimeSeconds)),
             static_cast<float>(layerState.life01),
-            starAngleSeed_,
+            paletteTimeSeconds,
             modernFireworkGlowFields(animationTime),
             normalizedSourceRect
         );
@@ -868,6 +870,7 @@ QSGNode* PreviewQuickJudgeFireworkLayer::updateNode(
 
     root->ensureFireworkNode()->updateNode(
         layerState,
+        static_cast<float>(std::fmod(state.playheadSeconds, 1000.0)),
         texture,
         brightBlockTexture,
         bigBallTexture,
