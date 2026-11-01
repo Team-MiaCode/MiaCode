@@ -735,7 +735,8 @@ void ScintillaEditorBridge::undo()
 {
     QGuiApplication::inputMethod()->commit();
     if (controller_) controller_->closeCompletion();
-    send(SCI_UNDO);
+    document_.undo();
+    refreshSelection(true);
     publishTouchUndoAnchor();
 }
 void ScintillaEditorBridge::redo()

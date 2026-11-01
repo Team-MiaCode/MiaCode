@@ -5,9 +5,30 @@ ScintillaDocumentAdapter::ScintillaDocumentAdapter(ScintillaQuick_item& editor) 
 {
     editor_.send(SCI_ALLOCATELINECHARACTERINDEX, SC_LINECHARACTERINDEX_UTF16);
     refresh();
+    undoSelectionConnection_ = QObject::connect(
+        &editor_, &ScintillaQuick_item::notificationReceived, &editor_,
+        [this](const ScintillaQuick_notification& notification) {
+            if (notification.code != Scintilla::Notification::Modified) return;
+            auto document = documents_.find(scope_);
+            if (document == documents_.end()) return;
+            const int flags = int(notification.modificationType);
+            if ((flags & SC_MOD_CONTAINER) && (flags & SC_PERFORMED_UNDO)) {
+                const auto selection = document->undoSelections.constFind(notification.token);
+                if (selection != document->undoSelections.cend()) selectionToRestore_ = *selection;
+            }
+            if (!(flags & SC_MOD_BEFOREDELETE) || (flags & (SC_PERFORMED_UNDO | SC_PERFORMED_REDO))
+                || !editor_.send(SCI_GETUNDOCOLLECTION)) return;
+            const Selection selection{int(editor_.send(SCI_GETANCHOR)), int(editor_.send(SCI_GETCURRENTPOS))};
+            if (selection.anchor == selection.caret) return;
+            const int token = nextSelectionToken_--;
+            document->undoSelections.insert(token, selection);
+            // Join the native edit group before it collapses the selection.
+            editor_.send(SCI_ADDUNDOACTION, token, 0);
+        });
 }
 ScintillaDocumentAdapter::~ScintillaDocumentAdapter()
 {
+    QObject::disconnect(undoSelectionConnection_);
     for (const auto& document : std::as_const(documents_))
         editor_.send(SCI_RELEASEDOCUMENT, 0, document.pointer);
 }
@@ -65,6 +86,7 @@ void ScintillaDocumentAdapter::activate(const QString& scope, const QString& tex
         if (text_ != text) {
             editor_.sends(SCI_SETTEXT, 0, text.toUtf8().constData());
             editor_.send(SCI_EMPTYUNDOBUFFER);
+            documents_[scope_].undoSelections.clear();
         }
         const int length = editor_.send(SCI_GETLENGTH);
         editor_.send(SCI_SETSELECTION, qBound(0, document.caret, length), qBound(0, document.anchor, length));
@@ -117,6 +139,16 @@ void ScintillaDocumentAdapter::refresh()
     QByteArray buffer(length + 1, Qt::Uninitialized);
     editor_.send(SCI_GETTEXT, buffer.size(), reinterpret_cast<sptr_t>(buffer.data()));
     text_ = QString::fromUtf8(buffer.constData(), length);
+}
+void ScintillaDocumentAdapter::undo()
+{
+    selectionToRestore_.reset();
+    editor_.send(SCI_UNDO);
+    if (selectionToRestore_) {
+        editor_.send(SCI_SETSELECTION, selectionToRestore_->caret, selectionToRestore_->anchor);
+        editor_.send(SCI_SCROLLCARET);
+        selectionToRestore_.reset();
+    }
 }
 int ScintillaDocumentAdapter::lineAt(int position) const
 {
