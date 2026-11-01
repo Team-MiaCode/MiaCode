@@ -24,13 +24,24 @@ bool verifyPreferencesAndDifficultyReseed(QTextStream& err)
     VideoExportTask edited;
     edited.introSoundFileName = QStringLiteral("custom-start.flac");
     miacode::video_export::applyVideoExportPreferences(
-        {{QStringLiteral("intro_pv_brightness"), 0.35}}, &edited);
+        {{QStringLiteral("intro_pv_brightness"), 0.35},
+         {QStringLiteral("add_intro"), false},
+         {QStringLiteral("intro_style"), QStringLiteral("pv_preview")}}, &edited);
+    bool ok = require(edited.intro.enabled && !edited.intro.pvPreview,
+                      QStringLiteral("intro defaults to enabled classic mode regardless of saved selections"), err);
+    edited.intro.enabled = true;
+    edited.intro.pvPreview = true;
+    edited.intro.pvPreviewStartSeconds = 42.5;
 
     // The intro volume belongs to the audio settings now; the export
     // preferences no longer carry a copy of it.
-    QJsonObject preferences;
+    QJsonObject preferences{{QStringLiteral("add_intro"), true},
+                            {QStringLiteral("intro_style"), QStringLiteral("pv_preview")}};
     miacode::video_export::appendVideoExportPreferences(&preferences, edited);
-    bool ok = require(
+    ok &= require(!preferences.contains(QStringLiteral("add_intro"))
+                      && !preferences.contains(QStringLiteral("intro_style")),
+                  QStringLiteral("intro selections are removed from saved preferences"), err);
+    ok &= require(
         !preferences.contains(QStringLiteral("intro_sound_volume")),
         QStringLiteral("shared export preferences do not serialize an intro volume"),
         err);
@@ -43,6 +54,9 @@ bool verifyPreferencesAndDifficultyReseed(QTextStream& err)
     reseeded.outputPath = QStringLiteral("new-difficulty.mp4");
     reseeded.exportStartSeconds = 3.0;
     miacode::video_export::copyVideoExportUserSettings(edited, &reseeded);
+    ok &= require(reseeded.intro.enabled && reseeded.intro.pvPreview
+                      && nearlyEqual(reseeded.intro.pvPreviewStartSeconds, 42.5),
+                  QStringLiteral("difficulty reseeding retains the pending export's intro selection"), err);
     ok &= require(
         reseeded.introSoundFileName == QStringLiteral("custom-start.flac"),
         QStringLiteral("difficulty reseeding preserves the selected intro sound"),
@@ -54,6 +68,8 @@ bool verifyPreferencesAndDifficultyReseed(QTextStream& err)
         err);
     IntroBannerSpec rebuilt;
     copyIntroStyling(edited.intro, &rebuilt);
+    ok &= require(nearlyEqual(rebuilt.pvPreviewStartSeconds, 42.5),
+                  QStringLiteral("snapshot rebuilding uses the selected PV segment start"), err);
     ok &= require(
         nearlyEqual(introBannerStyleMap(rebuilt)
                         .value(QStringLiteral("pvPreviewBrightness")).toDouble(), 0.35),

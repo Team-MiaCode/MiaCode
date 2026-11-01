@@ -2,7 +2,6 @@
 #include "app/runtime/Shared.h"
 
 #include "app/services/PlaybackStateAuthority.h"
-#include "app/services/ExportIntroPreferences.h"
 #include "app/services/ChartBannerData.h"
 #include "app/services/HudFontPreferences.h"
 
@@ -57,9 +56,6 @@ IntroBannerSpec buildIntroBannerSpec(
     intro.jacketPath = chartPath.isEmpty()
         ? QString()
         : miacode::chart_assets::resolveDisplayBackgroundImagePath(chartPath);
-    // The PV-preview segment is chosen per song, so every export of this chart
-    // (single, batch item, any difficulty) uses the start its project stored.
-    intro.pvPreviewStartSeconds = miacode::export_intro_preferences::pvPreviewStartSeconds(chartPath);
     return intro;
 }
 
