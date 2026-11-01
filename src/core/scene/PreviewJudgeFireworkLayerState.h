@@ -6,6 +6,7 @@
 namespace miacode::preview::scene {
 
 struct PreviewJudgeFireworkLayerState {
+    quint32 randomSeed = 0;
     bool active = false;
     bool drawFirework = false;
     bool warmup = false;

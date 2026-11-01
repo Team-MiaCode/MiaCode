@@ -377,9 +377,3 @@ Enable the Windows fixed-FPS timer-resolution A/B path:
   - `src/export/session/PreviewQuickExportSession.cpp`
 
 For architecture details, see `docs/specs/preview/CURRENT_RENDER_EXPORT_CONTRACT_ZH.md`.
-
-## Firework Layer Capture
-
-`miacode_firework_render --component N` selects a diagnostic layer: 0 full composition, 1 large ball, 2 small ball, 3 outer halo, 4 sectors, 5 central rays, 6 stars, 7 composed coverage (grayscale). `--brightness` accepts 50–120 percent; `--times` uses absolute frame seconds (the synthetic touch triggers at 0.5 s).
-
-The tool sets `MIACODE_FIREWORK_DIAGNOSTIC_LAYER` before the first scene render. Its default is 0; launch a fresh process when changing this environment value. Captures use the production shader and postprocess chain.

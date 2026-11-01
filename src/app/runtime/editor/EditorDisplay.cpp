@@ -210,6 +210,7 @@ void miacode::runtime::EditorHost::resetPortablePreviewSettingsToDefaults()
     state_.previewBackgroundBrightnessInner_ = miacode::preview_video::kBackgroundBrightnessInnerDefault;
     state_.previewLayoutSquareScale_ = miacode::preview_video::kLayoutSquareScaleDefault;
     state_.previewFireworkBrightness_ = miacode::preview_video::kFireworkBrightnessDefault;
+    state_.previewFireworkStyle_ = PreviewFireworkStyle::Standard;
     state_.previewSmoothBrightness_ = miacode::preview_video::kSmoothBrightnessDefault;
     previewAppearanceValues_.outlineVariant = PreviewOutlineVariant::Line;
     state_.previewOutlineVariantUsesAutoSelection_ = true;
@@ -335,6 +336,7 @@ void miacode::runtime::EditorHost::applyPortablePreviewSettings(const QJsonObjec
     }
     state_.previewFireworkBrightness_ = miacode::preview_video::normalizedFireworkBrightness(
         preview.value("firework_brightness").toDouble(state_.previewFireworkBrightness_));
+    state_.previewFireworkStyle_ = fireworkStyleFromToken(preview.value("firework_style").toString());
     if (preview.value("smooth_brightness").isBool()) {
         state_.previewSmoothBrightness_ = preview.value("smooth_brightness").toBool(state_.previewSmoothBrightness_);
     }
@@ -568,6 +570,7 @@ void miacode::runtime::EditorHost::savePortableState() const
     preview.insert("background_brightness_inner", state_.previewBackgroundBrightnessInner_);
     preview.insert("layout_square_scale", state_.previewLayoutSquareScale_);
     preview.insert("firework_brightness", state_.previewFireworkBrightness_);
+    preview.insert("firework_style", QString::fromLatin1(fireworkStyleToken(state_.previewFireworkStyle_)));
     preview.insert("smooth_brightness", state_.previewSmoothBrightness_);
     if (state_.previewOutlineVariantUsesAutoSelection_) {
         preview.remove("outline_variant");

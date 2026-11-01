@@ -57,14 +57,6 @@ AppTabPages {
             onMoved: function(v) { root.put("brightnessInner", Math.round(v)) }
         }
         LabeledSlider {
-            objectName: "previewFireworkBrightnessSlider"
-            label: root.labels.fireworkBrightness || ""
-            from: 50
-            to: 120
-            value: root.values.fireworkBrightness ?? 100
-            onMoved: function(v) { root.put("fireworkBrightness", Math.round(v)) }
-        }
-        LabeledSlider {
             objectName: "previewLayoutSquareScaleSlider"
             label: root.labels.layoutSquareScale || ""
             from: root.values.layoutSquareScaleMin || 50
@@ -238,6 +230,22 @@ AppTabPages {
                 Accessible.name: qsTrId("dialog.skin_settings.chart_effect")
                 onActivated: if (root.previewSettings) root.previewSettings.skinJudgeEffectIndex = currentIndex
             }
+        }
+
+        LabeledCombo {
+            objectName: "previewFireworkStyleCombo"
+            label: root.labels.fireworkStyle || ""
+            options: root.previewSettings ? root.previewSettings.fireworkStyleOptions : []
+            currentValue: root.values.fireworkStyle ?? 0
+            onPicked: function(value) { root.put("fireworkStyle", value) }
+        }
+        LabeledSlider {
+            objectName: "previewFireworkBrightnessSlider"
+            label: root.labels.fireworkBrightness || ""
+            from: 50
+            to: 120
+            value: root.values.fireworkBrightness ?? 100
+            onMoved: function(v) { root.put("fireworkBrightness", Math.round(v)) }
         }
 
         RowLayout {

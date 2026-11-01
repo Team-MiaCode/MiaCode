@@ -21,13 +21,14 @@ layout(std140, binding = 0) uniform buf {
     vec4 timing;
     vec4 glowFields[22];
     vec4 starsUvTransform;
-    vec4 brightnessControls;
+    vec4 brightnessAndPatternOffset;
 };
 
 const float kBrightBlockSpeed = 1.73;
 const float kSectorSpanDegrees = 12.0;
 const float kSectorStepDegrees = 24.0;
 const float kSectorPhaseDegrees = -106.0;
+const vec2 kPatternGridCount = vec2(64.0, 128.0);
 const int kRenderFlagDrawStripe = 0x1;
 const int kRenderFlagDrawBigBall = 0x2;
 const int kRenderFlagDrawSmallBall = 0x4;
@@ -88,6 +89,7 @@ float shortestAngleDistanceDegrees(float angleA, float angleB)
 
 float movingBallFieldMask(
     vec2 localPos,
+    float exitScale,
     float centerRadius,
     float trailingLength,
     float leadingLength,
@@ -95,13 +97,12 @@ float movingBallFieldMask(
 )
 {
     const float frameCount = 12.0;
-    vec2 gridSpacing = vec2(
-        max(6.0, playfieldRadius * 0.026),
-        max(6.0, playfieldRadius * 0.024)
-    );
-    vec2 gridCell = floor(localPos / gridSpacing + vec2(0.5));
-    vec2 ballCenter = gridCell * gridSpacing;
-    float ballCenterRadius = length(ballCenter);
+    // Match the standard effect's screen-aligned, playfield-anchored grid.
+    vec2 gridSpacing = (playfieldRadius * 2.0) / kPatternGridCount;
+    vec2 gridPosition = localPos * exitScale + brightnessAndPatternOffset.yz;
+    vec2 gridCell = floor(gridPosition / gridSpacing);
+    vec2 ballCenter = (gridCell + vec2(0.5)) * gridSpacing;
+    float ballCenterRadius = length((ballCenter - brightnessAndPatternOffset.yz) / exitScale);
     float blockLength = trailingLength + leadingLength;
     float body01 = clamp(
         (ballCenterRadius - (centerRadius - trailingLength)) / max(blockLength, 1.0),
@@ -113,7 +114,7 @@ float movingBallFieldMask(
     float frameIndex = floor(body01 * frameCount);
     // The inner of the two peak rows uses an extra-large circle tier.
     float ballRadiusScale = frameIndex == 7.0 ? 1.18 : 1.08;
-    vec2 cellUv = (localPos - ballCenter) / (gridSpacing.x * ballRadiusScale) + vec2(0.5);
+    vec2 cellUv = (gridPosition - ballCenter) / (gridSpacing * ballRadiusScale) + vec2(0.5);
     float cellInside = step(0.0, cellUv.x) * step(cellUv.x, 1.0)
         * step(0.0, cellUv.y) * step(cellUv.y, 1.0);
     vec2 atlasUv = vec2(cellUv.x, (frameIndex + cellUv.y) / frameCount);
@@ -261,9 +262,7 @@ vec4 sampleFirework(vec2 texCoord)
     // Evaluate derivatives before radial and sector branches.
     float pixelWidth = max(0.75, 0.5 * length(abs(dFdx(localPos)) + abs(dFdy(localPos))));
 
-    int diagnosticLayer = int(brightnessControls.y + 0.5);
-    if (diagnosticLayer == 7) diagnosticLayer = 0;
-    float fireworkBrightness = brightnessControls.x;
+    float fireworkBrightness = brightnessAndPatternOffset.x;
     // 120% is the reference appearance; 100% attenuates it for chart readability.
     float boost = clamp((fireworkBrightness - 1.0) / 0.20, 0.0, 1.0);
     float centerGain = min(fireworkBrightness, 1.0) * mix(0.96, 1.0, boost);
@@ -288,7 +287,7 @@ vec4 sampleFirework(vec2 texCoord)
         return vec4(0.0);
     }
     bool fireworkActive = hasRenderFlag(renderFlags, kRenderFlagDrawStripe);
-    bool drawFirework = fireworkActive && (diagnosticLayer == 0 || diagnosticLayer == 4);
+    bool drawFirework = fireworkActive;
     bool drawColorBallBig = hasRenderFlag(renderFlags, kRenderFlagDrawBigBall);
     bool drawColorBallSmall = hasRenderFlag(renderFlags, kRenderFlagDrawSmallBall);
     bool useTextureBall = hasRenderFlag(renderFlags, kRenderFlagUseTexture);
@@ -337,6 +336,7 @@ vec4 sampleFirework(vec2 texCoord)
             float secondBlockCenter = clipRadius * secondFront - blockLeadingLength;
             float firstBlock = movingBallFieldMask(
                 localPos,
+                exitScale,
                 firstBlockCenter,
                 blockTrailingLength,
                 blockLeadingLength + min(blockOutwardExtension, clipRadius * firstFront),
@@ -344,6 +344,7 @@ vec4 sampleFirework(vec2 texCoord)
             ) * smoothstep(0.10 - 5.0 / 30.0, 0.12 - 5.0 / 30.0, timing.w);
             float secondBlock = movingBallFieldMask(
                 localPos,
+                exitScale,
                 secondBlockCenter,
                 blockTrailingLength,
                 blockLeadingLength + min(blockOutwardExtension, clipRadius * secondFront),
@@ -371,7 +372,6 @@ vec4 sampleFirework(vec2 texCoord)
         }
     }
 
-    float clipTime = timing.x;
     // Keep the spokes connected during the burst, then open their centre as they fade.
     float burstEdge = 1.0 - smoothstep(clipRadius * 0.80, clipRadius, radius);
     vec4 layerColor = rayLayer * holeMask * burstEdge;
@@ -397,8 +397,7 @@ vec4 sampleFirework(vec2 texCoord)
     float lightReturn = lightRetirement * lightRetirement;
     float lightShrink = 1.0 - lightReturn;
 
-    if (fireworkActive && (diagnosticLayer == 0 || diagnosticLayer == 5)
-        && fireworkAlpha > 0.0 && lightShrink > 0.0) {
+    if (fireworkActive && fireworkAlpha > 0.0 && lightShrink > 0.0) {
         // Independent light emission: soft radiance with no filled spike boundary.
         float burstProgress = clamp((timing.w + 1.0 / 30.0) / 0.050, 0.0, 1.0);
         float outward = burstProgress * burstProgress * (3.0 - 2.0 * burstProgress);
@@ -435,11 +434,9 @@ vec4 sampleFirework(vec2 texCoord)
 
     vec4 stars = min(vec4(1.0), texture(starsSource, texCoord * starsUvTransform.zw + starsUvTransform.xy)
         * mix(1.0, 1.05, boost));
-    if (diagnosticLayer == 0 || diagnosticLayer == 6) {
-        layerColor = compositeSourceOver(stars, layerColor);
-    }
+    layerColor = compositeSourceOver(stars, layerColor);
 
-    if (drawColorBallBig && (diagnosticLayer == 0 || diagnosticLayer == 1 || diagnosticLayer == 3)) {
+    if (drawColorBallBig) {
         vec4 underBall = layerColor;
         float elapsed = timing.w + 1.0 / 30.0;
         float haloRetirement = smoothstep(0.10, 0.32, elapsed);
@@ -455,12 +452,10 @@ vec4 sampleFirework(vec2 texCoord)
             * smoothstep(0.60, 0.72, radius / haloRadius) * haloOpacity;
         float haloAlpha = haloStrength * mix(0.28, 0.34, boost)
             * min(fireworkBrightness, 1.0);
-        if (diagnosticLayer == 1) haloAlpha = 0.0;
         float haloCombinedAlpha = haloAlpha + layerColor.a * (1.0 - haloAlpha);
         layerColor = vec4(
             min(layerColor.rgb + haloTint * haloAlpha, vec3(haloCombinedAlpha)),
             haloCombinedAlpha);
-        if (diagnosticLayer == 0 || diagnosticLayer == 1) {
         float ballOpacity = colorBallBigAlpha * mix(0.90, 1.0, max(triggerPeak, boost));
         float triggerLightAlpha = 0.95 * min(fireworkBrightness, 1.0) * mix(0.80, 1.0, boost);
         float settled = bigColorBallFadeProgress();
@@ -481,15 +476,14 @@ vec4 sampleFirework(vec2 texCoord)
             emittedLight + ballUnderlay.rgb,
             ballUnderlay.a);
 
-        }
     }
-    if (drawColorBallSmall && (diagnosticLayer == 0 || diagnosticLayer == 2)) {
+    if (drawColorBallSmall) {
         float retirement = clamp(timing.x / 0.150, 0.0, 1.0);
         vec4 ball = sampleSoftColorBallLayer(
             localPos, colorBallRadius, colorBallAlpha, sourceAspect, useTextureBall, retirement);
         layerColor = compositeSourceOver(ball, layerColor);
     }
-    if (drawFallbackColorBall && (diagnosticLayer == 0 || diagnosticLayer == 1)) {
+    if (drawFallbackColorBall) {
         layerColor = compositeSourceOver(
             sampleColorBallLayer(localPos, fallbackColorBallRadius, fallbackColorBallAlpha, 1.0, false),
             layerColor
@@ -512,6 +506,5 @@ vec4 sampleFirework(vec2 texCoord)
 void main()
 {
     vec4 effect = sampleFirework(vTexCoord);
-    fragColor = int(brightnessControls.y + 0.5) == 7
-        ? vec4(vec3(effect.a), 1.0) * qt_Opacity : effect * qt_Opacity;
+    fragColor = effect * qt_Opacity;
 }

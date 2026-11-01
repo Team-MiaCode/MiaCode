@@ -50,7 +50,7 @@ inline constexpr double kFireworkWarmupLeadSeconds = 0.15;
 // of backward travel. The asymmetry is real and must not be flattened into one
 // symmetric threshold.
 inline constexpr double kFireworkWarmupForwardSlackSeconds =
-    miacode::preview_gameplay::kJudgeEffectFireworkDurationSeconds - kFireworkWarmupLeadSeconds;
+    miacode::preview_gameplay::kFireworkMaxDurationSeconds - kFireworkWarmupLeadSeconds;
 inline constexpr double kFireworkWarmupBackwardSlackSeconds = kFireworkWarmupLeadSeconds;
 
 // Re-centre once half the available slack in the travelled direction is used up.

@@ -18,7 +18,7 @@ layout(std140, binding = 0) uniform buf {
     vec4 timing;
     vec4 glowFields[22];
     vec4 starsUvTransform;
-    vec4 brightnessControls;
+    vec4 brightnessAndPatternOffset;
 };
 
 void main()
