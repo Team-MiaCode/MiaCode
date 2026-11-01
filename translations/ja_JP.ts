@@ -1649,6 +1649,18 @@ Failed: %2</source>
         <source>SD</source>
         <translation>SD</translation>
     </message>
+    <message id="dialog.skin_settings.firework">
+        <source>Firework effect</source>
+        <translation>花火エフェクト</translation>
+    </message>
+    <message id="dialog.skin_settings.firework.modern">
+        <source>Modern</source>
+        <translation>モダン</translation>
+    </message>
+    <message id="dialog.skin_settings.firework.standard">
+        <source>Standard</source>
+        <translation>標準</translation>
+    </message>
     <message id="dialog.render_settings.video.firework_brightness">
         <source>Firework brightness</source>
         <translation>花火の明るさ</translation>

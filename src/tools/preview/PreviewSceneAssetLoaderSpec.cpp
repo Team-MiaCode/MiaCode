@@ -531,8 +531,8 @@ bool verifyBundledJudgeEffects(QTextStream& err)
         return false;
     }
     if (!require(
-            !emptySkinResult.judgeEffectAssets.fireworkColorBallImage.isNull(),
-            QStringLiteral("bundled judge_effect_firework_color_ball.png did not load"),
+            !emptySkinResult.judgeEffectAssets.modernFireworkColorBallImage.isNull(),
+            QStringLiteral("bundled color_ball.png did not load"),
             err)) {
         return false;
     }
@@ -540,7 +540,7 @@ bool verifyBundledJudgeEffects(QTextStream& err)
     if (!saveDummyPng(dir.filePath(QStringLiteral("judge_effect_tap.png")), QSize(11, 13), err)) {
         return false;
     }
-    if (!saveDummyPng(dir.filePath(QStringLiteral("judge_effect_firework_color_ball.png")), QSize(15, 17), err)) {
+    if (!saveDummyPng(dir.filePath(QStringLiteral("color_ball.png")), QSize(15, 17), err)) {
         return false;
     }
 
@@ -553,8 +553,8 @@ bool verifyBundledJudgeEffects(QTextStream& err)
         return false;
     }
     return require(
-        !skinOverrideResult.judgeEffectAssets.fireworkColorBallImage.isNull(),
-        QStringLiteral("skin-level judge_effect_firework_color_ball.png unexpectedly overrode bundled resource"),
+        !skinOverrideResult.judgeEffectAssets.modernFireworkColorBallImage.isNull(),
+        QStringLiteral("skin-level color_ball.png unexpectedly overrode bundled resource"),
         err);
 }
 

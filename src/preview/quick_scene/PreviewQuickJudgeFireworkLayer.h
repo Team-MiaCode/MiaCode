@@ -23,6 +23,6 @@ public:
         PreviewTextureRepository* textures
     ) const;
 private:
-    mutable qint64 colorBallRadianceSourceKey_ = 0;
-    mutable QImage colorBallRadianceImage_;
+    mutable qint64 modernColorBallSourceKey_ = 0;
+    mutable QImage modernColorBallRadianceImage_;
 };

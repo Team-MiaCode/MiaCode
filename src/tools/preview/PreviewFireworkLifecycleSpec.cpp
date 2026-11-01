@@ -49,8 +49,8 @@ PreviewFrameState buildStateAt(qreal clipTimeSeconds)
 
     QImage colorBallImage(32, 32, QImage::Format_ARGB32_Premultiplied);
     colorBallImage.fill(qRgba(255, 255, 255, 255));
-    state.judgeEffect.fireworkColorBallImage = colorBallImage;
-    state.judgeEffect.fireworkColorBallSourceRect =
+    state.judgeEffect.modernFireworkColorBallImage = colorBallImage;
+    state.judgeEffect.modernFireworkColorBallSourceRect =
         QRectF(0.0, 0.0, colorBallImage.width(), colorBallImage.height());
     state.playheadSeconds = clipTimeSeconds;
     return state;

@@ -5,6 +5,7 @@
 #include "core/scene/PreviewSceneMath.h"
 
 #include <QtMath>
+#include <QHashFunctions>
 #include <array>
 
 namespace {
@@ -12,8 +13,8 @@ namespace {
 constexpr qreal kJudgeEffectFireworkMinSpriteWidthPixels = 1.0;
 constexpr qreal kJudgeEffectFireworkTouchTriggerDelaySeconds =
     miacode::preview_gameplay::kJudgeEffectFireworkTouchTriggerDelaySeconds;
-constexpr qreal kJudgeEffectFireworkDurationSeconds =
-    miacode::preview_gameplay::kJudgeEffectFireworkDurationSeconds;
+constexpr qreal kModernFireworkDurationSeconds =
+    miacode::preview_gameplay::kModernFireworkDurationSeconds;
 constexpr qreal kFireworkRotationDegreesPerSecond = 35.0;
 constexpr qreal kFireworkFrontLoad = 0.16;
 
@@ -121,6 +122,10 @@ PreviewJudgeFireworkLayerState buildPreviewJudgeFireworkLayerState(
 )
 {
     PreviewJudgeFireworkLayerState layerState;
+    const bool standard = state.render.fireworkStyle == PreviewFireworkStyle::Standard;
+    const qreal duration = standard
+        ? miacode::preview_gameplay::kStandardFireworkDurationSeconds
+        : kModernFireworkDurationSeconds;
 
     const TimelineNoteMarker* latestTriggerMarker = nullptr;
     qreal latestTriggerSecond = -1.0;
@@ -147,7 +152,7 @@ PreviewJudgeFireworkLayerState buildPreviewJudgeFireworkLayerState(
         }
 
         const qreal elapsedSeconds = static_cast<qreal>(state.playheadSeconds) - triggerSecond;
-        if (elapsedSeconds < 0.0 || elapsedSeconds > kJudgeEffectFireworkDurationSeconds) {
+        if (elapsedSeconds < 0.0 || elapsedSeconds > duration) {
             continue;
         }
         if (latestTriggerMarker == nullptr || triggerSecond >= latestTriggerSecond) {
@@ -163,11 +168,25 @@ PreviewJudgeFireworkLayerState buildPreviewJudgeFireworkLayerState(
     const qreal clipRadius = qMax<qreal>(1.0, mapLogicalLengthToRect(kLogicalCanvasCenter, playfieldRect));
 
     const qreal elapsedSeconds = static_cast<qreal>(state.playheadSeconds) - latestTriggerSecond;
-    const qreal elapsedClipTime = qBound<qreal>(0.0, elapsedSeconds, kJudgeEffectFireworkDurationSeconds);
+    const qreal elapsedClipTime = qBound<qreal>(0.0, elapsedSeconds, duration);
+    if (standard) {
+        layerState.active = true;
+        layerState.warmup = isFireworkWarmupMarker(*latestTriggerMarker);
+        layerState.center = layerState.warmup ? layerState.clipCenter
+            : mapLogicalPointToRect(latestTriggerMarker->touchPoint, playfieldRect);
+        layerState.clipRadius = clipRadius;
+        layerState.triggerSecond = latestTriggerSecond;
+        const quint64 seed = qHashMulti(size_t{0}, latestTriggerSecond,
+            latestTriggerMarker->touchPoint.x(), latestTriggerMarker->touchPoint.y());
+        layerState.randomSeed = quint32(seed ^ (seed >> 32));
+        layerState.clipTimeSeconds = elapsedClipTime;
+        layerState.fireworkBrightness = state.render.fireworkBrightness;
+        return layerState;
+    }
     // Advance the middle of the animation and preserve its start and end times.
     const qreal clipTime = elapsedClipTime + kFireworkFrontLoad * elapsedClipTime
-        * (1.0 - elapsedClipTime / kJudgeEffectFireworkDurationSeconds);
-    const qreal life01 = qBound<qreal>(0.0, clipTime / kJudgeEffectFireworkDurationSeconds, 1.0);
+        * (1.0 - elapsedClipTime / kModernFireworkDurationSeconds);
+    const qreal life01 = qBound<qreal>(0.0, clipTime / kModernFireworkDurationSeconds, 1.0);
     const qreal animationTime = miacode::preview_gameplay::judgeEffectFireworkAnimationTime(clipTime);
     const qreal fireworkScale = sampleScalarCurve(kJudgeEffectFireworkScaleKeys, clipTime);
     const qreal fireworkAlpha = sampleScalarCurve(kJudgeEffectFireworkAlphaKeys, clipTime);
@@ -189,7 +208,7 @@ PreviewJudgeFireworkLayerState buildPreviewJudgeFireworkLayerState(
     const qreal colorBallBigRadius = clipRadius * colorBallBigScale;
     const qreal colorBallWidth = colorBallRadius * 2.0;
     const qreal colorBallBigWidth = colorBallBigRadius * 2.0;
-    const bool hasColorBallSprite = !state.judgeEffect.fireworkColorBallImage.isNull();
+    const bool hasColorBallSprite = !state.judgeEffect.modernFireworkColorBallImage.isNull();
     const bool drawFirework =
         fireworkScale > kRenderDurationEpsilon && fireworkAlpha > kRenderDurationEpsilon;
     const bool drawColorBall = hasColorBallSprite
@@ -241,8 +260,8 @@ PreviewJudgeFireworkLayerState buildPreviewJudgeFireworkLayerState(
     layerState.fallbackColorBallRadius = fallbackColorBallRadius;
     layerState.fallbackColorBallAlpha = fallbackColorBallAlpha;
     layerState.colorBallImage =
-        state.judgeEffect.fireworkColorBallImage.isNull() ? nullptr : &state.judgeEffect.fireworkColorBallImage;
-    layerState.colorBallSourceRect = state.judgeEffect.fireworkColorBallSourceRect;
+        state.judgeEffect.modernFireworkColorBallImage.isNull() ? nullptr : &state.judgeEffect.modernFireworkColorBallImage;
+    layerState.colorBallSourceRect = state.judgeEffect.modernFireworkColorBallSourceRect;
     return layerState;
 }
 

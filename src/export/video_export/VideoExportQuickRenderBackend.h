@@ -43,6 +43,7 @@ public:
     void setBackgroundBrightnessInner(double brightness);
     void setLayoutSquareScale(double scale);
     void setFireworkBrightness(double brightness);
+    void setFireworkStyle(PreviewFireworkStyle style);
     void setSmoothBrightness(bool smooth);
     void setOutlineVariant(PreviewOutlineVariant variant);
     void setBackgroundScaleMode(PreviewBackgroundScaleMode mode);

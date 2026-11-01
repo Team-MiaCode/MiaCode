@@ -113,6 +113,7 @@ QVariantMap PreviewSettingsModel::labels() const
         {QStringLiteral("brightnessOuter"), text("dialog.render_settings.video.brightness_outer")},
         {QStringLiteral("brightnessInner"), text("dialog.render_settings.video.brightness_inner")},
         {QStringLiteral("fireworkBrightness"), text("dialog.render_settings.video.firework_brightness")},
+        {QStringLiteral("fireworkStyle"), text("dialog.skin_settings.firework")},
         {QStringLiteral("layoutSquareScale"), text("dialog.render_settings.video.layout_square_scale")},
         {QStringLiteral("scaleMode"), text("dialog.render_settings.video.scale_mode")},
         {QStringLiteral("smoothBrightness"), text("dialog.render_settings.video.smooth_brightness")},
@@ -247,6 +248,14 @@ int PreviewSettingsModel::skinIndex() const
         }
     }
     return names.isEmpty() ? -1 : 0;
+}
+
+QVariantList PreviewSettingsModel::fireworkStyleOptions() const
+{
+    return {
+        option(static_cast<int>(PreviewFireworkStyle::Standard), "dialog.skin_settings.firework.standard"),
+        option(static_cast<int>(PreviewFireworkStyle::Modern), "dialog.skin_settings.firework.modern"),
+    };
 }
 
 QVariantList PreviewSettingsModel::skinJudgeEffectOptions() const

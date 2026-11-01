@@ -36,6 +36,7 @@ class PreviewSettingsModel final : public QObject
     Q_PROPERTY(QString skinGroupLabel READ skinGroupLabel NOTIFY localeLabelsChanged)
     // [{ value, label }] for the four dropdowns.
     Q_PROPERTY(QVariantList scaleModeOptions READ scaleModeOptions NOTIFY localeLabelsChanged)
+    Q_PROPERTY(QVariantList fireworkStyleOptions READ fireworkStyleOptions NOTIFY localeLabelsChanged)
     Q_PROPERTY(QVariantList slideStackOrderOptions READ slideStackOrderOptions NOTIFY localeLabelsChanged)
     Q_PROPERTY(QVariantList centerDisplayOptions READ centerDisplayOptions NOTIFY localeLabelsChanged)
     Q_PROPERTY(QVariantList tapJudgeTextDistanceOptions READ tapJudgeTextDistanceOptions NOTIFY localeLabelsChanged)
@@ -77,6 +78,7 @@ public:
     QString gameplayGroupLabel() const;
     QString skinGroupLabel() const;
     QVariantList scaleModeOptions() const;
+    QVariantList fireworkStyleOptions() const;
     QVariantList slideStackOrderOptions() const;
     QVariantList centerDisplayOptions() const;
     QVariantList tapJudgeTextDistanceOptions() const;

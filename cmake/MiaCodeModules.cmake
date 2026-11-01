@@ -166,6 +166,8 @@ miacode_add_module(miacode_scene
         src/core/scene/PreviewJudgeEffectLayerState.h
         src/core/scene/PreviewJudgeFireworkLayerState.cpp
         src/core/scene/PreviewJudgeFireworkLayerState.h
+        src/core/scene/PreviewStandardFirework.cpp
+        src/core/scene/PreviewStandardFirework.h
         src/core/scene/PreviewJudgeOverlayShared.cpp
         src/core/scene/PreviewJudgeOverlayShared.h
         src/core/scene/PreviewLayerOrder.h
@@ -399,10 +401,12 @@ miacode_add_module(miacode_preview_quick
         src/preview/quick_scene/PreviewQuickHudLayer.h
         src/preview/quick_scene/PreviewQuickJudgeEffectLayer.cpp
         src/preview/quick_scene/PreviewQuickJudgeEffectLayer.h
-        src/preview/quick_scene/PreviewFireworkPostProcess.cpp
-        src/preview/quick_scene/PreviewFireworkPostProcess.h
+        src/preview/quick_scene/PreviewModernFireworkPostProcess.cpp
+        src/preview/quick_scene/PreviewModernFireworkPostProcess.h
         src/preview/quick_scene/PreviewQuickJudgeFireworkLayer.cpp
         src/preview/quick_scene/PreviewQuickJudgeFireworkLayer.h
+        src/preview/quick_scene/PreviewStandardFireworkNode.cpp
+        src/preview/quick_scene/PreviewStandardFireworkNode.h
         src/preview/quick_scene/PreviewQuickMaimuriDxJudgeLayer.cpp
         src/preview/quick_scene/PreviewQuickMaimuriDxJudgeLayer.h
         src/preview/quick_scene/PreviewQuickMuriActionLayer.cpp
@@ -463,11 +467,15 @@ qt_add_shaders(miacode_preview_quick "preview_sprite_shaders"
         src/preview/quick_scene/shaders/PreviewSpriteMaterial.frag
         src/preview/quick_scene/shaders/PreviewStageDimMaterial.vert
         src/preview/quick_scene/shaders/PreviewStageDimMaterial.frag
-        src/preview/quick_scene/shaders/PreviewFireworkMaterial.vert
-        src/preview/quick_scene/shaders/PreviewFireworkMaterial.frag
-        src/preview/quick_scene/shaders/PreviewFireworkPost.vert
-        src/preview/quick_scene/shaders/PreviewFireworkPost.frag
-        src/preview/quick_scene/shaders/PreviewFireworkStar.frag
+        src/preview/quick_scene/shaders/PreviewModernFireworkMaterial.vert
+        src/preview/quick_scene/shaders/PreviewModernFireworkMaterial.frag
+        src/preview/quick_scene/shaders/PreviewModernFireworkPost.vert
+        src/preview/quick_scene/shaders/PreviewModernFireworkPost.frag
+        src/preview/quick_scene/shaders/PreviewModernFireworkStar.frag
+        src/preview/quick_scene/shaders/PreviewStandardFirework.vert
+        src/preview/quick_scene/shaders/PreviewStandardFireworkSprite.frag
+        src/preview/quick_scene/shaders/PreviewStandardFireworkRainbow.frag
+        src/preview/quick_scene/shaders/PreviewStandardFireworkOutput.frag
 )
 qt_add_qml_module(miacode_preview_quick
     URI MiaCode.Preview

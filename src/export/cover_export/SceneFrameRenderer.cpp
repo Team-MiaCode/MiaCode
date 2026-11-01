@@ -64,6 +64,7 @@ bool SceneFrameRenderer::bootstrap(const VideoExportTask& task, QString* errorMe
     frameState_.render.layoutSquareScale =
         miacode::preview_video::normalizedLayoutSquareScale(task.layoutSquareScale);
     frameState_.render.fireworkBrightness = task.fireworkBrightness;
+    frameState_.render.fireworkStyle = task.fireworkStyle;
     frameState_.render.smoothBrightness = task.smoothBrightness;
     frameState_.render.backgroundScaleMode = task.backgroundScaleMode;
     frameState_.render.tapFlowSpeed =
