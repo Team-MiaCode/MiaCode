@@ -70,8 +70,7 @@ struct IntroBannerSpec {
     // card holds over the chart's own PV + music from pvPreviewStartSeconds
     // (chart second == media second) for the fixed kPvPreviewHoldSeconds, then
     // the cycle-2 wipe hands off. A chart without a video PV shows the crisp 曲绘.
-    // The style is a dialog preference; the start belongs to the chart and is
-    // read from its project preferences when the spec is built.
+    // The style and segment start are selected for each export.
     bool pvPreview = false;
     double pvPreviewStartSeconds = 0.0;
     // Background-only gain, independent of the chart's normal PV brightness.
@@ -181,6 +180,7 @@ inline void copyIntroStyling(const IntroBannerSpec& from, IntroBannerSpec* to)
     to->fontDisplayPath = from.fontDisplayPath;
     to->fontBodyPath = from.fontBodyPath;
     to->pvPreview = from.pvPreview;
+    to->pvPreviewStartSeconds = from.pvPreviewStartSeconds;
     to->pvPreviewBrightness = from.pvPreviewBrightness;
 }
 

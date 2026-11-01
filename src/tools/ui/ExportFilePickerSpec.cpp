@@ -33,6 +33,10 @@ namespace {
 class Engine final : public miacode::ExportEngine {
 public:
     VideoExportTask task;
+    VideoExportTask launchedTask;
+    bool launchSucceeds = false;
+    bool batchLaunchSucceeds = false;
+    BatchResult batchResult;
     int seeds = 0;
     VideoExportTask buildSeedTask(int) override { ++seeds; return task; }
     QList<int> difficultyIds() const override { return {4, 5}; }
@@ -42,9 +46,18 @@ public:
     bool startAudition(int, const VideoExportTask&) override { return false; }
     void clearAudition() override {}
     void stopAudition() override {}
-    bool launchVideoExport(const VideoExportTask&, int, QString*) override { return false; }
-    bool launchBatchExport(const VideoExportTask&, const QStringList&, const QList<int>&,
-                          const QString&, BatchResult*, const BatchCallbacks&, QString*) override { return false; }
+    bool launchVideoExport(const VideoExportTask& requested, int, QString*) override
+    {
+        launchedTask = requested;
+        return launchSucceeds;
+    }
+    bool launchBatchExport(const VideoExportTask& requested, const QStringList&, const QList<int>&,
+                          const QString&, BatchResult* result, const BatchCallbacks&, QString*) override
+    {
+        launchedTask = requested;
+        *result = batchResult;
+        return batchLaunchSucceeds;
+    }
     void cancelVideoExport() override {}
     MuriRenderOptions muriRenderOptions() const override { return {}; }
     double currentAudioClockSecond() const override { return 0; }
@@ -362,6 +375,75 @@ ApplicationWindow {
         session.enter(5);
         wait();
         expect(session.batchOutputDirectory().isEmpty(), "a cleared output does not revive v1's history");
+    }
+    {
+        auto preferences = miacode::app_preferences::loadDialogPreferences();
+        preferences.insert("add_intro", false);
+        preferences.insert("intro_style", "pv_preview");
+        preferences.insert("intro_pv_brightness", 0.35);
+        miacode::app_preferences::saveDialogPreferences(preferences);
+        seed.task.contentDurationSeconds = 120.0;
+        miacode::ui::ExportSession session(notifications, historyRequests, progress, appearance, seedSlot, preview);
+        session.enter(5);
+        wait();
+        expect(session.introEnabled() && !session.introPvPreview()
+                   && session.introPvStartSeconds() == 0.0,
+               "new export defaults to enabled classic intro and clears the PV range");
+        const auto selectIntro = [&] {
+            session.setIntroEnabled(true);
+            session.setIntroPvPreview(true);
+            session.setIntroPvStartSeconds(42.5);
+        };
+        selectIntro();
+        session.selectDifficulty(4);
+        expect(session.introEnabled() && session.introPvPreview() && session.introPvStartSeconds() == 42.5,
+               "changing difficulty preserves the pending intro selection");
+        session.startExport();
+        expect(session.introEnabled() && session.introPvPreview() && session.introPvStartSeconds() == 42.5,
+               "launch failure preserves the intro selection for retry");
+        seed.launchSucceeds = true;
+        session.startExport();
+        expect(seed.launchedTask.intro.enabled && seed.launchedTask.intro.pvPreview
+                   && seed.launchedTask.intro.pvPreviewStartSeconds == 42.5,
+               "export receives the selected intro and PV segment");
+        emit notifications.videoExportWorkerRunningChanged(false);
+        expect(session.introEnabled() && session.introPvStartSeconds() == 42.5,
+               "cancelled or failed worker preserves the intro selection");
+        session.startExport();
+        emit notifications.videoExportCompleted();
+        emit notifications.videoExportWorkerRunningChanged(false);
+        expect(session.introEnabled() && !session.introPvPreview() && session.introPvStartSeconds() == 0.0,
+               "successful export enables classic intro and resets PV mode and range");
+        expect(qAbs(session.introPvBrightness() - 0.35) < 1e-6,
+               "successful export retains PV brightness");
+        session.startExport();
+        expect(seed.launchedTask.intro.enabled && !seed.launchedTask.intro.pvPreview
+                   && seed.launchedTask.intro.pvPreviewStartSeconds == 0.0,
+               "next export defaults to classic intro and requires a new PV selection");
+        emit notifications.videoExportWorkerRunningChanged(false);
+        session.setIntroEnabled(false);
+        session.startExport();
+        expect(!seed.launchedTask.intro.enabled, "intro can still be disabled for the current export");
+        emit notifications.videoExportCompleted();
+        emit notifications.videoExportWorkerRunningChanged(false);
+        expect(session.introEnabled(), "successful export re-enables intro even when it was manually disabled");
+        session.setActiveTab("batch");
+        seed.batchLaunchSucceeds = true;
+        seed.batchResult.canceled = true;
+        selectIntro();
+        session.startExport();
+        expect(session.introEnabled() && session.introPvStartSeconds() == 42.5,
+               "batch cancellation before any success preserves intro selection");
+        seed.batchResult.canceled = false;
+        seed.batchResult.successCount = 2;
+        session.startExport();
+        expect(seed.launchedTask.intro.pvPreviewStartSeconds == 42.5
+                   && session.introEnabled() && !session.introPvPreview()
+                   && session.introPvStartSeconds() == 0.0,
+               "batch uses the chosen segment and resets intro selection after completion");
+        const auto saved = miacode::app_preferences::loadDialogPreferences();
+        expect(!saved.contains("add_intro") && !saved.contains("intro_style"),
+               "export does not persist intro enablement or PV mode");
     }
     miacode::FileRequest save;
     save.saveMode = true;

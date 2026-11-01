@@ -539,8 +539,6 @@ add_executable(MiaCode WIN32 MACOSX_BUNDLE
     src/app/services/ProjectPreferences.h
     src/app/services/ProjectPreferences.cpp
     src/app/services/ChartBannerData.h
-    src/app/services/ExportIntroPreferences.h
-    src/app/services/ExportIntroPreferences.cpp
     src/app/runtime/latency/LatencyAnalysis.h
     src/app/runtime/latency/LatencyAnalysis.cpp
     src/app/runtime/latency/LatencyTestChartBuilder.h

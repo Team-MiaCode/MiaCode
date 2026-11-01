@@ -4,7 +4,6 @@
 #include <QPointer>
 #include <QString>
 #include <QStringList>
-#include <QTimer>
 #include <QVariantList>
 
 #include "app/services/UiRequestService.h"
@@ -73,8 +72,7 @@ class ExportSession final : public QObject, public miacode::ExportPagePort
     Q_PROPERTY(bool introLevelTextRender READ introLevelTextRender WRITE setIntroLevelTextRender NOTIFY introChanged)
     Q_PROPERTY(QString introFontDisplayPath READ introFontDisplayPath WRITE setIntroFontDisplayPath NOTIFY introChanged)
     Q_PROPERTY(QString introFontBodyPath READ introFontBodyPath WRITE setIntroFontBodyPath NOTIFY introChanged)
-    // PV-preview intro style. The start is the chart's own (project preference)
-    // and is remembered per chart; the segment length is fixed.
+    // PV-preview selection is temporary for the next export; its length is fixed.
     Q_PROPERTY(bool introPvPreview READ introPvPreview WRITE setIntroPvPreview NOTIFY introChanged)
     Q_PROPERTY(double introPvStartSeconds READ introPvStartSeconds WRITE setIntroPvStartSeconds NOTIFY introChanged)
     Q_PROPERTY(double introPvBrightness READ introPvBrightness WRITE setIntroPvBrightness NOTIFY introChanged)
@@ -292,6 +290,7 @@ private:
     void stopAudition();
     void applyPreferences();
     void savePreferences() const;
+    void resetIntroSelection();
     void setUnavailableReason(const QString& reason);
     bool difficultyExists(int difficultyId) const;
     int resolveDefaultDifficultyId(int previousActiveDifficultyId) const;
@@ -345,13 +344,6 @@ private:
     // choice (auto/DX/SD) once preferences or the previous seed are applied.
     QString detectedIntroMode_ = QStringLiteral("Standard");
     double chartDurationSeconds_ = 0.0;
-    // Dragging the PV start writes the chart's project preferences once the
-    // drag settles; the path is captured with the value so a pending write can
-    // never land on the next chart.
-    QTimer introPvStartSaveTimer_;
-    QString pendingIntroPvStartChartPath_;
-    double pendingIntroPvStartSeconds_ = 0.0;
-    void flushIntroPvStart();
     bool introPvSegmentDragging_ = false;
     bool introAuditionLoop_ = false;
     bool introAuditionFromHead_ = true;
