@@ -46,6 +46,10 @@ inline constexpr PreviewRenderLayerFlags kPreviewAllRenderLayers =
 inline constexpr PreviewRenderLayerFlags kPreviewExportOverlayRenderLayers =
     kPreviewAllRenderLayers & ~StageBackgroundLayer;
 
+inline constexpr PreviewRenderLayerFlags kPreviewCoverRenderLayers =
+    kPreviewExportOverlayRenderLayers
+    & ~(JudgeFireworkLayer | JudgeLayer | JudgeTouchLayer | ChartReviewLayer | MaimuriDxJudgeLayer);
+
 inline constexpr PreviewRenderLayerFlags kPreviewSceneGraphFirstBatchLayers =
     StageBackgroundLayer
     | BackdropLayer

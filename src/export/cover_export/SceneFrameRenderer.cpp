@@ -122,7 +122,7 @@ bool SceneFrameRenderer::ensureWindow(QString* errorMessage)
     // content item gives it both its visual parent and QObject ownership.
     sceneRoot_ = new PreviewQuickSceneRoot(window_->contentItem());
     sceneRoot_->setZ(0.0);
-    sceneRoot_->setLayerFlags(miacode::preview::scene::kPreviewExportOverlayRenderLayers);
+    sceneRoot_->setLayerFlags(miacode::preview::scene::kPreviewCoverRenderLayers);
     sceneRoot_->setFrameState(&frameState_);
 
     sceneGraphReady_ = false;
