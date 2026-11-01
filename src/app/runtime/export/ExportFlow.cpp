@@ -2,6 +2,7 @@
 #include "app/runtime/Shared.h"
 #include "app/runtime/media/MediaJobsHost.h"
 #include "app/runtime/document/DocumentSessionHost.h"
+#include "app/runtime/playback/PlaybackCoordinator.h"
 #include "app/runtime/shell/ShellHost.h"
 
 #include "audio/QtPreviewSfxRuntime.h"
@@ -691,9 +692,7 @@ bool miacode::runtime::VideoExportHost::startQmlExportAudition(int difficultyId,
         || session_.scene_ == nullptr) {
         return false;
     }
-    if (session_.playing_) {
-        session_.onTogglePreviewPause();
-    }
+    session_.playback_->pausePlayback();
 
     beginExportPreviewSession(visualTask);
     const double aspectRatio =
@@ -739,6 +738,7 @@ bool miacode::runtime::VideoExportHost::launchQmlVideoExport(
     int difficultyId,
     QString* errorMessage)
 {
+    session_.playback_->pausePlayback();
     VideoExportTask task = requestedTask;
     applySharedExportTaskSettings(task);
     VideoExportSnapshot snapshot;
@@ -758,6 +758,7 @@ bool miacode::runtime::VideoExportHost::launchQmlBatchExport(
     const BatchExportCallbacks& callbacks,
     QString* errorMessage)
 {
+    session_.playback_->pausePlayback();
     VideoExportTask requestedTask = templateTask;
     applySharedExportTaskSettings(requestedTask);
     requestedTask.exportStartSeconds = 0.0;
