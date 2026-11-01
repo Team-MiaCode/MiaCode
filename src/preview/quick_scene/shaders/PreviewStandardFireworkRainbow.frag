@@ -126,11 +126,10 @@ void main() {
     r0.z=((vec4(r0.z)*vec4(1.0))).z;
     r0.y=((vec4(r0.y)*vec4(r0.z))).y;
     r0.x=((vec4(r0.x)*vec4(r0.y))).x;
-    r0.y=((vec4(cb0[11].z)*vec4(2.49899998e-01)+vec4(2.50000000e-01))).y;
-    r0.z=(((-vec4(r0.y))+vec4(r2.x))).z;
-    r0.y=(((-vec4(r0.y))+vec4(5.00000000e-01))).y;
-    r0.y=(((-vec4(r0.z))/vec4(r0.y))).y;
-    r0.y=(clamp((vec4(r0.y)+vec4(1.00000000e+00)),0.,1.)).y;
+    // Match Modern's burst feather in scene space, independently of sprite size.
+    r0.y = clipBounds.z > 0.0
+        ? 1.0 - smoothstep(clipBounds.y, clipBounds.z, distance(scenePosition, materialAndEdge.yz))
+        : 0.0;
     r0.x=((vec4(r0.y)*vec4(r0.x))).x;
     o0.w=((vec4(r0.x)*vec4(7.50000000e-01))).w;
     fragColor=vec4(o0.rgb*o0.a,o0.a)*qt_Opacity;

@@ -4,7 +4,6 @@ layout(location = 0) in vec2 vTexCoord;
 layout(location = 0) out vec4 fragColor;
 
 layout(binding = 1) uniform sampler2D source;
-layout(binding = 2) uniform sampler2D brightBlockMaskSource;
 layout(binding = 3) uniform sampler2D colorBallBigSource;
 layout(binding = 4) uniform sampler2D starsSource;
 
@@ -24,8 +23,8 @@ layout(std140, binding = 0) uniform buf {
     vec4 brightnessAndPatternOffset;
 };
 
-const float kBrightBlockSpeed = 1.73;
 const float kSectorSpanDegrees = 12.0;
+const float kCirclePatternInsetDegrees = 0.72;
 const float kSectorStepDegrees = 24.0;
 const float kSectorPhaseDegrees = -12.0;
 const vec2 kPatternGridCount = vec2(64.0, 128.0);
@@ -87,44 +86,25 @@ float shortestAngleDistanceDegrees(float angleA, float angleB)
     return abs(delta);
 }
 
-float movingBallFieldMask(
-    vec2 localPos,
-    float exitScale,
-    float centerRadius,
-    float trailingLength,
-    float leadingLength,
-    float playfieldRadius
-)
+float sampleCirclePattern(vec2 localPos, float exitScale)
 {
-    const float frameCount = 12.0;
-    // Match the standard effect's screen-aligned, playfield-anchored grid.
-    vec2 gridSpacing = (playfieldRadius * 2.0) / kPatternGridCount;
-    vec2 gridPosition = localPos * exitScale + brightnessAndPatternOffset.yz;
-    vec2 gridCell = floor(gridPosition / gridSpacing);
-    vec2 ballCenter = (gridCell + vec2(0.5)) * gridSpacing;
-    float ballCenterRadius = length((ballCenter - brightnessAndPatternOffset.yz) / exitScale);
-    float blockLength = trailingLength + leadingLength;
-    float body01 = clamp(
-        (ballCenterRadius - (centerRadius - trailingLength)) / max(blockLength, 1.0),
-        0.0,
-        0.9999
-    );
-    float radialInside = step(centerRadius - trailingLength, ballCenterRadius)
-        * step(ballCenterRadius, centerRadius + leadingLength);
-    float frameIndex = floor(body01 * frameCount);
-    // The inner of the two peak rows uses an extra-large circle tier.
-    float ballRadiusScale = frameIndex == 7.0 ? 1.18 : 1.08;
-    vec2 cellUv = (gridPosition - ballCenter) / (gridSpacing * ballRadiusScale) + vec2(0.5);
-    float cellInside = step(0.0, cellUv.x) * step(cellUv.x, 1.0)
-        * step(0.0, cellUv.y) * step(cellUv.y, 1.0);
-    vec2 atlasUv = vec2(cellUv.x, (frameIndex + cellUv.y) / frameCount);
-    return texture(brightBlockMaskSource, atlasUv).a * radialInside * cellInside;
-}
-
-float brightBlockTravel(float age)
-{
-    const float deceleration = 0.8;
-    return kBrightBlockSpeed * 1.25 * (1.0 - exp(-deceleration * age)) / deceleration;
+    // Sample Standard's radius and alpha curves on the unwarped burst clock.
+    float patternDiameter = timing.y;
+    if (patternDiameter <= 0.0) return 0.0;
+    vec2 position = localPos * exitScale;
+    float phase = fract(length(position) * 4.0 / patternDiameter - brightnessAndPatternOffset.w);
+    float envelope;
+    if (phase <= 0.80) {
+        envelope = phase * phase * 1.125 + 0.10;
+    } else if (phase <= 0.82) {
+        envelope = 1.0 - (phase - 0.80) * 25.0;
+    } else {
+        envelope = 0.50 - (phase - 0.82) * 2.77777767;
+    }
+    vec2 gridSpacing = (clipRadius * 2.0) / kPatternGridCount;
+    vec2 cell = fract((position + brightnessAndPatternOffset.yz) / gridSpacing) - vec2(0.5);
+    float circle = 1.0 - length(cell);
+    return clamp((circle * circle * envelope - 0.10) * 24.0 + 0.10, 0.0, 1.0);
 }
 
 float fireworkSectorCoverage(float angleDegrees, float sectorStartDegrees,
@@ -326,38 +306,18 @@ vec4 sampleFirework(vec2 texCoord)
             float sectorCenter = sectorStart + kSectorSpanDegrees * 0.5;
             float angularDistance = shortestAngleDistanceDegrees(angleDegrees, sectorCenter);
             float axial01 = 1.0 - smoothstep(0.0, kSectorSpanDegrees * 0.5, angularDistance);
-            float blockTrailingLength = clipRadius * 0.25;
-            float blockLeadingLength = clipRadius * 0.14;
-            float blockOutwardExtension = clipRadius * 0.055;
-            // Both waves start at the root and follow the same decelerating travel curve.
-            float firstFront = brightBlockTravel(max(0.0, timing.w - (0.12 - 5.0 / 30.0)));
-            float secondFront = min(0.78, brightBlockTravel(max(0.0, timing.w - (0.39 - 1.0 / 30.0))));
-            float firstBlockCenter = clipRadius * firstFront - blockLeadingLength;
-            float secondBlockCenter = clipRadius * secondFront - blockLeadingLength;
-            float firstBlock = movingBallFieldMask(
-                localPos,
-                exitScale,
-                firstBlockCenter,
-                blockTrailingLength,
-                blockLeadingLength + min(blockOutwardExtension, clipRadius * firstFront),
-                clipRadius
-            ) * smoothstep(0.12 - 5.0 / 30.0, 0.155 - 5.0 / 30.0, timing.w);
-            float secondBlock = movingBallFieldMask(
-                localPos,
-                exitScale,
-                secondBlockCenter,
-                blockTrailingLength,
-                blockLeadingLength + min(blockOutwardExtension, clipRadius * secondFront),
-                clipRadius
-            ) * smoothstep(0.39 - 1.0 / 30.0, 0.43 - 1.0 / 30.0, timing.w);
-            float brightBlockLight = max(firstBlock, secondBlock);
-            float colorRise = smoothstep(0.16, 0.34, timing.x);
+            // Standard leaves 0.03 of each 24-degree sector clear at either side.
+            float patternEdgeDistance = radians(kSectorSpanDegrees * 0.5
+                - kCirclePatternInsetDegrees - angularDistance) * radius;
+            float patternCoverage = smoothstep(-pixelWidth, pixelWidth, patternEdgeDistance);
+            float circleLight = sampleCirclePattern(localPos, exitScale) * patternCoverage;
+            float colorRise = smoothstep(0.16, 0.34, timing.w / 1.067);
             float radialTint = smoothstep(0.05, 1.0, fieldDistance);
             float saturation = mix(1.12, 0.98, radialTint) * mix(1.0, 1.04, colorRise);
             float brightness = mix(0.82, 0.94, boost);
             brightness *= mix(0.60, 1.14, radialTint);
             brightness *= mix(0.90, 1.04, axial01);
-            brightness *= mix(0.70, 1.05, brightBlockLight);
+            brightness *= mix(0.70, 1.05, circleLight);
             vec3 baseColor = cyclingSectorColor(sectorIndex);
             float baseLuma = dot(baseColor, vec3(0.2126, 0.7152, 0.0722));
             vec3 beamColor = mix(vec3(baseLuma), baseColor, saturation);
@@ -373,7 +333,8 @@ vec4 sampleFirework(vec2 texCoord)
     }
 
     // Keep the spokes connected during the burst, then open their centre as they fade.
-    float burstEdge = 1.0 - smoothstep(clipRadius * 0.80, clipRadius, radius);
+    float burstRadius = length(localPos * exitScale);
+    float burstEdge = 1.0 - smoothstep(clipRadius * 0.80, clipRadius, burstRadius);
     vec4 layerColor = rayLayer * holeMask * burstEdge;
     vec3 washEmission = vec3(0.0);
 
@@ -441,7 +402,7 @@ vec4 sampleFirework(vec2 texCoord)
         float elapsed = timing.w + 1.0 / 30.0;
         float haloRetirement = smoothstep(0.065, 0.24, elapsed);
         float haloOpacity = smoothstep(0.0, 0.033, elapsed) * 0.95 * (1.0 - haloRetirement);
-        float haloRadius = colorBallBigRadius * mix(1.0, 1.06, haloRetirement);
+        float haloRadius = timing.x * mix(1.0, 1.06, haloRetirement);
         vec2 haloPoint = localPos / max(radius, 1.0) * haloRadius * 0.72;
         vec4 halo = sampleColorBallLayer(
             haloPoint, haloRadius, 1.0, sourceAspect, useTextureBall);
@@ -478,7 +439,7 @@ vec4 sampleFirework(vec2 texCoord)
 
     }
     if (drawColorBallSmall) {
-        float retirement = clamp(timing.x / 0.180, 0.0, 1.0);
+        float retirement = clamp((timing.w + 1.0 / 30.0) / 0.350, 0.0, 1.0);
         vec4 ball = sampleSoftColorBallLayer(
             localPos, colorBallRadius, colorBallAlpha, sourceAspect, useTextureBall, retirement);
         layerColor = compositeSourceOver(ball, layerColor);

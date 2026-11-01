@@ -57,7 +57,7 @@ const std::array<ScalarCurveKey, 13> kJudgeEffectFireworkAlphaKeys = {{
     {1.1, 0},
 }};
 
-const std::array<ScalarCurveKey, 9> kJudgeEffectFireworkColorBallBigScaleKeys = {{
+const std::array<ScalarCurveKey, 9> kJudgeEffectFireworkHaloScaleKeys = {{
     {0, 0.44},
     {0.1, 0.460},
     {0.233, 0.490},
@@ -69,14 +69,45 @@ const std::array<ScalarCurveKey, 9> kJudgeEffectFireworkColorBallBigScaleKeys = 
     {0.95, 0.533},
 }};
 
-const std::array<ScalarCurveKey, 7> kJudgeEffectFireworkColorBallBigAlphaKeys = {{
+const std::array<ScalarCurveKey, 8> kJudgeEffectFireworkColorBallBigScaleKeys = {{
+    {0, 0.44},
+    {0.10, 0.474},
+    {0.20, 0.503},
+    {0.35, 0.538},
+    {0.53, 0.565},
+    {0.71, 0.584},
+    {0.90, 0.598},
+    {1.05, 0.605},
+}};
+
+const std::array<ScalarCurveKey, 9> kJudgeEffectFireworkColorBallBigAlphaKeys = {{
     {0, 0.95},
     {0.020, 0.70},
-    {0.065, 0.40},
-    {0.16, 0.32},
-    {0.4, 0.27},
-    {0.7, 0.14},
+    {0.065, 0.26},
+    {0.125, 0.14},
+    {0.328, 0.18},
+    {0.528, 0.25},
+    {0.710, 0.08},
+    {0.900, 0.025},
     {1.05, 0},
+}};
+
+const std::array<ScalarCurveKey, 6> kJudgeEffectFireworkColorBallSmallScaleKeys = {{
+    {0, 0.0},
+    {0.037, 0.16},
+    {0.100, 0.25},
+    {0.160, 0.28},
+    {0.240, 0.30},
+    {0.350, 0.32},
+}};
+
+const std::array<ScalarCurveKey, 6> kJudgeEffectFireworkColorBallSmallAlphaKeys = {{
+    {0, 0.90},
+    {0.042, 0.90},
+    {0.100, 0.38},
+    {0.142, 0.13},
+    {0.237, 0.028},
+    {0.350, 0.0},
 }};
 
 const std::array<ScalarCurveKey, 9> kJudgeEffectFireworkHoleKeys = {{
@@ -198,12 +229,10 @@ PreviewJudgeFireworkLayerState buildPreviewJudgeFireworkLayerState(
     const qreal fireworkScale = sampleScalarCurve(kJudgeEffectFireworkScaleKeys, clipTime);
     const qreal fireworkAlpha = sampleScalarCurve(kJudgeEffectFireworkAlphaKeys, clipTime);
     const qreal fireworkRotationDegrees = elapsedClipTime * kFireworkRotationDegreesPerSecond;
-    const qreal smallGrowth = qBound<qreal>(0.0, (clipTime - 1.0 / 30.0) / (0.240 - 1.0 / 30.0), 1.0);
-    const qreal smallRetirement = qBound<qreal>(0.0, clipTime / 0.180, 1.0);
-    const qreal colorBallScale = 0.200 + 0.040 * smallGrowth;
-    const qreal colorBallBigScale = sampleScalarCurve(kJudgeEffectFireworkColorBallBigScaleKeys, clipTime);
-    const qreal colorBallAlpha = 0.90 * (1.0 - smallRetirement * smallRetirement);
-    const qreal colorBallBigAlpha = sampleScalarCurve(kJudgeEffectFireworkColorBallBigAlphaKeys, clipTime);
+    const qreal colorBallScale = sampleScalarCurve(kJudgeEffectFireworkColorBallSmallScaleKeys, elapsedClipTime);
+    const qreal colorBallBigScale = sampleScalarCurve(kJudgeEffectFireworkColorBallBigScaleKeys, elapsedClipTime);
+    const qreal colorBallAlpha = sampleScalarCurve(kJudgeEffectFireworkColorBallSmallAlphaKeys, elapsedClipTime);
+    const qreal colorBallBigAlpha = sampleScalarCurve(kJudgeEffectFireworkColorBallBigAlphaKeys, elapsedClipTime);
     const qreal holeRadius = clipRadius * sampleScalarCurve(kJudgeEffectFireworkHoleKeys, clipTime);
     const qreal holeMaskRadius = holeRadius + clipRadius * 0.50;
     const bool warmup = isFireworkWarmupMarker(*latestTriggerMarker);
@@ -264,6 +293,7 @@ PreviewJudgeFireworkLayerState buildPreviewJudgeFireworkLayerState(
     layerState.colorBallBigAlpha = colorBallBigAlpha;
     layerState.colorBallRadius = colorBallRadius;
     layerState.colorBallBigRadius = colorBallBigRadius;
+    layerState.haloRadius = clipRadius * sampleScalarCurve(kJudgeEffectFireworkHaloScaleKeys, clipTime);
     layerState.fallbackColorBallRadius = fallbackColorBallRadius;
     layerState.fallbackColorBallAlpha = fallbackColorBallAlpha;
     layerState.colorBallImage =

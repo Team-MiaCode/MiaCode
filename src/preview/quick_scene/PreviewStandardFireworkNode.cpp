@@ -94,6 +94,8 @@ public:
     QPointF clipCenter;
     float clipRadius = 0.0f;
     float edgeFadeStart = 0.0f;
+    float burstFadeStart = 0.0f;
+    float burstFadeEnd = 0.0f;
 };
 
 bool StandardFireworkShader::updateUniformData(RenderState& state, QSGMaterial* value, QSGMaterial*)
@@ -112,7 +114,7 @@ bool StandardFireworkShader::updateUniformData(RenderState& state, QSGMaterial* 
     std::memcpy(data->data() + 64, renderParameters, sizeof(renderParameters));
     std::memcpy(data->data() + 80, patternRect, sizeof(patternRect));
     std::memcpy(data->data() + 96, materialAndEdge, sizeof(materialAndEdge));
-    const float clipBounds[] = {material->clipRadius, 0, 0, 0};
+    const float clipBounds[] = {material->clipRadius, material->burstFadeStart, material->burstFadeEnd, 0};
     std::memcpy(data->data() + 112, clipBounds, sizeof(clipBounds));
     return true;
 }
@@ -257,12 +259,22 @@ public:
         QSGTexture* ringColorTexture = textureForImage(assets.ringColorImage);
         // Keep the screen-aligned grid fixed when the window or burst origin moves.
         const double diameter = layerState.clipRadius * 2.0;
+        double burstRadius = 0.0;
+        for (const auto& sprite : sprites) {
+            if (sprite.material == PreviewStandardFireworkMaterial::Rainbow) {
+                burstRadius = qMin(layerState.clipRadius, sprite.diameter * diameter / 2000.0);
+                break;
+            }
+        }
         const double patternWidth = diameter * kFireworkPatternAspectRatio;
         const QRectF patternRect(layerState.clipCenter.x() - patternWidth * 0.5,
             layerState.clipCenter.y() - layerState.clipRadius, patternWidth, diameter);
         for (auto* batch : batches_) {
             auto& material = batch->material;
             material.patternRect = patternRect;
+            material.clipCenter = layerState.center;
+            material.burstFadeStart = float(burstRadius * 0.80);
+            material.burstFadeEnd = float(burstRadius);
             material.time = float(std::fmod(state.playheadSeconds, 1000.0));
             material.sourceTexture = material.kind == PreviewStandardFireworkMaterial::Ring ? ringMaskTexture
                 : material.kind == PreviewStandardFireworkMaterial::Rays ? raysTexture : starTexture;

@@ -41,6 +41,7 @@ class PreviewStandardFireworkEffect
 public:
     static std::shared_ptr<const PreviewStandardFireworkEffect> fromJson(const QByteArray& json);
     PreviewStandardFireworkBurst createBurst(quint32 seed) const;
+    PreviewStandardFireworkSprite sampleRainbow(double elapsedSeconds) const;
 
 private:
     struct Data;

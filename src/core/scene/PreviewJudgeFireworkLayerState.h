@@ -32,6 +32,7 @@ struct PreviewJudgeFireworkLayerState {
     qreal colorBallBigAlpha = 0.0;
     qreal colorBallRadius = 0.0;
     qreal colorBallBigRadius = 0.0;
+    qreal haloRadius = 0.0;
     qreal fallbackColorBallRadius = 0.0;
     qreal fallbackColorBallAlpha = 0.0;
     const QImage* colorBallImage = nullptr;

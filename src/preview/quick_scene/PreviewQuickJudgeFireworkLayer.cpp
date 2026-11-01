@@ -4,6 +4,7 @@
 #include "preview/quick_scene/PreviewTextureRepository.h"
 #include "preview/quick_scene/PreviewModernFireworkPostProcess.h"
 #include "core/scene/PreviewJudgeFireworkLayerState.h"
+#include "core/scene/PreviewStandardFirework.h"
 #include "core/scene/PreviewPreparedSceneCache.h"
 #include "core/scene/PreviewSceneGeometry.h"
 #include "core/video/PreviewVideoGeometryConfig.h"
@@ -165,14 +166,6 @@ QImage& fallbackModernFireworkTextureImage()
     return image;
 }
 
-QImage& modernFireworkBrightBlockImage()
-{
-    static QImage image(QStringLiteral(
-        ":/preview/fireworks/modern/bright_block.png"
-    ));
-    return image;
-}
-
 class ModernFireworkClipNode final : public QSGClipNode
 {
 public:
@@ -276,7 +269,6 @@ public:
 
     void setState(
         QSGTexture* texture,
-        QSGTexture* brightBlockTexture,
         QSGTexture* bigBallTexture,
         bool useTexture,
         float quadRadius,
@@ -296,14 +288,12 @@ public:
         float renderFlags,
         float sourceAspect,
         float clipTimeSeconds,
-        float life01,
         float paletteTimeSeconds,
         const std::array<ModernFireworkGlowField, kModernFireworkGlowFieldCount>& glowFields,
         const QRectF& sourceRectNormalized
     )
     {
         texture_ = texture;
-        brightBlockTexture_ = brightBlockTexture;
         bigBallTexture_ = bigBallTexture;
         useTexture_ = useTexture;
         quadRadius_ = quadRadius;
@@ -323,17 +313,17 @@ public:
         renderFlags_ = renderFlags;
         sourceAspect_ = sourceAspect;
         clipTimeSeconds_ = clipTimeSeconds;
-        life01_ = life01;
         paletteTimeSeconds_ = paletteTimeSeconds;
         glowFields_ = glowFields;
         sourceRectNormalized_ = sourceRectNormalized;
     }
 
     QSGTexture* texture() const { return texture_; }
-    QSGTexture* brightBlockTexture() const { return brightBlockTexture_; }
     QSGTexture* bigBallTexture() const { return bigBallTexture_; }
     std::array<float, 4> starsUvTransform{};
     std::array<float, 2> patternOffset{};
+    std::array<float, 2> patternWave{};
+    float haloRadius = 0.0f;
     QSGTexture* starsTexture() const { return starsTexture_; }
     void setStarsTexture(QSGTexture* texture) { starsTexture_ = texture; }
     bool useTexture() const { return useTexture_; }
@@ -354,7 +344,6 @@ public:
     float renderFlags() const { return renderFlags_; }
     float sourceAspect() const { return sourceAspect_; }
     float clipTimeSeconds() const { return clipTimeSeconds_; }
-    float life01() const { return life01_; }
     float paletteTimeSeconds() const { return paletteTimeSeconds_; }
     const std::array<ModernFireworkGlowField, kModernFireworkGlowFieldCount>& glowFields() const { return glowFields_; }
     QRectF sourceRectNormalized() const { return sourceRectNormalized_; }
@@ -362,7 +351,6 @@ public:
 private:
     QSGTexture* starsTexture_ = nullptr;
     QSGTexture* texture_ = nullptr;
-    QSGTexture* brightBlockTexture_ = nullptr;
     QSGTexture* bigBallTexture_ = nullptr;
     bool useTexture_ = false;
     float quadRadius_ = 0.0f;
@@ -382,7 +370,6 @@ private:
     float renderFlags_ = 0.0f;
     float sourceAspect_ = 1.0f;
     float clipTimeSeconds_ = 0.0f;
-    float life01_ = 0.0f;
     float paletteTimeSeconds_ = 0.0f;
     std::array<ModernFireworkGlowField, kModernFireworkGlowFieldCount> glowFields_{};
     QRectF sourceRectNormalized_;
@@ -438,8 +425,8 @@ bool ModernFireworkShader::updateUniformData(
         static_cast<float>(material->sourceRectNormalized().height())
     };
     const float timing[4] = {
-        material->clipTimeSeconds() / 1.067f,
-        material->life01(),
+        material->haloRadius,
+        material->patternWave[0],
         material->paletteTimeSeconds(),
         material->clipTimeSeconds()
     };
@@ -458,7 +445,7 @@ bool ModernFireworkShader::updateUniformData(
     std::memcpy(uniformData->data() + 160 + sizeof(ModernFireworkGlowField) * kModernFireworkGlowFieldCount,
         material->starsUvTransform.data(), sizeof(float) * 4);
     const float brightnessAndPatternOffset[4] = {material->fireworkBrightness(),
-        material->patternOffset[0], material->patternOffset[1], 0.0f};
+        material->patternOffset[0], material->patternOffset[1], material->patternWave[1]};
     std::memcpy(uniformData->data() + 176 + sizeof(ModernFireworkGlowField) * kModernFireworkGlowFieldCount,
         brightnessAndPatternOffset, sizeof(brightnessAndPatternOffset));
     return true;
@@ -474,13 +461,12 @@ void ModernFireworkShader::updateSampledImage(
 {
     Q_UNUSED(oldMaterial);
 
-    if ((binding != 1 && binding != 2 && binding != 3 && binding != 4) || texture == nullptr) {
+    if ((binding != 1 && binding != 3 && binding != 4) || texture == nullptr) {
         return;
     }
 
     const auto* material = static_cast<const ModernFireworkMaterial*>(newMaterial);
     *texture = binding == 1 ? material->texture()
-        : binding == 2 ? material->brightBlockTexture()
         : binding == 3 ? material->bigBallTexture() : material->starsTexture();
     if (*texture != nullptr) {
         (*texture)->commitTextureOperations(state.rhi(), state.resourceUpdateBatch());
@@ -536,8 +522,8 @@ public:
 
     void updateNode(
         const miacode::preview::scene::PreviewJudgeFireworkLayerState& layerState,
-        float paletteTimeSeconds,
-        QSGTexture* texture, QSGTexture* brightBlockTexture, QSGTexture* bigBallTexture,
+        float paletteTimeSeconds, const std::array<float, 2>& patternWave,
+        QSGTexture* texture, QSGTexture* bigBallTexture,
         bool useTexture, const QRectF& normalizedSourceRect, float sourceAspect, float smoothBlendStart)
     {
         if (layerState.triggerSecond != previousTriggerSecond_) {
@@ -598,11 +584,12 @@ public:
         postProcess_->update(bounds, stageBounds, layerState.clipRadius, exitScale, smoothBlendStart,
             modernFireworkStars(animationTime, layerState.clipRadius, starAngleSeed_));
 
+        material_->patternWave = patternWave;
+        material_->haloRadius = float(layerState.haloRadius);
         material_->patternOffset = {float(layerState.center.x() - layerState.clipCenter.x()),
             float(layerState.center.y() - layerState.clipCenter.y())};
         material_->setState(
             texture,
-            brightBlockTexture,
             bigBallTexture,
             useTexture,
             quadRadius,
@@ -623,7 +610,6 @@ public:
             sourceAspect,
             static_cast<float>(miacode::preview_gameplay::judgeEffectFireworkAnimationTime(
                 layerState.clipTimeSeconds)),
-            static_cast<float>(layerState.life01),
             paletteTimeSeconds,
             modernFireworkGlowFields(animationTime),
             normalizedSourceRect
@@ -834,15 +820,6 @@ QSGNode* PreviewQuickJudgeFireworkLayer::updateNode(
     }
     texture->setFiltering(QSGTexture::Linear);
 
-    QSGTexture* brightBlockTexture = textures->textureForImage(
-        modernFireworkBrightBlockImage(),
-        true
-    );
-    if (brightBlockTexture == nullptr) {
-        return nullptr;
-    }
-    brightBlockTexture->setFiltering(QSGTexture::Linear);
-
     const QImage& ballSource = useTexture ? *sourceImage : fallbackModernFireworkTextureImage();
     if (modernColorBallSourceKey_ != ballSource.cacheKey()) {
         modernColorBallRadianceImage_ = ballSource.convertToFormat(QImage::Format_ARGB32);
@@ -868,11 +845,17 @@ QSGNode* PreviewQuickJudgeFireworkLayer::updateNode(
         root->clipNode()->updateClip(layerState.clipCenter, layerState.clipRadius);
     }
 
+    const auto rainbow = state.judgeEffect.standardFirework.effect->sampleRainbow(
+        state.playheadSeconds - layerState.triggerSecond);
+    const std::array<float, 2> patternWave = {
+        float(rainbow.diameter * layerState.clipRadius * 2.0 / 1000.0),
+        2.0f * (1.0f - rainbow.color[3])
+    };
     root->ensureFireworkNode()->updateNode(
         layerState,
         static_cast<float>(std::fmod(state.playheadSeconds, 1000.0)),
+        patternWave,
         texture,
-        brightBlockTexture,
         bigBallTexture,
         useTexture,
         normalizedSourceRectFor(sourceImage, layerState.colorBallSourceRect),
