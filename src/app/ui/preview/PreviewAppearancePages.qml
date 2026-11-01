@@ -94,12 +94,6 @@ AppTabPages {
             onToggled: root.put("showTimestamp", checked)
         }
         AppSwitch {
-            objectName: "previewTouchPadAuthoringSwitch"
-            text: root.labels.touchPadAuthoringShortcut || ""
-            checked: root.values.touchPadAuthoringShortcut === true
-            onToggled: root.put("touchPadAuthoringShortcut", checked)
-        }
-        AppSwitch {
             objectName: "previewForceLabeledJudgeLineSwitch"
             text: root.labels.forceLabeledJudgeLineWhenPaused || ""
             checked: root.values.forceLabeledJudgeLineWhenPaused === true

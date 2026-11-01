@@ -858,6 +858,7 @@ Item {
         objectName: "shellPreferencesDialog"
         onCompletionSettingsClosed: splitView.sourceEditorItem.focusEditor()
         preferencesModel: root.preferencesModel
+        previewSettings: root.applicationContext.previewSettings
         shortcuts: root.shortcutModel
         preferences: root.preferences
         appBackground: root.appBackground
