@@ -9,13 +9,14 @@ ColumnLayout {
     required property var options
     required property string currentValue
     required property bool darkPalette
+    readonly property int minimumTileWidth: 144
     readonly property var paletteOptions: options.filter(function(option) {
         const theme = Theme.themeCatalog[option.value]
         return theme && theme.dark === root.darkPalette
     })
     signal picked(string value)
     Layout.fillWidth: true
-    spacing: 8
+    spacing: 6
 
     Text {
         text: root.label
@@ -26,10 +27,11 @@ ColumnLayout {
 
     GridLayout {
         Layout.fillWidth: true
-        columns: width >= 720 ? 4 : 2
+        columns: Math.max(1, Math.min(4,
+            Math.floor((width + columnSpacing) / (root.minimumTileWidth + columnSpacing))))
         uniformCellWidths: true
-        columnSpacing: 8
-        rowSpacing: 8
+        columnSpacing: 6
+        rowSpacing: 6
 
         Repeater {
             model: root.paletteOptions
@@ -39,9 +41,9 @@ ColumnLayout {
                 readonly property bool selected: root.currentValue === modelData.value
                 readonly property var previewColors: (Theme.themeCatalog[modelData.value] || Theme.themeCatalog.dark).colors
                 Layout.fillWidth: true
-                Layout.minimumWidth: 100
-                implicitHeight: 124
-                padding: 8
+                Layout.minimumWidth: root.minimumTileWidth
+                implicitHeight: 84
+                padding: 6
                 hoverEnabled: true
                 objectName: "themeTile_" + modelData.value
                 Accessible.role: Accessible.RadioButton
@@ -56,7 +58,7 @@ ColumnLayout {
                     border.color: tile.selected || tile.visualFocus ? tile.previewColors.accent.primary : tile.previewColors.border.normal
                 }
                 contentItem: ColumnLayout {
-                    spacing: 6
+                    spacing: 4
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
@@ -64,21 +66,21 @@ ColumnLayout {
                         color: tile.previewColors.background.surface
                         clip: true
                         Rectangle {
-                            width: 15
+                            width: 8
                             height: parent.height
-                            color: tile.previewColors.background.panel
+                            color: tile.previewColors.background.activityBar
                             Rectangle {
-                                width: 3
-                                height: 14
-                                y: 8
+                                width: 2
+                                height: 10
+                                y: 6
                                 color: tile.previewColors.accent.primary
                             }
                         }
                         Column {
-                            x: 24
-                            y: 7
-                            width: parent.width - x - 8
-                            spacing: 3
+                            x: 14
+                            y: 4
+                            width: parent.width - x - 6
+                            spacing: 2
                             Text {
                                 width: parent.width
                                 textFormat: Text.StyledText
@@ -97,7 +99,7 @@ ColumnLayout {
                                         + "<font color='" + syntax.duration + "'>[4:1]</font>,"
                                 }
                                 font.family: Theme.codeFont.family
-                                font.pixelSize: 12
+                                font.pixelSize: 11
                                 color: tile.previewColors.text.editor
                             }
                             Text {
