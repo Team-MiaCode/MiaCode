@@ -1871,8 +1871,8 @@
           "elevated": "#303849",
           "control": "#202532",
           "controlDisabled": "#303849",
-          "titleBar": "#442C49",
-          "activityBar": "#442C49",
+          "titleBar": "#171B25",
+          "activityBar": "#171B25",
           "statusBar": "#171B25"
         },
         "border": {
