@@ -127,7 +127,8 @@ bool VideoExportStageMediaSource::open(const QString& path, const QSize& outputS
         *errorMessage = decodeError("initialize export video decoder", status);
         return false;
     }
-    if (stream->start_time != AV_NOPTS_VALUE) {
+    // Match QAVDemuxer: timed streams retain their original presentation timeline.
+    if (stream->duration == AV_NOPTS_VALUE && stream->start_time != AV_NOPTS_VALUE) {
         d->startSecond = stream->start_time * av_q2d(stream->time_base);
     }
     const AVRational aspect = av_guess_sample_aspect_ratio(d->format, stream, nullptr);
