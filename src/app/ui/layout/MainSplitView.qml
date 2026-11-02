@@ -75,6 +75,7 @@ Item {
         && root.viewState.bottomPanelVisible && root.timelineSession.panelVisible
     readonly property bool exportVideoActive:
         root.pages.activePageId === "export"
+    readonly property bool previewAvailable: root.exportVideoActive || !root.viewState.netEditorActive
     readonly property real previewEditorAvailableWidth:
         Math.max(1, workspaceSplit.width - (previewHost.visible ? Theme.splitDividerThickness : 0))
     signal openRequested()
@@ -251,7 +252,7 @@ Item {
         parent: root.previewDetached ? detachedPreviewContent : previewHost
         anchors.fill: parent
         documentAvailable: root.documentSession.hasDocument
-        surfaceActive: !root.previewSurfaceMoving && (root.previewDetached || !root.viewState.netEditorActive)
+        surfaceActive: !root.previewSurfaceMoving && (root.previewDetached || root.previewAvailable)
         detached: root.previewDetached
         transportMirrored: root.preferencesModel.previewOnLeft && !root.previewDetached
         previewSession: root.previewSession
@@ -583,7 +584,7 @@ Item {
 
             Item {
                 id: previewHost
-                visible: !root.previewDetached && !root.viewState.netEditorActive
+                visible: !root.previewDetached && root.previewAvailable
                 SplitView.minimumWidth: previewWidthSnap.constrained
                     ? previewWidthSnap.targetSize : previewWidthSnap.minimumSize
                 SplitView.maximumWidth: previewWidthSnap.constrained
