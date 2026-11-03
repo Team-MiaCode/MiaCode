@@ -29,7 +29,7 @@ Rectangle {
         root.toolsRequested()
     }
 
-    color: Theme.chromeSurfaceColor(Theme.colors.background.activityBar, root.nativeMaterialActive)
+    color: Theme.chromeSurfaceColor(Theme.colors.background.panel, root.nativeMaterialActive)
     clip: true
 
     PanelHeader {

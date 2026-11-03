@@ -12,8 +12,8 @@
           "elevated": "#202122",
           "control": "#121314",
           "controlDisabled": "#202122",
-          "titleBar": "#222C35",
-          "activityBar": "#222C35",
+          "titleBar": "#121314",
+          "activityBar": "#121314",
           "statusBar": "#121314"
         },
         "border": {
@@ -181,8 +181,8 @@
           "elevated": "#FFFFFF",
           "control": "#FFFFFF",
           "controlDisabled": "#E5EAF0",
-          "titleBar": "#C7DCF5",
-          "activityBar": "#C7DCF5",
+          "titleBar": "#D9E7F8",
+          "activityBar": "#D9E7F8",
           "statusBar": "#526F98"
         },
         "border": {
@@ -255,7 +255,7 @@
         "activityIcon": {
           "active": "#405B80",
           "hover": "#526F98",
-          "idle": "#516177"
+          "idle": "#718197"
         },
         "popupState": {
           "hover": "#E5E9E1",
@@ -350,8 +350,8 @@
           "elevated": "#232B35",
           "control": "#171D24",
           "controlDisabled": "#202833",
-          "titleBar": "#25384F",
-          "activityBar": "#25384F",
+          "titleBar": "#171C23",
+          "activityBar": "#171C23",
           "statusBar": "#171C23"
         },
         "border": {
@@ -519,8 +519,8 @@
           "elevated": "#FFFFFF",
           "control": "#FFFFFF",
           "controlDisabled": "#F2F5F9",
-          "titleBar": "#C4DAF4",
-          "activityBar": "#C4DAF4",
+          "titleBar": "#F7F9FC",
+          "activityBar": "#F7F9FC",
           "statusBar": "#F7F9FC"
         },
         "border": {
@@ -540,7 +540,7 @@
           "onAccent": "#FFFFFF",
           "onDanger": "#FFFFFF",
           "status": "#5F6B7A",
-          "chrome": "#535F6E"
+          "chrome": "#5F6B7A"
         },
         "previewHud": {
           "text": "#203040",
@@ -593,7 +593,7 @@
         "activityIcon": {
           "active": "#2B3C4E",
           "hover": "#2E77D0",
-          "idle": "#4F6075"
+          "idle": "#5D6E83"
         },
         "popupState": {
           "hover": "#DBEAFF",
@@ -688,8 +688,8 @@
           "elevated": "#23324A",
           "control": "#141C2E",
           "controlDisabled": "#1B263B",
-          "titleBar": "#25446D",
-          "activityBar": "#25446D",
+          "titleBar": "#141C2E",
+          "activityBar": "#141C2E",
           "statusBar": "#141C2E"
         },
         "border": {
@@ -857,8 +857,8 @@
           "elevated": "#FAFDF9",
           "control": "#FAFDF9",
           "controlDisabled": "#E0EEE3",
-          "titleBar": "#C2E5CB",
-          "activityBar": "#C2E5CB",
+          "titleBar": "#D8E9DC",
+          "activityBar": "#D8E9DC",
           "statusBar": "#31785E"
         },
         "border": {
@@ -878,7 +878,7 @@
           "onAccent": "#FFFFFF",
           "onDanger": "#FFFFFF",
           "status": "#FFFFFF",
-          "chrome": "#4F6755"
+          "chrome": "#536B59"
         },
         "previewHud": {
           "text": "#2F3B4A",
@@ -931,7 +931,7 @@
         "activityIcon": {
           "active": "#22382A",
           "hover": "#22382A",
-          "idle": "#4F6755"
+          "idle": "#536B59"
         },
         "popupState": {
           "hover": "#D4E7D8",
@@ -1026,8 +1026,8 @@
           "elevated": "#FFFCF4",
           "control": "#FFFCF4",
           "controlDisabled": "#F1E8D8",
-          "titleBar": "#F6DDB4",
-          "activityBar": "#F6DDB4",
+          "titleBar": "#F1E3CF",
+          "activityBar": "#F1E3CF",
           "statusBar": "#94642E"
         },
         "border": {
@@ -1195,8 +1195,8 @@
           "elevated": "#FFFDFE",
           "control": "#FFFDFE",
           "controlDisabled": "#EEE7F6",
-          "titleBar": "#E8D5FF",
-          "activityBar": "#E8D5FF",
+          "titleBar": "#E8DEF4",
+          "activityBar": "#E8DEF4",
           "statusBar": "#77549B"
         },
         "border": {
@@ -1216,7 +1216,7 @@
           "onAccent": "#FFFFFF",
           "onDanger": "#FFFFFF",
           "status": "#FFFFFF",
-          "chrome": "#6A5B79"
+          "chrome": "#70617F"
         },
         "previewHud": {
           "text": "#2F3B4A",
@@ -1269,7 +1269,7 @@
         "activityIcon": {
           "active": "#352840",
           "hover": "#352840",
-          "idle": "#6A5B79"
+          "idle": "#70617F"
         },
         "popupState": {
           "hover": "#E3DCEB",
@@ -1364,8 +1364,8 @@
           "elevated": "#313244",
           "control": "#1E1E2E",
           "controlDisabled": "#313244",
-          "titleBar": "#3A315B",
-          "activityBar": "#3A315B",
+          "titleBar": "#181825",
+          "activityBar": "#181825",
           "statusBar": "#181825"
         },
         "border": {
@@ -1533,8 +1533,8 @@
           "elevated": "#CCD0DA",
           "control": "#EFF1F5",
           "controlDisabled": "#CCD0DA",
-          "titleBar": "#E1D8F7",
-          "activityBar": "#E1D8F7",
+          "titleBar": "#E6E9EF",
+          "activityBar": "#E6E9EF",
           "statusBar": "#E6E9EF"
         },
         "border": {
@@ -1702,8 +1702,8 @@
           "elevated": "#3B4252",
           "control": "#2E3440",
           "controlDisabled": "#3B4252",
-          "titleBar": "#354F66",
-          "activityBar": "#354F66",
+          "titleBar": "#272C36",
+          "activityBar": "#272C36",
           "statusBar": "#272C36"
         },
         "border": {
@@ -2042,8 +2042,8 @@
           "elevated": "#FFFDF3",
           "control": "#FFFDF3",
           "controlDisabled": "#F6EDCC",
-          "titleBar": "#F7E4A3",
-          "activityBar": "#F7E4A3",
+          "titleBar": "#F0E3B7",
+          "activityBar": "#F0E3B7",
           "statusBar": "#9C7115"
         },
         "border": {
@@ -2211,8 +2211,8 @@
           "elevated": "#FAFDFF",
           "control": "#FAFDFF",
           "controlDisabled": "#DFEFF7",
-          "titleBar": "#B9E2F7",
-          "activityBar": "#B9E2F7",
+          "titleBar": "#D4EAF5",
+          "activityBar": "#D4EAF5",
           "statusBar": "#28749A"
         },
         "border": {
@@ -2232,7 +2232,7 @@
           "onAccent": "#FFFFFF",
           "onDanger": "#FFFFFF",
           "status": "#FFFFFF",
-          "chrome": "#4D6473"
+          "chrome": "#566D7C"
         },
         "previewHud": {
           "text": "#2F3B4A",
@@ -2285,7 +2285,7 @@
         "activityIcon": {
           "active": "#233A49",
           "hover": "#233A49",
-          "idle": "#4D6473"
+          "idle": "#566D7C"
         },
         "popupState": {
           "hover": "#D1E7F2",
@@ -2380,8 +2380,8 @@
           "elevated": "#44475A",
           "control": "#282A36",
           "controlDisabled": "#44475A",
-          "titleBar": "#493158",
-          "activityBar": "#493158",
+          "titleBar": "#21222C",
+          "activityBar": "#21222C",
           "statusBar": "#21222C"
         },
         "border": {
@@ -2549,8 +2549,8 @@
           "elevated": "#292E42",
           "control": "#1A1B26",
           "controlDisabled": "#292E42",
-          "titleBar": "#293D68",
-          "activityBar": "#293D68",
+          "titleBar": "#161722",
+          "activityBar": "#161722",
           "statusBar": "#161722"
         },
         "border": {
