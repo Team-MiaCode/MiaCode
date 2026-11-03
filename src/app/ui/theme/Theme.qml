@@ -172,10 +172,18 @@ QtObject {
         return Qt.rgba(c.r, c.g, c.b, c.a * nativeMaterialTintOpacity)
     }
 
-    function chromeSurfaceColor(baseColor, materialActive = nativeMaterialActive) {
-        if (!materialActive)
-            return surfaceColor(baseColor)
-        return nativeMaterialColor(baseColor)
+    function chromeSurfaceColor(baseColor, materialActive = nativeMaterialActive, dimWallpaper = true) {
+        if (materialActive)
+            return nativeMaterialColor(baseColor)
+        const surface = surfaceColor(baseColor)
+        if (!backgroundActive || !dimWallpaper || surfaceOpacity === 0)
+            return surface
+        // Composite a black tint into chrome only, leaving content panels intact.
+        const c = Qt.color(surface)
+        const shade = (darkTheme ? 0.28 : 0.10) * Math.min(1, 2 * surfaceOpacity)
+        const alpha = c.a + (1 - c.a) * shade
+        const scale = c.a * (1 - shade) / alpha
+        return Qt.rgba(c.r * scale, c.g * scale, c.b * scale, alpha)
     }
 
     function chromeHighlightColor(amount) {

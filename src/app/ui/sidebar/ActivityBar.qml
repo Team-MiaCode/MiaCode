@@ -22,7 +22,7 @@ Rectangle {
     }
 
     implicitWidth: Theme.activityButtonSize
-    color: Theme.surfaceColor(Theme.colors.background.activityBar)
+    color: Theme.chromeSurfaceColor(Theme.colors.background.activityBar, false)
 
     Column {
         anchors.left: parent.left

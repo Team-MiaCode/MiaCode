@@ -12,7 +12,7 @@ Rectangle {
     readonly property alias cornerSourceItem: heading
     readonly property Item navigationContentItem: list
 
-    color: Theme.surfaceColor(Theme.colors.background.activityBar)
+    color: Theme.surfaceColor(Theme.colors.background.panel)
     clip: true
 
     PanelHeader {
