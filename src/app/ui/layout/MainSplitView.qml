@@ -688,7 +688,8 @@ Item {
                         : editorPane.cornerSourceItem
             panelOffset: Qt.point(0, 0)
             panelBackingColor: panelItem === editorPane.cornerSourceItem
-                ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
+                ? "transparent" : panelItem === sidebar.cornerSourceItem
+                    ? sidebar.panelColor : Theme.surfaceColor(Theme.colors.background.panel)
         }
 
         Rectangle {
@@ -717,7 +718,7 @@ Item {
             width: visible ? 20 : 0
             height: parent.height - y
             visible: !root.compact && root.preferences.efficientSidebarEnabled
-            color: Theme.chromeSurfaceColor(Theme.colors.background.panel)
+            color: Theme.sidebarSurfaceColor(Theme.colors.background.panel, Theme.nativeMaterialActive)
 
             IconButton {
                 id: sidebarToggleButton

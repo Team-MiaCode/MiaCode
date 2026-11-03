@@ -178,6 +178,15 @@ QtObject {
         return nativeMaterialColor(baseColor)
     }
 
+    function sidebarSurfaceColor(baseColor, materialActive = false) {
+        const surface = chromeSurfaceColor(baseColor, materialActive)
+        if (!backgroundActive)
+            return surface
+        const c = Qt.color(surface)
+        // Let more wallpaper through navigation than through the workspace.
+        return Qt.rgba(c.r, c.g, c.b, c.a * 0.65)
+    }
+
     function chromeHighlightColor(amount) {
         const c = Qt.color(activeTheme.colors.text.active)
         return Qt.tint(chromeHighlightBaseColor, Qt.rgba(c.r, c.g, c.b, amount))
