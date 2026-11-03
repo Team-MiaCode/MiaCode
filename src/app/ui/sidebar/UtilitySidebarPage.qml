@@ -11,7 +11,7 @@ Rectangle {
     readonly property alias cornerSourceItem: heading
     signal toolRequested(string toolId)
 
-    color: Theme.sidebarSurfaceColor(Theme.colors.background.panel)
+    color: Theme.surfaceColor(Theme.colors.background.panel)
     clip: true
 
     PanelHeader {

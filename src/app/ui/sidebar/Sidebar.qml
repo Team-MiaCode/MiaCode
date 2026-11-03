@@ -13,9 +13,6 @@ Item {
     property string pendingChartEditor: ""
     readonly property bool efficientMode: preferences.efficientSidebarEnabled
     readonly property bool primarySidebarVisible: compact || viewState.sidebarVisible
-    readonly property color panelColor: compact ? "transparent"
-        : Theme.sidebarSurfaceColor(Theme.colors.background.panel,
-                                    efficientMode && Theme.nativeMaterialActive)
     readonly property Item navigationItem: efficientMode ? efficientSidebar : activityBar
     readonly property Item chartSidebarItem: efficientMode
         ? efficientSidebar.navigationContentItem : chartSidebar.navigationContentItem
@@ -133,7 +130,7 @@ Item {
 
         ChartFieldSidebar {
             id: chartSidebar
-            color: root.panelColor
+            color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
             anchors.fill: parent
             visible: !root.efficientMode && root.viewState.activeSidebarView === "chart"
             enabled: root.documentSession.hasDocument
@@ -148,7 +145,8 @@ Item {
             anchors.fill: parent
             visible: root.efficientMode
             nativeMaterialActive: !root.compact && Theme.nativeMaterialActive
-            color: root.panelColor
+            color: root.compact ? "transparent"
+                : Theme.chromeSurfaceColor(Theme.colors.background.panel, Theme.nativeMaterialActive, false)
             viewState: root.viewState
             documentSession: root.documentSession
             commands: root.commands
@@ -179,7 +177,7 @@ Item {
 
         ExportSidebarPage {
             id: exportSidebar
-            color: root.panelColor
+            color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
             anchors.fill: parent
             visible: !root.efficientMode && root.viewState.activeSidebarView === "export"
             documentAvailable: root.documentSession.hasDocument
