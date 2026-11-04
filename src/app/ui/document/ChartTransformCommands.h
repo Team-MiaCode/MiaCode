@@ -6,6 +6,7 @@
 #include <QVector>
 
 #include <functional>
+#include <optional>
 
 namespace miacode::ui {
 
@@ -33,6 +34,7 @@ struct ChartTransformSpec {
     // Menu grouping, matching the Widgets 调整 menu the QML one replaces:
     // 0 mirrors and rotations, 1 subdivision steps, 2 一键清空, 3 inside 更多.
     int section = 0;
+    std::optional<chart_transform::SubdivisionStep> subdivisionStep;
 };
 
 inline QVector<ChartTransformSpec> chartTransformSpecs()
@@ -72,16 +74,16 @@ inline QVector<ChartTransformSpec> chartTransformSpecs()
          QStringLiteral("action.transform.rotate_cw_45"), 0},
         {QStringLiteral("transform.subdivision_up"),
          withContext(&transform::raiseSubdivisionForSelection),
-         QStringLiteral("document.subdivision_plus_1"), 1},
+         QStringLiteral("document.subdivision_plus_1"), 1, transform::SubdivisionStep::Raise},
         {QStringLiteral("transform.subdivision_down"),
          withContext(&transform::lowerSubdivisionForSelection),
-         QStringLiteral("document.subdivision_minus_1"), 1},
+         QStringLiteral("document.subdivision_minus_1"), 1, transform::SubdivisionStep::Lower},
         {QStringLiteral("transform.subdivision_half_up"),
          withContext(&transform::raiseSubdivisionHalfStepForSelection),
-         QStringLiteral("document.subdivision_plus_half"), 1},
+         QStringLiteral("document.subdivision_plus_half"), 1, transform::SubdivisionStep::RaiseHalfStep},
         {QStringLiteral("transform.subdivision_half_down"),
          withContext(&transform::lowerSubdivisionHalfStepForSelection),
-         QStringLiteral("document.subdivision_minus_half"), 1},
+         QStringLiteral("document.subdivision_minus_half"), 1, transform::SubdivisionStep::LowerHalfStep},
         {QStringLiteral("transform.clear_complete_elements"),
          {},
          QStringLiteral("menu.clear_elements"), 2},

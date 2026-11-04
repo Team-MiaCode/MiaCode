@@ -80,6 +80,9 @@ public:
                     const LocalizedText& text,
                     const LocalizedText& details = QString());
 
+    // Transient feedback has its own presentation channel and no response.
+    void postToast(NoticeSeverity severity, const LocalizedText& text);
+
     // A yes/no question. The continuation runs once; declining and dismissing
     // are the same answer, so a caller can never mistake "closed the dialog"
     // for consent.
@@ -126,6 +129,7 @@ public:
     Q_INVOKABLE void submitChoiceResult(const QString& requestId, const QString& choiceId);
 
 signals:
+    void toastRequested(const QString& severity, const QString& text);
     void fileUpdated(const QString& requestId, const QVariantMap& request);
     void noticeUpdated(const QString& requestId, const QVariantMap& notice);
     void choiceUpdated(const QString& requestId, const QVariantMap& request);

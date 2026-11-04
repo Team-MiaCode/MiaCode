@@ -37,6 +37,30 @@ struct SelectionContext {
     QString after;
 };
 
+enum class SubdivisionStep {
+    Raise,
+    Lower,
+    RaiseHalfStep,
+    LowerHalfStep,
+};
+
+enum class SubdivisionFailure {
+    None,
+    IncompatibleGrid,
+    SubdivisionLimit,
+};
+
+struct SubdivisionTransformResult {
+    QString text;
+    int changedCount = 0;
+    // Rejected rewrite units; accepted text with the same result stays quiet.
+    int skippedCount = 0;
+    SubdivisionFailure failure = SubdivisionFailure::None;
+};
+
+SubdivisionTransformResult transformSubdivisionSelection(
+    const QString& input, const SelectionContext& context, SubdivisionStep step);
+
 QString raiseSubdivisionForSelection(const QString& input, const SelectionContext& context, int* changedCount = nullptr);
 QString lowerSubdivisionForSelection(const QString& input, const SelectionContext& context, int* changedCount = nullptr);
 QString raiseSubdivisionHalfStepForSelection(const QString& input, const SelectionContext& context, int* changedCount = nullptr);
