@@ -9,7 +9,7 @@ Rectangle {
     property bool documentAvailable: true
     readonly property alias cornerSourceItem: heading
 
-    color: Theme.surfaceColor(Theme.colors.background.activityBar)
+    color: Theme.surfaceColor(Theme.colors.background.panel)
     clip: true
 
     PanelHeader {

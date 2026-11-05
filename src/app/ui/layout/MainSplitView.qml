@@ -717,7 +717,7 @@ Item {
             width: visible ? 20 : 0
             height: parent.height - y
             visible: !root.compact && root.preferences.efficientSidebarEnabled
-            color: Theme.chromeSurfaceColor(Theme.colors.background.activityBar)
+            color: Theme.chromeSurfaceColor(Theme.colors.background.panel)
 
             IconButton {
                 id: sidebarToggleButton
