@@ -70,7 +70,7 @@ Item {
             width: Theme.toastIconSize
             height: Theme.toastIconSize
             visible: root.hasErrorIcon
-            source: "../resources/icons/toast-error.svg"
+            source: Qt.resolvedUrl("icons/toast-error.svg")
             sourceSize: Theme.iconSourceSize(width, height)
             color: Theme.colors.danger.primary
         }
