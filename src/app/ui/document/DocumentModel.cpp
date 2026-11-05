@@ -2143,19 +2143,28 @@ miacode::editor::SimaiTextEditResult DocumentModel::transformChartSelection(
     result.transaction.anchor = anchor;
     result.transaction.position = position;
 
-    const int begin = qBound(0, qMin(anchor, position), text.size());
-    const int end = qBound(begin, qMax(anchor, position), text.size());
-    if (begin >= end) {
-        // Chart transforms target the selected range.
-        result.error = QStringLiteral("no_selection");
-        return result;
-    }
-
     const auto specs = miacode::ui::chartTransformSpecs();
     const auto spec = std::find_if(specs.cbegin(), specs.cend(),
                                    [&opId](const miacode::ui::ChartTransformSpec& candidate) {
                                        return candidate.id == opId;
                                    });
+    const auto postSubdivisionFailure = [&](const char* reasonKey, bool partial) {
+        if (uiRequests_ == nullptr || spec == specs.cend() || !spec->subdivisionStep) return;
+        uiRequests_->postToast(miacode::NoticeSeverity::Error,
+            miacode::localizedText(partial ? "toast.operation_partially_failed" : "toast.operation_failed")
+                .arg(miacode::localizedText(spec->labelKey.toUtf8().constData()),
+                     miacode::localizedText(reasonKey)));
+    };
+
+    const int begin = qBound(0, qMin(anchor, position), text.size());
+    const int end = qBound(begin, qMax(anchor, position), text.size());
+    if (begin >= end) {
+        // Chart transforms target the selected range.
+        result.error = QStringLiteral("no_selection");
+        postSubdivisionFailure("toast.selection_required", false);
+        return result;
+    }
+
     if (spec == specs.cend()) {
         result.error = QStringLiteral("unknown_transform");
         return result;
@@ -2164,7 +2173,23 @@ miacode::editor::SimaiTextEditResult DocumentModel::transformChartSelection(
     const QString selected = text.mid(begin, end - begin);
     int changed = 0;
     QString replacement;
-    if (spec->apply) {
+    if (spec->subdivisionStep) {
+        const auto transformed = miacode::chart_transform::transformSubdivisionSelection(
+            selected, {text.left(begin), text.mid(end)}, *spec->subdivisionStep);
+        replacement = transformed.text;
+        changed = transformed.changedCount;
+        if (transformed.skippedCount > 0) {
+            const bool partial = replacement != selected;
+            postSubdivisionFailure(
+                transformed.failure == miacode::chart_transform::SubdivisionFailure::SubdivisionLimit
+                    ? "toast.subdivision_limit" : "toast.subdivision_incompatible", partial);
+            miacode::debug_log::appendLine(miacode::debug_log::Channel::Operation,
+                QStringLiteral("Subdivision"),
+                QStringLiteral("operation=%1 changed=%2 skipped=%3 reason=%4")
+                    .arg(opId).arg(changed).arg(transformed.skippedCount).arg(int(transformed.failure)),
+                false, miacode::debug_log::Level::Warn);
+        }
+    } else if (spec->apply) {
         replacement = spec->apply(selected, {text.left(begin), text.mid(end)}, &changed);
     } else {
         const QString transformedFull =

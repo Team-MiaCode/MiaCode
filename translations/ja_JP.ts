@@ -3,6 +3,26 @@
 <TS version="2.1" language="ja_JP">
 <context>
     <name></name>
+    <message id="toast.operation_failed">
+        <source>%1 failed: %2.</source>
+        <translation>%1に失敗しました。%2。</translation>
+    </message>
+    <message id="toast.operation_partially_failed">
+        <source>%1 partially failed: %2.</source>
+        <translation>%1の一部に失敗しました。%2。</translation>
+    </message>
+    <message id="toast.selection_required">
+        <source>Select the chart text whose subdivision you want to adjust</source>
+        <translation>分音を調整する譜面テキストを選択してください</translation>
+    </message>
+    <message id="toast.subdivision_incompatible">
+        <source>The selected chart cannot be adjusted by this subdivision ratio</source>
+        <translation>選択した部分はこの分音比率で調整できません</translation>
+    </message>
+    <message id="toast.subdivision_limit">
+        <source>The subdivision value exceeds the supported range</source>
+        <translation>分音の値が対応範囲を超えています</translation>
+    </message>
     <message id="setup.completion_hint">
         <source>Customize completion candidates in Preferences.</source>
         <translation>補完候補リストは環境設定でカスタマイズできます。</translation>

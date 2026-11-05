@@ -130,7 +130,7 @@ Item {
 
         ChartFieldSidebar {
             id: chartSidebar
-            color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.activityBar)
+            color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
             anchors.fill: parent
             visible: !root.efficientMode && root.viewState.activeSidebarView === "chart"
             enabled: root.documentSession.hasDocument
@@ -145,7 +145,7 @@ Item {
             anchors.fill: parent
             visible: root.efficientMode
             nativeMaterialActive: !root.compact && Theme.nativeMaterialActive
-            color: root.compact ? "transparent" : Theme.chromeSurfaceColor(Theme.colors.background.activityBar)
+            color: root.compact ? "transparent" : Theme.chromeSurfaceColor(Theme.colors.background.panel)
             viewState: root.viewState
             documentSession: root.documentSession
             commands: root.commands
@@ -176,7 +176,7 @@ Item {
 
         ExportSidebarPage {
             id: exportSidebar
-            color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.activityBar)
+            color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
             anchors.fill: parent
             visible: !root.efficientMode && root.viewState.activeSidebarView === "export"
             documentAvailable: root.documentSession.hasDocument

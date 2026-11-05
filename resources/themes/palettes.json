@@ -12,8 +12,8 @@
           "elevated": "#202122",
           "control": "#121314",
           "controlDisabled": "#202122",
-          "titleBar": "#222C35",
-          "activityBar": "#222C35",
+          "titleBar": "#121314",
+          "activityBar": "#121314",
           "statusBar": "#121314"
         },
         "border": {

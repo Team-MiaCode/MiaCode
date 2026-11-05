@@ -664,6 +664,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/components/AppMenuItem.qml
     src/app/ui/components/AppMenuSeparator.qml
     src/app/ui/components/UiRequestHost.qml
+    src/app/ui/components/AppToast.qml
     src/app/ui/components/DialogFooter.qml
     src/app/ui/components/ChoiceDialog.qml
     src/app/ui/components/EditableValue.qml
@@ -807,6 +808,7 @@ set(MIACODE_UI_ICON_FILES
     src/app/ui/resources/icons/volume-2.svg
     src/app/ui/resources/icons/volume-x.svg
     src/app/ui/resources/icons/close.svg
+    src/app/ui/resources/icons/toast-error.svg
     src/app/ui/resources/icons/more.svg
     src/app/ui/resources/icons/metadata.svg
     src/app/ui/resources/icons/metronome.svg

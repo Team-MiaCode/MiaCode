@@ -809,7 +809,11 @@ bool ScintillaEditorBridge::applyEditorTransaction(const miacode::editor::SimaiT
         send(SCI_SCROLLCARET);
     }
     if (tx.hasEdit) textMutated();
-    else if (caretChanged) publishContext(!programmatic_);
+    else if (caretChanged) {
+        publishContext(!programmatic_);
+        if (controller_ && !programmatic_)
+            controller_->updateCompletion(document_.text(), cursorPosition());
+    }
     return true;
 }
 void ScintillaEditorBridge::acceptCompletionFromPopup()
