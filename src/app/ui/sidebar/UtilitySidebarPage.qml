@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls
 import MiaCode.UI
@@ -13,6 +15,24 @@ Rectangle {
 
     color: Theme.surfaceColor(Theme.colors.background.panel)
     clip: true
+
+    component ToolSectionHeader: Text {
+        width: parent.width
+        height: 30
+        leftPadding: 8
+        color: Theme.colors.text.secondary
+        font.family: Theme.uiFont
+        font.pixelSize: Theme.secondaryFontSize
+        font.bold: true
+        verticalAlignment: Text.AlignVCenter
+        elide: Text.ElideRight
+    }
+
+    component ToolRow: NavRow {
+        width: parent.width
+        textLeftPadding: 20
+        enabled: root.documentAvailable
+    }
 
     PanelHeader {
         id: heading
@@ -65,63 +85,35 @@ Rectangle {
                 visible: root.mode === "tools"
                 spacing: 2
 
-                Text {
-                    width: parent.width
-                    leftPadding: 8
-                    topPadding: 8
-                    bottomPadding: 4
+                ToolSectionHeader {
                     text: qsTrId("media_tools.audio_processing_track")
-                    color: Theme.colors.text.section
-                    font.family: Theme.uiFont
-                    font.pixelSize: Theme.secondaryFontSize
-                    font.weight: Font.DemiBold
-                    elide: Text.ElideRight
                 }
-                NavRow {
-                    width: parent.width
-                    enabled: root.documentAvailable
+                ToolRow {
                     text: qsTrId("media_tools.prepend_blank")
                     onClicked: root.toolRequested("prependTrack")
                 }
-                NavRow {
-                    width: parent.width
-                    enabled: root.documentAvailable
+                ToolRow {
                     text: qsTrId("media_tools.sample_rate_conversion")
                     onClicked: root.toolRequested("convertTrack")
                 }
-                Text {
-                    width: parent.width
-                    leftPadding: 8
-                    topPadding: 12
-                    bottomPadding: 4
+                ToolSectionHeader {
+                    height: 38
+                    topPadding: 8
                     text: qsTrId("media_tools.video_processing_pv")
-                    color: Theme.colors.text.section
-                    font.family: Theme.uiFont
-                    font.pixelSize: Theme.secondaryFontSize
-                    font.weight: Font.DemiBold
-                    elide: Text.ElideRight
                 }
-                NavRow {
-                    width: parent.width
-                    enabled: root.documentAvailable
+                ToolRow {
                     text: qsTrId("media_tools.prepend_pv_black_screen")
                     onClicked: root.toolRequested("prependPv")
                 }
-                NavRow {
-                    width: parent.width
-                    enabled: root.documentAvailable
+                ToolRow {
                     text: qsTrId("media_tools.align_pv_to_audio")
                     onClicked: root.toolRequested("alignPvToAudio")
                 }
-                NavRow {
-                    width: parent.width
-                    enabled: root.documentAvailable
+                ToolRow {
                     text: qsTrId("media_tools.pv_compress")
                     onClicked: root.toolRequested("compressVideo")
                 }
-                NavRow {
-                    width: parent.width
-                    enabled: root.documentAvailable
+                ToolRow {
                     text: qsTrId("media_tools.batch_compress")
                     onClicked: root.toolRequested("batchCompress")
                 }
