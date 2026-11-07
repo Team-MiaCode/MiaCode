@@ -4382,6 +4382,14 @@ Error: %1</source>
         <translation>タイムライン</translation>
     </message>
 
+    <message id="net.ui.query_options">
+        <source>Search options</source>
+        <translation>検索オプション</translation>
+    </message>
+    <message id="net.ui.queue_hint">
+        <source>Choose a chart folder and add it to the queue.</source>
+        <translation>譜面フォルダーを選び、キューに追加してください。</translation>
+    </message>
     <message id="net.ui.download_page">
         <source>Majdata Net</source>
         <translation>譜面ダウンロード</translation>

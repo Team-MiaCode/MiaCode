@@ -4382,6 +4382,14 @@ Error: %1</source>
         <translation>时间轴</translation>
     </message>
 
+    <message id="net.ui.query_options">
+        <source>Search options</source>
+        <translation>筛选选项</translation>
+    </message>
+    <message id="net.ui.queue_hint">
+        <source>Choose a chart folder and add it to the queue.</source>
+        <translation>选择谱面文件夹，添加到上传队列。</translation>
+    </message>
     <message id="net.ui.download_page">
         <source>Majdata Net</source>
         <translation>谱面下载</translation>

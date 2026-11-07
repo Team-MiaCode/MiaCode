@@ -4382,6 +4382,14 @@ Error: %1</translation>
         <translation>Timeline</translation>
     </message>
 
+    <message id="net.ui.query_options">
+        <source>Search options</source>
+        <translation>Search options</translation>
+    </message>
+    <message id="net.ui.queue_hint">
+        <source>Choose a chart folder and add it to the queue.</source>
+        <translation>Choose a chart folder and add it to the queue.</translation>
+    </message>
     <message id="net.ui.download_page">
         <source>Majdata Net</source>
         <translation>Chart download</translation>

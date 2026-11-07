@@ -22,6 +22,9 @@ public:
     virtual bool enterLatencyPage() = 0;
     virtual bool enterExportPage() = 0;
 
+    // Application tabs retain the chart preview and playback presentation.
+    virtual bool enterApplicationPage() { return false; }
+
     // Closing the final editor view leaves the document loaded while removing
     // its runtime presentation: transport, timeline, SFX and preview scene.
     virtual bool clearEditorPresentation() { return false; }

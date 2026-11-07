@@ -614,6 +614,8 @@ file(WRITE "${MIACODE_THEME_PALETTE_SCRIPT}" ".pragma library\nvar catalog = ${M
 set_source_files_properties("${MIACODE_THEME_PALETTE_SCRIPT}" PROPERTIES QT_RESOURCE_ALIAS "ThemePalettes.js")
 set(MIACODE_UI_QML_FILES
     src/app/ui/net/NetDownloadPage.qml
+    src/app/ui/net/NetFormField.qml
+    src/app/ui/net/NetPageButton.qml
     src/app/ui/net/NetUploadPage.qml
     src/app/ui/net/NetResultTable.qml
     src/app/ui/components/AppDateField.qml

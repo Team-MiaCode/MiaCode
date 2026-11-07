@@ -228,7 +228,6 @@ Item {
         anchors.bottom: parent.bottom
         visible: root.viewState.activeEditorKey === root.viewState.netDownloadEditorKey
         net: root.net
-        onCloseRequested: tabs.requestCloseTab(root.viewState.netDownloadEditorKey)
     }
 
     NetUploadPage {
@@ -238,7 +237,6 @@ Item {
         anchors.bottom: parent.bottom
         visible: root.pages.netUploadEnabled && root.viewState.activeEditorKey === root.viewState.netUploadEditorKey
         uploadModel: root.netUpload
-        onCloseRequested: tabs.requestCloseTab(root.viewState.netUploadEditorKey)
     }
 
     component DifficultyHeaderField: Item {

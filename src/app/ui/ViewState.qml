@@ -17,6 +17,7 @@ QtObject {
     property var openEditorTabs: []
     property var editorHistory: []
     property string activeEditorKey: ""
+    property string pendingApplicationCloseKey: ""
     property bool editorPresentationClearedByUser: false
     readonly property bool hasActiveEditor: activeEditorKey.length > 0
     readonly property bool metadataEditorActive: activeEditorKey === metadataEditorKey
@@ -91,28 +92,47 @@ QtObject {
             : 0
         if (difficultyId > 0 && requestDifficultyActivation !== false)
             difficultyEditorActivationRequested(difficultyId)
-        if (isNetEditor(key) && requestDifficultyActivation !== false)
+        if (isNetEditor(key) && requestDifficultyActivation !== false) {
             applicationEditorActivationRequested(key)
+            return
+        }
         activeEditorKey = key
     }
 
-    function activateEditor(key) {
+    function activateEditor(key, requestActivation) {
         if (!containsEditor(key))
             return
-        setActiveEditor(key)
-        recordEditorUse(key)
+        setActiveEditor(key, requestActivation)
+        if (activeEditorKey === key)
+            recordEditorUse(key)
     }
 
-    function openEditor(key) {
+    function openEditor(key, requestActivation) {
         if (key === netUploadEditorKey && !netUploadEnabled)
             return
+        if (isNetEditor(key) && requestActivation !== false) {
+            setActiveEditor(key, requestActivation)
+            return
+        }
         editorPresentationClearedByUser = false
         if (!containsEditor(key)) {
             const tabs = openEditorTabs.slice()
             tabs.push(key)
             openEditorTabs = tabs
         }
-        activateEditor(key)
+        activateEditor(key, requestActivation)
+    }
+
+    function confirmApplicationEditor(key) {
+        const closingKey = pendingApplicationCloseKey
+        pendingApplicationCloseKey = ""
+        openEditor(key, false)
+        if (closingKey.length > 0 && closingKey !== key && activeEditorKey === key)
+            closeEditor(closingKey)
+    }
+
+    function cancelApplicationEditorActivation() {
+        pendingApplicationCloseKey = ""
     }
 
     function openMetadataEditor() {
@@ -153,22 +173,29 @@ QtObject {
 
         const tabs = openEditorTabs.slice()
         tabs.splice(closingIndex, 1)
-        openEditorTabs = tabs
-        editorHistory = editorHistory.filter(item => item !== key)
-        editorClosed(key)
-
-        if (activeEditorKey !== key)
-            return
+        const history = editorHistory.filter(item => item !== key)
 
         let nextKey = ""
-        for (let index = editorHistory.length - 1; index >= 0; --index) {
-            if (tabs.indexOf(editorHistory[index]) >= 0) {
-                nextKey = editorHistory[index]
+        for (let index = history.length - 1; index >= 0; --index) {
+            if (tabs.indexOf(history[index]) >= 0) {
+                nextKey = history[index]
                 break
             }
         }
         if (nextKey.length === 0 && tabs.length > 0)
             nextKey = tabs[Math.min(closingIndex, tabs.length - 1)]
+        if (activeEditorKey === key && isNetEditor(nextKey)) {
+            pendingApplicationCloseKey = key
+            applicationEditorActivationRequested(nextKey)
+            return
+        }
+
+        openEditorTabs = tabs
+        editorHistory = history
+        editorClosed(key)
+        if (activeEditorKey !== key)
+            return
+
         setActiveEditor(nextKey)
         if (nextKey.length > 0) {
             recordEditorUse(nextKey)
@@ -179,6 +206,7 @@ QtObject {
     }
 
     function resetEditorTabs(currentDifficultyId) {
+        pendingApplicationCloseKey = ""
         editorPresentationClearedByUser = false
         const applicationTabs = openEditorTabs.filter(key => isNetEditor(key))
         const tabs = currentDifficultyId > 0

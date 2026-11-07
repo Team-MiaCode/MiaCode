@@ -584,8 +584,8 @@ Item {
         target: state
 
         function onApplicationEditorActivationRequested(key) {
-            if (root.pages.activePageId !== key)
-                root.pages.openNetPage(key)
+            if (!root.pages.openNetPage(key))
+                state.cancelApplicationEditorActivation()
         }
 
         function onActiveEditorKeyChanged() {
@@ -626,7 +626,7 @@ Item {
         }
 
         function onNetPageActivated(page) {
-            state.openEditor(page)
+            state.confirmApplicationEditor(page)
         }
 
         function onActivePageIdChanged() {
@@ -644,6 +644,7 @@ Item {
         }
 
         function onNavigationRejected() {
+            state.cancelApplicationEditorActivation()
             root.pendingDifficultyActivation = 0
             root.syncSidebarViewToPage()
         }

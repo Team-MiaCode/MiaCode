@@ -77,8 +77,6 @@ Item {
         if (viewId === "export" && root.documentSession.hasDocument) {
             root.pages.rememberEditorReturnTarget(root.viewState.activeEditorKey)
             root.pages.openVideoExportPage()
-        } else if (viewId === "network") {
-            root.pages.openNetPage("net-download")
         }
     }
 
