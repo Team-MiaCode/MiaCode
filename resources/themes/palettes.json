@@ -12,8 +12,8 @@
           "elevated": "#202122",
           "control": "#121314",
           "controlDisabled": "#202122",
-          "titleBar": "#121314",
-          "activityBar": "#121314",
+          "titleBar": "#0C0D0E",
+          "activityBar": "#0C0D0E",
           "statusBar": "#121314"
         },
         "border": {
@@ -350,8 +350,8 @@
           "elevated": "#232B35",
           "control": "#171D24",
           "controlDisabled": "#202833",
-          "titleBar": "#171C23",
-          "activityBar": "#171C23",
+          "titleBar": "#101419",
+          "activityBar": "#101419",
           "statusBar": "#171C23"
         },
         "border": {
@@ -688,8 +688,8 @@
           "elevated": "#23324A",
           "control": "#141C2E",
           "controlDisabled": "#1B263B",
-          "titleBar": "#141C2E",
-          "activityBar": "#141C2E",
+          "titleBar": "#0F1523",
+          "activityBar": "#0F1523",
           "statusBar": "#141C2E"
         },
         "border": {
@@ -1364,8 +1364,8 @@
           "elevated": "#313244",
           "control": "#1E1E2E",
           "controlDisabled": "#313244",
-          "titleBar": "#181825",
-          "activityBar": "#181825",
+          "titleBar": "#11111B",
+          "activityBar": "#11111B",
           "statusBar": "#181825"
         },
         "border": {
@@ -1702,8 +1702,8 @@
           "elevated": "#3B4252",
           "control": "#2E3440",
           "controlDisabled": "#3B4252",
-          "titleBar": "#272C36",
-          "activityBar": "#272C36",
+          "titleBar": "#20242C",
+          "activityBar": "#20242C",
           "statusBar": "#272C36"
         },
         "border": {
@@ -1871,8 +1871,8 @@
           "elevated": "#303849",
           "control": "#202532",
           "controlDisabled": "#303849",
-          "titleBar": "#171B25",
-          "activityBar": "#171B25",
+          "titleBar": "#10131A",
+          "activityBar": "#10131A",
           "statusBar": "#171B25"
         },
         "border": {
@@ -2380,8 +2380,8 @@
           "elevated": "#44475A",
           "control": "#282A36",
           "controlDisabled": "#44475A",
-          "titleBar": "#21222C",
-          "activityBar": "#21222C",
+          "titleBar": "#191A22",
+          "activityBar": "#191A22",
           "statusBar": "#21222C"
         },
         "border": {
@@ -2549,8 +2549,8 @@
           "elevated": "#292E42",
           "control": "#1A1B26",
           "controlDisabled": "#292E42",
-          "titleBar": "#161722",
-          "activityBar": "#161722",
+          "titleBar": "#101119",
+          "activityBar": "#101119",
           "statusBar": "#161722"
         },
         "border": {
