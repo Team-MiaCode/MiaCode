@@ -25,7 +25,7 @@ Item {
     function preferredWidthForKey(key) {
         const title = (documentSession.dirtyEditorKeys.indexOf(key) >= 0 ? "*" : "") + titleForKey(key)
         const iconWidth = difficultyIdForKey(key) > 0 ? Theme.difficultySwatchSize
-            : key === viewState.metadataEditorKey || key === viewState.latencyEditorKey ? 15 : 0
+            : iconForKey(key).toString().length > 0 ? 15 : 0
         return Math.max(minimumTabWidth,
             Math.ceil(tabFontMetrics.advanceWidth(title) + 14 + 9 + 24 + 6 + (iconWidth > 0 ? iconWidth + 6 : 0)))
     }
@@ -96,6 +96,19 @@ Item {
             return qsTrId("qml.latency_calibration")
         const difficulty = difficultyData(difficultyIdForKey(key))
         return difficulty ? difficulty.label : qsTrId("dialog.batch_export.difficulty")
+    }
+
+    function iconForKey(key, filled = false) {
+        const suffix = filled ? "-fill.svg" : ".svg"
+        if (key === viewState.netDownloadEditorKey)
+            return Qt.resolvedUrl("icons/download" + suffix)
+        if (key === viewState.netUploadEditorKey)
+            return Qt.resolvedUrl("icons/upload" + suffix)
+        if (key === viewState.metadataEditorKey)
+            return Qt.resolvedUrl("icons/metadata" + suffix)
+        if (key === viewState.latencyEditorKey)
+            return Qt.resolvedUrl("icons/metronome" + suffix)
+        return ""
     }
 
     function tooltipForKey(key) {
@@ -266,15 +279,9 @@ Item {
                     text: (root.documentSession.dirtyEditorKeys.indexOf(modelData) >= 0 ? "*" : "")
                           + root.titleForKey(modelData)
                     secondaryText: ""
-                    iconSource: modelData === root.viewState.metadataEditorKey
-                        ? Qt.resolvedUrl("icons/metadata.svg")
-                        : modelData === root.viewState.latencyEditorKey
-                            ? Qt.resolvedUrl("icons/metronome.svg") : ""
+                    iconSource: root.iconForKey(modelData)
                     difficultyId: root.difficultyIdForKey(modelData)
-                    filledIconSource: modelData === root.viewState.metadataEditorKey
-                        ? Qt.resolvedUrl("icons/metadata-fill.svg")
-                        : modelData === root.viewState.latencyEditorKey
-                            ? Qt.resolvedUrl("icons/metronome-fill.svg") : ""
+                    filledIconSource: root.iconForKey(modelData, true)
                     tooltip: root.tooltipForKey(modelData)
                     active: root.viewState.activeEditorKey === modelData
                     closable: true

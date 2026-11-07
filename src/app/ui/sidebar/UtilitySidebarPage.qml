@@ -45,6 +45,8 @@ Rectangle {
                 width: parent.width
                 visible: root.mode === "network"
                 text: qsTrId("net.ui.download_page")
+                iconSource: Qt.resolvedUrl("icons/download.svg")
+                filledIconSource: Qt.resolvedUrl("icons/download-fill.svg")
                 selected: root.pages.activePageId === "net-download"
                 onClicked: root.pages.openNetPage("net-download")
             }
@@ -52,6 +54,8 @@ Rectangle {
                 width: parent.width
                 visible: root.mode === "network" && root.pages.netUploadEnabled
                 text: qsTrId("net.ui.upload_page")
+                iconSource: Qt.resolvedUrl("icons/upload.svg")
+                filledIconSource: Qt.resolvedUrl("icons/upload-fill.svg")
                 selected: root.pages.activePageId === "net-upload"
                 onClicked: root.pages.openNetPage("net-upload")
             }
