@@ -145,7 +145,8 @@ Item {
             anchors.fill: parent
             visible: root.efficientMode
             nativeMaterialActive: !root.compact && Theme.nativeMaterialActive
-            color: root.compact ? "transparent" : Theme.chromeSurfaceColor(Theme.colors.background.panel)
+            color: root.compact ? "transparent"
+                : Theme.chromeSurfaceColor(Theme.colors.background.panel, Theme.nativeMaterialActive, false)
             viewState: root.viewState
             documentSession: root.documentSession
             commands: root.commands
