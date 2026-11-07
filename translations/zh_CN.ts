@@ -2463,7 +2463,7 @@ File: </source>
     </message>
     <message id="media_tools.align_pv_to_audio">
         <source>Auto-align Video to Track Audio</source>
-        <translation>自动对齐曲目音频</translation>
+        <translation>自动对齐音频</translation>
     </message>
     <message id="media_tools.background_mp4_video">
         <source>background .mp4 video</source>
@@ -2583,7 +2583,7 @@ File: </source>
     </message>
     <message id="media_tools.black_screen">
         <source>black screen</source>
-        <translation>黑幕</translation>
+        <translation>空白画面</translation>
     </message>
     <message id="media_tools.canceled">
         <source>Canceled.</source>
@@ -2731,15 +2731,15 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="media_tools.prepend_pv_black_screen">
         <source>Add Intro Black Screen</source>
-        <translation>添加片头黑幕</translation>
+        <translation>添加片头空白</translation>
     </message>
     <message id="media_tools.analyzing_audio_alignment">
         <source>Analyzing audio alignment...</source>
         <translation>正在分析音频对齐...</translation>
     </message>
     <message id="media_tools.video_audio_missing">
-        <source>The background video has no audio stream to align.</source>
-        <translation>背景视频没有可用于对齐的音轨。</translation>
+        <source>The background video has no audio stream and cannot be automatically aligned; no files were changed.</source>
+        <translation>背景视频没有音轨，无法自动对齐；未修改文件。</translation>
     </message>
     <message id="media_tools.video_alignment_cancelled">
         <source>Audio alignment canceled.</source>
@@ -3587,7 +3587,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="qml.insert_a_black_screen_of_the_specified_duration_at_the_beginning">
         <source>Insert a black screen of the specified duration at the beginning of the background video and automatically back up the original file.</source>
-        <translation>在背景视频开头插入指定时长的黑幕，并自动备份原文件。</translation>
+        <translation>在背景视频开头插入指定时长的空白，并自动备份原文件。</translation>
     </message>
     <message id="qml.insert_blank_audio_of_the_specified_duration_at_the_beginning_of">
         <source>Insert blank audio of the specified duration at the beginning of track.mp3 and automatically back up the original file.</source>
@@ -3759,7 +3759,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="qml.prepend_black_screen">
         <source>Prepend black screen</source>
-        <translation>视频前置黑幕</translation>
+        <translation>视频前置空白</translation>
     </message>
     <message id="qml.prepend_blank_audio">
         <source>Prepend blank audio</source>

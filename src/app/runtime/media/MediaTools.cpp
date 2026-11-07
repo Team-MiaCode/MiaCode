@@ -4,6 +4,7 @@
 #include "media_tools/media/MediaPrependPolicy.h"
 #include "app/services/UiRequestService.h"
 #include "app/services/JobProgressService.h"
+#include "app/services/ChartWorkspace.h"
 #include "app/runtime/media/MediaJobsHost.h"
 #include "app/runtime/Shared.h"
 #include "app/runtime/shell/ShellHost.h"
@@ -21,6 +22,7 @@
 #include "app/runtime/latency/LatencyAnalysis.h"
 
 #include <QDesktopServices>
+#include <QScopeGuard>
 #include <QTemporaryDir>
 #include <QUrl>
 #include <QtCore>
@@ -315,7 +317,8 @@ bool runFfmpegBlocking(
     const miacode::LocalizedText& label,
     double totalDurationSeconds,
     miacode::LocalizedText* error,
-    bool* cancelled = nullptr)
+    bool* cancelled = nullptr,
+    quint64 existingJobToken = 0)
 {
     if (jobProgress == nullptr) {
         if (error != nullptr) {
@@ -327,16 +330,42 @@ bool runFfmpegBlocking(
         *cancelled = false;
     }
     const bool determinate = totalDurationSeconds > 0.0;
-    const quint64 jobToken = jobProgress->begin(title, label, /*cancellable=*/true);
-    if (!determinate) {
-        jobProgress->reportIndeterminate(label);
-    }
-    const auto endJob = [jobProgress, jobToken]() {
-        if (jobProgress->token() == jobToken) {
+    const bool ownsJob = existingJobToken == 0;
+    const quint64 jobToken = ownsJob
+        ? jobProgress->begin(title, label, /*cancellable=*/true)
+        : existingJobToken;
+    const auto cancellationRequested = [jobProgress, jobToken, cancelled, error]() {
+        if (jobProgress->active() && jobProgress->token() == jobToken
+            && !jobProgress->cancelRequested()) {
+            return false;
+        }
+        if (cancelled != nullptr) {
+            *cancelled = true;
+        }
+        if (error != nullptr) {
+            *error = miacode::localizedText("media_tools.canceled");
+        }
+        return true;
+    };
+    const auto endJob = [jobProgress, jobToken, ownsJob]() {
+        if (ownsJob && jobProgress->token() == jobToken) {
             jobProgress->end();
         }
     };
+    if (cancellationRequested()) {
+        endJob();
+        return false;
+    }
+    if (determinate) {
+        jobProgress->report(0, label);
+    } else {
+        jobProgress->reportIndeterminate(label);
+    }
     QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+    if (cancellationRequested()) {
+        endJob();
+        return false;
+    }
 
     QStringList progressArgs;
     progressArgs << QStringLiteral("-progress") << QStringLiteral("pipe:1")
@@ -360,7 +389,7 @@ bool runFfmpegBlocking(
     QString stderrTail;
     const auto pump = [&]() {
         const QByteArray out = process.readAllStandardOutput();
-        if (determinate && !out.isEmpty()) {
+        if (jobProgress->token() == jobToken && determinate && !out.isEmpty()) {
             progressBuffer += QString::fromLatin1(out);
             const int lastNewline = progressBuffer.lastIndexOf(QLatin1Char('\n'));
             if (lastNewline >= 0) {
@@ -396,21 +425,19 @@ bool runFfmpegBlocking(
         // AllEvents (not ExcludeUserInputEvents) so the overlay's Cancel button
         // receives clicks; the overlay swallows input to everything beneath it.
         QCoreApplication::processEvents(QEventLoop::AllEvents);
-        if (jobProgress->cancelRequested()) {
+        if (cancellationRequested()) {
             process.kill();
             process.waitForFinished(2000);
             endJob();
-            if (cancelled != nullptr) {
-                *cancelled = true;
-            }
-            if (error != nullptr) {
-                *error = miacode::localizedText("media_tools.canceled");
-            }
             return false;
         }
     }
     process.waitForFinished(200);
     pump();  // drain anything emitted between the last read and exit
+    if (cancellationRequested()) {
+        endJob();
+        return false;
+    }
     if (determinate) {
         jobProgress->report(100, label);
     }
@@ -855,32 +882,156 @@ bool prependPvBlack(
 constexpr int kAlignmentAudioSampleRate = 12000;
 constexpr int kAlignmentEnvelopeRate = 50;
 
+bool alignmentCancellationRequested(
+    miacode::JobProgressService* jobProgress, quint64 jobToken, bool* cancelled)
+{
+    if (jobProgress->active() && jobProgress->token() == jobToken
+        && !jobProgress->cancelRequested()) {
+        return false;
+    }
+    if (cancelled != nullptr) {
+        *cancelled = true;
+    }
+    return true;
+}
+
+struct VideoAlignmentMediaInfo
+{
+    double durationSeconds = 0.0;
+    qint64 videoBitrate = 0;
+    qint64 audioBitrate = 0;
+    bool hasAudio = false;
+};
+
+bool probeVideoAlignmentMediaInfo(
+    const QString& ffmpegPath,
+    const QString& mediaPath,
+    VideoAlignmentMediaInfo* mediaInfo,
+    miacode::JobProgressService* jobProgress,
+    quint64 jobToken,
+    miacode::LocalizedText* error,
+    bool* cancelled)
+{
+    if (alignmentCancellationRequested(jobProgress, jobToken, cancelled)) {
+        return false;
+    }
+    jobProgress->reportIndeterminate(
+        miacode::localizedText("media_tools.analyzing_audio_alignment"));
+    QElapsedTimer timer;
+    timer.start();
+
+    // Reading the input header avoids decoding the entire video just to obtain its bitrate.
+    QProcess process;
+    process.setProcessChannelMode(QProcess::MergedChannels);
+    process.start(ffmpegPath, {
+        QStringLiteral("-hide_banner"), QStringLiteral("-nostdin"),
+        QStringLiteral("-i"), mediaPath
+    }, QIODevice::ReadOnly);
+    if (!process.waitForStarted(5000)) {
+        if (error != nullptr) {
+            *error = process.errorString();
+        }
+        return false;
+    }
+    QString output;
+    while (process.state() != QProcess::NotRunning) {
+        process.waitForReadyRead(100);
+        output += QString::fromLocal8Bit(process.readAll());
+        QCoreApplication::processEvents(QEventLoop::AllEvents);
+        if (alignmentCancellationRequested(jobProgress, jobToken, cancelled)) {
+            process.kill();
+            process.waitForFinished(2000);
+            return false;
+        }
+        if (timer.hasExpired(30000)) {
+            process.kill();
+            process.waitForFinished(2000);
+            if (error != nullptr) {
+                *error = miacode::localizedText("media_tools.duration_probe_timeout");
+            }
+            return false;
+        }
+    }
+    output += QString::fromLocal8Bit(process.readAll());
+    if (alignmentCancellationRequested(jobProgress, jobToken, cancelled)) {
+        return false;
+    }
+
+    static const QRegularExpression durationPattern(
+        QStringLiteral(R"(Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?))"));
+    static const QRegularExpression videoPattern(
+        QStringLiteral(R"(^\s*Stream #0:\d+[^\r\n]*?: Video:([^\r\n]*))"),
+        QRegularExpression::MultilineOption);
+    static const QRegularExpression audioPattern(
+        QStringLiteral(R"(^\s*Stream #0:\d+[^\r\n]*?: Audio:([^\r\n]*))"),
+        QRegularExpression::MultilineOption);
+    static const QRegularExpression dimensionsPattern(
+        QStringLiteral(R"(\s(\d+)x(\d+)(?:[\s,]))"));
+    static const QRegularExpression bitratePattern(
+        QStringLiteral(R"((\d+(?:\.\d+)?)\s+kb/s)"));
+    const QRegularExpressionMatch durationMatch = durationPattern.match(output);
+    const QRegularExpressionMatch videoMatch = videoPattern.match(output);
+    const QRegularExpressionMatch dimensionsMatch = dimensionsPattern.match(videoMatch.captured(1));
+    // ffmpeg exits with code 1 when no output is requested; validate the header instead.
+    if (process.exitStatus() != QProcess::NormalExit
+        || !durationMatch.hasMatch() || !videoMatch.hasMatch() || !dimensionsMatch.hasMatch()) {
+        if (error != nullptr) {
+            *error = output.trimmed().isEmpty()
+                ? miacode::localizedText("media_tools.duration_read_failed")
+                : miacode::LocalizedText(output.trimmed().right(2000));
+        }
+        return false;
+    }
+
+    VideoAlignmentMediaInfo info;
+    info.durationSeconds = durationMatch.captured(1).toDouble() * 3600.0
+        + durationMatch.captured(2).toDouble() * 60.0
+        + durationMatch.captured(3).toDouble();
+    const QSize dimensions(dimensionsMatch.captured(1).toInt(), dimensionsMatch.captured(2).toInt());
+    if (!(info.durationSeconds > 0.0) || !dimensions.isValid()) {
+        if (error != nullptr) {
+            *error = miacode::localizedText("media_tools.duration_read_failed");
+        }
+        return false;
+    }
+    const QRegularExpressionMatch videoBitrateMatch = bitratePattern.match(videoMatch.captured(1));
+    if (videoBitrateMatch.hasMatch()) {
+        info.videoBitrate = qRound64(videoBitrateMatch.captured(1).toDouble() * 1000.0);
+    }
+    const QRegularExpressionMatch audioMatch = audioPattern.match(output);
+    info.hasAudio = audioMatch.hasMatch();
+    const QRegularExpressionMatch audioBitrateMatch = bitratePattern.match(audioMatch.captured(1));
+    if (audioBitrateMatch.hasMatch()) {
+        info.audioBitrate = qRound64(audioBitrateMatch.captured(1).toDouble() * 1000.0);
+    }
+    *mediaInfo = info;
+    miacode::debug_log::appendLine(
+        miacode::debug_log::Channel::Runtime, QStringLiteral("media/audio_alignment"),
+        QStringLiteral("probed file=%1 seconds=%2 video_bps=%3 audio_bps=%4 has_audio=%5 elapsed_ms=%6")
+            .arg(QFileInfo(mediaPath).fileName()).arg(info.durationSeconds, 0, 'f', 3)
+            .arg(info.videoBitrate).arg(info.audioBitrate).arg(info.hasAudio).arg(timer.elapsed()));
+    return true;
+}
+
 bool decodeAudioStreamWithFfmpeg(
     const QString& ffmpegPath,
     const QString& mediaPath,
     miacode::latency_analysis::DecodedAudio* decoded,
     miacode::JobProgressService* jobProgress,
+    quint64 jobToken,
+    miacode::LocalizedText* error,
     bool* cancelled)
 {
-    if (decoded == nullptr || ffmpegPath.isEmpty() || mediaPath.isEmpty() || jobProgress == nullptr) {
+    if (alignmentCancellationRequested(jobProgress, jobToken, cancelled)) {
         return false;
     }
-    if (cancelled != nullptr) {
-        *cancelled = false;
-    }
-
-    const miacode::LocalizedText title = miacode::localizedText("media_tools.align_pv_to_audio");
-    const miacode::LocalizedText label = miacode::localizedText("media_tools.analyzing_audio_alignment");
-    const quint64 jobToken = jobProgress->begin(title, label, /*cancellable=*/true);
-    jobProgress->reportIndeterminate(label);
-    const auto endJob = [jobProgress, jobToken]() {
-        if (jobProgress->token() == jobToken) {
-            jobProgress->end();
-        }
-    };
+    jobProgress->reportIndeterminate(
+        miacode::localizedText("media_tools.analyzing_audio_alignment"));
+    QElapsedTimer timer;
+    timer.start();
 
     QProcess process;
-    process.setStandardErrorFile(QProcess::nullDevice());
+    process.setProcessChannelMode(QProcess::SeparateChannels);
     process.start(ffmpegPath, {
         QStringLiteral("-hide_banner"), QStringLiteral("-loglevel"), QStringLiteral("error"),
         QStringLiteral("-i"), mediaPath,
@@ -891,33 +1042,55 @@ bool decodeAudioStreamWithFfmpeg(
         QStringLiteral("-f"), QStringLiteral("f32le"), QStringLiteral("pipe:1")
     }, QIODevice::ReadOnly);
     if (!process.waitForStarted(5000)) {
-        endJob();
+        if (error != nullptr) {
+            *error = process.errorString();
+        }
+        miacode::debug_log::appendLine(
+            miacode::debug_log::Channel::Runtime, QStringLiteral("media/audio_alignment"),
+            QStringLiteral("decode_start_failed file=%1 error=%2")
+                .arg(QFileInfo(mediaPath).fileName(), process.errorString()));
         return false;
     }
 
     QByteArray pcmBytes;
+    QString stderrTail;
+    const auto pump = [&]() {
+        pcmBytes.append(process.readAllStandardOutput());
+        stderrTail += QString::fromLocal8Bit(process.readAllStandardError());
+        if (stderrTail.size() > 8000) {
+            stderrTail = stderrTail.right(8000);
+        }
+    };
     while (process.state() != QProcess::NotRunning) {
         process.waitForReadyRead(100);
-        pcmBytes.append(process.readAllStandardOutput());
+        pump();
         QCoreApplication::processEvents(QEventLoop::AllEvents);
-        if (jobProgress->cancelRequested()) {
+        if (alignmentCancellationRequested(jobProgress, jobToken, cancelled)) {
             process.kill();
             process.waitForFinished(2000);
-            endJob();
-            if (cancelled != nullptr) {
-                *cancelled = true;
-            }
             return false;
         }
     }
-    pcmBytes.append(process.readAllStandardOutput());
-    endJob();
+    pump();
+    if (alignmentCancellationRequested(jobProgress, jobToken, cancelled)) {
+        return false;
+    }
     if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+        if (error != nullptr && !stderrTail.trimmed().isEmpty()) {
+            *error = miacode::LocalizedText(stderrTail.trimmed().right(2000));
+        }
+        miacode::debug_log::appendLine(
+            miacode::debug_log::Channel::Runtime, QStringLiteral("media/audio_alignment"),
+            QStringLiteral("decode_failed file=%1 exit=%2 error=%3")
+                .arg(QFileInfo(mediaPath).fileName()).arg(process.exitCode()).arg(stderrTail.trimmed()));
         return false;
     }
 
     const qsizetype sampleCount = pcmBytes.size() / static_cast<qsizetype>(sizeof(float));
     if (sampleCount < kAlignmentAudioSampleRate) {
+        if (error != nullptr) {
+            *error = miacode::localizedText("media_tools.video_alignment_offset_failed");
+        }
         return false;
     }
     decoded->samples.resize(sampleCount);
@@ -926,28 +1099,48 @@ bool decodeAudioStreamWithFfmpeg(
         static_cast<size_t>(sampleCount) * sizeof(float));
     decoded->sampleRate = kAlignmentAudioSampleRate;
     decoded->durationSeconds = static_cast<double>(sampleCount) / kAlignmentAudioSampleRate;
+    miacode::debug_log::appendLine(
+        miacode::debug_log::Channel::Runtime, QStringLiteral("media/audio_alignment"),
+        QStringLiteral("decoded file=%1 seconds=%2 elapsed_ms=%3")
+            .arg(QFileInfo(mediaPath).fileName()).arg(decoded->durationSeconds, 0, 'f', 3)
+            .arg(timer.elapsed()));
     return true;
 }
 
-QVector<double> buildAlignmentEnvelope(const miacode::latency_analysis::DecodedAudio& decoded)
+QVector<double> buildAlignmentEnvelope(
+    const miacode::latency_analysis::DecodedAudio& decoded,
+    miacode::JobProgressService* jobProgress,
+    quint64 jobToken,
+    bool* cancelled)
 {
     QVector<double> envelope;
-    if (decoded.samples.isEmpty() || decoded.sampleRate <= 0) {
+    if (decoded.samples.isEmpty() || decoded.sampleRate <= 0
+        || alignmentCancellationRequested(jobProgress, jobToken, cancelled)) {
         return envelope;
     }
 
     const int windowSamples = qMax(1, decoded.sampleRate / kAlignmentEnvelopeRate);
+    envelope.reserve((decoded.samples.size() + windowSamples - 1) / windowSamples);
+    QElapsedTimer eventTimer;
+    eventTimer.start();
     double previousRms = 0.0;
-    for (int start = 0; start < decoded.samples.size(); start += windowSamples) {
-        const int end = qMin(start + windowSamples, decoded.samples.size());
+    for (qsizetype start = 0; start < decoded.samples.size(); start += windowSamples) {
+        const qsizetype end = qMin(start + windowSamples, decoded.samples.size());
         double squareSum = 0.0;
-        for (int sampleIndex = start; sampleIndex < end; ++sampleIndex) {
+        for (qsizetype sampleIndex = start; sampleIndex < end; ++sampleIndex) {
             const double sample = decoded.samples.at(sampleIndex);
             squareSum += sample * sample;
         }
         const double rms = std::sqrt(squareSum / static_cast<double>(end - start));
         envelope.append(qMax(0.0, rms - previousRms * 0.85));
         previousRms = rms;
+        if (envelope.size() % 128 == 0 && eventTimer.hasExpired(40)) {
+            QCoreApplication::processEvents(QEventLoop::AllEvents);
+            eventTimer.restart();
+            if (alignmentCancellationRequested(jobProgress, jobToken, cancelled)) {
+                return {};
+            }
+        }
     }
     return envelope;
 }
@@ -955,64 +1148,123 @@ QVector<double> buildAlignmentEnvelope(const miacode::latency_analysis::DecodedA
 bool estimateVideoAudioOffset(
     const miacode::latency_analysis::DecodedAudio& trackAudio,
     const miacode::latency_analysis::DecodedAudio& videoAudio,
-    double* offsetSeconds)
+    double* offsetSeconds,
+    miacode::JobProgressService* jobProgress,
+    quint64 jobToken,
+    bool* cancelled)
 {
-    if (offsetSeconds == nullptr) {
+    if (alignmentCancellationRequested(jobProgress, jobToken, cancelled)) {
         return false;
     }
-
-    const QVector<double> trackEnvelope = buildAlignmentEnvelope(trackAudio);
-    const QVector<double> videoEnvelope = buildAlignmentEnvelope(videoAudio);
+    QElapsedTimer timer;
+    timer.start();
+    const miacode::LocalizedText label = miacode::localizedText("media_tools.analyzing_audio_alignment");
+    jobProgress->reportIndeterminate(label);
+    const QVector<double> trackEnvelope = buildAlignmentEnvelope(
+        trackAudio, jobProgress, jobToken, cancelled);
+    const QVector<double> videoEnvelope = buildAlignmentEnvelope(
+        videoAudio, jobProgress, jobToken, cancelled);
+    if (alignmentCancellationRequested(jobProgress, jobToken, cancelled)) {
+        return false;
+    }
     if (trackEnvelope.size() < kAlignmentEnvelopeRate
         || videoEnvelope.size() < kAlignmentEnvelopeRate) {
         return false;
     }
 
+    const int trackSize = static_cast<int>(trackEnvelope.size());
+    const int videoSize = static_cast<int>(videoEnvelope.size());
+    // Requiring the entire shorter clip would leave equal short clips at lag zero.
     const int minimumOverlap = qMin(
-        qMin(trackEnvelope.size(), videoEnvelope.size()), 3 * kAlignmentEnvelopeRate);
+        3 * kAlignmentEnvelopeRate,
+        qMax(kAlignmentEnvelopeRate, qMin(trackSize, videoSize) / 2));
     const int maxLag = qMin(
-        15 * kAlignmentEnvelopeRate,
-        qMax(trackEnvelope.size(), videoEnvelope.size()) - minimumOverlap);
+        15 * kAlignmentEnvelopeRate, qMax(trackSize, videoSize) - minimumOverlap);
+
+    // Window sums and variances are constant-time; only the dot product varies by lag.
+    QVector<double> trackSums(trackSize + 1, 0.0);
+    QVector<double> trackSquareSums(trackSize + 1, 0.0);
+    QVector<double> videoSums(videoSize + 1, 0.0);
+    QVector<double> videoSquareSums(videoSize + 1, 0.0);
+    for (int index = 0; index < trackSize; ++index) {
+        const double value = trackEnvelope.at(index);
+        trackSums[index + 1] = trackSums.at(index) + value;
+        trackSquareSums[index + 1] = trackSquareSums.at(index) + value * value;
+    }
+    for (int index = 0; index < videoSize; ++index) {
+        const double value = videoEnvelope.at(index);
+        videoSums[index + 1] = videoSums.at(index) + value;
+        videoSquareSums[index + 1] = videoSquareSums.at(index) + value * value;
+    }
+
     QVector<double> scores(maxLag * 2 + 1, -1.0);
+    const double* const trackValues = trackEnvelope.constData();
+    const double* const videoValues = videoEnvelope.constData();
+    QElapsedTimer eventTimer;
+    eventTimer.start();
+    const auto keepAnalyzing = [&]() {
+        if (eventTimer.hasExpired(40)) {
+            QCoreApplication::processEvents(QEventLoop::AllEvents);
+            eventTimer.restart();
+        }
+        return !alignmentCancellationRequested(jobProgress, jobToken, cancelled);
+    };
     double bestScore = -1.0;
     int bestLag = 0;
+    int bestOverlap = 0;
     for (int lag = -maxLag; lag <= maxLag; ++lag) {
+        if (!keepAnalyzing()) {
+            return false;
+        }
+        jobProgress->report((lag + maxLag) * 100 / (maxLag * 2 + 1), label);
         const int trackStart = qMax(0, -lag);
-        const int trackEnd = qMin(trackEnvelope.size(), videoEnvelope.size() - lag);
+        const int trackEnd = qMin(trackSize, videoSize - lag);
         const int count = trackEnd - trackStart;
         if (count < minimumOverlap) {
             continue;
         }
 
-        double trackSum = 0.0;
-        double videoSum = 0.0;
-        double trackSquareSum = 0.0;
-        double videoSquareSum = 0.0;
-        double productSum = 0.0;
-        for (int index = trackStart; index < trackEnd; ++index) {
-            const double trackValue = trackEnvelope.at(index);
-            const double videoValue = videoEnvelope.at(index + lag);
-            trackSum += trackValue;
-            videoSum += videoValue;
-            trackSquareSum += trackValue * trackValue;
-            videoSquareSum += videoValue * videoValue;
-            productSum += trackValue * videoValue;
-        }
-
-        const double covariance = productSum - trackSum * videoSum / count;
+        const int videoStart = trackStart + lag;
+        const int videoEnd = trackEnd + lag;
+        const double trackSum = trackSums.at(trackEnd) - trackSums.at(trackStart);
+        const double videoSum = videoSums.at(videoEnd) - videoSums.at(videoStart);
+        const double trackSquareSum = trackSquareSums.at(trackEnd) - trackSquareSums.at(trackStart);
+        const double videoSquareSum = videoSquareSums.at(videoEnd) - videoSquareSums.at(videoStart);
         const double trackVariance = trackSquareSum - trackSum * trackSum / count;
         const double videoVariance = videoSquareSum - videoSum * videoSum / count;
         if (trackVariance <= 1e-12 || videoVariance <= 1e-12) {
             continue;
         }
+
+        double productSum = 0.0;
+        for (int blockStart = trackStart; blockStart < trackEnd; blockStart += 4096) {
+            const int blockEnd = qMin(blockStart + 4096, trackEnd);
+            for (int index = blockStart; index < blockEnd; ++index) {
+                productSum += trackValues[index] * videoValues[index + lag];
+            }
+            if (!keepAnalyzing()) {
+                return false;
+            }
+        }
+        const double covariance = productSum - trackSum * videoSum / count;
         const double score = covariance / std::sqrt(trackVariance * videoVariance);
         scores[lag + maxLag] = score;
         if (score > bestScore) {
             bestScore = score;
             bestLag = lag;
+            bestOverlap = count;
         }
     }
+    if (!keepAnalyzing()) {
+        return false;
+    }
+    jobProgress->report(100, label);
     if (bestScore < 0.35) {
+        miacode::debug_log::appendLine(
+            miacode::debug_log::Channel::Runtime, QStringLiteral("media/audio_alignment"),
+            QStringLiteral("match_rejected score=%1 overlap_seconds=%2 elapsed_ms=%3")
+                .arg(bestScore, 0, 'f', 4).arg(static_cast<double>(bestOverlap) / kAlignmentEnvelopeRate)
+                .arg(timer.elapsed()));
         return false;
     }
 
@@ -1028,6 +1280,12 @@ bool estimateVideoAudioOffset(
         }
     }
     *offsetSeconds = refinedLag / kAlignmentEnvelopeRate;
+    miacode::debug_log::appendLine(
+        miacode::debug_log::Channel::Runtime, QStringLiteral("media/audio_alignment"),
+        QStringLiteral("matched offset_seconds=%1 score=%2 overlap_seconds=%3 max_lag_seconds=%4 elapsed_ms=%5")
+            .arg(*offsetSeconds, 0, 'f', 6).arg(bestScore, 0, 'f', 4)
+            .arg(static_cast<double>(bestOverlap) / kAlignmentEnvelopeRate)
+            .arg(static_cast<double>(maxLag) / kAlignmentEnvelopeRate).arg(timer.elapsed()));
     return true;
 }
 
@@ -1062,21 +1320,47 @@ bool alignVideoStreams(
     const QString& ffmpegPath,
     const QString& videoPath,
     double videoAudioOffsetSeconds,
+    const VideoAlignmentMediaInfo& mediaInfo,
     miacode::JobProgressService* jobProgress,
+    quint64 jobToken,
     miacode::LocalizedText* error,
-    bool* cancelled = nullptr)
+    bool* cancelled)
 {
-    const QFileInfo videoInfo(videoPath);
-    const QString backupPath = videoInfo.dir().filePath(
-        QStringLiteral("%1_bak.%2").arg(videoInfo.completeBaseName(), videoInfo.suffix()));
-    const QString tempPath = videoInfo.dir().filePath(QStringLiteral(".miacode_pv_align_tmp.mp4"));
-    QFile::remove(tempPath);
-    if (!copyFileReplacing(videoPath, backupPath, error)) {
+    if (alignmentCancellationRequested(jobProgress, jobToken, cancelled)) {
         return false;
     }
-
-    double durationSeconds = 0.0;
-    probeMediaDurationSeconds(ffmpegPath, backupPath, &durationSeconds, nullptr);
+    const QFileInfo videoInfo(videoPath);
+    const qint64 inputBytes = videoInfo.size();
+    // Reserve muxing overhead only when estimating missing stream bitrates.
+    const qint64 payloadBitrate = static_cast<qint64>(
+        static_cast<double>(inputBytes) * 8.0 / mediaInfo.durationSeconds * 0.98);
+    qint64 audioBitrate = mediaInfo.audioBitrate;
+    if (audioBitrate <= 0) {
+        const qint64 availableAudioBitrate = mediaInfo.videoBitrate > 0
+            ? payloadBitrate - mediaInfo.videoBitrate
+            : payloadBitrate / 10;
+        audioBitrate = qBound(qint64{16000}, availableAudioBitrate, qint64{128000});
+    }
+    const qint64 videoBitrate = mediaInfo.videoBitrate > 0
+        ? mediaInfo.videoBitrate
+        : qMax<qint64>(32000, payloadBitrate - audioBitrate);
+    miacode::debug_log::appendLine(
+        miacode::debug_log::Channel::Runtime, QStringLiteral("media/audio_alignment"),
+        QStringLiteral("encoding file=%1 offset_seconds=%2 source_video_bps=%3 source_audio_bps=%4 target_video_bps=%5 target_audio_bps=%6 input_bytes=%7")
+            .arg(videoInfo.fileName()).arg(videoAudioOffsetSeconds, 0, 'f', 3)
+            .arg(mediaInfo.videoBitrate).arg(mediaInfo.audioBitrate)
+            .arg(videoBitrate).arg(audioBitrate).arg(inputBytes));
+    const QString backupPath = videoInfo.dir().filePath(
+        QStringLiteral("%1_bak.%2").arg(videoInfo.completeBaseName(), videoInfo.suffix()));
+    QTemporaryDir tempDirectory(videoInfo.dir().filePath(QStringLiteral(".miacode_pv_align_XXXXXX")));
+    if (!tempDirectory.isValid()) {
+        if (error != nullptr) {
+            *error = miacode::localizedText("media_tools.failed_to_write_file_1")
+                .arg(videoInfo.absolutePath());
+        }
+        return false;
+    }
+    const QString tempPath = tempDirectory.filePath(QStringLiteral("aligned.mp4"));
     const double adjustmentSeconds = qAbs(videoAudioOffsetSeconds);
     const QString adjustment = QString::number(adjustmentSeconds, 'f', 6);
     QString videoFilter;
@@ -1095,29 +1379,41 @@ bool alignVideoStreams(
     QStringList args;
     args << QStringLiteral("-hide_banner")
          << QStringLiteral("-y")
-         << QStringLiteral("-i") << backupPath
+         << QStringLiteral("-i") << videoPath
          << QStringLiteral("-filter_complex")
          << QStringLiteral("[0:v:0]%1[v];[0:a:0]%2[a]").arg(videoFilter, audioFilter)
          << QStringLiteral("-map") << QStringLiteral("[v]")
          << QStringLiteral("-map") << QStringLiteral("[a]")
          << QStringLiteral("-c:v") << QStringLiteral("libx264")
          << QStringLiteral("-preset") << QStringLiteral("veryfast")
-         << QStringLiteral("-crf") << QStringLiteral("18")
+         << QStringLiteral("-b:v") << QString::number(videoBitrate)
          << QStringLiteral("-pix_fmt") << QStringLiteral("yuv420p")
          << QStringLiteral("-c:a") << QStringLiteral("aac")
-         << QStringLiteral("-b:a") << QStringLiteral("192k")
+         << QStringLiteral("-b:a") << QString::number(audioBitrate)
          << QStringLiteral("-movflags") << QStringLiteral("+faststart")
          << tempPath;
     if (!runFfmpegBlocking(
             ffmpegPath,
             args,
             jobProgress,
+            miacode::localizedText("media_tools.align_pv_to_audio"),
             miacode::localizedText("media_tools.processing_pv_mp4"),
-            miacode::localizedText("media_tools.processing_pv_mp4"),
-            durationSeconds + (videoAudioOffsetSeconds < 0.0 ? adjustmentSeconds : 0.0),
+            qMax(0.0, mediaInfo.durationSeconds - videoAudioOffsetSeconds),
             error,
-            cancelled)) {
-        QFile::remove(tempPath);
+            cancelled,
+            jobToken)) {
+        return false;
+    }
+    if (alignmentCancellationRequested(jobProgress, jobToken, cancelled)) {
+        return false;
+    }
+    miacode::debug_log::appendLine(
+        miacode::debug_log::Channel::Runtime, QStringLiteral("media/audio_alignment"),
+        QStringLiteral("encoded file=%1 input_bytes=%2 output_bytes=%3")
+            .arg(videoInfo.fileName()).arg(inputBytes).arg(QFileInfo(tempPath).size()));
+    // Leave the original and any previous backup untouched until encoding succeeds.
+    if (!copyFileReplacing(videoPath, backupPath, error)
+        || alignmentCancellationRequested(jobProgress, jobToken, cancelled)) {
         return false;
     }
     return replaceFileWithTemp(tempPath, videoPath, error);
@@ -1181,7 +1477,8 @@ void miacode::runtime::MediaJobsHost::onAlignBackgroundVideoToTrack()
 {
     MC_OP("miacode::runtime::MediaJobsHost::onAlignBackgroundVideoToTrack");
     miacode::UiRequestService* const requests = session_.uiRequestService();
-    if (requests == nullptr) {
+    miacode::JobProgressService* const jobProgress = session_.jobProgressService();
+    if (requests == nullptr || jobProgress == nullptr || jobProgress->active()) {
         return;
     }
     const miacode::LocalizedText title = miacode::localizedText("media_tools.align_pv_to_audio");
@@ -1217,35 +1514,80 @@ void miacode::runtime::MediaJobsHost::onAlignBackgroundVideoToTrack()
         return;
     }
 
-    miacode::latency_analysis::DecodedAudio trackAudio;
-    miacode::latency_analysis::DecodedAudio videoAudio;
-    bool decodeCancelled = false;
-    if (!decodeAudioStreamWithFfmpeg(
-            ffmpegPath, videoPath, &videoAudio, session_.jobProgressService(), &decodeCancelled)) {
+    auto& workspace = session_.applicationServices_.workspace();
+    const miacode::ChartWorkspaceSnapshot snapshot = workspace.snapshot();
+    const auto workspaceStillCurrent = [&workspace, snapshot]() {
+        const miacode::ChartWorkspaceSnapshot current = workspace.snapshot();
+        return current.revision == snapshot.revision
+            && current.documentOpenGeneration == snapshot.documentOpenGeneration
+            && current.filePath == snapshot.filePath;
+    };
+    // One token covers probing, decode, correlation and encoding; cancellation survives stage changes.
+    const quint64 jobToken = jobProgress->begin(
+        title, miacode::localizedText("media_tools.analyzing_audio_alignment"), /*cancellable=*/true);
+    const QMetaObject::Connection workspaceConnection = QObject::connect(
+        &workspace, &miacode::ChartWorkspace::changed, jobProgress,
+        [jobProgress, jobToken, workspaceStillCurrent](quint64) {
+            if (jobProgress->token() == jobToken && !workspaceStillCurrent()) {
+                jobProgress->requestCancel();
+            }
+        });
+    const auto finishJob = qScopeGuard([jobProgress, jobToken, workspaceConnection]() {
+        QObject::disconnect(workspaceConnection);
+        if (jobProgress->token() == jobToken) {
+            jobProgress->end();
+        }
+    });
+    if (!workspaceStillCurrent()) {
+        jobProgress->requestCancel();
+    }
+
+    VideoAlignmentMediaInfo videoMediaInfo;
+    miacode::LocalizedText error;
+    bool cancelled = false;
+    if (!probeVideoAlignmentMediaInfo(
+            ffmpegPath, videoPath, &videoMediaInfo, jobProgress, jobToken, &error, &cancelled)) {
         requests->postNotice(
-            decodeCancelled ? miacode::NoticeSeverity::Information
-                            : miacode::NoticeSeverity::Warning,
-            title,
-            decodeCancelled ? miacode::localizedText("media_tools.video_alignment_cancelled")
-                            : miacode::localizedText("media_tools.video_audio_missing"));
+            cancelled ? miacode::NoticeSeverity::Information : miacode::NoticeSeverity::Warning,
+            title, cancelled ? miacode::localizedText("media_tools.video_alignment_cancelled") : error);
         return;
     }
-    if (!decodeAudioStreamWithFfmpeg(
-            ffmpegPath, trackPath, &trackAudio, session_.jobProgressService(), &decodeCancelled)) {
+    if (!videoMediaInfo.hasAudio) {
         requests->postNotice(
-            decodeCancelled ? miacode::NoticeSeverity::Information
-                            : miacode::NoticeSeverity::Warning,
-            title,
-            decodeCancelled ? miacode::localizedText("media_tools.video_alignment_cancelled")
-                            : miacode::localizedText("media_tools.video_alignment_offset_failed"));
+            miacode::NoticeSeverity::Warning, title,
+            miacode::localizedText("media_tools.video_audio_missing"));
+        return;
+    }
+
+    miacode::latency_analysis::DecodedAudio trackAudio;
+    miacode::latency_analysis::DecodedAudio videoAudio;
+    error = miacode::localizedText("media_tools.video_alignment_offset_failed");
+    if (!decodeAudioStreamWithFfmpeg(
+            ffmpegPath, videoPath, &videoAudio, jobProgress, jobToken, &error, &cancelled)) {
+        requests->postNotice(
+            cancelled ? miacode::NoticeSeverity::Information : miacode::NoticeSeverity::Warning,
+            title, cancelled ? miacode::localizedText("media_tools.video_alignment_cancelled") : error);
+        return;
+    }
+    error = miacode::localizedText("media_tools.video_alignment_offset_failed");
+    if (!decodeAudioStreamWithFfmpeg(
+            ffmpegPath, trackPath, &trackAudio, jobProgress, jobToken, &error, &cancelled)) {
+        requests->postNotice(
+            cancelled ? miacode::NoticeSeverity::Information : miacode::NoticeSeverity::Warning,
+            title, cancelled ? miacode::localizedText("media_tools.video_alignment_cancelled") : error);
         return;
     }
 
     double videoAudioOffsetSeconds = 0.0;
-    if (!estimateVideoAudioOffset(trackAudio, videoAudio, &videoAudioOffsetSeconds)) {
+    if (!estimateVideoAudioOffset(
+            trackAudio, videoAudio, &videoAudioOffsetSeconds, jobProgress, jobToken, &cancelled)) {
         requests->postNotice(
-            miacode::NoticeSeverity::Warning, title,
-            miacode::localizedText("media_tools.video_alignment_offset_failed"));
+            cancelled ? miacode::NoticeSeverity::Information : miacode::NoticeSeverity::Warning,
+            title, cancelled ? miacode::localizedText("media_tools.video_alignment_cancelled")
+                             : miacode::localizedText("media_tools.video_alignment_offset_failed"));
+        return;
+    }
+    if (alignmentCancellationRequested(jobProgress, jobToken, &cancelled)) {
         return;
     }
     if (qAbs(videoAudioOffsetSeconds) < 1.0 / kAlignmentEnvelopeRate) {
@@ -1257,24 +1599,27 @@ void miacode::runtime::MediaJobsHost::onAlignBackgroundVideoToTrack()
     }
 
     releasePreviewMediaForFileOperation();
-    miacode::LocalizedText error;
-    bool cancelled = false;
-    if (!alignVideoStreams(
-            ffmpegPath, videoPath, videoAudioOffsetSeconds, session_.jobProgressService(), &error,
-            &cancelled)) {
-        requests->postNotice(
-            cancelled ? miacode::NoticeSeverity::Information
-                      : miacode::NoticeSeverity::Error,
-            title,
-            cancelled ? miacode::localizedText("media_tools.video_processing_canceled") : error);
+    const bool aligned = alignVideoStreams(
+        ffmpegPath, videoPath, videoAudioOffsetSeconds, videoMediaInfo,
+        jobProgress, jobToken, &error, &cancelled);
+    const miacode::ChartWorkspaceSnapshot current = workspace.snapshot();
+    if (current.documentOpenGeneration == snapshot.documentOpenGeneration
+        && current.filePath == snapshot.filePath) {
         reloadPreviewMediaAfterFileOperation(false);
+    }
+    if (!aligned) {
+        requests->postNotice(
+            cancelled ? miacode::NoticeSeverity::Information : miacode::NoticeSeverity::Error,
+            title, cancelled ? miacode::localizedText("media_tools.video_processing_canceled") : error);
+        return;
+    }
+    if (!workspaceStillCurrent()) {
         return;
     }
 
     const QFileInfo videoInfo(videoPath);
     const QString backupName = QStringLiteral("%1_bak.%2")
                                    .arg(videoInfo.completeBaseName(), videoInfo.suffix());
-    reloadPreviewMediaAfterFileOperation(false);
     showMediaOperationCompleteDialog(
         title,
         miacode::localizedText("media_tools.video_aligned_to_track_1_2")

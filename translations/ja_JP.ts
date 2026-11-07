@@ -2583,7 +2583,7 @@ File: </source>
     </message>
     <message id="media_tools.black_screen">
         <source>black screen</source>
-        <translation>黒画面</translation>
+        <translation>余白画面</translation>
     </message>
     <message id="media_tools.canceled">
         <source>Canceled.</source>
@@ -2731,15 +2731,15 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="media_tools.prepend_pv_black_screen">
         <source>Add Intro Black Screen</source>
-        <translation>冒頭に黒画面を追加</translation>
+        <translation>冒頭に余白画面を追加</translation>
     </message>
     <message id="media_tools.analyzing_audio_alignment">
         <source>Analyzing audio alignment...</source>
         <translation>音声の同期を分析中...</translation>
     </message>
     <message id="media_tools.video_audio_missing">
-        <source>The background video has no audio stream to align.</source>
-        <translation>背景動画に同期可能な音声トラックがありません。</translation>
+        <source>The background video has no audio stream and cannot be automatically aligned; no files were changed.</source>
+        <translation>背景動画に音声トラックがないため、自動同期できません。ファイルは変更されていません。</translation>
     </message>
     <message id="media_tools.video_alignment_cancelled">
         <source>Audio alignment canceled.</source>
@@ -3579,7 +3579,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="qml.insert_2_beats_of_black_screen_bpm_3_about_4_seconds_at_the_begi">
         <source>Insert %2 beats of black screen (BPM %3, about %4 seconds) at the beginning of %1. The original file is backed up.</source>
-        <translation>%1 の先頭に %2 拍（BPM %3、約 %4 秒）の黒画面を挿入します。元ファイルは自動でバックアップされます。</translation>
+        <translation>%1 の先頭に %2 拍（BPM %3、約 %4 秒）の余白画面を挿入します。元ファイルは自動でバックアップされます。</translation>
     </message>
     <message id="qml.insert_2_beats_of_silence_bpm_3_about_4_seconds_at_the_beginning">
         <source>Insert %2 beats of silence (BPM %3, about %4 seconds) at the beginning of %1. The original file is backed up.</source>
@@ -3587,7 +3587,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="qml.insert_a_black_screen_of_the_specified_duration_at_the_beginning">
         <source>Insert a black screen of the specified duration at the beginning of the background video and automatically back up the original file.</source>
-        <translation>背景動画の先頭に指定した長さの黒画面を挿入し、元のファイルを自動的にバックアップします。</translation>
+        <translation>背景動画の先頭に指定した長さの余白画面を挿入し、元のファイルを自動的にバックアップします。</translation>
     </message>
     <message id="qml.insert_blank_audio_of_the_specified_duration_at_the_beginning_of">
         <source>Insert blank audio of the specified duration at the beginning of track.mp3 and automatically back up the original file.</source>
@@ -3759,7 +3759,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="qml.prepend_black_screen">
         <source>Prepend black screen</source>
-        <translation>動画の先頭に黒画面を追加</translation>
+        <translation>動画の先頭に余白画面を追加</translation>
     </message>
     <message id="qml.prepend_blank_audio">
         <source>Prepend blank audio</source>
@@ -4985,11 +4985,11 @@ Error: %1</source>
     </message>
     <message id="media_tools.prepend_pv_geometry_mismatch">
         <source>PV dimensions or duration failed validation after prepending black frames.</source>
-        <translation>黒画面を追加した PV の解像度または長さの検証に失敗しました。</translation>
+        <translation>余白画面を追加した PV の解像度または長さの検証に失敗しました。</translation>
     </message>
     <message id="media_tools.prepend_pv_size_limit_failed">
         <source>The prepended PV exceeds its size budget or the 20 MB limit.</source>
-        <translation>黒画面を追加した PV がサイズ予算または 20 MB の上限を超えています。</translation>
+        <translation>余白画面を追加した PV がサイズ予算または 20 MB の上限を超えています。</translation>
     </message>
     <message id="file_picker.native_failed">
         <source>Could not open the system folder picker.</source>
