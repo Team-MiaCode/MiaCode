@@ -53,9 +53,10 @@ ColumnLayout {
 
                 background: Rectangle {
                     radius: Theme.controlRadius
-                    color: tile.hovered ? tile.previewColors.buttonState.hover : tile.previewColors.background.panel
+                    color: tile.previewColors.background.activityBar
                     border.width: tile.selected || tile.visualFocus ? 2 : 1
-                    border.color: tile.selected || tile.visualFocus ? tile.previewColors.accent.primary : tile.previewColors.border.normal
+                    border.color: tile.selected || tile.visualFocus || tile.hovered
+                        ? tile.previewColors.accent.primary : tile.previewColors.border.normal
                 }
                 contentItem: ColumnLayout {
                     spacing: 4
@@ -66,8 +67,14 @@ ColumnLayout {
                         color: tile.previewColors.background.surface
                         clip: true
                         Rectangle {
+                            width: parent.width
+                            height: 3
+                            color: tile.previewColors.background.titleBar
+                        }
+                        Rectangle {
                             width: 8
-                            height: parent.height
+                            y: 3
+                            height: parent.height - y
                             color: tile.previewColors.background.activityBar
                             Rectangle {
                                 width: 2
@@ -78,7 +85,7 @@ ColumnLayout {
                         }
                         Column {
                             x: 14
-                            y: 4
+                            y: 5
                             width: parent.width - x - 6
                             spacing: 2
                             Text {
@@ -119,7 +126,7 @@ ColumnLayout {
                             Layout.fillWidth: true
                             objectName: "themeLabel_" + tile.modelData.value
                             text: tile.modelData.label
-                            color: tile.previewColors.text.active
+                            color: tile.previewColors.text.chrome
                             font.family: Theme.uiFont
                             font.pixelSize: Theme.secondaryFontSize
                             elide: Text.ElideRight
