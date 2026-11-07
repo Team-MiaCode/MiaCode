@@ -3,6 +3,26 @@
 <TS version="2.1" language="zh_CN">
 <context>
     <name></name>
+    <message id="toast.operation_failed">
+        <source>%1 failed: %2.</source>
+        <translation>%1失败，%2。</translation>
+    </message>
+    <message id="toast.operation_partially_failed">
+        <source>%1 partially failed: %2.</source>
+        <translation>%1部分失败，%2。</translation>
+    </message>
+    <message id="toast.selection_required">
+        <source>Select the chart text whose subdivision you want to adjust</source>
+        <translation>请选择需要调整分音的谱面</translation>
+    </message>
+    <message id="toast.subdivision_incompatible">
+        <source>The selected chart cannot be adjusted by this subdivision ratio</source>
+        <translation>选中片段无法按此分音比例调整</translation>
+    </message>
+    <message id="toast.subdivision_limit">
+        <source>The subdivision value exceeds the supported range</source>
+        <translation>分音数值超出支持范围</translation>
+    </message>
     <message id="setup.completion_hint">
         <source>Customize completion candidates in Preferences.</source>
         <translation>可在首选项中自定义补全候选列表。</translation>
@@ -1648,6 +1668,18 @@ Failed: %2</source>
     <message id="dialog.render_settings.video.skin.standard">
         <source>SD</source>
         <translation>SD</translation>
+    </message>
+    <message id="dialog.skin_settings.firework">
+        <source>Firework effect</source>
+        <translation>烟花效果</translation>
+    </message>
+    <message id="dialog.skin_settings.firework.modern">
+        <source>Modern</source>
+        <translation>现代</translation>
+    </message>
+    <message id="dialog.skin_settings.firework.standard">
+        <source>Standard</source>
+        <translation>标准</translation>
     </message>
     <message id="dialog.render_settings.video.firework_brightness">
         <source>Firework brightness</source>
@@ -4350,6 +4382,14 @@ Error: %1</source>
         <translation>时间轴</translation>
     </message>
 
+    <message id="net.ui.query_options">
+        <source>Search options</source>
+        <translation>筛选选项</translation>
+    </message>
+    <message id="net.ui.queue_hint">
+        <source>Choose a chart folder and add it to the queue.</source>
+        <translation>选择谱面文件夹，添加到上传队列。</translation>
+    </message>
     <message id="net.ui.download_page">
         <source>Majdata Net</source>
         <translation>谱面下载</translation>

@@ -3,6 +3,26 @@
 <TS version="2.1" language="ja_JP">
 <context>
     <name></name>
+    <message id="toast.operation_failed">
+        <source>%1 failed: %2.</source>
+        <translation>%1に失敗しました。%2。</translation>
+    </message>
+    <message id="toast.operation_partially_failed">
+        <source>%1 partially failed: %2.</source>
+        <translation>%1の一部に失敗しました。%2。</translation>
+    </message>
+    <message id="toast.selection_required">
+        <source>Select the chart text whose subdivision you want to adjust</source>
+        <translation>分音を調整する譜面テキストを選択してください</translation>
+    </message>
+    <message id="toast.subdivision_incompatible">
+        <source>The selected chart cannot be adjusted by this subdivision ratio</source>
+        <translation>選択した部分はこの分音比率で調整できません</translation>
+    </message>
+    <message id="toast.subdivision_limit">
+        <source>The subdivision value exceeds the supported range</source>
+        <translation>分音の値が対応範囲を超えています</translation>
+    </message>
     <message id="setup.completion_hint">
         <source>Customize completion candidates in Preferences.</source>
         <translation>補完候補リストは環境設定でカスタマイズできます。</translation>
@@ -1648,6 +1668,18 @@ Failed: %2</source>
     <message id="dialog.render_settings.video.skin.standard">
         <source>SD</source>
         <translation>SD</translation>
+    </message>
+    <message id="dialog.skin_settings.firework">
+        <source>Firework effect</source>
+        <translation>花火エフェクト</translation>
+    </message>
+    <message id="dialog.skin_settings.firework.modern">
+        <source>Modern</source>
+        <translation>モダン</translation>
+    </message>
+    <message id="dialog.skin_settings.firework.standard">
+        <source>Standard</source>
+        <translation>標準</translation>
     </message>
     <message id="dialog.render_settings.video.firework_brightness">
         <source>Firework brightness</source>
@@ -4350,6 +4382,14 @@ Error: %1</source>
         <translation>タイムライン</translation>
     </message>
 
+    <message id="net.ui.query_options">
+        <source>Search options</source>
+        <translation>検索オプション</translation>
+    </message>
+    <message id="net.ui.queue_hint">
+        <source>Choose a chart folder and add it to the queue.</source>
+        <translation>譜面フォルダーを選び、キューに追加してください。</translation>
+    </message>
     <message id="net.ui.download_page">
         <source>Majdata Net</source>
         <translation>譜面ダウンロード</translation>

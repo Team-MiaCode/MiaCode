@@ -1227,6 +1227,7 @@ VideoExportResult VideoExportController::exportPreparedTask(
         diagReferenceCanvas.setBackgroundBrightnessInner(task.backgroundBrightnessInner);
         diagReferenceCanvas.setLayoutSquareScale(task.layoutSquareScale);
         diagReferenceCanvas.setFireworkBrightness(task.fireworkBrightness);
+        diagReferenceCanvas.setFireworkStyle(task.fireworkStyle);
         diagReferenceCanvas.setSmoothBrightness(task.smoothBrightness);
         diagReferenceCanvas.setBackgroundScaleMode(task.backgroundScaleMode);
         diagReferenceCanvas.setTapFlowSpeed(task.tapFlowSpeed);

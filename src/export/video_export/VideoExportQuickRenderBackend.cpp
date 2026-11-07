@@ -79,6 +79,7 @@ bool VideoExportQuickRenderBackend::bootstrap(
     frameState_.render.backgroundBrightnessInner = task.backgroundBrightnessInner;
     frameState_.render.layoutSquareScale = normalizedLayoutScale(task.layoutSquareScale);
     frameState_.render.fireworkBrightness = task.fireworkBrightness;
+    frameState_.render.fireworkStyle = task.fireworkStyle;
     frameState_.render.smoothBrightness = task.smoothBrightness;
     frameState_.render.backgroundScaleMode = task.backgroundScaleMode;
     frameState_.render.tapFlowSpeed = normalizedFlowSpeed(task.tapFlowSpeed);
@@ -167,6 +168,12 @@ void VideoExportQuickRenderBackend::setLayoutSquareScale(double scale)
 void VideoExportQuickRenderBackend::setFireworkBrightness(double brightness)
 {
     frameState_.render.fireworkBrightness = miacode::preview_video::normalizedFireworkBrightness(brightness);
+    syncSessionStateIfInitialized();
+}
+
+void VideoExportQuickRenderBackend::setFireworkStyle(PreviewFireworkStyle style)
+{
+    frameState_.render.fireworkStyle = style;
     syncSessionStateIfInitialized();
 }
 

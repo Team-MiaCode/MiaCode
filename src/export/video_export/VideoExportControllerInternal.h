@@ -352,7 +352,7 @@ constexpr double kDiagJudgeEffectDurationSeconds = miacode::preview_gameplay::kJ
 constexpr double kDiagJudgeEffectTouchDurationSeconds = miacode::preview_gameplay::kJudgeEffectTouchDurationSeconds;
 constexpr double kDiagJudgeEffectFireworkTouchTriggerDelaySeconds =
     miacode::preview_gameplay::kJudgeEffectFireworkTouchTriggerDelaySeconds;
-constexpr double kDiagJudgeEffectFireworkDurationSeconds = miacode::preview_gameplay::kJudgeEffectFireworkDurationSeconds;
+constexpr double kDiagJudgeEffectFireworkDurationSeconds = miacode::preview_gameplay::kFireworkMaxDurationSeconds;
 constexpr double kDiagLogicalCanvasSize = miacode::preview_gameplay::kLogicalCanvasSize;
 constexpr double kDiagLogicalCanvasCenter = kDiagLogicalCanvasSize / 2.0;
 

@@ -77,8 +77,6 @@ Item {
         if (viewId === "export" && root.documentSession.hasDocument) {
             root.pages.rememberEditorReturnTarget(root.viewState.activeEditorKey)
             root.pages.openVideoExportPage()
-        } else if (viewId === "network") {
-            root.pages.openNetPage("net-download")
         }
     }
 
@@ -145,7 +143,8 @@ Item {
             anchors.fill: parent
             visible: root.efficientMode
             nativeMaterialActive: !root.compact && Theme.nativeMaterialActive
-            color: root.compact ? "transparent" : Theme.chromeSurfaceColor(Theme.colors.background.panel)
+            color: root.compact ? "transparent"
+                : Theme.chromeSurfaceColor(Theme.colors.background.panel, Theme.nativeMaterialActive)
             viewState: root.viewState
             documentSession: root.documentSession
             commands: root.commands

@@ -735,7 +735,8 @@ void ScintillaEditorBridge::undo()
 {
     QGuiApplication::inputMethod()->commit();
     if (controller_) controller_->closeCompletion();
-    send(SCI_UNDO);
+    document_.undo();
+    refreshSelection(true);
     publishTouchUndoAnchor();
 }
 void ScintillaEditorBridge::redo()
@@ -808,7 +809,11 @@ bool ScintillaEditorBridge::applyEditorTransaction(const miacode::editor::SimaiT
         send(SCI_SCROLLCARET);
     }
     if (tx.hasEdit) textMutated();
-    else if (caretChanged) publishContext(!programmatic_);
+    else if (caretChanged) {
+        publishContext(!programmatic_);
+        if (controller_ && !programmatic_)
+            controller_->updateCompletion(document_.text(), cursorPosition());
+    }
     return true;
 }
 void ScintillaEditorBridge::acceptCompletionFromPopup()

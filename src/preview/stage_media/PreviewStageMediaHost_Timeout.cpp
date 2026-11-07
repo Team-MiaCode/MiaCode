@@ -220,6 +220,7 @@ void PreviewStageMediaHost::handleVideoEndOfMedia(bool wasPlaybackActive)
 
     const EndOfMediaClass classification = classifyEndOfMedia(facts);
     const bool recoverable = wasPlaybackActive
+        && transportPlaying_
         && !shuttingDown_
         && mediaKind_ == MediaKind::Video
         && endOfMediaShouldRecover(facts);
@@ -273,7 +274,7 @@ void PreviewStageMediaHost::resetStaleEndOfMediaRecovery()
 
 bool PreviewStageMediaHost::tryRecoverFromStaleEndOfMedia(double targetSecond)
 {
-    if (shuttingDown_ || player_ == nullptr || mediaKind_ != MediaKind::Video
+    if (shuttingDown_ || !transportPlaying_ || player_ == nullptr || mediaKind_ != MediaKind::Video
         || mediaPath_.isEmpty()) {
         return false;
     }

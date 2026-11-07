@@ -8,6 +8,7 @@ AppDialog {
     id: root
 
     required property var preferencesModel
+    required property var previewSettings
     required property var shortcuts
     required property var preferences
     required property var appBackground
@@ -404,6 +405,14 @@ AppDialog {
                             onPicked: function(value) { root.preferencesModel.themeModeToken = value }
                         }
 
+                        PreferenceCombo {
+                            objectName: "preferencesUiScaleCombo"
+                            label: qsTrId("dialog.preferences.ui_scale")
+                            options: root.preferencesModel.uiScaleOptions
+                            currentValue: root.preferencesModel.uiScalePercent
+                            onPicked: value => root.preferencesModel.uiScalePercent = value
+                        }
+
                         ThemePicker {
                             objectName: "preferencesLightThemeCombo"
                             darkPalette: false
@@ -440,20 +449,44 @@ AppDialog {
                             }
                         }
 
-                        PreferenceCombo {
-                            objectName: "preferencesSidebarModeCombo"
-                            label: qsTrId("dialog.preferences.sidebar_mode")
-                            options: root.preferencesModel.sidebarModeOptions
-                            currentValue: root.preferences.efficientSidebarEnabled
-                            onPicked: value => root.preferences.efficientSidebarEnabled = value
-                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 5
 
-                        PreferenceCombo {
-                            objectName: "preferencesUiScaleCombo"
-                            label: qsTrId("dialog.preferences.ui_scale")
-                            options: root.preferencesModel.uiScaleOptions
-                            currentValue: root.preferencesModel.uiScalePercent
-                            onPicked: value => root.preferencesModel.uiScalePercent = value
+                            Text {
+                                Layout.preferredWidth: root.settingsLabelWidth
+                                Layout.alignment: Qt.AlignTop
+                                Layout.topMargin: Math.round((Theme.controlMinHeight - implicitHeight) / 2)
+                                text: qsTrId("dialog.preferences.sidebar_mode")
+                                color: Theme.colors.text.secondary
+                                font.family: Theme.uiFont
+                                font.pixelSize: Theme.uiFontSize
+                                wrapMode: Text.WordWrap
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Layout.topMargin: Theme.chromeInsetY
+                                spacing: 12
+
+                                SidebarModeCard {
+                                    objectName: "preferencesStandardSidebarCard"
+                                    Layout.fillWidth: true
+                                    Layout.maximumWidth: 200
+                                    classic: false
+                                    selected: !root.preferences.efficientSidebarEnabled
+                                    onClicked: root.preferences.efficientSidebarEnabled = false
+                                }
+                                SidebarModeCard {
+                                    objectName: "preferencesClassicSidebarCard"
+                                    Layout.fillWidth: true
+                                    Layout.maximumWidth: 200
+                                    classic: true
+                                    selected: root.preferences.efficientSidebarEnabled
+                                    onClicked: root.preferences.efficientSidebarEnabled = true
+                                }
+                                Item { Layout.fillWidth: true }
+                            }
                         }
 
                         RowLayout {
@@ -656,6 +689,13 @@ AppDialog {
                                 options: root.preferencesModel.inputHandlingOptions
                                 currentValue: root.preferencesModel.editorInputHandlingMode
                                 onPicked: function(value) { root.preferencesModel.editorInputHandlingMode = value }
+                            }
+
+                            PreferenceSwitch {
+                                objectName: "preferencesTouchPadAuthoringSwitch"
+                                text: root.previewSettings.labels.touchPadAuthoringShortcut || ""
+                                checked: root.previewSettings.values.touchPadAuthoringShortcut === true
+                                onToggled: root.previewSettings.setValue("touchPadAuthoringShortcut", checked)
                             }
 
                             PreferenceSwitch {

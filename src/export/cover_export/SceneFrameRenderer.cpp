@@ -64,6 +64,7 @@ bool SceneFrameRenderer::bootstrap(const VideoExportTask& task, QString* errorMe
     frameState_.render.layoutSquareScale =
         miacode::preview_video::normalizedLayoutSquareScale(task.layoutSquareScale);
     frameState_.render.fireworkBrightness = task.fireworkBrightness;
+    frameState_.render.fireworkStyle = task.fireworkStyle;
     frameState_.render.smoothBrightness = task.smoothBrightness;
     frameState_.render.backgroundScaleMode = task.backgroundScaleMode;
     frameState_.render.tapFlowSpeed =
@@ -122,7 +123,7 @@ bool SceneFrameRenderer::ensureWindow(QString* errorMessage)
     // content item gives it both its visual parent and QObject ownership.
     sceneRoot_ = new PreviewQuickSceneRoot(window_->contentItem());
     sceneRoot_->setZ(0.0);
-    sceneRoot_->setLayerFlags(miacode::preview::scene::kPreviewExportOverlayRenderLayers);
+    sceneRoot_->setLayerFlags(miacode::preview::scene::kPreviewCoverRenderLayers);
     sceneRoot_->setFrameState(&frameState_);
 
     sceneGraphReady_ = false;

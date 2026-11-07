@@ -212,6 +212,7 @@ public:
         miacode::preview_gameplay::CenterDisplayMode centerDisplayMode =
             miacode::preview_gameplay::kDefaultCenterDisplayMode;
         double fireworkBrightness = miacode::preview_video::kFireworkBrightnessDefault;
+        PreviewFireworkStyle fireworkStyle = PreviewFireworkStyle::Standard;
         bool smoothBrightness = miacode::preview_video::kSmoothBrightnessDefault;
         double backgroundBrightnessOuter = miacode::preview_video::kBackgroundBrightnessDefault;
         double backgroundBrightnessInner = miacode::preview_video::kBackgroundBrightnessInnerDefault;

@@ -302,6 +302,15 @@ Item {
             // shortcuts on one sequence are ambiguous to Qt, which then fires
             // NEITHER. qml_shortcut_binding_spec guards the whole class.
             AppMenuAction {
+                text: qsTrId("action.new")
+                shortcut: root.shortcuts.revision >= 0
+                    ? root.shortcuts.sequence("file.new", "Ctrl+Shift+N")
+                    : ""
+                shortcutText: root.shortcuts.displayText("file.new", "Ctrl+Shift+N")
+                enabled: root.commandsEnabled
+                onTriggered: root.commands.newDocumentRequested()
+            }
+            AppMenuAction {
                 text: qsTrId("action.open")
                 shortcut: root.shortcuts.revision >= 0
                     ? root.shortcuts.sequence("file.open", "Ctrl+Shift+O")

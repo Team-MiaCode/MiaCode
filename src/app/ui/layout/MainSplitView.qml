@@ -251,7 +251,7 @@ Item {
         parent: root.previewDetached ? detachedPreviewContent : previewHost
         anchors.fill: parent
         documentAvailable: root.documentSession.hasDocument
-        surfaceActive: !root.previewSurfaceMoving && (root.previewDetached || !root.viewState.netEditorActive)
+        surfaceActive: !root.previewSurfaceMoving
         detached: root.previewDetached
         transportMirrored: root.preferencesModel.previewOnLeft && !root.previewDetached
         previewSession: root.previewSession
@@ -290,6 +290,8 @@ Item {
             Math.ceil((preview.minimumHeight + detachedTitleBar.height + detachedToolBar.height) * Theme.uiScale))
         flags: {
             let value = Qt.Window
+            if (Qt.platform.os !== "windows" && alwaysOnTop)
+                value |= Qt.WindowStaysOnTopHint
             if (root.Window.window.platform.captionButtons) {
                 value |= Qt.CustomizeWindowHint
                         | Qt.WindowTitleHint
@@ -581,7 +583,7 @@ Item {
 
             Item {
                 id: previewHost
-                visible: !root.previewDetached && !root.viewState.netEditorActive
+                visible: !root.previewDetached
                 SplitView.minimumWidth: previewWidthSnap.constrained
                     ? previewWidthSnap.targetSize : previewWidthSnap.minimumSize
                 SplitView.maximumWidth: previewWidthSnap.constrained

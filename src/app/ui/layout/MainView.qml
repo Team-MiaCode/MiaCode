@@ -155,7 +155,7 @@ Item {
         onAboutRequested: preferencesDialog.openPage("about")
         onSetupWizardRequested: setupWizard.open()
         onPreferencesRequested: preferencesDialog.open()
-        onNewDocumentRequested: root.showOpenFileDialog()
+        onNewDocumentRequested: root.commands.newDocument()
         onOpenRecentRequested: path => root.commands.openRecentDocument(path)
         onRestoreBackupRequested: path => root.commands.restoreBackupDocument(path)
         onCloseDocumentRequested: {
@@ -584,8 +584,8 @@ Item {
         target: state
 
         function onApplicationEditorActivationRequested(key) {
-            if (root.pages.activePageId !== key)
-                root.pages.openNetPage(key)
+            if (!root.pages.openNetPage(key))
+                state.cancelApplicationEditorActivation()
         }
 
         function onActiveEditorKeyChanged() {
@@ -626,7 +626,7 @@ Item {
         }
 
         function onNetPageActivated(page) {
-            state.openEditor(page)
+            state.confirmApplicationEditor(page)
         }
 
         function onActivePageIdChanged() {
@@ -644,6 +644,7 @@ Item {
         }
 
         function onNavigationRejected() {
+            state.cancelApplicationEditorActivation()
             root.pendingDifficultyActivation = 0
             root.syncSidebarViewToPage()
         }
@@ -858,6 +859,7 @@ Item {
         objectName: "shellPreferencesDialog"
         onCompletionSettingsClosed: splitView.sourceEditorItem.focusEditor()
         preferencesModel: root.preferencesModel
+        previewSettings: root.applicationContext.previewSettings
         shortcuts: root.shortcutModel
         preferences: root.preferences
         appBackground: root.appBackground

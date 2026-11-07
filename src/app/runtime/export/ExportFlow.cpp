@@ -2,6 +2,7 @@
 #include "app/runtime/Shared.h"
 #include "app/runtime/media/MediaJobsHost.h"
 #include "app/runtime/document/DocumentSessionHost.h"
+#include "app/runtime/playback/PlaybackCoordinator.h"
 #include "app/runtime/shell/ShellHost.h"
 
 #include "audio/QtPreviewSfxRuntime.h"
@@ -224,6 +225,7 @@ void miacode::runtime::VideoExportHost::applySharedExportTaskSettings(const Vide
     session_.previewBackgroundBrightnessInner_ = qBound(0.0, task.backgroundBrightnessInner, 1.0);
     session_.previewLayoutSquareScale_ = miacode::preview_video::normalizedLayoutSquareScale(task.layoutSquareScale);
     session_.previewFireworkBrightness_ = task.fireworkBrightness;
+    session_.previewFireworkStyle_ = task.fireworkStyle;
     session_.previewSmoothBrightness_ = task.smoothBrightness;
     session_.previewBackgroundScaleMode_ = task.backgroundScaleMode;
     session_.previewTapFlowSpeed_ = miacode::preview_gameplay::normalizePreviewTimingFlowSpeed(task.tapFlowSpeed);
@@ -250,6 +252,7 @@ void miacode::runtime::VideoExportHost::applySharedExportTaskSettings(const Vide
         session_.scene_->setBackgroundBrightnessInner(session_.previewBackgroundBrightnessInner_);
         session_.scene_->setLayoutSquareScale(session_.previewLayoutSquareScale_);
         session_.scene_->setFireworkBrightness(session_.previewFireworkBrightness_);
+        session_.scene_->setFireworkStyle(session_.previewFireworkStyle_);
         session_.scene_->setSmoothBrightness(session_.previewSmoothBrightness_);
         session_.scene_->setBackgroundScaleMode(session_.previewBackgroundScaleMode_);
         session_.scene_->setTapFlowSpeed(session_.previewTapFlowSpeed_);
@@ -337,6 +340,7 @@ VideoExportTask miacode::runtime::VideoExportHost::buildVideoExportSeedTask(int 
     task.backgroundBrightnessInner = session_.previewBackgroundBrightnessInner_;
     task.layoutSquareScale = session_.previewLayoutSquareScale_;
     task.fireworkBrightness = session_.previewFireworkBrightness_;
+    task.fireworkStyle = session_.previewFireworkStyle_;
     task.smoothBrightness = session_.previewSmoothBrightness_;
     task.outlineVariant = session_.previewOutlineVariant_;
     // Pair the variant with its custom-outline path (same resolver the real export
@@ -688,9 +692,7 @@ bool miacode::runtime::VideoExportHost::startQmlExportAudition(int difficultyId,
         || session_.scene_ == nullptr) {
         return false;
     }
-    if (session_.playing_) {
-        session_.onTogglePreviewPause();
-    }
+    session_.playback_->pausePlayback();
 
     beginExportPreviewSession(visualTask);
     const double aspectRatio =
@@ -705,6 +707,7 @@ bool miacode::runtime::VideoExportHost::startQmlExportAudition(int difficultyId,
         session_.scene_->setBackgroundBrightnessInner(visualTask.backgroundBrightnessInner);
         session_.scene_->setLayoutSquareScale(visualTask.layoutSquareScale);
         session_.scene_->setFireworkBrightness(visualTask.fireworkBrightness);
+        session_.scene_->setFireworkStyle(visualTask.fireworkStyle);
         session_.scene_->setSmoothBrightness(visualTask.smoothBrightness);
         session_.scene_->setBackgroundScaleMode(visualTask.backgroundScaleMode);
         session_.scene_->setTapFlowSpeed(visualTask.tapFlowSpeed);
@@ -735,6 +738,7 @@ bool miacode::runtime::VideoExportHost::launchQmlVideoExport(
     int difficultyId,
     QString* errorMessage)
 {
+    session_.playback_->pausePlayback();
     VideoExportTask task = requestedTask;
     applySharedExportTaskSettings(task);
     VideoExportSnapshot snapshot;
@@ -754,6 +758,7 @@ bool miacode::runtime::VideoExportHost::launchQmlBatchExport(
     const BatchExportCallbacks& callbacks,
     QString* errorMessage)
 {
+    session_.playback_->pausePlayback();
     VideoExportTask requestedTask = templateTask;
     applySharedExportTaskSettings(requestedTask);
     requestedTask.exportStartSeconds = 0.0;

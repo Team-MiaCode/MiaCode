@@ -1,4 +1,5 @@
 #include "preview/runtime/PreviewSceneAssetLoader.h"
+#include "core/scene/PreviewStandardFirework.h"
 
 #include "core/video/AssetPaths.h"
 #include "core/video/LayoutRingConfig.h"
@@ -7,6 +8,7 @@
 #include "core/video/PreviewSkinConfig.h"
 
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QPainter>
 #include <QPainterPath>
@@ -294,7 +296,7 @@ QImage buildJudgeEffectTapBreakFallbackImage()
     return image;
 }
 
-QImage buildJudgeEffectFireworkColorBallFallbackImage()
+QImage buildModernFireworkColorBallImage()
 {
     constexpr int kSize = 512;
     QImage image(kSize, kSize, QImage::Format_ARGB32_Premultiplied);
@@ -568,11 +570,21 @@ void populateJudgeEffectAssets(miacode::preview::scene::PreviewJudgeEffectAssets
     effect->touchPart02DxImage = touchPart02Dx.isNull()
         ? effect->touchPart02Image
         : touchPart02Dx.convertToFormat(QImage::Format_ARGB32_Premultiplied);
-    effect->fireworkColorBallImage = loadImageIfExists(judgeEffectResourcePath("judge_effect_firework_color_ball.png"));
-    if (effect->fireworkColorBallImage.isNull()) {
-        effect->fireworkColorBallImage = buildJudgeEffectFireworkColorBallFallbackImage();
+    effect->modernFireworkColorBallImage = loadImageIfExists(QStringLiteral(":/preview/fireworks/modern/color_ball.png"));
+    if (effect->modernFireworkColorBallImage.isNull()) {
+        effect->modernFireworkColorBallImage = buildModernFireworkColorBallImage();
     }
-    effect->fireworkColorBallSourceRect = nonTransparentBounds(effect->fireworkColorBallImage);
+    effect->modernFireworkColorBallSourceRect = nonTransparentBounds(effect->modernFireworkColorBallImage);
+    const QString standardRoot = QStringLiteral(":/preview/fireworks/standard/");
+    auto& standard = effect->standardFirework;
+    standard.starImage = loadImageIfExists(standardRoot + QStringLiteral("star.png"));
+    standard.raysImage = loadImageIfExists(standardRoot + QStringLiteral("rays.png"));
+    standard.ringMaskImage = loadImageIfExists(standardRoot + QStringLiteral("ring_mask.png"));
+    standard.ringColorImage = loadImageIfExists(standardRoot + QStringLiteral("ring_color.png"));
+    QFile parameters(QStringLiteral(":/preview/fireworks/standard/emitters.json"));
+    if (parameters.open(QIODevice::ReadOnly)) {
+        standard.effect = miacode::preview::scene::PreviewStandardFireworkEffect::fromJson(parameters.readAll());
+    }
 }
 
 }  // namespace

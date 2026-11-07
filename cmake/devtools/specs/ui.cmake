@@ -97,6 +97,7 @@ miacode_add_dev_tool(document_model_save_spec TEST
         src/app/ui/document/DocumentModel.h
         src/app/ui/preferences/LocaleService.cpp
         src/app/ui/preferences/LocaleService.h
+        src/app/ui/preferences/ApplicationMenuTranslation.cpp
         src/app/services/PreferenceDocument.cpp
         src/app/services/ChartWorkspace.cpp
         src/app/services/ChartWorkspace.h
@@ -115,6 +116,10 @@ miacode_add_dev_tool(document_model_save_spec TEST
     LIBS miacode_analysis miacode_audio miacode_editor_core Qt6::Core Qt6::Gui Qt6::Qml
     INCLUDES src
 )
+if(APPLE)
+    target_sources(document_model_save_spec PRIVATE src/app/ui/preferences/ApplicationMenuTranslationMac.mm)
+    target_link_libraries(document_model_save_spec PRIVATE "-framework AppKit")
+endif()
 
 miacode_add_dev_tool(qml_document_projection_spec TEST
     SOURCES
@@ -220,9 +225,9 @@ miacode_add_dev_tool(export_file_picker_spec TEST
         src/app/ui/export/CoverExportSession.h
         src/app/ui/preferences/LocaleService.cpp
         src/app/ui/preferences/LocaleService.h
+        src/app/ui/preferences/ApplicationMenuTranslation.cpp
         src/app/services/PreferenceDocument.cpp
         src/app/services/ProjectPreferences.cpp
-        src/app/services/ExportIntroPreferences.cpp
         src/app/services/UiRequestService.cpp
         src/app/services/UiRequestService.h
         src/app/services/ShellNotifications.cpp
@@ -238,6 +243,8 @@ target_compile_definitions(export_file_picker_spec PRIVATE
     "MIACODE_QML_SPEC_IMPORT_ROOT=\"${MIACODE_QML_SPEC_IMPORT_ROOT}\"")
 miacode_enable_native_file_dialogs(export_file_picker_spec)
 if(APPLE)
+    target_sources(export_file_picker_spec PRIVATE src/app/ui/preferences/ApplicationMenuTranslationMac.mm)
+    target_link_libraries(export_file_picker_spec PRIVATE "-framework AppKit")
     set_target_properties(export_file_picker_spec PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER "com.fanfaredash.MiaCodeFilePickerSpec"

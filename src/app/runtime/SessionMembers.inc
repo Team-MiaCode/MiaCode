@@ -377,6 +377,7 @@
         double previewBackgroundBrightnessInner_ = miacode::preview_video::kBackgroundBrightnessInnerDefault;
         double previewLayoutSquareScale_ = miacode::preview_video::kLayoutSquareScaleDefault;
         double previewFireworkBrightness_ = miacode::preview_video::kFireworkBrightnessDefault;
+        PreviewFireworkStyle previewFireworkStyle_ = PreviewFireworkStyle::Standard;
         bool previewSmoothBrightness_ = miacode::preview_video::kSmoothBrightnessDefault;
         // The preview appearance values that used to live here now belong to
         // miacode::PreviewAppearanceState (owned by ApplicationServices).
@@ -693,6 +694,7 @@
     double& previewBackgroundBrightnessInner_ = state_.previewBackgroundBrightnessInner_;
     double& previewLayoutSquareScale_ = state_.previewLayoutSquareScale_;
     double& previewFireworkBrightness_ = state_.previewFireworkBrightness_;
+    PreviewFireworkStyle& previewFireworkStyle_ = state_.previewFireworkStyle_;
     bool& previewSmoothBrightness_ = state_.previewSmoothBrightness_;
     PreviewOutlineVariant& previewOutlineVariant_ = previewAppearanceValues_.outlineVariant;
     bool& previewOutlineVariantUsesAutoSelection_ = state_.previewOutlineVariantUsesAutoSelection_;

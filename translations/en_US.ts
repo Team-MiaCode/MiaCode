@@ -3,6 +3,26 @@
 <TS version="2.1" language="en_US">
 <context>
     <name></name>
+    <message id="toast.operation_failed">
+        <source>%1 failed: %2.</source>
+        <translation>%1 failed: %2.</translation>
+    </message>
+    <message id="toast.operation_partially_failed">
+        <source>%1 partially failed: %2.</source>
+        <translation>%1 partially failed: %2.</translation>
+    </message>
+    <message id="toast.selection_required">
+        <source>Select the chart text whose subdivision you want to adjust</source>
+        <translation>Select the chart text whose subdivision you want to adjust</translation>
+    </message>
+    <message id="toast.subdivision_incompatible">
+        <source>The selected chart cannot be adjusted by this subdivision ratio</source>
+        <translation>The selected chart cannot be adjusted by this subdivision ratio</translation>
+    </message>
+    <message id="toast.subdivision_limit">
+        <source>The subdivision value exceeds the supported range</source>
+        <translation>The subdivision value exceeds the supported range</translation>
+    </message>
     <message id="setup.completion_hint">
         <source>Customize completion candidates in Preferences.</source>
         <translation>Customize completion candidates in Preferences.</translation>
@@ -1648,6 +1668,18 @@ Failed: %2</translation>
     <message id="dialog.render_settings.video.skin.standard">
         <source>SD</source>
         <translation>SD</translation>
+    </message>
+    <message id="dialog.skin_settings.firework">
+        <source>Firework effect</source>
+        <translation>Firework effect</translation>
+    </message>
+    <message id="dialog.skin_settings.firework.modern">
+        <source>Modern</source>
+        <translation>Modern</translation>
+    </message>
+    <message id="dialog.skin_settings.firework.standard">
+        <source>Standard</source>
+        <translation>Standard</translation>
     </message>
     <message id="dialog.render_settings.video.firework_brightness">
         <source>Firework brightness</source>
@@ -4350,6 +4382,14 @@ Error: %1</translation>
         <translation>Timeline</translation>
     </message>
 
+    <message id="net.ui.query_options">
+        <source>Search options</source>
+        <translation>Search options</translation>
+    </message>
+    <message id="net.ui.queue_hint">
+        <source>Choose a chart folder and add it to the queue.</source>
+        <translation>Choose a chart folder and add it to the queue.</translation>
+    </message>
     <message id="net.ui.download_page">
         <source>Majdata Net</source>
         <translation>Chart download</translation>

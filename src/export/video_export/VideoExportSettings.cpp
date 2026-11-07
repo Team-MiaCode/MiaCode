@@ -100,11 +100,10 @@ void applyVideoExportPreferences(const QJsonObject& settings, VideoExportTask* t
         settings.value(QStringLiteral("size_preset")), task->sizePreset);
     task->clockCountEnabled = settings.value(QStringLiteral("clock_count_enabled"))
                                   .toBool(task->clockCountEnabled);
-    task->intro.enabled = settings.value(QStringLiteral("add_intro")).toBool(task->intro.enabled);
-    task->intro.pvPreview = settings.value(QStringLiteral("intro_style"))
-                                .toString(task->intro.pvPreview ? QStringLiteral("pv_preview")
-                                                                : QStringLiteral("classic"))
-        == QStringLiteral("pv_preview");
+    // Intro selection belongs to one export, not to saved preferences.
+    task->intro.enabled = true;
+    task->intro.pvPreview = false;
+    task->intro.pvPreviewStartSeconds = 0.0;
     task->intro.pvPreviewBrightness = qBound(
         0.0, settings.value(QStringLiteral("intro_pv_brightness")).toDouble(task->intro.pvPreviewBrightness), 1.0);
     task->intro.backgroundMode = settings.value(QStringLiteral("intro_background_mode"))
@@ -140,9 +139,8 @@ void appendVideoExportPreferences(QJsonObject* settings, const VideoExportTask& 
     settings->insert(QStringLiteral("preset"), videoExportPreferencePresetToken(task.preset));
     settings->insert(QStringLiteral("size_preset"), videoExportSizePresetToken(task.sizePreset));
     settings->insert(QStringLiteral("clock_count_enabled"), task.clockCountEnabled);
-    settings->insert(QStringLiteral("add_intro"), task.intro.enabled);
-    settings->insert(QStringLiteral("intro_style"),
-                     task.intro.pvPreview ? QStringLiteral("pv_preview") : QStringLiteral("classic"));
+    settings->remove(QStringLiteral("add_intro"));
+    settings->remove(QStringLiteral("intro_style"));
     settings->insert(QStringLiteral("intro_pv_brightness"), task.intro.pvPreviewBrightness);
     settings->insert(QStringLiteral("intro_background_mode"), task.intro.backgroundMode);
     settings->insert(QStringLiteral("intro_background_custom_path"), task.intro.customBackgroundPath.trimmed());
@@ -232,6 +230,7 @@ void copyVideoExportUserSettings(const VideoExportTask& source, VideoExportTask*
     target->backgroundBrightnessInner = source.backgroundBrightnessInner;
     target->layoutSquareScale = source.layoutSquareScale;
     target->fireworkBrightness = source.fireworkBrightness;
+    target->fireworkStyle = source.fireworkStyle;
     target->smoothBrightness = source.smoothBrightness;
     target->backgroundScaleMode = source.backgroundScaleMode;
     target->tapFlowSpeed = source.tapFlowSpeed;
@@ -242,6 +241,7 @@ void copyVideoExportUserSettings(const VideoExportTask& source, VideoExportTask*
     target->clockCountEnabled = source.clockCountEnabled;
     target->intro.enabled = source.intro.enabled;
     target->intro.pvPreview = source.intro.pvPreview;
+    target->intro.pvPreviewStartSeconds = source.intro.pvPreviewStartSeconds;
     target->intro.pvPreviewBrightness = source.intro.pvPreviewBrightness;
     target->intro.backgroundMode = source.intro.backgroundMode;
     target->intro.customBackgroundPath = source.intro.customBackgroundPath;

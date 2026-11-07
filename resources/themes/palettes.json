@@ -12,9 +12,9 @@
           "elevated": "#202122",
           "control": "#121314",
           "controlDisabled": "#202122",
-          "titleBar": "#121314",
-          "activityBar": "#121314",
-          "statusBar": "#121314"
+          "titleBar": "#0C0D0E",
+          "activityBar": "#0C0D0E",
+          "statusBar": "#0C0D0E"
         },
         "border": {
           "normal": "#2A2B2C",
@@ -350,9 +350,9 @@
           "elevated": "#232B35",
           "control": "#171D24",
           "controlDisabled": "#202833",
-          "titleBar": "#171C23",
-          "activityBar": "#171C23",
-          "statusBar": "#171C23"
+          "titleBar": "#101419",
+          "activityBar": "#101419",
+          "statusBar": "#101419"
         },
         "border": {
           "normal": "#384656",
@@ -521,7 +521,7 @@
           "controlDisabled": "#F2F5F9",
           "titleBar": "#F7F9FC",
           "activityBar": "#F7F9FC",
-          "statusBar": "#F7F9FC"
+          "statusBar": "#526F98"
         },
         "border": {
           "normal": "#D5E0EC",
@@ -539,7 +539,7 @@
           "heading": "#203040",
           "onAccent": "#FFFFFF",
           "onDanger": "#FFFFFF",
-          "status": "#5F6B7A",
+          "status": "#FFFFFF",
           "chrome": "#5F6B7A"
         },
         "previewHud": {
@@ -688,9 +688,9 @@
           "elevated": "#23324A",
           "control": "#141C2E",
           "controlDisabled": "#1B263B",
-          "titleBar": "#141C2E",
-          "activityBar": "#141C2E",
-          "statusBar": "#141C2E"
+          "titleBar": "#0F1523",
+          "activityBar": "#0F1523",
+          "statusBar": "#0F1523"
         },
         "border": {
           "normal": "#354662",
@@ -957,9 +957,9 @@
           "selected": "#B02F45"
         },
         "syntax": {
-          "keyword": "#965233",
-          "duration": "#725092",
-          "comment": "#507A50",
+          "keyword": "#B24714",
+          "duration": "#7E3FC1",
+          "comment": "#37774A",
           "error": "#B02F45",
           "warning": "#895D08"
         },
@@ -1126,9 +1126,9 @@
           "selected": "#B02F45"
         },
         "syntax": {
-          "keyword": "#2D698F",
-          "duration": "#725098",
-          "comment": "#5B7C54",
+          "keyword": "#006D9F",
+          "duration": "#8641C7",
+          "comment": "#4B7A37",
           "error": "#B02F45",
           "warning": "#895D08"
         },
@@ -1295,9 +1295,9 @@
           "selected": "#B02F45"
         },
         "syntax": {
-          "keyword": "#3D733F",
-          "duration": "#8E5830",
-          "comment": "#547956",
+          "keyword": "#007845",
+          "duration": "#B04B00",
+          "comment": "#786086",
           "error": "#B02F45",
           "warning": "#895D08"
         },
@@ -1364,9 +1364,9 @@
           "elevated": "#313244",
           "control": "#1E1E2E",
           "controlDisabled": "#313244",
-          "titleBar": "#181825",
-          "activityBar": "#181825",
-          "statusBar": "#181825"
+          "titleBar": "#11111B",
+          "activityBar": "#11111B",
+          "statusBar": "#11111B"
         },
         "border": {
           "normal": "#313244",
@@ -1533,9 +1533,9 @@
           "elevated": "#CCD0DA",
           "control": "#EFF1F5",
           "controlDisabled": "#CCD0DA",
-          "titleBar": "#E6E9EF",
-          "activityBar": "#E6E9EF",
-          "statusBar": "#E6E9EF"
+          "titleBar": "#DCE0E8",
+          "activityBar": "#DCE0E8",
+          "statusBar": "#5C5F77"
         },
         "border": {
           "normal": "#BCC0CC",
@@ -1553,7 +1553,7 @@
           "heading": "#4C4F69",
           "onAccent": "#FFFFFF",
           "onDanger": "#FFFFFF",
-          "status": "#5C5F77",
+          "status": "#FFFFFF",
           "chrome": "#5C5F77"
         },
         "previewHud": {
@@ -1702,9 +1702,9 @@
           "elevated": "#3B4252",
           "control": "#2E3440",
           "controlDisabled": "#3B4252",
-          "titleBar": "#272C36",
-          "activityBar": "#272C36",
-          "statusBar": "#272C36"
+          "titleBar": "#20242C",
+          "activityBar": "#20242C",
+          "statusBar": "#20242C"
         },
         "border": {
           "normal": "#3B4252",
@@ -1871,9 +1871,9 @@
           "elevated": "#303849",
           "control": "#202532",
           "controlDisabled": "#303849",
-          "titleBar": "#171B25",
-          "activityBar": "#171B25",
-          "statusBar": "#171B25"
+          "titleBar": "#10131A",
+          "activityBar": "#10131A",
+          "statusBar": "#10131A"
         },
         "border": {
           "normal": "#303849",
@@ -2142,9 +2142,9 @@
           "selected": "#B02F45"
         },
         "syntax": {
-          "keyword": "#286388",
-          "duration": "#73508E",
-          "comment": "#647630",
+          "keyword": "#006FA8",
+          "duration": "#8440C3",
+          "comment": "#667500",
           "error": "#B02F45",
           "warning": "#895D08"
         },
@@ -2311,9 +2311,9 @@
           "selected": "#B02F45"
         },
         "syntax": {
-          "keyword": "#965130",
-          "duration": "#714E8E",
-          "comment": "#53764A",
+          "keyword": "#B04410",
+          "duration": "#8039BD",
+          "comment": "#317540",
           "error": "#B02F45",
           "warning": "#895D08"
         },
@@ -2380,9 +2380,9 @@
           "elevated": "#44475A",
           "control": "#282A36",
           "controlDisabled": "#44475A",
-          "titleBar": "#21222C",
-          "activityBar": "#21222C",
-          "statusBar": "#21222C"
+          "titleBar": "#191A22",
+          "activityBar": "#191A22",
+          "statusBar": "#191A22"
         },
         "border": {
           "normal": "#44475A",
@@ -2549,9 +2549,9 @@
           "elevated": "#292E42",
           "control": "#1A1B26",
           "controlDisabled": "#292E42",
-          "titleBar": "#161722",
-          "activityBar": "#161722",
-          "statusBar": "#161722"
+          "titleBar": "#101119",
+          "activityBar": "#101119",
+          "statusBar": "#101119"
         },
         "border": {
           "normal": "#292E42",

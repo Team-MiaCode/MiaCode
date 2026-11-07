@@ -740,6 +740,17 @@ void PreviewRuntime::setLayoutSquareScale(double scale)
     update();
 }
 
+void PreviewRuntime::setFireworkStyle(PreviewFireworkStyle style)
+{
+    if (frameState_.render.fireworkStyle == style) return;
+    frameState_.render.fireworkStyle = style;
+    removeFireworkWarmupMarkers();
+    fireworkWarmupArmed_ = false;
+    fireworkWarmupDone_ = false;
+    armFireworkPsoWarmupIfReady();
+    update();
+}
+
 void PreviewRuntime::setFireworkBrightness(double brightness)
 {
     frameState_.render.fireworkBrightness = miacode::preview_video::normalizedFireworkBrightness(brightness);
@@ -2046,15 +2057,12 @@ void PreviewRuntime::armFireworkPsoWarmupIfReady()
     if (fireworkWarmupDone_ || fireworkWarmupArmed_) {
         return;
     }
-    // Need the core skin AND the firework colour-ball image present, so the
-    // layer takes the textured colour-ball branch — that's what forces Qt
-    // RHI to compile the firework material pipeline *and* upload the texture.
-    // (populateJudgeEffectAssets always supplies a procedural fallback ball,
-    // so this is non-null whenever core assets have loaded; the guard is
-    // belt-and-suspenders against an empty/uninitialised asset state.)
-    if (assets_ == nullptr || !assets_->hasCoreSkinAssetsLoaded()
-        || frameState_.judgeEffect.fireworkColorBallImage.isNull()) {
-        return;  // retried on the next assetsChanged / visible-window bind
+    // Warm the selected style after its textures and particle data are available.
+    const bool fireworkAssetsReady = frameState_.render.fireworkStyle == PreviewFireworkStyle::Standard
+        ? frameState_.judgeEffect.standardFirework.effect != nullptr
+        : !frameState_.judgeEffect.modernFireworkColorBallImage.isNull();
+    if (assets_ == nullptr || !assets_->hasCoreSkinAssetsLoaded() || !fireworkAssetsReady) {
+        return;
     }
     fireworkWarmupArmed_ = true;
     fireworkWarmupArmPresentCount_ = presentedFrameCountTotal_;

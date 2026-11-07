@@ -48,8 +48,8 @@ bool syntheticDrawsAt(double centeredAt, double playhead, bool useWarmupIdentity
 
     QImage colorBallImage(8, 8, QImage::Format_ARGB32_Premultiplied);
     colorBallImage.fill(qRgba(255, 255, 255, 255));
-    state.judgeEffect.fireworkColorBallImage = colorBallImage;
-    state.judgeEffect.fireworkColorBallSourceRect =
+    state.judgeEffect.modernFireworkColorBallImage = colorBallImage;
+    state.judgeEffect.modernFireworkColorBallSourceRect =
         QRectF(0.0, 0.0, colorBallImage.width(), colorBallImage.height());
     state.playheadSeconds = playhead;
 

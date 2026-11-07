@@ -15,7 +15,7 @@ ShaderEffect {
     // This mask rounds the panel against the activity-bar strip, so its
     // restored pixels must use that strip's theme role.
     property color baseColor: Theme.colors.background.activityBar
-    readonly property color surfaceColor: Theme.surfaceColor(baseColor)
+    readonly property color surfaceColor: Theme.chromeSurfaceColor(baseColor, false)
     readonly property real nativeMaterial: Theme.nativeMaterialActive ? 1.0 : 0.0
     readonly property color nativeTintColor: Theme.chromeSurfaceColor(baseColor)
     readonly property color wallpaperBaseColor: Theme.colors.background.surface

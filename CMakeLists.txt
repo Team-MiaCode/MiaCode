@@ -539,8 +539,6 @@ add_executable(MiaCode WIN32 MACOSX_BUNDLE
     src/app/services/ProjectPreferences.h
     src/app/services/ProjectPreferences.cpp
     src/app/services/ChartBannerData.h
-    src/app/services/ExportIntroPreferences.h
-    src/app/services/ExportIntroPreferences.cpp
     src/app/runtime/latency/LatencyAnalysis.h
     src/app/runtime/latency/LatencyAnalysis.cpp
     src/app/runtime/latency/LatencyTestChartBuilder.h
@@ -616,6 +614,8 @@ file(WRITE "${MIACODE_THEME_PALETTE_SCRIPT}" ".pragma library\nvar catalog = ${M
 set_source_files_properties("${MIACODE_THEME_PALETTE_SCRIPT}" PROPERTIES QT_RESOURCE_ALIAS "ThemePalettes.js")
 set(MIACODE_UI_QML_FILES
     src/app/ui/net/NetDownloadPage.qml
+    src/app/ui/net/NetFormField.qml
+    src/app/ui/net/NetPageButton.qml
     src/app/ui/net/NetUploadPage.qml
     src/app/ui/net/NetResultTable.qml
     src/app/ui/components/AppDateField.qml
@@ -666,6 +666,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/components/AppMenuItem.qml
     src/app/ui/components/AppMenuSeparator.qml
     src/app/ui/components/UiRequestHost.qml
+    src/app/ui/components/AppToast.qml
     src/app/ui/components/DialogFooter.qml
     src/app/ui/components/ChoiceDialog.qml
     src/app/ui/components/EditableValue.qml
@@ -778,6 +779,10 @@ set(MIACODE_UI_ICON_FILES
     src/app/ui/resources/icons/folder-open.svg
     src/app/ui/resources/icons/folder-arrow-right.svg
     src/app/ui/resources/icons/globe.svg
+    src/app/ui/resources/icons/download.svg
+    src/app/ui/resources/icons/download-fill.svg
+    src/app/ui/resources/icons/upload.svg
+    src/app/ui/resources/icons/upload-fill.svg
     src/app/ui/resources/icons/wand.svg
     src/app/ui/resources/icons/save.svg
     src/app/ui/resources/icons/save-multiple.svg
@@ -809,6 +814,7 @@ set(MIACODE_UI_ICON_FILES
     src/app/ui/resources/icons/volume-2.svg
     src/app/ui/resources/icons/volume-x.svg
     src/app/ui/resources/icons/close.svg
+    src/app/ui/resources/icons/toast-error.svg
     src/app/ui/resources/icons/more.svg
     src/app/ui/resources/icons/metadata.svg
     src/app/ui/resources/icons/metronome.svg
