@@ -250,6 +250,8 @@ Item {
                 model: root.viewState.openEditorTabs
 
                 delegate: AppTab {
+                    id: editorTab
+
                     required property string modelData
                     required property int index
 
@@ -278,7 +280,7 @@ Item {
                     closable: true
                     opacity: tabDrag.active ? 0.65 : 1
                     onClicked: {
-                        if (!tabDrag.active && !suppressClickAfterDrag)
+                        if (!tabDrag.active && !editorTab.suppressClickAfterDrag)
                             root.activateTab(modelData)
                     }
                     onCloseRequested: root.requestCloseTab(modelData)
@@ -302,8 +304,8 @@ Item {
                             const targetKey = root.editorKeyAt(positionInRow.x)
                             if (targetKey.length > 0)
                                 root.viewState.swapEditorTabs(modelData, targetKey)
-                            suppressClickAfterDrag = true
-                            Qt.callLater(function() { suppressClickAfterDrag = false })
+                            editorTab.suppressClickAfterDrag = true
+                            Qt.callLater(function() { editorTab.suppressClickAfterDrag = false })
                         }
                     }
                 }
