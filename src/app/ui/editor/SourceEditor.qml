@@ -41,6 +41,17 @@ Rectangle {
     }
     readonly property real editorRailRightMargin:
         width - alignRailCoordinate(width, editorRailSceneX)
+    component EditorScrollThumb: Rectangle {
+        required property bool scrollActive
+        required property bool highlighted
+        implicitWidth: 6
+        implicitHeight: 6
+        radius: Math.min(width, height) / 2
+        opacity: scrollActive ? 0.5 : 0
+        color: highlighted ? Theme.colors.scroll.handleHover : Theme.colors.scroll.handle
+        Behavior on opacity { NumberAnimation { duration: 150 } }
+    }
+
     signal normalizeChartRequested()
     signal completionSettingsRequested(string group)
     function focusEditor() { sourceArea.forceActiveFocus() }
@@ -494,6 +505,23 @@ Rectangle {
         }
     }
 
+    readonly property bool scrollbarsHeld: sourceArea.activeFocus || editorHover.hovered
+        || (root.syncController && root.syncController.followPlaybackActive)
+    onScrollbarsHeldChanged: {
+        if (scrollbarsHeld) {
+            verticalScrollActivity.stop()
+            horizontalScrollActivity.stop()
+        } else {
+            if (verticalBar.interactive) verticalScrollActivity.restart()
+            if (horizontalBar.interactive) horizontalScrollActivity.restart()
+        }
+    }
+
+    HoverHandler {
+        id: editorHover
+        blocking: false
+    }
+
     AppScrollBar {
         id: verticalBar
         objectName: "sourceVerticalScrollBar"
@@ -506,32 +534,31 @@ Rectangle {
         rightPadding: 0
         orientation: Qt.Vertical
         hoverEnabled: true
+        interactive: sourceArea.vertical_scroll_max > 0
+        enabled: interactive
+        active: interactive && (root.scrollbarsHeld || hovered || pressed || verticalScrollActivity.running)
         readonly property int scrollValue: sourceArea.vertical_scroll_value
-        onScrollValueChanged: scrollActivityTimer.restart()
-        active: hovered || pressed || scrollActivityTimer.running
+        onScrollValueChanged: if (interactive && !root.scrollbarsHeld) verticalScrollActivity.restart()
+        onHoveredChanged: if (interactive && !hovered) verticalScrollActivity.restart()
         Timer {
-            id: scrollActivityTimer
+            id: verticalScrollActivity
             interval: 1200
         }
-        onPressedChanged: if (pressed) sourceArea.beginViewportInteraction()
+        onInteractiveChanged: if (!interactive) verticalScrollActivity.stop()
+        onPressedChanged: {
+            if (interactive && pressed)
+                sourceArea.beginViewportInteraction()
+            else if (interactive)
+                verticalScrollActivity.restart()
+        }
         size: sourceArea.vertical_scroll_page / root.editorRailDisplayLineCount
         position: sourceArea.vertical_scroll_value / root.editorRailDisplayLineCount
         onPositionChanged: if (pressed) sourceArea.scrollVertical(Math.round(position * root.editorRailDisplayLineCount))
-        contentItem: Item {
+        contentItem: EditorScrollThumb {
             implicitWidth: root.editorRailWidth
-            Rectangle {
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                width: root.editorRailWidth
-                radius: width / 2
-                opacity: verticalBar.active ? 0.5 : 0
-                Behavior on opacity { NumberAnimation { duration: 150 } }
-                color: verticalBar.hovered || verticalBar.pressed
-                       ? Theme.colors.scroll.handleHover
-                       : Theme.colors.scroll.handle
-                visible: verticalBar.size < 1
-            }
+            scrollActive: verticalBar.active
+            highlighted: verticalBar.hovered || verticalBar.pressed
+            visible: verticalBar.interactive
         }
         background: Item {
             id: verticalRailBackground
@@ -583,8 +610,28 @@ Rectangle {
         visible: !sourceArea.autoWrap && sourceArea.horizontal_scroll_max > 0
         height: visible ? implicitHeight : 0
         hoverEnabled: true
-        active: hovered || pressed || sourceArea.activeFocus
-        onPressedChanged: if (pressed) sourceArea.beginViewportInteraction()
+        interactive: visible && sourceArea.horizontal_scroll_max > 0
+        enabled: interactive
+        active: interactive && (root.scrollbarsHeld || hovered || pressed || horizontalScrollActivity.running)
+        readonly property int scrollValue: sourceArea.horizontal_scroll_value
+        onScrollValueChanged: if (interactive && !root.scrollbarsHeld) horizontalScrollActivity.restart()
+        onHoveredChanged: if (interactive && !hovered) horizontalScrollActivity.restart()
+        Timer {
+            id: horizontalScrollActivity
+            interval: 1200
+        }
+        onInteractiveChanged: if (!interactive) horizontalScrollActivity.stop()
+        onPressedChanged: {
+            if (interactive && pressed)
+                sourceArea.beginViewportInteraction()
+            else if (interactive)
+                horizontalScrollActivity.restart()
+        }
+        contentItem: EditorScrollThumb {
+            scrollActive: horizontalBar.active
+            highlighted: horizontalBar.hovered || horizontalBar.pressed
+            visible: horizontalBar.interactive
+        }
         size: sourceArea.horizontal_scroll_page / Math.max(1, sourceArea.horizontal_scroll_max + sourceArea.horizontal_scroll_page)
         position: sourceArea.horizontal_scroll_value / Math.max(1, sourceArea.horizontal_scroll_max + sourceArea.horizontal_scroll_page)
         onPositionChanged: if (pressed) sourceArea.scrollHorizontal(Math.round(position * (sourceArea.horizontal_scroll_max + sourceArea.horizontal_scroll_page)))
