@@ -211,6 +211,7 @@ ApplicationWindow {
         shortcuts: window.applicationContext.shortcuts
         commands: window.applicationContext.commands
         previewSession: window.applicationContext.preview
+        timelineStateBridge: window.applicationContext.timeline.stateBridge
         commandsEnabled: !mainView.beginnerGuideActive
         chartCommandsEnabled: mainView.chartEditorActive
         playbackCommandsEnabled: window.playbackCommandsEnabled

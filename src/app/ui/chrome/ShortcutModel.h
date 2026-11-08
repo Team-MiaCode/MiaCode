@@ -37,6 +37,8 @@ public:
     // unknown and no fallback is given, which leaves the Shortcut inert rather
     // than binding something arbitrary.
     Q_INVOKABLE QString sequence(const QString& id, const QString& fallback = QString()) const;
+    // Unlike sequence(), this preserves wheel gestures for non-keyboard consumers.
+    Q_INVOKABLE QString gestureText(const QString& id, const QString& fallback = QString()) const;
     // Platform spelling for menu rows and tooltips.
     Q_INVOKABLE QString displayText(const QString& id, const QString& fallback = QString()) const;
     // Menu rows whose binding is a Qt standard key (Open/Save/Undo/...) rather

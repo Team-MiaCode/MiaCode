@@ -19,6 +19,20 @@ Item {
     required property var shortcuts
     required property var commands
     required property var previewSession
+    property var timelineStateBridge: null
+    readonly property string zoomInGesture: timelineStateBridge && shortcuts.revision >= 0
+        ? shortcuts.gestureText("timeline.zoom_in", "Ctrl+WheelUp") : ""
+    readonly property string zoomOutGesture: timelineStateBridge && shortcuts.revision >= 0
+        ? shortcuts.gestureText("timeline.zoom_out", "Ctrl+WheelDown") : ""
+
+    function syncTimelineGestures() {
+        if (timelineStateBridge)
+            timelineStateBridge.setZoomWheelShortcuts([zoomInGesture], [zoomOutGesture])
+    }
+    onZoomInGestureChanged: syncTimelineGestures()
+    onZoomOutGestureChanged: syncTimelineGestures()
+    onTimelineStateBridgeChanged: syncTimelineGestures()
+    Component.onCompleted: syncTimelineGestures()
     // Transforms edit the chart, so they are inert without one.
     property bool commandsEnabled: true
     property bool chartCommandsEnabled: true
@@ -31,6 +45,24 @@ Item {
     // that nothing ever synced from here, so every transform found an empty
     // selection and silently did nothing.
     signal chartTransformRequested(string opId)
+
+    Shortcut {
+        sequence: root.timelineStateBridge && root.shortcuts.revision >= 0
+            ? root.shortcuts.sequence("timeline.zoom_in") : ""
+        enabled: root.commandsEnabled && root.chartCommandsEnabled
+            && !root.shortcuts.captureActive && sequence !== ""
+        context: Qt.WindowShortcut
+        onActivated: root.timelineStateBridge.stepZoomIn()
+    }
+
+    Shortcut {
+        sequence: root.timelineStateBridge && root.shortcuts.revision >= 0
+            ? root.shortcuts.sequence("timeline.zoom_out") : ""
+        enabled: root.commandsEnabled && root.chartCommandsEnabled
+            && !root.shortcuts.captureActive && sequence !== ""
+        context: Qt.WindowShortcut
+        onActivated: root.timelineStateBridge.stepZoomOut()
+    }
 
     Instantiator {
         model: root.commands.shortcutCommandIds()

@@ -19,6 +19,8 @@
 #include <QRegularExpression>
 #include <QSet>
 #include <QTextStream>
+#include <QTemporaryDir>
+#include <QJSValue>
 
 #ifndef MIACODE_SOURCE_ROOT
 #error "MIACODE_SOURCE_ROOT must be defined"
@@ -75,6 +77,116 @@ QList<MenuStandardKey> menuStandardKeys()
     }
     return keys;
 }
+
+void checkTimelineShortcuts(QTextStream& out, int* failed)
+{
+    QTemporaryDir storage;
+    miacode::ui::ShortcutRegistry registry(storage.filePath(QStringLiteral("shortcuts.json")));
+    miacode::ui::ShortcutModel shortcuts(registry);
+    shortcuts.setShortcutText(QStringLiteral("transform.rotate_ccw_45"), QStringLiteral("Ctrl+Alt+9"));
+    shortcuts.setShortcutText(QStringLiteral("transform.rotate_cw_45"), QStringLiteral("Ctrl+Alt+0"));
+    shortcuts.setShortcutText(QStringLiteral("timeline.zoom_in"), QStringLiteral("Ctrl+'"));
+    shortcuts.setShortcutText(QStringLiteral("timeline.zoom_out"), QStringLiteral("Ctrl+;"));
+
+    QQmlEngine engine;
+    engine.rootContext()->setContextProperty(QStringLiteral("testShortcuts"), &shortcuts);
+    QQmlComponent component(&engine);
+    component.setData(QByteArray(R"QML(
+import QtQuick
+import "file:MIACODE_CHROME_DIR" as Chrome
+Window {
+    width: 320; height: 200; visible: true
+    property alias timeline: timelinePort
+    property alias shortcutBindings: bindings
+    QtObject {
+        id: timelinePort
+        property int steps: 0
+        property var zoomInGestures: []
+        property var zoomOutGestures: []
+        function stepZoomIn() { steps++ }
+        function stepZoomOut() { steps-- }
+        function setZoomWheelShortcuts(zoomIn, zoomOut) {
+            zoomInGestures = zoomIn
+            zoomOutGestures = zoomOut
+        }
+    }
+    QtObject { id: commands; function shortcutCommandIds() { return [] } }
+    QtObject {
+        id: preview
+        function stopOrPlay() {}
+        function togglePlayback() {}
+        function adjustRate(direction) {}
+    }
+    TextInput { id: editor; objectName: "editor"; width: 200; height: 30; focus: true }
+    Item { id: other; objectName: "other"; width: 20; height: 20 }
+    Chrome.ShortcutBindings {
+        id: bindings
+        shortcuts: testShortcuts; commands: commands; previewSession: preview
+    }
+}
+)QML").replace("MIACODE_CHROME_DIR", MIACODE_SOURCE_ROOT "/src/app/ui/chrome"), QUrl());
+    QScopedPointer<QObject> object(component.create());
+    auto* window = qobject_cast<QQuickWindow*>(object.data());
+    if (!expect(window != nullptr, window ? QStringLiteral("timeline shortcut fixture loads")
+                                          : component.errorString(), out, failed)) return;
+    QObject* timeline = window->property("timeline").value<QObject*>();
+    QObject* bindings = window->property("shortcutBindings").value<QObject*>();
+    // The old component has no target property: key presses still exercise its
+    // production bindings and expose the missing command route.
+    bindings->setProperty("timelineStateBridge", QVariant::fromValue(timeline));
+    window->requestActivate();
+    QTest::qWait(100);
+    const auto press = [&](Qt::Key key) {
+        QTest::keyClick(window, key, Qt::ControlModifier);
+        QCoreApplication::processEvents();
+    };
+    press(Qt::Key_Apostrophe);
+    expect(timeline->property("steps").toInt() == 1,
+           QStringLiteral("custom timeline zoom in fires with editor focus"), out, failed);
+    window->findChild<QQuickItem*>(QStringLiteral("other"))->forceActiveFocus();
+    timeline->setProperty("steps", 5);
+    press(Qt::Key_Semicolon);
+    expect(timeline->property("steps").toInt() == 4,
+           QStringLiteral("custom timeline zoom out fires outside editor focus"), out, failed);
+
+    bindings->setProperty("chartCommandsEnabled", false);
+    press(Qt::Key_Apostrophe);
+    expect(timeline->property("steps").toInt() == 4,
+           QStringLiteral("timeline zoom stays inactive outside chart editing"), out, failed);
+    bindings->setProperty("chartCommandsEnabled", true);
+    shortcuts.setCaptureActive(true);
+    press(Qt::Key_Apostrophe);
+    expect(timeline->property("steps").toInt() == 4,
+           QStringLiteral("recording a shortcut does not zoom the timeline"), out, failed);
+    shortcuts.setCaptureActive(false);
+
+    shortcuts.setShortcutText(QStringLiteral("timeline.zoom_in"), QStringLiteral("Ctrl+K"));
+    QCoreApplication::processEvents();
+    timeline->setProperty("steps", 0);
+    press(Qt::Key_Apostrophe);
+    press(Qt::Key_K);
+    expect(timeline->property("steps").toInt() == 1,
+           QStringLiteral("timeline keyboard rebinding takes effect without restart"), out, failed);
+    shortcuts.setShortcutText(QStringLiteral("timeline.zoom_in"), QStringLiteral("Alt+WheelUp"));
+    shortcuts.setShortcutText(QStringLiteral("timeline.zoom_out"), QStringLiteral("Alt+WheelDown"));
+    QCoreApplication::processEvents();
+    const auto gestures = [&](const char* name) {
+        return timeline->property(name).value<QJSValue>().toVariant().toStringList();
+    };
+    expect(gestures("zoomInGestures") == QStringList{QStringLiteral("Alt+WheelUp")}
+               && gestures("zoomOutGestures") == QStringList{QStringLiteral("Alt+WheelDown")},
+           QStringLiteral("wheel gestures synchronize immediately after shortcut edits"), out, failed);
+    timeline->setProperty("steps", 0);
+    press(Qt::Key_K);
+    expect(timeline->property("steps").toInt() == 0,
+           QStringLiteral("switching to a wheel gesture releases the old keyboard binding"), out, failed);
+    shortcuts.resetShortcut(QStringLiteral("timeline.zoom_in"));
+    shortcuts.resetShortcut(QStringLiteral("timeline.zoom_out"));
+    QCoreApplication::processEvents();
+    expect(gestures("zoomInGestures") == QStringList{QStringLiteral("Ctrl+WheelUp")}
+               && gestures("zoomOutGestures") == QStringList{QStringLiteral("Ctrl+WheelDown")},
+           QStringLiteral("resetting shortcuts immediately restores default wheel gestures"), out, failed);
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -84,6 +196,8 @@ int main(int argc, char** argv)
     Q_UNUSED(app);
     QTextStream out(stdout);
     int failed = 0;
+
+    checkTimelineShortcuts(out, &failed);
 
     miacode::ui::ShortcutModel model;
     for (int flags = 0; flags < 8; ++flags) {
