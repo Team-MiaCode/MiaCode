@@ -74,7 +74,7 @@ public:
     Q_INVOKABLE void stepZoomOut();
     QStringList zoomInWheelShortcuts() const;
     QStringList zoomOutWheelShortcuts() const;
-    void setZoomWheelShortcuts(const QStringList& zoomInShortcuts, const QStringList& zoomOutShortcuts);
+    Q_INVOKABLE void setZoomWheelShortcuts(const QStringList& zoomInShortcuts, const QStringList& zoomOutShortcuts);
     double viewportCenterSecond();
     QSize viewportSize() const;
     void setZoomScaleAnchored(double scale, double anchorSecond);

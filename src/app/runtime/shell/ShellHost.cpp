@@ -1,4 +1,5 @@
 #include "app/runtime/shell/ShellHost.h"
+#include "app/runtime/shell/PlaybackSpaceFilter.h"
 
 #include "app/runtime/Session.h"
 #include "app/runtime/document/DocumentSessionHost.h"
@@ -19,8 +20,6 @@
 #include <QString>
 
 namespace {
-
-constexpr char kReservesPlainSpaceProperty[] = "reservesPlainSpace";
 
 struct PauseDisplayHoldKey {
     int key = Qt::Key_Alt;
@@ -52,30 +51,6 @@ PauseDisplayHoldKey pauseDisplayHoldKey()
         break;
     }
     return hold;
-}
-
-bool objectReservesPlainSpace(QObject* object)
-{
-    for (QObject* current = object; current != nullptr; current = current->parent()) {
-        if (current->property(kReservesPlainSpaceProperty).toBool()) {
-            return true;
-        }
-    }
-
-    auto* item = qobject_cast<QQuickItem*>(object);
-    for (QQuickItem* current = item; current != nullptr; current = current->parentItem()) {
-        if (current->property(kReservesPlainSpaceProperty).toBool()) {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool rootWindowReservesPlainSpace(QQuickWindow* window)
-{
-    return window->property("sourceEditorFocused").toBool()
-        || objectReservesPlainSpace(QGuiApplication::focusObject())
-        || objectReservesPlainSpace(window->activeFocusItem());
 }
 
 }  // namespace
@@ -118,20 +93,11 @@ bool Session::eventFilter(QObject*, QEvent* event)
                 || (focusWindow != nullptr && (focusWindow->transientParent() == rootWindow
                     || focusWindow == rootWindow->findChild<QWindow*>(
                         QStringLiteral("detachedPreviewWindow")))));
-        if (focusOnWorkbench
-            && keyEvent->key() == Qt::Key_Space
-            && keyEvent->modifiers() == Qt::NoModifier
-            && rootWindow->property("playbackCommandsEnabled").toBool()
-            && !rootWindowReservesPlainSpace(rootWindow)) {
-            if (event->type() == QEvent::KeyPress
-                && !keyEvent->isAutoRepeat()
-                && playback_ != nullptr) {
-                playback_->togglePlayback();
-            }
-            event->accept();
-            return true;
-        }
-
+        const miacode::runtime::PlaybackSpaceFilter spaceFilter(
+            miacode::ui::ShortcutRegistry::instance(),
+            [this] { if (playback_ != nullptr) playback_->togglePlayback(); },
+            [this] { if (playback_ != nullptr) playback_->stopOrPlay(); });
+        if (spaceFilter.handle(event, rootWindow, focusOnWorkbench)) return true;
         // Ctrl (Command on macOS) arms touch-pad authoring on the preview from
         // anywhere in the root window, not only from the focused editor: the
         // click it enables lands on the preview, which does not keep the

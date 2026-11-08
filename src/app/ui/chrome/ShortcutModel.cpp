@@ -40,6 +40,11 @@ QString ShortcutModel::sequence(const QString& id, const QString& fallback) cons
     return resolve(registry_, id, fallback).toString(QKeySequence::PortableText);
 }
 
+QString ShortcutModel::gestureText(const QString& id, const QString& fallback) const
+{
+    return registry_.shortcutText(id, fallback);
+}
+
 QString ShortcutModel::displayText(const QString& id, const QString& fallback) const
 {
     return resolve(registry_, id, fallback).toString(QKeySequence::NativeText);
