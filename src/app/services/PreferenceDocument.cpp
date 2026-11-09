@@ -18,6 +18,7 @@ namespace {
 constexpr auto kPreferencesSchema = "miacode_preferences_v4";
 constexpr auto kUiSectionKey = "ui";
 constexpr auto kAppSectionKey = "app";
+constexpr auto kWarnOnEmptyZipDifficulty = "warn_empty_difficulty";
 constexpr auto kPreviewSectionKey = "preview";
 constexpr auto kLanguageKey = "language";
 constexpr auto kThemeKey = "theme";
@@ -579,6 +580,21 @@ void PreferenceDocument::setPreferredLanguage(LanguagePreference preference)
 {
     saveStoredLanguagePreference(preference);
 }
+bool PreferenceDocument::warnOnEmptyZipDifficulty()
+{
+    return loadPreferencesObject().value(QStringLiteral("ui")).toObject()
+        .value(QLatin1String(kWarnOnEmptyZipDifficulty)).toBool(true);
+}
+
+void PreferenceDocument::setWarnOnEmptyZipDifficulty(bool enabled)
+{
+    QJsonObject root = loadPreferencesObject();
+    QJsonObject ui = root.value(QStringLiteral("ui")).toObject();
+    ui.insert(QLatin1String(kWarnOnEmptyZipDifficulty), enabled);
+    root.insert(QStringLiteral("ui"), ui);
+    savePreferencesObject(root);
+}
+
 QString PreferenceDocument::preferredLanguageToken()
 {
     const QJsonObject root = loadPreferencesObject();

@@ -1,6 +1,9 @@
 #include "media_tools/zip_export/ChartZipPackager.h"
 
 #include "core/chart/ChartAssetPaths.h"
+#include "core/chart/document/SimaiDocument.h"
+#include "core/chart/document/SimaiTimingMetadata.h"
+#include "core/chart/parser/SimaiParser.h"
 
 #include <miniz.h>
 
@@ -44,6 +47,22 @@ void appendSiblingAsset(QVector<ZipJob>& jobs, const QString& resolvedPath)
 }
 
 }  // namespace
+
+bool hasEmptyDifficulty(const SimaiDocument& document)
+{
+    const auto timing = miacode::simai::buildTimingMetadata(document);
+    for (int id : document.difficultyIds()) {
+        const SimaiDifficultyData* difficulty = document.difficulty(id);
+        if (difficulty->chart.trimmed().isEmpty()) {
+            return true;
+        }
+        const auto parsed = SimaiParser::validateSyntax(difficulty->chart, timing);
+        if (parsed.ok && parsed.noteMarkers.isEmpty()) {
+            return true;
+        }
+    }
+    return false;
+}
 
 QString sanitizedZipStem(const QString& title)
 {

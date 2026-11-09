@@ -6,6 +6,8 @@
 
 #include "media_tools/zip_export/ChartZipPackager.h"
 
+#include "core/chart/document/SimaiDocument.h"
+
 #include <miniz.h>
 
 #include <QByteArray>
@@ -87,6 +89,23 @@ int main(int argc, char** argv)
     (void)argv;
 
     using namespace miacode::zip_export;
+
+    check(!hasEmptyDifficulty(SimaiDocument::fromText(
+              QStringLiteral("&title=Test\n&des_4=Designer\n&inote_5=(120){4}1,\nE\n"))),
+          "uncreated and designer-only difficulties do not trigger the warning");
+    check(hasEmptyDifficulty(SimaiDocument::fromText(
+              QStringLiteral("&lv_4=12\n&inote_4=\n&inote_5=(120){4}1,\nE\n"))),
+          "an existing empty difficulty triggers the warning even beside a chart");
+    check(hasEmptyDifficulty(SimaiDocument::fromText(
+              QStringLiteral("&inote_5=(120){4},\n|| No notes\nE\n"))),
+          "a difficulty with only timing and comments is empty");
+    check(!hasEmptyDifficulty(SimaiDocument::fromText(
+              QStringLiteral("&inote_5=(120){4}A1,\nE\n"))),
+          "a touch counts as a note");
+
+    check(!hasEmptyDifficulty(SimaiDocument::fromText(
+              QStringLiteral("&inote_5=(120){4}???,\nE\n"))),
+          "invalid chart syntax is not classified as an empty difficulty");
 
     // sanitizedZipStem -------------------------------------------------
     check(sanitizedZipStem(QStringLiteral("Hello")) == QStringLiteral("Hello"), "stem keeps plain text");

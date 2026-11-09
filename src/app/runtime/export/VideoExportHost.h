@@ -57,6 +57,7 @@ public:
     // An empty path means the pick was cancelled.
     void packChartToZipAtPath(const QString& chartText,
                               const QString& chartPath,
+                              const QString& videoFieldValue,
                               const miacode::LocalizedText& dialogTitle,
                               const QString& pickedPath);
     // ---- QML export shell (v2) ----

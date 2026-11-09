@@ -5086,6 +5086,18 @@ Error: %1</translation>
         <source>Quit %1</source>
         <translation>Quit %1</translation>
     </message>
+    <message id="preferences.warn_empty_difficulty">
+        <source>Warn before exporting empty difficulties</source>
+        <translation>Warn before exporting empty difficulties</translation>
+    </message>
+    <message id="export.empty_difficulty_warning">
+        <source>Empty difficulties were detected. Continue exporting?</source>
+        <translation>Empty difficulties were detected. Continue exporting?</translation>
+    </message>
+    <message id="export.empty_difficulty_continue">
+        <source>I know what I am doing!</source>
+        <translation>I know what I am doing!</translation>
+    </message>
 </context>
 
 

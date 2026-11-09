@@ -6,6 +6,7 @@
 #include "app/runtime/shell/ShellHost.h"
 
 #include "app/services/JobProgressService.h"
+#include "app/services/PreferenceDocument.h"
 #include "app/services/UiRequestService.h"
 #include "common/DebugLog.h"
 #include "common/OperationLog.h"
@@ -32,12 +33,8 @@ void miacode::runtime::VideoExportHost::onPackAsZip()
 
     const miacode::LocalizedText dialogTitle = miacode::localizedText("export.export_as_zip");
 
-    // Flush the in-progress editor field into the document so the packaged
-    // maidata.txt matches what the user sees (same contract as save-to-path).
-    if (session_.documents_ != nullptr) {
-    }
-
-    const QString chartText = session_.applicationServices_.workspace().document().toText();
+    const auto& document = session_.applicationServices_.workspace().document();
+    const QString chartText = document.toText();
     if (chartText.isEmpty()) {
         _mc_op_.fail(QStringLiteral("empty chart"));
         requests->postNotice(
@@ -55,21 +52,45 @@ void miacode::runtime::VideoExportHost::onPackAsZip()
         defaultDir = session_.documents_->resolveInitialOpenDirectory();
     }
     const QString defaultName =
-        miacode::zip_export::sanitizedZipStem(session_.applicationServices_.workspace().document().title) + QStringLiteral(".zip");
+        miacode::zip_export::sanitizedZipStem(document.title) + QStringLiteral(".zip");
 
     miacode::FileRequest request;
     request.title = dialogTitle;
     request.startPath = defaultDir.isEmpty() ? defaultName : QDir(defaultDir).filePath(defaultName);
     request.nameFilters = {miacode::localizedText("file_filter.zip")};
     request.saveMode = true;
-    requests->requestFile(request, [this, chartText, chartPath, dialogTitle](const QString& picked) {
-        packChartToZipAtPath(chartText, chartPath, dialogTitle, picked);
+    const auto choosePath = [this, requests, request, chartText, chartPath, dialogTitle,
+                             videoFieldValue = document.videoPath] {
+        requests->requestFile(request, [this, chartText, chartPath, videoFieldValue, dialogTitle](const QString& picked) {
+            packChartToZipAtPath(chartText, chartPath, videoFieldValue, dialogTitle, picked);
+        });
+    };
+    if (!PreferenceDocument::warnOnEmptyZipDifficulty() || !miacode::zip_export::hasEmptyDifficulty(document)) {
+        choosePath();
+        return;
+    }
+
+    const QString continueId = QStringLiteral("continue");
+    const QString cancelId = QStringLiteral("reject");
+    const QVariantList choices{
+        QVariantMap{{QStringLiteral("id"), continueId},
+                    {QStringLiteral("label"), miacode::localizedText("export.empty_difficulty_continue").variant()}},
+        QVariantMap{{QStringLiteral("id"), cancelId},
+                    {QStringLiteral("label"), miacode::localizedText("action.cancel").variant()},
+                    {QStringLiteral("default"), true}},
+    };
+    requests->requestChoice(dialogTitle, miacode::localizedText("export.empty_difficulty_warning"), choices,
+                            cancelId, [choosePath, continueId](const QString& id) {
+        if (id == continueId) {
+            choosePath();
+        }
     });
 }
 
 void miacode::runtime::VideoExportHost::packChartToZipAtPath(
     const QString& chartText,
     const QString& chartPath,
+    const QString& videoFieldValue,
     const miacode::LocalizedText& dialogTitle,
     const QString& pickedPath)
 {
@@ -89,7 +110,7 @@ void miacode::runtime::VideoExportHost::packChartToZipAtPath(
     miacode::zip_export::ChartZipInput input;
     input.chartText = chartText;
     input.chartPath = chartPath;
-    input.videoFieldValue = session_.applicationServices_.workspace().document().videoPath;
+    input.videoFieldValue = videoFieldValue;
     input.outputZipPath = outputPath;
 
     jobProgress->begin(

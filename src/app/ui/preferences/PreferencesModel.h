@@ -55,6 +55,8 @@ public:
     Q_PROPERTY(bool editorAutoWrap READ editorAutoWrap WRITE setEditorAutoWrap NOTIFY editorChanged)
     Q_PROPERTY(bool editorScrollPastEnd READ editorScrollPastEnd WRITE setEditorScrollPastEnd NOTIFY editorChanged)
     Q_PROPERTY(bool editorSelectionBeatDisplay READ editorSelectionBeatDisplay WRITE setEditorSelectionBeatDisplay NOTIFY editorChanged)
+    Q_PROPERTY(bool warnOnEmptyZipDifficulty READ warnOnEmptyZipDifficulty
+               WRITE setWarnOnEmptyZipDifficulty NOTIFY editorChanged)
     Q_PROPERTY(bool editorOverviewRulerEnabled READ editorOverviewRulerEnabled WRITE setEditorOverviewRulerEnabled NOTIFY editorChanged)
 
     Q_PROPERTY(QAbstractItemModel* completionDurations READ completionDurations CONSTANT)
@@ -131,6 +133,8 @@ public:
     void setEditorScrollPastEnd(bool enabled);
     bool editorSelectionBeatDisplay() const;
     bool editorOverviewRulerEnabled() const;
+    bool warnOnEmptyZipDifficulty() const;
+    void setWarnOnEmptyZipDifficulty(bool enabled);
     void setEditorSelectionBeatDisplay(bool enabled);
     void setEditorOverviewRulerEnabled(bool enabled);
 

@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import MiaCode.UI
 
-// Shared notices/questions. Choices are { id, label, role } in display order;
+// Shared notices/questions. Choices are { id, label, role, default } in display order;
 // Escape resolves to dismissChoiceId, preserving the caller's cancellation policy.
 AppDialog {
     id: root
@@ -23,8 +23,10 @@ AppDialog {
     }
 
     onRejected: root.chosen(root.dismissChoiceId)
+    onOpened: choiceFooter.focusDefaultChoice()
 
     footer: DialogFooter {
+        id: choiceFooter
         choices: root.choices
         onChosen: choiceId => root.resolve(choiceId)
     }

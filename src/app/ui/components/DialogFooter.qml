@@ -20,6 +20,16 @@ Item {
         return actions
     }
 
+    function focusDefaultChoice() {
+        for (let i = 0; i < choiceRepeater.count; ++i) {
+            const button = choiceRepeater.itemAt(i)
+            if (button && button.enabled && button.modelData.default === true) {
+                button.forceActiveFocus(Qt.TabFocusReason)
+                return
+            }
+        }
+    }
+
     signal accepted()
     signal rejected()
     signal chosen(string choiceId)
@@ -36,6 +46,7 @@ Item {
         layoutDirection: Qt.RightToLeft
 
         Repeater {
+            id: choiceRepeater
             model: root.choices.slice().reverse()
             delegate: AppButton {
                 required property var modelData
@@ -47,6 +58,9 @@ Item {
                 enabled: modelData.enabled !== false
                 emphasized: modelData.role === "accept"
                 destructive: modelData.role === "destructive"
+                Keys.enabled: modelData.default === true
+                Keys.onReturnPressed: click()
+                Keys.onEnterPressed: click()
                 onClicked: {
                     root.chosen(modelData.id)
                     if (modelData.id === "accept") root.accepted()

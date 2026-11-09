@@ -5,6 +5,8 @@
 
 #include <functional>
 
+class SimaiDocument;
+
 // Packs the current chart project into a single .zip that can be dropped
 // straight into a player / re-imported. Layout written into the archive:
 //
@@ -46,6 +48,9 @@ struct ChartZipResult {
 // false to request cancellation; packing then aborts and the partial
 // .zip is removed. Pass an empty std::function to skip progress.
 using ChartZipProgressFn = std::function<bool(int current, int total, const QString& entryName)>;
+
+// Only materialized, successfully parsed difficulties with zero notes count.
+bool hasEmptyDifficulty(const SimaiDocument& document);
 
 ChartZipResult packChartToZip(const ChartZipInput& input, const ChartZipProgressFn& progress = {});
 

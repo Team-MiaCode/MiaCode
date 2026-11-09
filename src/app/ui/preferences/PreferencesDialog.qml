@@ -726,6 +726,12 @@ AppDialog {
                             title: qsTrId("dialog.preferences.group.editing_aids")
 
                             PreferenceSwitch {
+                                text: qsTrId("preferences.warn_empty_difficulty")
+                                checked: root.preferencesModel.warnOnEmptyZipDifficulty
+                                onToggled: root.preferencesModel.warnOnEmptyZipDifficulty = checked
+                            }
+
+                            PreferenceSwitch {
                                 objectName: "preferencesScrollPastEndSwitch"
                                 text: qsTrId("preferences.editor_scroll_past_end")
                                 checked: root.preferencesModel.editorScrollPastEnd

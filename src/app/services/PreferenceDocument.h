@@ -79,6 +79,9 @@ private:
     QString unreadSourcePath_;
 };
 
+bool warnOnEmptyZipDifficulty();
+void setWarnOnEmptyZipDifficulty(bool enabled);
+
 LanguagePreference resolvedLanguage();
 LanguagePreference preferredLanguage();
 void setPreferredLanguage(LanguagePreference preference);

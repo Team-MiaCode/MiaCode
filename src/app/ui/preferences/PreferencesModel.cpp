@@ -447,6 +447,20 @@ void PreferencesModel::setEditorSelectionBeatDisplay(bool enabled)
     emit editorChanged();
 }
 
+bool PreferencesModel::warnOnEmptyZipDifficulty() const
+{
+    return PreferenceDocument::warnOnEmptyZipDifficulty();
+}
+
+void PreferencesModel::setWarnOnEmptyZipDifficulty(bool enabled)
+{
+    if (enabled == warnOnEmptyZipDifficulty()) {
+        return;
+    }
+    PreferenceDocument::setWarnOnEmptyZipDifficulty(enabled);
+    emit editorChanged();
+}
+
 bool PreferencesModel::editorOverviewRulerEnabled() const
 {
     return settings_ != nullptr && settings_->editorOverviewRulerEnabled();

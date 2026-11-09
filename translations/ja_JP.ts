@@ -5105,6 +5105,18 @@ Error: %1</source>
         <source>Quit</source>
         <translation>終了</translation>
     </message>
+    <message id="preferences.warn_empty_difficulty">
+        <source>Warn before exporting empty difficulties</source>
+        <translation>空の難易度を ZIP 出力する前に確認する</translation>
+    </message>
+    <message id="export.empty_difficulty_warning">
+        <source>Empty difficulties were detected. Continue exporting?</source>
+        <translation>空の難易度が見つかりました。出力を続けますか？</translation>
+    </message>
+    <message id="export.empty_difficulty_continue">
+        <source>I know what I am doing!</source>
+        <translation>承知の上で続行！</translation>
+    </message>
 </context>
 
 

@@ -327,3 +327,14 @@ miacode_add_dev_tool(latency_model_spec TEST
 set_tests_properties(latency_model_spec PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 target_compile_definitions(latency_model_spec PRIVATE
     "MIACODE_QML_SPEC_IMPORT_ROOT=\"${MIACODE_QML_SPEC_IMPORT_ROOT}\"")
+
+miacode_add_dev_tool(qml_choice_dialog_default_spec TEST
+    SOURCES
+        src/tools/ui/QmlChoiceDialogDefaultSpec.cpp
+        src/app/services/UiRequestService.h
+        src/app/services/UiRequestService.cpp
+    LIBS Qt6::Quick Qt6::QuickControls2 Qt6::Test
+    INCLUDES src
+)
+target_compile_definitions(qml_choice_dialog_default_spec PRIVATE
+    "MIACODE_QML_SPEC_IMPORT_ROOT=\"${MIACODE_QML_SPEC_IMPORT_ROOT}\"")
