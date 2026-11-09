@@ -1856,19 +1856,17 @@ void TimelineQuickItem::wheelEvent(QWheelEvent* event)
             .arg(delta)
             .arg(static_cast<int>(event->modifiers()))
             .arg(stateBridge_->horizontalScrollValue(), 0, 'f', 3));
-    const bool zoomInWheel = miacode::input_shortcut::wheelEventMatchesAnyGesture(
+    const bool shortcutZoomIn = miacode::input_shortcut::wheelEventMatchesAnyGesture(
         event,
         stateBridge_->zoomInWheelShortcuts());
-    const bool zoomOutWheel = miacode::input_shortcut::wheelEventMatchesAnyGesture(
+    const bool shortcutZoomOut = miacode::input_shortcut::wheelEventMatchesAnyGesture(
         event,
         stateBridge_->zoomOutWheelShortcuts());
-    if (zoomInWheel || zoomOutWheel) {
-        const miacode::timeline::TimelineSceneState state = currentSceneState();
-        const int steps = qMax(1, qAbs(qRound(static_cast<double>(delta) / 120.0)))
-            * (zoomInWheel ? 1 : -1);
-        stateBridge_->stepZoomPreset(
-            steps,
-            miacode::timeline::TimelineSceneStateBuilder::sceneXToSecond(state, width() / 2.0));
+    if (shortcutZoomIn || shortcutZoomOut) {
+        const double magnitude = pixel != 0 ? qAbs(pixel / 60.0) : qAbs(angle / 120.0);
+        const double steps = shortcutZoomIn ? magnitude : -magnitude;
+        const double scale = stateBridge_->zoomScale() * std::pow(1.20, steps);
+        stateBridge_->zoomAtViewportPosition(scale, event->position().x());
         event->accept();
         return;
     }

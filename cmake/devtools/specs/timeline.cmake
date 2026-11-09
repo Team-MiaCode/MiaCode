@@ -22,3 +22,11 @@ miacode_add_dev_tool(timeline_cadence_arbitration_policy_spec TEST
     LIBS Qt6::Core
     INCLUDES src
 )
+if(MIACODE_BUILD_APP)
+    miacode_add_dev_tool(timeline_pointer_zoom_spec TEST
+        SOURCES
+            src/tools/timeline/TimelinePointerZoomSpec.cpp
+        LIBS miacode_timeline_quick Qt6::Gui Qt6::Quick
+        INCLUDES src
+    )
+endif()

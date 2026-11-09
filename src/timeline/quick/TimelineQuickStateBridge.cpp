@@ -22,27 +22,6 @@ QVector<double> makeTimelineZoomPresets()
     return {0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0};
 }
 
-int zoomPresetIndexForScale(const QVector<double>& zoomPresets, double scale, int fallbackIndex = 1)
-{
-    if (zoomPresets.isEmpty()) {
-        return 0;
-    }
-    if (!qIsFinite(scale) || scale <= 0.0) {
-        return qBound(0, fallbackIndex, zoomPresets.size() - 1);
-    }
-
-    int closestIndex = qBound(0, fallbackIndex, zoomPresets.size() - 1);
-    double closestDistance = qAbs(zoomPresets.at(closestIndex) - scale);
-    for (int index = 0; index < zoomPresets.size(); ++index) {
-        const double distance = qAbs(zoomPresets.at(index) - scale);
-        if (distance + 1e-9 < closestDistance) {
-            closestDistance = distance;
-            closestIndex = index;
-        }
-    }
-    return closestIndex;
-}
-
 SimaiValidationLocale timelineUiValidationLocale()
 {
     const QString token = miacode::preferences::resolvedLanguageToken();
@@ -378,7 +357,7 @@ void TimelineQuickStateBridge::setHorizontalScrollValue(double value)
 
 double TimelineQuickStateBridge::zoomScale() const
 {
-    return zoomPresets_.value(zoomPresetIndex_, 0.5);
+    return zoomScale_;
 }
 
 QVector<double> TimelineQuickStateBridge::zoomPresets() const
@@ -409,6 +388,11 @@ void TimelineQuickStateBridge::stepZoomIn()
 void TimelineQuickStateBridge::stepZoomOut()
 {
     stepZoomPreset(-1, viewportCenterSecond());
+}
+
+void TimelineQuickStateBridge::stepZoomPresets(int deltaSteps)
+{
+    stepZoomPreset(deltaSteps, viewportCenterSecond());
 }
 
 QStringList TimelineQuickStateBridge::zoomInWheelShortcuts() const
@@ -528,78 +512,68 @@ void TimelineQuickStateBridge::setWaveformPhaseCompensationSeconds(double second
 
 void TimelineQuickStateBridge::setZoomScale(double scale)
 {
-    if (zoomPresets_.isEmpty()) {
-        return;
-    }
-    const int nextIndex = zoomPresetIndexForScale(zoomPresets_, scale, zoomPresetIndex_);
-    if (nextIndex == zoomPresetIndex_) {
-        return;
-    }
-    zoomPresetIndex_ = nextIndex;
-    refreshLayoutMetrics();
-    bumpAllRevisions();
-    emit zoomScaleChanged(zoomScale());
-    emit renderStateChanged();
+    applyZoomScale(scale);
 }
 
 void TimelineQuickStateBridge::setZoomScaleAnchored(double scale, double anchorSecond)
 {
-    if (zoomPresets_.isEmpty()) {
+    applyZoomScale(scale, anchorSecond, effectiveViewportSize().width() * 0.5);
+}
+
+void TimelineQuickStateBridge::zoomAtViewportPosition(double scale, qreal timePosition)
+{
+    if (!layoutMetricsValid_) {
+        refreshLayoutMetrics();
+    }
+    const qreal zeroX = miacode::timeline::TimelineSceneStateBuilder::secondToSceneXExact(layoutMetrics_, 0.0);
+    const double second = (timePosition + horizontalScrollValue_ - zeroX) / layoutMetrics_.pixelsPerSecond;
+    applyZoomScale(scale, second, timePosition);
+}
+
+void TimelineQuickStateBridge::applyZoomScale(
+    double scale, std::optional<double> anchorSecond, qreal anchorPosition)
+{
+    if (!qIsFinite(scale) || scale <= 0.0) {
         return;
     }
-    const int nextIndex = zoomPresetIndexForScale(zoomPresets_, scale, zoomPresetIndex_);
-    if (nextIndex == zoomPresetIndex_) {
+    const double next = qBound(zoomPresets_.first(), scale, zoomPresets_.last());
+    if (qFuzzyCompare(next, zoomScale_)) {
         return;
     }
-    zoomPresetIndex_ = nextIndex;
+    zoomScale_ = next;
     refreshLayoutMetrics();
-    centerOnSecond(anchorSecond);
+    if (anchorSecond.has_value()) {
+        placeSecondAt(*anchorSecond, anchorPosition);
+    }
     bumpAllRevisions();
-    emit zoomScaleChanged(zoomScale());
+    emit zoomScaleChanged(zoomScale_);
     emit renderStateChanged();
 }
 
 void TimelineQuickStateBridge::cycleZoomPreset(double anchorSecond)
 {
-    if (zoomPresets_.isEmpty()) {
-        return;
-    }
-    const double currentScale = zoomScale();
-    int nextIndex = 0;
-    bool foundHigherPreset = false;
-    for (int index = 0; index < zoomPresets_.size(); ++index) {
-        if (zoomPresets_.at(index) > currentScale + 1e-6) {
-            nextIndex = index;
-            foundHigherPreset = true;
-            break;
+    for (double scale : zoomPresets_) {
+        if (scale > zoomScale_ + 1e-6) {
+            setZoomScaleAnchored(scale, anchorSecond);
+            return;
         }
     }
-    if (!foundHigherPreset) {
-        nextIndex = 0;
-    }
-    if (nextIndex == zoomPresetIndex_) {
-        return;
-    }
-    zoomPresetIndex_ = nextIndex;
-    refreshLayoutMetrics();
-    centerOnSecond(anchorSecond);
-    bumpAllRevisions();
-    emit zoomScaleChanged(zoomScale());
-    emit renderStateChanged();
+    setZoomScaleAnchored(zoomPresets_.first(), anchorSecond);
 }
 
 bool TimelineQuickStateBridge::centerOnSecond(double second)
 {
+    return placeSecondAt(second, effectiveViewportSize().width() * 0.5);
+}
+
+bool TimelineQuickStateBridge::placeSecondAt(double second, qreal position)
+{
     if (!layoutMetricsValid_) {
         refreshLayoutMetrics();
     }
-    // Exact, not secondToSceneX: this is the follow-playback scroll target, and rounding it
-    // to whole pixels is what quantised the scroll velocity into the 3/4/5px stepping that
-    // reads as judder. The viewport half-width is halved in floating point for the same
-    // reason — integer division here reintroduced a half-pixel bias on odd widths.
+    // Keep the scroll position sub-pixel when following playback or zooming.
     const qreal targetX =
-        miacode::timeline::TimelineSceneStateBuilder::secondToSceneXExact(layoutMetrics_, second)
-        - (layoutMetrics_.viewportSize.width() / 2.0);
+        miacode::timeline::TimelineSceneStateBuilder::secondToSceneXExact(layoutMetrics_, second) - position;
     const double clamped = qBound(0.0, static_cast<double>(targetX),
                                   static_cast<double>(maxHorizontalScrollValue()));
     if (qFuzzyCompare(horizontalScrollValue_ + 1.0, clamped + 1.0)) {
@@ -611,19 +585,16 @@ bool TimelineQuickStateBridge::centerOnSecond(double second)
 
 void TimelineQuickStateBridge::stepZoomPreset(int deltaSteps, double anchorSecond)
 {
-    if (zoomPresets_.isEmpty() || deltaSteps == 0) {
+    if (deltaSteps == 0) {
         return;
     }
-    const int nextIndex = qBound(0, zoomPresetIndex_ + deltaSteps, zoomPresets_.size() - 1);
-    if (nextIndex == zoomPresetIndex_) {
-        return;
-    }
-    zoomPresetIndex_ = nextIndex;
-    refreshLayoutMetrics();
-    centerOnSecond(anchorSecond);
-    bumpAllRevisions();
-    emit zoomScaleChanged(zoomScale());
-    emit renderStateChanged();
+    const auto first = zoomPresets_.cbegin();
+    const auto last = zoomPresets_.cend();
+    const auto adjacent = deltaSteps > 0
+        ? std::upper_bound(first, last, zoomScale_ + 1e-6)
+        : std::lower_bound(first, last, zoomScale_ - 1e-6);
+    const auto index = std::distance(first, adjacent) + deltaSteps - (deltaSteps > 0 ? 1 : 0);
+    setZoomScaleAnchored(zoomPresets_.at(qBound<qsizetype>(0, index, zoomPresets_.size() - 1)), anchorSecond);
 }
 
 void TimelineQuickStateBridge::setPlaybackEntrySeconds(double second)

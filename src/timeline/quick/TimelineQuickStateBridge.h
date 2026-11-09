@@ -12,6 +12,7 @@
 #include <QVector>
 
 #include <memory>
+#include <optional>
 
 #include "timeline/TimelineThemeConfig.h"
 #include "core/analysis/MuriTypes.h"
@@ -68,16 +69,17 @@ public:
     QVector<double> zoomPresets() const;
     QVariantList zoomPresetValues() const;
     Q_INVOKABLE void applyZoomPreset(double scale);
-    // Arrow/wheel stepping through the zoom presets, anchored on the viewport
-    // center like every other zoom entry point.
+    // Arrow controls and preset commands center on the current viewport.
     Q_INVOKABLE void stepZoomIn();
     Q_INVOKABLE void stepZoomOut();
+    Q_INVOKABLE void stepZoomPresets(int deltaSteps);
     QStringList zoomInWheelShortcuts() const;
     QStringList zoomOutWheelShortcuts() const;
     void setZoomWheelShortcuts(const QStringList& zoomInShortcuts, const QStringList& zoomOutShortcuts);
     double viewportCenterSecond();
     QSize viewportSize() const;
     void setZoomScaleAnchored(double scale, double anchorSecond);
+    void zoomAtViewportPosition(double scale, qreal timePosition);
     double contentScale() const;
     void setContentScale(double scale);
     double waveformBrightness() const;
@@ -157,6 +159,8 @@ private:
     void refreshLayoutMetrics();
     int maxHorizontalScrollValue() const;
     bool centerOnSecond(double second);
+    void applyZoomScale(double scale, std::optional<double> anchorSecond = {}, qreal anchorPosition = 0);
+    bool placeSecondAt(double second, qreal position);
     void bumpAllRevisions();
     void bumpHeaderRevision();
     void bumpNotesRevision();
@@ -173,7 +177,7 @@ private:
     QVector<double> zoomPresets_;
     QStringList zoomInWheelShortcuts_{QStringLiteral("Ctrl+WheelUp")};
     QStringList zoomOutWheelShortcuts_{QStringLiteral("Ctrl+WheelDown")};
-    int zoomPresetIndex_ = 1;
+    double zoomScale_ = 0.5;
     double horizontalScrollValue_ = 0.0;
     bool playbackCadenceActive_ = false;
     double contentScale_ = 1.0;

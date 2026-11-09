@@ -12,15 +12,6 @@ Control {
     required property var stateBridge
 
     readonly property var presets: root.stateBridge ? root.stateBridge.zoomPresetValues : []
-    readonly property int presetIndex: {
-        if (root.stateBridge) {
-            for (let i = 0; i < root.presets.length; ++i) {
-                if (Math.abs(root.presets[i] - root.stateBridge.zoomScale) < 1e-6)
-                    return i
-            }
-        }
-        return -1
-    }
     readonly property real horizontalInset: Theme.chromeInsetX - Theme.chromeHighlightOutset
     readonly property real verticalInset: Theme.chromeInsetY - Theme.chromeHighlightOutset
     readonly property real stepperWidth: Theme.compactControlHeight - 2
@@ -31,7 +22,7 @@ Control {
 
     implicitWidth: bodyWidth + stepperWidth + 2 * horizontalInset
     implicitHeight: Theme.controlHighlightHeight + 2 * verticalInset
-    enabled: presetIndex >= 0
+    enabled: root.presets.length > 0
     font.family: Theme.uiFont
     font.pixelSize: Theme.captionFontSize
     leftPadding: horizontalInset + strokeWidth
@@ -42,9 +33,7 @@ Control {
     function stepPresets(steps) {
         if (!root.enabled || steps === 0)
             return
-        const next = Math.max(0, Math.min(root.presets.length - 1, root.presetIndex + steps))
-        if (next !== root.presetIndex)
-            root.stateBridge.applyZoomPreset(root.presets[next])
+        root.stateBridge.stepZoomPresets(steps)
     }
 
     // Text's implicit width notifies when its font or translation changes;
@@ -140,7 +129,9 @@ Control {
             width: parent.width - x
             height: parent.height / 2
             y: increase ? 0 : height
-            enabled: increase ? root.presetIndex < root.presets.length - 1 : root.presetIndex > 0
+            enabled: root.enabled && (increase
+                ? root.stateBridge.zoomScale < root.presets[root.presets.length - 1] - 1e-6
+                : root.stateBridge.zoomScale > root.presets[0] + 1e-6)
             hoverEnabled: true
             focusPolicy: Qt.TabFocus
             Accessible.name: tooltip
