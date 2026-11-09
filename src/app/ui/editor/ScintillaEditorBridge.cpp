@@ -8,6 +8,7 @@
 #include <QInputMethod>
 #include <QInputMethodEvent>
 #include <QKeyEvent>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QQuickWindow>
@@ -18,6 +19,10 @@
 #include <utility>
 
 namespace miacode::ui {
+namespace {
+const QString kNoteFragmentMime = QStringLiteral("application/x-miacode-simai-fragment-v1");
+}
+
 using miacode::editor::normalizeSimaiInput;
 ScintillaEditorBridge::ScintillaEditorBridge(QQuickItem* parent)
     : ScintillaQuick_item(parent), document_(*this), styler_(*this, document_)
@@ -789,8 +794,10 @@ void ScintillaEditorBridge::undo()
 {
     QGuiApplication::inputMethod()->commit();
     if (controller_) controller_->closeCompletion();
-    document_.undo();
-    refreshSelection(true);
+    if (!canUndo()) return;
+    noteSelection_ = document_.undo();
+    refreshSelection(!noteSelection_);
+    if (noteSelection_) publishContext(false);
     publishTouchUndoAnchor();
 }
 void ScintillaEditorBridge::redo()
@@ -813,9 +820,109 @@ void ScintillaEditorBridge::publishTouchUndoAnchor()
         publishTouchAnchor(pendingTouchAnchor_);
     pendingTouchAnchor_ = -1;
 }
-void ScintillaEditorBridge::cut() { send(SCI_CUT); }
-void ScintillaEditorBridge::copy() { send(SCI_COPY); }
-void ScintillaEditorBridge::paste() { send(SCI_PASTE); }
+const miacode::chart_selection::NoteRanges* ScintillaEditorBridge::currentNoteCatalogue()
+{
+    if (!syncController_ || !documentSession_) return nullptr;
+    return syncController_->ensureNoteCatalogue(documentSession_->currentDifficultyId(),
+        documentSession_->documentRevision());
+}
+
+miacode::chart_selection::NoteTimingState ScintillaEditorBridge::noteInitialTiming() const
+{
+    const auto timing = documentSession_->chartTimingMetadata();
+    miacode::chart_selection::NoteTimingState initial;
+    initial.meterNumerator = timing.wholeTimeSignatureNumerator;
+    initial.meterDenominator = timing.wholeTimeSignatureDenominator;
+    return initial;
+}
+
+bool ScintillaEditorBridge::applyObjectEdit(const QString& replacement, int caret)
+{
+    const QString& text = document_.text();
+    if (send(SCI_GETREADONLY) || text == replacement) return false;
+
+    int start = 0;
+    int beforeEnd = text.size();
+    int afterEnd = replacement.size();
+    while (start < beforeEnd && start < afterEnd && text.at(start) == replacement.at(start)) ++start;
+    if (start > 0 && text.at(start - 1).isHighSurrogate()) --start;
+    while (beforeEnd > start && afterEnd > start && text.at(beforeEnd - 1) == replacement.at(afterEnd - 1)) {
+        --beforeEnd;
+        --afterEnd;
+    }
+    if (beforeEnd < text.size() && text.at(beforeEnd).isLowSurrogate()) {
+        ++beforeEnd;
+        ++afterEnd;
+    }
+
+    miacode::editor::SimaiTextEditResult edit;
+    edit.consumed = true;
+    edit.transaction.hasEdit = true;
+    edit.transaction.replacementStart = start;
+    edit.transaction.replacementEnd = beforeEnd;
+    edit.transaction.replacementText = replacement.mid(start, afterEnd - start);
+    edit.transaction.anchor = edit.transaction.position = qBound(0, caret, replacement.size());
+    return applyEditorTransaction(edit);
+}
+
+bool ScintillaEditorBridge::deleteNoteSelection()
+{
+    const auto* catalogue = currentNoteCatalogue();
+    const auto ranges = selectionRanges();
+    if (!catalogue || ranges.isEmpty()) return false;
+    return applyObjectEdit(miacode::chart_selection::deleteSelectedNotes(document_.text(), ranges, *catalogue),
+        ranges.constFirst().start);
+}
+
+bool ScintillaEditorBridge::copyNoteSelection()
+{
+    const auto* catalogue = currentNoteCatalogue();
+    if (!catalogue) return false;
+    const QString text = miacode::chart_selection::copySelectedNotes(
+        document_.text(), selectionRanges(), *catalogue, noteInitialTiming());
+    if (text.isEmpty()) return false;
+
+    auto* mime = new QMimeData;
+    mime->setText(text);
+    mime->setData(kNoteFragmentMime, text.toUtf8());
+    QGuiApplication::clipboard()->setMimeData(mime);
+    return true;
+}
+
+void ScintillaEditorBridge::cut()
+{
+    if (noteSelection_) {
+        if (!send(SCI_GETREADONLY) && copyNoteSelection()) deleteNoteSelection();
+    } else {
+        send(SCI_CUT);
+    }
+}
+
+void ScintillaEditorBridge::copy()
+{
+    if (noteSelection_) copyNoteSelection();
+    else send(SCI_COPY);
+}
+
+void ScintillaEditorBridge::paste()
+{
+    const auto* mime = QGuiApplication::clipboard()->mimeData();
+    if (!mime || !mime->hasFormat(kNoteFragmentMime)) {
+        send(SCI_PASTE);
+        return;
+    }
+    if (send(SCI_GETREADONLY)) return;
+
+    const QString fragment = QString::fromUtf8(mime->data(kNoteFragmentMime));
+    QGuiApplication::inputMethod()->commit();
+    if (controller_) controller_->closeCompletion();
+    const auto* catalogue = currentNoteCatalogue();
+    if (!catalogue) return;
+    const auto pasted = miacode::chart_selection::pasteNoteFragment(document_.text(), selectionStart(), selectionEnd(),
+        fragment, noteSelection_ ? selectionRanges() : miacode::chart_selection::NoteRanges{},
+        *catalogue, noteInitialTiming());
+    applyObjectEdit(pasted.text, pasted.caret);
+}
 void ScintillaEditorBridge::selectAll() { send(SCI_SELECTALL); refreshSelection(true); }
 void ScintillaEditorBridge::select(int anchor, int position)
 {
@@ -849,6 +956,7 @@ bool ScintillaEditorBridge::applyEditorTransaction(const miacode::editor::SimaiT
         QScopedValueRollback guard(synchronizing_, true);
         if (tx.hasEdit) {
             send(SCI_BEGINUNDOACTION);
+            if (noteSelection_) document_.recordObjectSelectionForUndo();
             send(SCI_SETTARGETSTART, document_.bytePosition(tx.replacementStart));
             send(SCI_SETTARGETEND, document_.bytePosition(tx.replacementEnd));
             const QByteArray replacement = tx.replacementText.toUtf8();
@@ -917,6 +1025,22 @@ bool ScintillaEditorBridge::applyNormalization(const QVariantMap& options)
 }
 bool ScintillaEditorBridge::applyChartTransform(const QString& operation)
 {
+    if (documentSession_ && noteSelection_) {
+        if (operation == QLatin1String("transform.clear_complete_elements")) return deleteNoteSelection();
+        const auto ranges = selectionRanges();
+        if (ranges.isEmpty()) return false;
+        QString transformed = document_.text();
+        // Apply existing transforms from the end, keeping earlier source offsets stable.
+        for (auto it = ranges.crbegin(); it != ranges.crend(); ++it) {
+            const auto edit = documentSession_->transformChartSelection(transformed, it->start, it->end, operation);
+            if (!edit.error.isEmpty() || !edit.consumed) return false;
+            const auto& tx = edit.transaction;
+            if (tx.hasEdit) {
+                transformed.replace(tx.replacementStart, tx.replacementEnd - tx.replacementStart, tx.replacementText);
+            }
+        }
+        return applyObjectEdit(transformed, ranges.constFirst().start);
+    }
     return documentSession_ && applyEditorTransaction(documentSession_->transformChartSelection(document_.text(), selectionStart(), selectionEnd(), operation));
 }
 bool ScintillaEditorBridge::createBookmarkAtLine(int line, const QString& title)
@@ -970,6 +1094,16 @@ void ScintillaEditorBridge::keyPressEvent(QKeyEvent* event)
     if (event->matches(QKeySequence::Copy)) { copy(); event->accept(); return; }
     if (event->matches(QKeySequence::Paste)) { paste(); event->accept(); return; }
     if (event->matches(QKeySequence::SelectAll)) { selectAll(); event->accept(); return; }
+    if (noteSelection_ && (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace)) {
+        deleteNoteSelection();
+        event->accept();
+        return;
+    }
+    if (noteSelection_ && event->key() == Qt::Key_Escape) {
+        select(cursorPosition(), cursorPosition());
+        event->accept();
+        return;
+    }
     if (event->key() == Qt::Key_PageUp || event->key() == Qt::Key_PageDown) beginUserInteraction();
     if (controller_) {
         const QString input = event->text();

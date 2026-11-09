@@ -20,10 +20,8 @@ ScintillaDocumentAdapter::ScintillaDocumentAdapter(ScintillaQuick_item& editor) 
                 || !editor_.send(SCI_GETUNDOCOLLECTION)) return;
             const Selection selection{int(editor_.send(SCI_GETANCHOR)), int(editor_.send(SCI_GETCURRENTPOS))};
             if (selection.anchor == selection.caret) return;
-            const int token = nextSelectionToken_--;
-            document->undoSelections.insert(token, selection);
             // Join the native edit group before it collapses the selection.
-            editor_.send(SCI_ADDUNDOACTION, token, 0);
+            addUndoSelection({{selection}});
         });
 }
 ScintillaDocumentAdapter::~ScintillaDocumentAdapter()
@@ -140,15 +138,47 @@ void ScintillaDocumentAdapter::refresh()
     editor_.send(SCI_GETTEXT, buffer.size(), reinterpret_cast<sptr_t>(buffer.data()));
     text_ = QString::fromUtf8(buffer.constData(), length);
 }
-void ScintillaDocumentAdapter::undo()
+void ScintillaDocumentAdapter::addUndoSelection(UndoSelection selection)
+{
+    auto document = documents_.find(scope_);
+    if (document == documents_.end()) return;
+    const int token = nextSelectionToken_--;
+    document->undoSelections.insert(token, std::move(selection));
+    editor_.send(SCI_ADDUNDOACTION, token, 0);
+}
+
+void ScintillaDocumentAdapter::recordObjectSelectionForUndo()
+{
+    if (!editor_.send(SCI_GETUNDOCOLLECTION)) return;
+    UndoSelection selection;
+    selection.objectSelection = true;
+    selection.mainSelection = editor_.send(SCI_GETMAINSELECTION);
+    for (int index = 0; index < editor_.send(SCI_GETSELECTIONS); ++index) {
+        selection.ranges.append({int(editor_.send(SCI_GETSELECTIONNANCHOR, index)),
+            int(editor_.send(SCI_GETSELECTIONNCARET, index))});
+    }
+    if (!selection.ranges.isEmpty()) {
+        // Undo replays container actions in reverse. The full snapshot is
+        // recorded before any ordinary selection captured by a deletion.
+        addUndoSelection(std::move(selection));
+    }
+}
+
+bool ScintillaDocumentAdapter::undo()
 {
     selectionToRestore_.reset();
     editor_.send(SCI_UNDO);
-    if (selectionToRestore_) {
-        editor_.send(SCI_SETSELECTION, selectionToRestore_->caret, selectionToRestore_->anchor);
-        editor_.send(SCI_SCROLLCARET);
-        selectionToRestore_.reset();
+    if (!selectionToRestore_) return false;
+
+    const UndoSelection selection = std::move(*selectionToRestore_);
+    selectionToRestore_.reset();
+    for (int index = 0; index < selection.ranges.size(); ++index) {
+        const auto& range = selection.ranges.at(index);
+        editor_.send(index == 0 ? SCI_SETSELECTION : SCI_ADDSELECTION, range.caret, range.anchor);
     }
+    editor_.send(SCI_SETMAINSELECTION, selection.mainSelection);
+    editor_.send(SCI_SCROLLCARET);
+    return selection.objectSelection;
 }
 int ScintillaDocumentAdapter::lineAt(int position) const
 {

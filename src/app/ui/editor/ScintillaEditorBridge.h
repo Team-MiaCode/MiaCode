@@ -180,6 +180,11 @@ private:
     void publishTouchUndoAnchor();
     miacode::chart_selection::NoteRanges selectionRanges() const;
     void selectNoteRanges(int difficulty, quint64 revision, const miacode::chart_selection::NoteRanges& ranges);
+    const miacode::chart_selection::NoteRanges* currentNoteCatalogue();
+    miacode::chart_selection::NoteTimingState noteInitialTiming() const;
+    bool applyObjectEdit(const QString& replacement, int caret);
+    bool deleteNoteSelection();
+    bool copyNoteSelection();
     ScintillaDocumentAdapter document_;
     ScintillaDslStyler styler_;
     QPointer<DocumentModel> documentSession_;

@@ -70,6 +70,7 @@ public:
     EditorSelectionState editorSelection() const;
     void setNoteCatalogue(int difficultyId, quint64 revision, const chart_selection::NoteRanges& ranges);
     const chart_selection::NoteRanges* noteCatalogue(int difficultyId, quint64 revision) const;
+    const chart_selection::NoteRanges* ensureNoteCatalogue(int difficultyId, quint64 revision);
     bool requestNoteSelection(int difficultyId, quint64 revision, const chart_selection::NoteRanges& ranges, bool additive = false);
     void setEditorRanges(int difficultyId, quint64 revision, const chart_selection::NoteRanges& ranges, bool noteSelection);
 
@@ -106,6 +107,7 @@ signals:
     void selectionRangeExportRequested(int difficultyId, int selectionStart, int selectionEnd);
     void editorContextChanged();
     void noteSelectionRequested(int difficultyId, qulonglong revision, const miacode::chart_selection::NoteRanges& ranges);
+    void noteCatalogueRequested();
 
 private:
     struct NavigationState {

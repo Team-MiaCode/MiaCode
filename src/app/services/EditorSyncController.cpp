@@ -137,6 +137,13 @@ const chart_selection::NoteRanges* EditorSyncController::noteCatalogue(int diffi
     return catalogueDifficulty_ == difficultyId && catalogueRevision_ == revision ? &noteCatalogue_ : nullptr;
 }
 
+const chart_selection::NoteRanges* EditorSyncController::ensureNoteCatalogue(int difficultyId, quint64 revision)
+{
+    if (!readinessAccepts(difficultyId, revision)) return nullptr;
+    if (!noteCatalogue(difficultyId, revision)) emit noteCatalogueRequested();
+    return noteCatalogue(difficultyId, revision);
+}
+
 bool EditorSyncController::requestNoteSelection(int difficultyId, quint64 revision,
     const chart_selection::NoteRanges& ranges, bool additive)
 {

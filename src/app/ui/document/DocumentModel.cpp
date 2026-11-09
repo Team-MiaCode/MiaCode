@@ -405,6 +405,12 @@ QString DocumentModel::metadataExtraError() const
 {
     return metadataExtraError_.isEmpty() ? QString() : qtTrId("metadata.extra_field_format");
 }
+
+miacode::simai::SimaiTimingMetadata DocumentModel::chartTimingMetadata() const
+{
+    return workspace_ ? miacode::simai::buildTimingMetadata(workspace_->document())
+        : miacode::simai::SimaiTimingMetadata{};
+}
 bool DocumentModel::metadataNeedsAttention() const
 {
     return !metadataAttentionItems().isEmpty();
@@ -2257,7 +2263,7 @@ miacode::editor::SimaiTextEditResult DocumentModel::normalizeChartSelection(
         text,
         selectionStart,
         selectionEnd,
-        miacode::simai::buildTimingMetadata(workspace_->document()),
+        chartTimingMetadata(),
         normalizeOptionsFromVariant(options));
     if (!normalized.ok) {
         result.error = normalized.errorMessage;

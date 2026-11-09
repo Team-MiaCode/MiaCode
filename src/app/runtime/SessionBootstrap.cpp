@@ -79,6 +79,10 @@ Session::Session(miacode::ApplicationServices& services, QObject* parent)
             this, [this](int difficultyId, quint64 revision, int start, int end) {
                 if (playback_) playback_->playEditorSelection(difficultyId, revision, start, end);
             });
+    connect(editorSyncController_, &miacode::EditorSyncController::noteCatalogueRequested, this, [this] {
+        if (playback_ && !playback_->refreshTimelineQuickModelFromCurrentText())
+            playback_->refreshEditorNoteSelection();
+    });
     connect(editorSyncController_, &miacode::EditorSyncController::caretLocationPublished,
             this, &Session::onEditorCaretLocationPublished);
     connect(editorSyncController_, &miacode::EditorSyncController::pointerInteractionStarted,

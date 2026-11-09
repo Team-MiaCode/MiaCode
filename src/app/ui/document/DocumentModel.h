@@ -111,6 +111,7 @@ public:
     bool metadataHasVideo() const;
     QString metadataClockCount() const;
     QString metadataExtraText() const;
+    miacode::simai::SimaiTimingMetadata chartTimingMetadata() const;
     QString metadataExtraError() const;
     QString wholeBpm() const;
     bool unifiedDesignerEnabled() const;
