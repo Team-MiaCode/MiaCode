@@ -2345,6 +2345,59 @@ int main(int argc, char** argv)
                QStringLiteral("incremental HS edits match a full rebuild, including downstream note state"));
     }
 
+    {
+        const QString chart = QStringLiteral("(120){4}<HS*2>1/2, 34,5h[4:4]/A1h[4:2],1-5-3[4:4], || 8h[4:8]\nE");
+        TimelineQuickModel model;
+        model.rebuildFromText(chart, 5.0);
+        const auto one = [&](int at) { return model.resolveNoteSelection(at,at+1); };
+        const int first = chart.indexOf(QStringLiteral("1/2"));
+        const auto left = one(first), right = one(first+2);
+        expect(left.locations == QSet<quint64>{timelineRenderLocationId(1,first+1)}
+            && right.locations == QSet<quint64>{timelineRenderLocationId(1,first+3)},
+            QStringLiteral("selection maps 1/2 to two independent notes without selecting its sibling"));
+        expect(one(first+1).locations.isEmpty(), QStringLiteral("slash separator alone selects no note"));
+        const int packed = chart.indexOf(QStringLiteral("34"));
+        expect(one(packed).locations.size() == 1 && one(packed+1).locations.size() == 1
+            && one(packed).locations != one(packed+1).locations,
+            QStringLiteral("packed simultaneous digit notes keep independent source spans"));
+        const int hold = chart.indexOf(QStringLiteral("5h[4:4]"));
+        const auto selectedHold = one(hold);
+        for (int i=0; i<QStringLiteral("5h[4:4]").size(); ++i)
+            expect(one(hold+i).locations == selectedHold.locations,
+                QStringLiteral("every duration/modifier character selects the whole hold"));
+        const int chain = chart.indexOf(QStringLiteral("1-5-3[4:4]"));
+        const auto selectedChain = one(chain);
+        for (int i=0; i<QStringLiteral("1-5-3[4:4]").size(); ++i)
+            expect(one(chain+i).locations == selectedChain.locations,
+                QStringLiteral("a chained slide stays one selected source object"));
+        expect(model.resolveNoteSelection(0,first).locations.isEmpty()
+            && one(chart.indexOf(QStringLiteral("||"))+3).locations.isEmpty()
+            && one(chart.indexOf(QLatin1Char(' '))).locations.isEmpty()
+            && model.resolveNoteSelection(first,first).locations.isEmpty(),
+            QStringLiteral("controls comments whitespace and collapsed selections select no notes"));
+        const auto& line = model.snapshot().lines.first();
+        for (const auto& note : line.notes) {
+            if (note.sourceCol == hold+1) {
+                const double hit = timelineRenderAbsoluteSecond(line,note.secondOffset);
+                expect(selectedHold.resolved() && selectedHold.startSecond < hit
+                    && selectedHold.endSecond > timelineRenderNoteExportVisualEndSecond(line,note,true),
+                    QStringLiteral("selection audition includes visible lead-in and the complete hold/effect tail across later notes"));
+            }
+        }
+        expect(model.resolveNoteSelection(first,chain+1).locations.size() == 7,
+            QStringLiteral("selection crossing several independent notes returns only actual note objects"));
+        model.updateFromText(QStringLiteral("\n")+chart,5.0,{});
+        expect(model.resolveNoteSelection(hold+1,hold+2).locations
+            == QSet<quint64>{timelineRenderLocationId(2,hold+1)},
+            QStringLiteral("incremental line insertion resequences selected source identities"));
+
+        TimelineQuickModel negativeOffset;
+        negativeOffset.rebuildFromText(QStringLiteral("(120){4}1,E"), -5.0);
+        const auto beforeAudio = negativeOffset.resolveNoteSelection(8, 9);
+        expect(beforeAudio.locations.size() == 1 && !beforeAudio.resolved(),
+            QStringLiteral("notes before the audible interval remain selected without a playable range"));
+    }
+
     if (failed > 0) {
         err << "\nTimeline model spec failed: " << failed << " case(s)\n";
         return 1;

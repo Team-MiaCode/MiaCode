@@ -276,6 +276,74 @@ bool verifySelectionExportDelivery(QTextStream& err)
     return ok;
 }
 
+bool verifySelectionPlaybackUsesLiveIdentity(QTextStream& err)
+{
+    EditorSyncController controller;
+    QSignalSpy context(&controller, &EditorSyncController::editorContextChanged);
+    QSignalSpy requested(&controller, &EditorSyncController::selectionPlaybackRequested);
+    makeReady(controller);
+    controller.setEditorContext(kDifficulty,kRevision,9,2,true,false,1,3,false);
+    controller.setSelectionPlayable(true);
+    flush();
+    context.clear();
+    controller.setEditorContext(kDifficulty,kRevision,8,2,true,false,1,3,false);
+    flush();
+    bool ok = require(context.size() == 1,
+        QStringLiteral("selection-only changes publish a fresh note-selection projection"),err);
+    ok &= require(controller.playSelection() && requested.size() == 1
+        && requested.first().at(0).toInt() == kDifficulty
+        && requested.first().at(1).toULongLong() == kRevision
+        && requested.first().at(2).toInt() == 2 && requested.first().at(3).toInt() == 8,
+        QStringLiteral("Play Selection carries current revision and ordered UTF-16 bounds"),err);
+    controller.setEditorReadiness(kDifficulty,kRevision+1,true);
+    ok &= require(!controller.playSelection(),QStringLiteral("a stale source selection cannot start playback"),err);
+    controller.setEditorContext(kDifficulty,kRevision+1,2,2,true,false,1,3,false);
+    ok &= require(!controller.playSelection(),QStringLiteral("collapsed selections cannot start playback"),err);
+    return ok;
+}
+
+bool verifyNoteCollectionsAreRevisionBound(QTextStream& err)
+{
+    EditorSyncController controller;
+    makeReady(controller);
+    controller.setEditorContext(kDifficulty, kRevision, 0, 0, true, false, 1, 1, false);
+    using miacode::chart_selection::NoteRanges;
+    const NoteRanges catalogue{{8,9},{10,11},{14,27}};
+    controller.setNoteCatalogue(kDifficulty, kRevision, catalogue);
+    QSignalSpy navigation(&controller, &EditorSyncController::navigationRequested);
+    controller.requestNavigation(kDifficulty, kRevision, 0, 1, false, false);
+    bool ok = require(controller.requestNoteSelection(kDifficulty, kRevision, {{16,17}}, false)
+        && controller.editorSelection().ranges == NoteRanges{{14,27}}
+        && controller.editorSelection().noteSelection,
+        QStringLiteral("preview inputs snap to the complete chained Slide token"), err);
+    flush();
+    ok &= require(navigation.isEmpty(), QStringLiteral("a user note collection supersedes older queued caret navigation"), err);
+    ok &= require(controller.requestNoteSelection(kDifficulty, kRevision, {{8,9}}, true)
+        && controller.editorSelection().ranges == NoteRanges{{8,9},{14,27}},
+        QStringLiteral("additive clicks preserve a noncontiguous collection without its intervening note"), err);
+    ok &= require(controller.requestNoteSelection(kDifficulty, kRevision, {{8,9}}, true)
+        && controller.editorSelection().ranges == NoteRanges{{14,27}},
+        QStringLiteral("Shift on an already selected note removes only that note"), err);
+    ok &= require(controller.requestNoteSelection(kDifficulty, kRevision, {{8,9},{14,27}}, true)
+        && controller.editorSelection().ranges == NoteRanges{{8,9}},
+        QStringLiteral("one rectangle toggles selected and unselected notes atomically"), err);
+    ok &= require(controller.requestNoteSelection(kDifficulty, kRevision, {}, true)
+        && controller.editorSelection().ranges == NoteRanges{{8,9}},
+        QStringLiteral("an empty Shift rectangle leaves the collection intact"), err);
+    ok &= require(controller.requestNoteSelection(kDifficulty, kRevision, {}, false)
+        && controller.editorSelection().ranges.isEmpty(),
+        QStringLiteral("an empty replacement selection clears the collection"), err);
+    controller.setEditorReadiness(kDifficulty, kRevision + 1, true);
+    ok &= require(!controller.requestNoteSelection(kDifficulty, kRevision, {{8,9}}, true)
+        && !controller.requestNoteSelection(kDifficulty, kRevision + 1, {{8,9}}, true)
+        && !controller.editorSelection().valid,
+        QStringLiteral("revision changes discard old selections and reject the old token catalogue"), err);
+    controller.setEditorReadiness(kDifficulty + 1, kRevision, true);
+    ok &= require(!controller.requestNoteSelection(kDifficulty, kRevision, catalogue, false),
+        QStringLiteral("a collection from another difficulty cannot enter the current editor"), err);
+    return ok;
+}
+
 }  // namespace
 
 int main(int argc, char** argv)
@@ -283,7 +351,9 @@ int main(int argc, char** argv)
     QCoreApplication app(argc, argv);
     QTextStream err(stderr);
     QTextStream out(stdout);
-    const bool ok = verifySelectionExportDelivery(err)
+    const bool ok = verifyNoteCollectionsAreRevisionBound(err)
+        && verifySelectionPlaybackUsesLiveIdentity(err)
+        && verifySelectionExportDelivery(err)
         && verifyNavigationRequiresTheReadyIdentity(err)
         && verifyIdentityIsRecheckedAtDelivery(err)
         && verifyLosingTheEditorCancelsPendingWork(err)

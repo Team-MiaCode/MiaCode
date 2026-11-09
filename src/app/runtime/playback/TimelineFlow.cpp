@@ -271,8 +271,8 @@ void miacode::runtime::PlaybackCoordinator::applyWaveformData(
             miacode::content_duration::totalContentDurationSeconds(
                 chartDurationSeconds, state_.previewTrackDurationSeconds_);
         const double extendedEndSecond = qMax(state_.qtPreviewPlaybackEndSecond_, resolvedEndSecond);
-        state_.qtPreviewPlaybackEndSecond_ = rangePlaybackEndSeconds_ > 0.0
-            ? qMin(extendedEndSecond, rangePlaybackEndSeconds_) : extendedEndSecond;
+        state_.qtPreviewPlaybackEndSecond_ = selectionPlayback_.active() ? selectionPlayback_.endSecond()
+            : rangePlaybackEndSeconds_ > 0.0 ? qMin(extendedEndSecond, rangePlaybackEndSeconds_) : extendedEndSecond;
     }
     const QString summary = waveformData
         ? miacode::waveform::waveformDataDebugSummary(*waveformData)
@@ -840,6 +840,7 @@ void miacode::runtime::PlaybackCoordinator::applyLatestTimelinePreviewStateToPau
     }
     validation_.applyAlignedMuriAnalysisReportToViews();
     state_.lastPreviewNoteMarkerSignature_ = state_.timeline_.latestTimelineNoteMarkerSignature_;
+    refreshEditorNoteSelection();
 }
 
 void miacode::runtime::PlaybackCoordinator::requestTimelineSlowRefresh()
@@ -1083,4 +1084,122 @@ miacode::waveform::WaveformCacheService* miacode::runtime::PlaybackCoordinator::
     state_.waveformCacheService_->setThreadPool(
         state_.previewWarmupPool_ != nullptr ? state_.previewWarmupPool_ : QThreadPool::globalInstance());
     return state_.waveformCacheService_;
+}
+
+void miacode::runtime::PlaybackCoordinator::refreshEditorNoteSelection()
+{
+    if (previewSelectionDifficulty_ > 0 && (!identity_.active()
+        || previewSelectionDifficulty_ != activeDifficultyId()
+        || previewSelectionRevision_ != identity_.documentRevision())) {
+        previewSelectionDifficulty_ = -1;
+        if (state_.scene_) emit state_.scene_->noteSelectionInvalidated();
+    }
+    if (selectionPlayback_.active() && !selectionPlayback_.matches(activeDifficultyId(), identity_.documentRevision())) {
+        stopQtPreviewPlayback(true);
+        cancelSelectionPlayback();
+    }
+    auto& editorSync = services_.editorSync();
+    const auto selection = editorSync.editorSelection();
+    const bool modelCurrent = identity_.active()
+        && state_.timeline_.timelineQuickModel_.matchesSource(activeChartText(), parsedFirstSeconds(), currentTimingMetadata());
+    if (!modelCurrent) {
+        editorSync.setNoteCatalogue(-1, 0, {});
+    } else if (!editorSync.noteCatalogue(activeDifficultyId(), identity_.documentRevision())) {
+        editorSync.setNoteCatalogue(activeDifficultyId(), identity_.documentRevision(),
+            state_.timeline_.timelineQuickModel_.noteSourceRanges());
+    }
+    QSet<quint64> locations;
+    bool playable = false;
+    if (modelCurrent && selection.valid
+        && selection.difficultyId == activeDifficultyId()
+        && selection.revision == identity_.documentRevision()) {
+        const auto resolved = state_.timeline_.timelineQuickModel_.resolveNoteSelection(
+            selection.ranges,
+            state_.previewTapFlowSpeed_, state_.previewTouchFlowSpeed_);
+        locations = resolved.locations;
+        playable = resolved.resolved();
+    }
+    editorSync.setSelectionPlayable(playable);
+    const auto& parsed = services_.analysis().parsedSnapshot();
+    const bool sceneCurrent = parsed.available && parsed.revision == identity_.documentRevision()
+        && parsed.difficultyId == activeDifficultyId() && parsed.chartText == activeChartText()
+        && parsed.firstSeconds == parsedFirstSeconds() && parsed.timingMetadata == currentTimingMetadata()
+        && parsed.previewState.noteMarkerSignature == state_.timeline_.latestTimelineNoteMarkerSignature_
+        && state_.lastPreviewNoteMarkerSignature_ == state_.timeline_.latestTimelineNoteMarkerSignature_
+        && state_.timeline_.latestTimelinePreviewRevision_ == state_.timeline_.timelineRevision_;
+    if (state_.scene_) state_.scene_->setSelectedNoteLocations(sceneCurrent ? locations : QSet<quint64>{});
+    if (state_.timeline_.timelineQuickStateBridge_)
+        state_.timeline_.timelineQuickStateBridge_->setSelectedNoteLocations(locations);
+}
+
+void miacode::runtime::PlaybackCoordinator::beginPreviewNoteSelection()
+{
+    previewSelectionDifficulty_ = -1;
+    const auto& parsed = services_.analysis().parsedSnapshot();
+    if (!identity_.active() || !parsed.available || parsed.revision != identity_.documentRevision()
+        || parsed.difficultyId != activeDifficultyId() || parsed.chartText != activeChartText()
+        || parsed.firstSeconds != parsedFirstSeconds() || parsed.timingMetadata != currentTimingMetadata()
+        || parsed.previewState.noteMarkerSignature != state_.lastPreviewNoteMarkerSignature_
+        || !state_.timeline_.timelineQuickModel_.matchesSource(activeChartText(), parsedFirstSeconds(), currentTimingMetadata())) return;
+    stopQtPreviewPlayback(true);
+    cancelSelectionPlayback();
+    previewSelectionDifficulty_ = activeDifficultyId();
+    previewSelectionRevision_ = identity_.documentRevision();
+}
+
+void miacode::runtime::PlaybackCoordinator::finishPreviewNoteSelection(const QSet<quint64>& locations, bool additive)
+{
+    const int difficulty = previewSelectionDifficulty_;
+    previewSelectionDifficulty_ = -1;
+    if (!identity_.active() || difficulty != activeDifficultyId()
+        || previewSelectionRevision_ != identity_.documentRevision()
+        || !state_.timeline_.timelineQuickModel_.matchesSource(activeChartText(), parsedFirstSeconds(), currentTimingMetadata())) return;
+    refreshEditorNoteSelection();
+    services_.editorSync().requestNoteSelection(difficulty, previewSelectionRevision_,
+        state_.timeline_.timelineQuickModel_.noteSourceRanges(&locations), additive);
+}
+
+void miacode::runtime::PlaybackCoordinator::selectTimelineNotes(const QSet<quint64>& locations, bool additive)
+{
+    if (locations.isEmpty() || !identity_.active()
+        || !state_.timeline_.timelineQuickModel_.matchesSource(activeChartText(), parsedFirstSeconds(), currentTimingMetadata())) {
+        return;
+    }
+    stopQtPreviewPlayback(true);
+    cancelSelectionPlayback();
+    refreshEditorNoteSelection();
+    services_.editorSync().requestNoteSelection(activeDifficultyId(), identity_.documentRevision(),
+        state_.timeline_.timelineQuickModel_.noteSourceRanges(&locations), additive);
+}
+
+void miacode::runtime::PlaybackCoordinator::cancelSelectionPlayback()
+{
+    if (!selectionPlayback_.active()) return;
+    selectionPlayback_.cancel();
+    state_.pendingPreviewPlaybackStart_ = false;
+    state_.qtPreviewPlaybackEndSecond_ = rangePlaybackEndSeconds_ > 0.0
+        ? rangePlaybackEndSeconds_ : previewContentDurationSeconds();
+    if (state_.timeline_.timelineQuickStateBridge_)
+        state_.timeline_.timelineQuickStateBridge_->setPlayheadUpperLimitSeconds(state_.qtPreviewPlaybackEndSecond_);
+}
+
+void miacode::runtime::PlaybackCoordinator::playEditorSelection(
+    int difficultyId, quint64 revision, int start, int end)
+{
+    if (!identity_.active() || difficultyId != activeDifficultyId()
+        || revision != identity_.documentRevision()) return;
+    if (!state_.timeline_.timelineQuickModel_.matchesSource(activeChartText(), parsedFirstSeconds(), currentTimingMetadata())) return;
+    const auto selection = services_.editorSync().editorSelection();
+    const auto ranges = selection.valid && selection.difficultyId == difficultyId && selection.revision == revision
+        ? selection.ranges : miacode::chart_selection::NoteRanges{{start, end}};
+    const auto selected = state_.timeline_.timelineQuickModel_.resolveNoteSelection(
+        ranges, state_.previewTapFlowSpeed_, state_.previewTouchFlowSpeed_);
+    if (!selected.resolved() || !beginPlaybackCommand()) return;
+    stopQtPreviewPlayback(true);
+    cancelExportIntroLeadIn();
+    seekPreviewToSecond(selected.startSecond, true);
+    selectionPlayback_.begin(difficultyId, revision, selected.startSecond, selected.endSecond);
+    // The normal transport owns audio/video, pre-roll and the single clock.
+    // Only its immutable terminal bound changes for this audition.
+    startQtPreviewPlayback(selected.startSecond, false);
 }

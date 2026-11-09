@@ -9,6 +9,7 @@ enum class PreviewAnimatedSpriteEffect {
     None = 0,
     HoldShine = 1,
     BreakAnimate = 2,
+    SelectionOutline = 3,
 };
 
 qreal previewAnimatedSpriteWave(double playheadSeconds);

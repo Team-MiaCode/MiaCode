@@ -281,9 +281,16 @@ void miacode::runtime::PlaybackCoordinator::onQtPreviewTickAtSecond(double secon
     if (diagEnabled) {
         syncMediaElapsedNs = tickProfileTimer.nsecsElapsed();
     }
+    if (selectionPlayback_.active() && !selectionPlayback_.matches(activeDifficultyId(), identity_.documentRevision())) {
+        stopQtPreviewPlayback(true);
+        cancelSelectionPlayback();
+        return;
+    }
     const double playbackEndSecond = previewPlaybackEndSeconds();
-    if (playbackEndSecond > 0.0
-        && second + kTimelineZeroSecondTolerance >= playbackEndSecond) {
+    const bool reachedEnd = selectionPlayback_.active()
+        ? selectionPlayback_.finished(second, kTimelineZeroSecondTolerance)
+        : playbackEndSecond > 0.0 && second + kTimelineZeroSecondTolerance >= playbackEndSecond;
+    if (reachedEnd) {
         second = playbackEndSecond;
         applyQtPreviewPosition(second, true);
         if (!state_.playing_) {

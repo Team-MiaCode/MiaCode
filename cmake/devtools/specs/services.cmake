@@ -85,7 +85,7 @@ miacode_add_dev_tool(editor_sync_controller_spec TEST
         src/tools/services/EditorSyncControllerSpec.cpp
         src/app/services/EditorSyncController.cpp
         src/app/services/EditorSyncController.h
-    LIBS Qt6::Core Qt6::Test
+    LIBS miacode_chart Qt6::Core Qt6::Test
     INCLUDES src
 )
 

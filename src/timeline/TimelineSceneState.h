@@ -93,6 +93,7 @@ struct TimelineSceneSprite {
     qreal scale = 1.0;
     qreal rotationDegrees = 0.0;
     bool mirrorX = false;
+    bool selected = false;
 };
 
 struct TimelineSceneHoldSpan {
@@ -104,6 +105,7 @@ struct TimelineSceneHoldSpan {
     qreal baseIconScale = 1.0;
     QColor fallbackColor;
     qreal fallbackWidth = 1.0;
+    bool selected = false;
 };
 
 struct TimelineSceneState {
@@ -153,8 +155,10 @@ struct TimelineSceneState {
     QVector<TimelineSceneSprite> trackSprites;
     QVector<TimelineSceneHoldSpan> holdSpans;
     QVector<TimelineSceneLine> touchHoldLines;
+    QVector<TimelineSceneLine> selectionLines;
     QVector<TimelineSceneSprite> noteSprites;
     QVector<TimelineSceneGlyph> muriDots;
+    QVector<TimelineSceneGlyph> noteHitAreas;
     bool hasEntryMarker = false;
     TimelineSceneTriangle entryMarker;
     bool hasCursorMarker = false;

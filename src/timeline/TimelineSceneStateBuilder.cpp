@@ -1018,6 +1018,7 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
         const double endSecond = noteEndSecond(line, note);
         const double traceSecond = noteTraceSecond(line, note);
         const quint64 locationId = timelineRenderLocationId(line, note);
+        const bool selected = request.selectedNoteLocations.contains(locationId);
         const QVector<TimelineMuriMarkerPlacement>* noteMuriMarkers = nullptr;
         if (const auto markersIt = request.muriMarkersByLocation.constFind(locationId);
             markersIt != request.muriMarkersByLocation.constEnd()) {
@@ -1199,6 +1200,12 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
                     trackScale,
                     angleDegrees,
                     forward);
+                if (selected) state.trackSprites.last().selected = true;
+                TimelineSceneGlyph hit;
+                hit.locationId = locationId;
+                const qreal hitSize = qMax(trackTargetSize.width(), trackTargetSize.height());
+                hit.rect = QRectF(cx - hitSize / 2, cy - hitSize / 2, hitSize, hitSize);
+                state.noteHitAreas.append(hit);
             }
             return;
         }
@@ -1215,9 +1222,25 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
                 qMax<qreal>(
                     3.0,
                     static_cast<qreal>(kNoteSize) * kTimelineHoldThicknessRelativeToTap * baseIconScale),
+                selected,
             });
+            TimelineSceneGlyph hit;
+            hit.locationId = locationId;
+            const qreal thickness = qMax<qreal>(4, kNoteSize * baseIconScale);
+            hit.rect = QRectF(extentLeft, rowCenterY - thickness / 2,
+                qMax(1, extentRight - extentLeft), thickness);
+            state.noteHitAreas.append(hit);
         }
         if (isTouchHold) {
+            TimelineSceneGlyph hit;
+            hit.locationId = locationId;
+            hit.rect = QRectF(x, rowCenterY - 3, qMax(1, secondToSceneX(state, endSecond) - x), 6);
+            state.noteHitAreas.append(hit);
+            if (selected) {
+                for (qreal dy : {-3.5, 3.5}) appendTrackLine(&state.selectionLines,
+                    QPointF(x, rowCenterY+dy), QPointF(secondToSceneX(state, endSecond), rowCenterY+dy),
+                    QColor(255,220,80,204),1.0);
+            }
             const QColor touchHoldColor = timelineRenderFlagSet(note, TimelineRenderFlagIsEach)
                 ? QColor(255, 214, 64, 120)
                 : QColor(44, 214, 255, 120);
@@ -1266,6 +1289,12 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
                 QPointF(x, rowCenterY),
                 iconType,
                 baseIconScale);
+            if (selected) state.noteSprites.last().selected = true;
+            TimelineSceneGlyph hit;
+            hit.locationId = locationId;
+            hit.rect = QRectF(x - iconTargetSize.width() / 2.0, rowCenterY - iconTargetSize.height() / 2.0,
+                iconTargetSize.width(), iconTargetSize.height());
+            state.noteHitAreas.append(hit);
         }
 
         if (noteMuriMarkers != nullptr) {

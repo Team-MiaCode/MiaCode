@@ -376,6 +376,7 @@ void miacode::runtime::PlaybackCoordinator::handlePreviewAudioStartupCompletion(
                 .arg(completion.detail)
                 .arg(completion.nativeErrorCode));
         cancelPreviewStartupSync("audio_startup_completion_failed");
+        cancelSelectionPlayback();
         return;
     }
 

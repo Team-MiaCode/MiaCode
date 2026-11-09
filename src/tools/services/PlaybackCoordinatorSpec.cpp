@@ -4,6 +4,7 @@
 #include <QTextStream>
 
 #include "app/runtime/playback/PlaybackIdentityGate.h"
+#include "app/runtime/playback/SelectionPlaybackRange.h"
 
 namespace {
 
@@ -53,6 +54,23 @@ bool verifyPlaybackIdentityGateBehavior(QTextStream& err)
     return ok;
 }
 
+bool verifySelectionAuditionBounds(QTextStream& err)
+{
+    miacode::runtime::SelectionPlaybackRange range;
+    bool ok = require(!range.begin(3,7,4.0,3.0) && !range.active(),
+        QStringLiteral("invalid selection bounds cannot arm an audition"),err);
+    ok &= require(range.begin(3,7,2.5,8.75) && range.matches(3,7)
+        && !range.matches(4,7) && !range.matches(3,8),
+        QStringLiteral("selection playback retains the exact difficulty and chart revision"),err);
+    ok &= require(!range.finished(8.7) && range.finished(8.75) && range.finished(9.0)
+        && range.startSecond() == 2.5 && range.endSecond() == 8.75,
+        QStringLiteral("one frozen range ends only when the shared chart clock reaches its complete tail"),err);
+    range.cancel();
+    ok &= require(!range.active() && !range.finished(9.0),
+        QStringLiteral("stop or seek cancellation removes the selection terminal bound"),err);
+    return ok;
+}
+
 }  // namespace
 
 int main(int argc, char** argv)
@@ -61,6 +79,7 @@ int main(int argc, char** argv)
     QTextStream err(stderr);
     bool ok = true;
     ok &= verifyPlaybackIdentityGateBehavior(err);
+    ok &= verifySelectionAuditionBounds(err);
     if (ok) {
         QTextStream(stdout) << "playback_coordinator_spec: OK" << Qt::endl;
     }

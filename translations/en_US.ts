@@ -5086,6 +5086,10 @@ Error: %1</translation>
         <source>Quit %1</source>
         <translation>Quit %1</translation>
     </message>
+    <message id="action.play_selection">
+        <source>Play Selection</source>
+        <translation>Play Selection</translation>
+    </message>
 </context>
 
 

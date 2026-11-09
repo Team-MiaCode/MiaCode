@@ -1,15 +1,28 @@
 #include "app/runtime/playback/PlaybackCoordinator.h"
 #include "app/runtime/Shared.h"
+#include "app/services/ApplicationServices.h"
+#include "preview/runtime/PreviewRuntime.h"
+#include "timeline/quick/TimelineQuickStateBridge.h"
 
 namespace miacode::runtime {
 
 void PlaybackCoordinator::setDocumentRevision(quint64 revision)
 {
+    if (identity_.documentRevision() != revision) {
+        if (selectionPlayback_.active() && (state_.playing_ || state_.previewStartupSyncPending_))
+            stopQtPreviewPlayback(true);
+        cancelSelectionPlayback();
+        services_.editorSync().setSelectionPlayable(false);
+        if (state_.scene_) state_.scene_->setSelectedNoteLocations({});
+        if (state_.timeline_.timelineQuickStateBridge_)
+            state_.timeline_.timelineQuickStateBridge_->setSelectedNoteLocations({});
+    }
     identity_.setDocumentRevision(revision);
 }
 
 void PlaybackCoordinator::invalidateSession()
 {
+    cancelSelectionPlayback();
     rangePlaybackStartSeconds_ = 0.0;
     rangePlaybackEndSeconds_ = 0.0;
     identity_.invalidate();

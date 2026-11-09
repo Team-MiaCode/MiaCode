@@ -110,6 +110,7 @@ void miacode::runtime::PlaybackCoordinator::setPlaybackRangeEnabled(
                     || endSecond <= startSecond)) {
         return;
     }
+    cancelSelectionPlayback();
     rangePlaybackStartSeconds_ = enabled ? qMax(0.0, startSecond) : 0.0;
     rangePlaybackEndSeconds_ = enabled ? endSecond : 0.0;
     if (state_.timeline_.timelineQuickStateBridge_ != nullptr) {
@@ -158,6 +159,7 @@ void miacode::runtime::PlaybackCoordinator::beginScrub()
     if (!beginPlaybackCommand()) {
         return;
     }
+    cancelSelectionPlayback();
     appendQuickShellBackendLog(QStringLiteral("preview_scrub_begin"));
     stopPreviewHeldSeek();
     state_.previewScrubDragging_ = true;

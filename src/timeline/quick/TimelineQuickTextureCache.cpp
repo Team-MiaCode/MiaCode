@@ -1,4 +1,5 @@
 #include "timeline/quick/TimelineQuickTextureCache.h"
+#include "core/scene/SelectionOutlineImage.h"
 
 #include <QDir>
 #include <QQuickWindow>
@@ -36,6 +37,13 @@ QString normalizedSkinDirectory(const QString& skinDirectory)
 {
     const QString trimmed = skinDirectory.trimmed();
     return trimmed.isEmpty() ? QString() : QDir::cleanPath(trimmed);
+}
+
+QSize texturePixelSize(const QSize& logicalSize, qreal dpr)
+{
+    return QSize(
+        qMax(1, qRound(logicalSize.width() * dpr)),
+        qMax(1, qRound(logicalSize.height() * dpr)));
 }
 
 }  // namespace
@@ -236,9 +244,7 @@ QSGTexture* TimelineQuickTextureCache::noteTexture(
         return nullptr;
     }
     const qreal dpr = effectiveDevicePixelRatio();
-    const QSize pixelSize(
-        qMax(1, qRound(static_cast<qreal>(targetSize.width()) * dpr)),
-        qMax(1, qRound(static_cast<qreal>(targetSize.height()) * dpr)));
+    const QSize pixelSize = texturePixelSize(targetSize, dpr);
     QPixmap pixmap = miacode::timeline::transformNotePixmapToTargetSize(
         noteAssets_, spriteType, pixelSize, rotationDegrees, mirrorX);
     if (pixmap.isNull()) {
@@ -269,10 +275,7 @@ TimelineQuickHoldTextureParts TimelineQuickTextureCache::holdTextureParts(
     }
 
     const qreal dpr = effectiveDevicePixelRatio();
-    const QSize logicalTargetSize = noteTargetSize(spriteType, scale);
-    const QSize pixelTargetSize(
-        qMax(1, qRound(static_cast<qreal>(logicalTargetSize.width()) * dpr)),
-        qMax(1, qRound(static_cast<qreal>(logicalTargetSize.height()) * dpr)));
+    const QSize pixelTargetSize = texturePixelSize(noteTargetSize(spriteType, scale), dpr);
     const auto parts = miacode::timeline::buildHoldPixmapPartsForTargetSize(noteAssets_, spriteType, pixelTargetSize);
     const auto logicalSize = [dpr](const QSize& size) {
         return size.isEmpty() ? QSizeF()
@@ -282,6 +285,52 @@ TimelineQuickHoldTextureParts TimelineQuickTextureCache::holdTextureParts(
         {textureForPixmapKey(QStringLiteral("hold_left_cap|%1").arg(key), parts.leftCap), logicalSize(parts.leftCap.size())},
         {textureForPixmapKey(QStringLiteral("hold_right_cap|%1").arg(key), parts.rightCap), logicalSize(parts.rightCap.size())},
         {textureForKey(QStringLiteral("hold_body|%1").arg(key), parts.bodySlice), logicalSize(parts.bodySlice.size())},
+    };
+    holdTextureParts_.insert(key, textures);
+    return textures;
+}
+
+TimelineQuickTextureHandle TimelineQuickTextureCache::noteOutlineTexture(
+    const QString& spriteType, const QSize& targetSize, qreal rotationDegrees, bool mirrorX)
+{
+    if (!targetSize.isValid()) {
+        return {};
+    }
+
+    const QString key = QStringLiteral("selection|") + noteTextureKey(spriteType, targetSize, rotationDegrees, mirrorX);
+    const qreal dpr = effectiveDevicePixelRatio();
+    if (const auto it = textures_.constFind(key); it != textures_.constEnd()) {
+        QSGTexture* texture = it.value();
+        return texture != nullptr ? TimelineQuickTextureHandle{texture, QSizeF(texture->textureSize()) / dpr}
+                                  : TimelineQuickTextureHandle{};
+    }
+
+    const QPixmap pixmap = miacode::timeline::transformNotePixmapToTargetSize(
+        noteAssets_, spriteType, texturePixelSize(targetSize, dpr), rotationDegrees, mirrorX);
+    const QImage image = miacode::preview::scene::selectionOutlineImage(pixmap.toImage(), dpr);
+    return {textureForKey(key, image), QSizeF(image.size()) / dpr};
+}
+
+TimelineQuickHoldTextureParts TimelineQuickTextureCache::holdOutlineTextureParts(const QString& spriteType, qreal scale)
+{
+    // Keep the outline with the skin-dependent hold textures across theme changes.
+    const QString key = QStringLiteral("hold_selection|%1").arg(holdPartsCacheKey(spriteType, scale));
+    if (const auto it = holdTextureParts_.constFind(key); it != holdTextureParts_.constEnd()) {
+        return it.value();
+    }
+
+    const qreal dpr = effectiveDevicePixelRatio();
+    const QSize pixelSize = texturePixelSize(noteTargetSize(spriteType, scale), dpr);
+    const auto parts = miacode::timeline::buildHoldPixmapPartsForTargetSize(noteAssets_, spriteType, pixelSize);
+    const auto outline = [&](const QString& part, const QImage& input, bool left, bool right) {
+        const QImage image = miacode::preview::scene::selectionOutlineImage(input, dpr, left, right);
+        return TimelineQuickTextureHandle{
+            textureForKey(key + QLatin1Char('|') + part, image), QSizeF(image.size()) / dpr};
+    };
+    const TimelineQuickHoldTextureParts textures{
+        outline(QStringLiteral("left"), parts.leftCap.toImage(), true, false),
+        outline(QStringLiteral("right"), parts.rightCap.toImage(), false, true),
+        outline(QStringLiteral("body"), parts.bodySlice, false, false),
     };
     holdTextureParts_.insert(key, textures);
     return textures;

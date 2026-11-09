@@ -12,6 +12,22 @@ miacode_add_dev_tool(preview_maimuri_judge_slot_spec TEST
 )
 set_tests_properties(preview_maimuri_judge_slot_spec PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+miacode_add_dev_tool(preview_note_hit_test_spec TEST
+    SOURCES src/tools/preview/PreviewNoteHitTestSpec.cpp
+    LIBS miacode_scene Qt6::Core Qt6::Gui
+    INCLUDES src
+)
+set_tests_properties(preview_note_hit_test_spec PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+miacode_add_dev_tool(preview_note_selection_interaction_spec TEST
+    SOURCES src/tools/preview/PreviewNoteSelectionInteractionSpec.cpp
+    LIBS miacode_preview_quick Qt6::Core Qt6::Gui Qt6::Quick Qt6::Test
+    INCLUDES src
+)
+target_compile_definitions(preview_note_selection_interaction_spec PRIVATE
+    "MIACODE_TEST_OUTPUT_ROOT=\"${CMAKE_CURRENT_BINARY_DIR}\"")
+set_tests_properties(preview_note_selection_interaction_spec PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 miacode_add_dev_tool(preview_firework_lifecycle_spec TEST
     SOURCES
         src/tools/preview/PreviewFireworkLifecycleSpec.cpp

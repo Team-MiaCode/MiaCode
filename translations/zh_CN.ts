@@ -5105,6 +5105,10 @@ Error: %1</source>
         <source>Quit</source>
         <translation>退出</translation>
     </message>
+    <message id="action.play_selection">
+        <source>Play Selection</source>
+        <translation>播放选区</translation>
+    </message>
 </context>
 
 

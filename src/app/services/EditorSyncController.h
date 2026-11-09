@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QQueue>
 #include <QString>
+#include "core/chart/transform/ChartNoteSelection.h"
 
 namespace miacode {
 
@@ -17,6 +18,8 @@ struct EditorSelectionState {
     int position = 0;
     bool focused = false;
     bool valid = false;
+    chart_selection::NoteRanges ranges;
+    bool noteSelection = false;
 };
 
 struct EditorFollowState {
@@ -33,6 +36,7 @@ struct EditorFollowState {
 class EditorSyncController final : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(bool canPlaySelection READ canPlaySelection NOTIFY selectionPlayableChanged)
     Q_PROPERTY(bool followActive READ followActive NOTIFY followChanged)
     Q_PROPERTY(int followDifficultyId READ followDifficultyId NOTIFY followChanged)
     Q_PROPERTY(qulonglong followRevision READ followRevision NOTIFY followChanged)
@@ -45,6 +49,9 @@ class EditorSyncController final : public QObject
 public:
     explicit EditorSyncController(QObject* parent = nullptr);
 
+    bool canPlaySelection() const { return selectionPlayable_; }
+    void setSelectionPlayable(bool playable);
+    Q_INVOKABLE bool playSelection();
     bool followActive() const;
     int followDifficultyId() const;
     qulonglong followRevision() const;
@@ -61,6 +68,10 @@ public:
     bool requestTouchPadAuthoring(const QString& pad, QChar separator);
     bool editorContextActive() const;
     EditorSelectionState editorSelection() const;
+    void setNoteCatalogue(int difficultyId, quint64 revision, const chart_selection::NoteRanges& ranges);
+    const chart_selection::NoteRanges* noteCatalogue(int difficultyId, quint64 revision) const;
+    bool requestNoteSelection(int difficultyId, quint64 revision, const chart_selection::NoteRanges& ranges, bool additive = false);
+    void setEditorRanges(int difficultyId, quint64 revision, const chart_selection::NoteRanges& ranges, bool noteSelection);
 
     Q_INVOKABLE void setEditorReadiness(int difficultyId, qulonglong revision,
                                         bool visible);
@@ -79,6 +90,8 @@ public:
 
 signals:
     void followChanged();
+    void selectionPlayableChanged();
+    void selectionPlaybackRequested(int difficultyId, qulonglong revision, int start, int end);
     void navigationRequested(qulonglong sequence, int difficultyId, qulonglong revision,
                              int start, int end, bool focus, bool reveal);
     void navigationFinished(qulonglong sequence, bool applied);
@@ -92,6 +105,7 @@ signals:
     void previewSeekPublished(int difficultyId, int line, int column);
     void selectionRangeExportRequested(int difficultyId, int selectionStart, int selectionEnd);
     void editorContextChanged();
+    void noteSelectionRequested(int difficultyId, qulonglong revision, const miacode::chart_selection::NoteRanges& ranges);
 
 private:
     struct NavigationState {
@@ -140,6 +154,7 @@ private:
     void scheduleNavigationFinished(quint64 sequence, bool applied);
     void scheduleTouchPadDelivery();
 
+    bool selectionPlayable_ = false;
     EditorFollowState follow_;
     bool followDeliveryQueued_ = false;
 
@@ -151,6 +166,11 @@ private:
     quint64 contextRevision_ = 0;
     int contextAnchor_ = 0;
     int contextPosition_ = 0;
+    chart_selection::NoteRanges contextRanges_;
+    chart_selection::NoteRanges noteCatalogue_;
+    int catalogueDifficulty_ = -1;
+    quint64 catalogueRevision_ = 0;
+    bool contextNoteSelection_ = false;
     bool editorFocused_ = false;
     bool imeComposing_ = false;
     bool editorContextDeliveryQueued_ = false;

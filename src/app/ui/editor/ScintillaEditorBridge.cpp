@@ -24,6 +24,9 @@ ScintillaEditorBridge::ScintillaEditorBridge(QQuickItem* parent)
 {
     send(SCI_SETCODEPAGE, SC_CP_UTF8);
     send(SCI_USEPOPUP, SC_POPUP_NEVER);
+    // Object ranges are installed with SCI_ADDSELECTION. Keep native text
+    // selection gestures on their existing settings.
+    send(SCI_SETADDITIONALSELECTIONTYPING, false);
     send(SCI_SETHSCROLLBAR, false);
     for (int key : {SCK_ADD, SCK_SUBTRACT, SCK_DIVIDE})
         send(SCI_CLEARCMDKEY, key | (SCMOD_CTRL << 16));
@@ -265,6 +268,7 @@ void ScintillaEditorBridge::setSyncController(miacode::EditorSyncController* val
     syncController_ = value;
     if (value) {
         connect(value, &miacode::EditorSyncController::navigationRequested, this, &ScintillaEditorBridge::navigate);
+        connect(value, &miacode::EditorSyncController::noteSelectionRequested, this, &ScintillaEditorBridge::selectNoteRanges);
         connect(value, &miacode::EditorSyncController::followChanged, this, [this] { applyFollow(true); });
         connect(value, &miacode::EditorSyncController::touchPadAuthoringRequested, this, &ScintillaEditorBridge::touchAuthoring);
     }
@@ -402,7 +406,12 @@ void ScintillaEditorBridge::synchronizeDocument()
         touchUndoAnchors_.clear();
         generation_ = generation;
     }
+    if (noteSelection_) {
+        noteSelection_ = false;
+        send(SCI_SETSELECTION, send(SCI_GETCURRENTPOS), send(SCI_GETCURRENTPOS));
+    }
     if (identityChanged) {
+        reportedRanges_.clear();
         reportedAnchor_ = reportedCaret_ = -1;
         wheelRemainder_ = 0;
     }
@@ -426,6 +435,11 @@ void ScintillaEditorBridge::synchronizeDocument()
 void ScintillaEditorBridge::textMutated()
 {
     if (!ready_ || synchronizing_ || handlingIme_) return;
+    if (noteSelection_) {
+        noteSelection_ = false;
+        QScopedValueRollback guard(programmatic_, true);
+        send(SCI_SETSELECTION, send(SCI_GETCURRENTPOS), send(SCI_GETCURRENTPOS));
+    }
     if (documentSession_) {
         QScopedValueRollback guard(synchronizing_, true);
         documentSession_->setChartText(document_.text());
@@ -670,14 +684,54 @@ void ScintillaEditorBridge::publishContext(bool userCaret)
     syncController_->setEditorContext(difficulty, revision, document_.utf16Position(send(SCI_GETANCHOR)), cursorPosition(),
                                       hasActiveFocus(), imeComposing_, cursorLine(), cursorColumn(),
                                       userCaret && !imeComposing_ && !programmatic_ && !synchronizing_);
+    syncController_->setEditorRanges(difficulty, revision, selectionRanges(), noteSelection_);
+}
+miacode::chart_selection::NoteRanges ScintillaEditorBridge::selectionRanges() const
+{
+    miacode::chart_selection::NoteRanges ranges;
+    for (int i = 0; i < send(SCI_GETSELECTIONS); ++i) {
+        const int start = document_.utf16Position(send(SCI_GETSELECTIONNSTART, i));
+        const int end = document_.utf16Position(send(SCI_GETSELECTIONNEND, i));
+        if (end > start) ranges.append({start, end});
+    }
+    return miacode::chart_selection::normalizedNoteRanges(ranges, document_.text().size());
+}
+void ScintillaEditorBridge::selectNoteRanges(int difficulty, quint64 revision,
+    const miacode::chart_selection::NoteRanges& ranges)
+{
+    if (!documentSession_ || imeComposing_ || difficulty != documentSession_->currentDifficultyId()
+        || revision != documentSession_->documentRevision()) return;
+    beginUserInteraction();
+    QScopedValueRollback guard(programmatic_, true);
+    // Native selection changes notify synchronously; suppress partial sets.
+    {
+        QScopedValueRollback syncGuard(synchronizing_, true);
+        noteSelection_ = !ranges.isEmpty();
+        if (ranges.isEmpty()) send(SCI_SETSELECTION, send(SCI_GETCURRENTPOS), send(SCI_GETCURRENTPOS));
+        for (int i = 0; i < ranges.size(); ++i) {
+            send(i == 0 ? SCI_SETSELECTION : SCI_ADDSELECTION,
+                document_.bytePosition(ranges[i].end), document_.bytePosition(ranges[i].start));
+        }
+    }
+    refreshSelection(false);
+    publishContext(false);
+    if (!ranges.isEmpty()) {
+        revealPosition(ranges.first().start, false);
+        // Route subsequent editing shortcuts through the visible source editor.
+        forceActiveFocus(Qt::OtherFocusReason);
+    }
+    emit selectionChanged();
 }
 void ScintillaEditorBridge::refreshSelection(bool userCaret)
 {
     const int anchor = send(SCI_GETANCHOR);
     const int caret = send(SCI_GETCURRENTPOS);
-    if (anchor == reportedAnchor_ && caret == reportedCaret_) return;
+    const auto ranges = selectionRanges();
+    if (anchor == reportedAnchor_ && caret == reportedCaret_ && ranges == reportedRanges_) return;
+    if (userCaret && !synchronizing_) noteSelection_ = false;
     reportedAnchor_ = anchor;
     reportedCaret_ = caret;
+    reportedRanges_ = ranges;
     scheduleOverviewProjectionRefresh(OverviewCurrentLineDirty);
     emit selectionChanged();
     if (!synchronizing_ && !handlingIme_) {
@@ -765,6 +819,7 @@ void ScintillaEditorBridge::paste() { send(SCI_PASTE); }
 void ScintillaEditorBridge::selectAll() { send(SCI_SELECTALL); refreshSelection(true); }
 void ScintillaEditorBridge::select(int anchor, int position)
 {
+    noteSelection_ = false;
     send(SCI_SETSELECTION, document_.bytePosition(position), document_.bytePosition(anchor));
     refreshSelection(!programmatic_);
 }
@@ -851,8 +906,10 @@ void ScintillaEditorBridge::seekPreviewToCaret()
 }
 void ScintillaEditorBridge::exportSelectionRange()
 {
-    if (syncController_ && documentSession_ && selectionStart() != selectionEnd())
-        syncController_->requestSelectionRangeExport(documentSession_->currentDifficultyId(), documentSession_->documentRevision(), selectionStart(), selectionEnd());
+    if (!syncController_ || !documentSession_) return;
+    const auto ranges = selectionRanges();
+    if (!ranges.isEmpty()) syncController_->requestSelectionRangeExport(documentSession_->currentDifficultyId(),
+        documentSession_->documentRevision(), ranges.first().start, ranges.last().end);
 }
 bool ScintillaEditorBridge::applyNormalization(const QVariantMap& options)
 {
@@ -934,6 +991,7 @@ void ScintillaEditorBridge::keyPressEvent(QKeyEvent* event)
 }
 void ScintillaEditorBridge::mousePressEvent(QMouseEvent* event)
 {
+    if (event->button() == Qt::LeftButton) noteSelection_ = false;
     beginUserInteraction();
     if (event->button() == Qt::RightButton) {
         int gutterWidth = 0;

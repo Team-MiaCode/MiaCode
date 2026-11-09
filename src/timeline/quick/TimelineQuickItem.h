@@ -198,6 +198,14 @@ private:
     mutable qint64 updatePaintNodeMaxNs_ = 0;
     mutable qint64 updatePaintNodeLastLogMs_ = 0;
     mutable qint64 renderMapLastLogMs_ = 0;
+    void cancelNoteSelection();
+    void mouseUngrabEvent() override;
+    bool selectionDragActive_ = false;
+    QPointF selectionDragStart_, selectionDragEnd_;
+    QVector<miacode::timeline::TimelineSceneGlyph> selectionHitAreas_;
+    quint64 selectionNotesRevision_ = 0;
+    quint64 selectionLayoutRevision_ = 0;
+    double selectionScroll_ = 0;
     bool dragActive_ = false;
     int dragStartX_ = 0;
     double dragStartScrollValue_ = 0.0;

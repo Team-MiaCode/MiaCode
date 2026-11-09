@@ -30,6 +30,23 @@ vec4 sampleFootprintAverage(sampler2D tex, vec2 uv)
     return (c0 + c1 + c2 + c3) * 0.25;
 }
 
+float selectionAlpha(vec2 uv)
+{
+    if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return 0.0;
+    return texture(source, uv).a;
+}
+
+float selectionDilation(vec2 uv, vec2 dx, vec2 dy, float radius)
+{
+    float alpha = selectionAlpha(uv);
+    // Circular footprint avoids the heavy square corners of a 3x3 dilation.
+    for (int i = 0; i < 8; ++i) {
+        float angle = float(i) * 0.78539816339;
+        alpha = max(alpha, selectionAlpha(uv + radius * (cos(angle) * dx + sin(angle) * dy)));
+    }
+    return alpha;
+}
+
 void main()
 {
     if (vOpacity <= 0.0) {
@@ -37,6 +54,17 @@ void main()
         return;
     }
 
+    if (vEffect > 2.5) {
+        // One screen-pixel contour, separated slightly from the original art.
+        // Original break/each/EX/mine colors and transparent interiors survive.
+        vec2 dx = dFdx(vTexCoord);
+        vec2 dy = dFdy(vTexCoord);
+        float outer = selectionDilation(vTexCoord, dx, dy, 1.75);
+        float inner = selectionDilation(vTexCoord, dx, dy, 0.75);
+        float alpha = max(0.0, outer - inner) * vOpacity * 0.8;
+        fragColor = vec4(vec3(1.0, 0.863, 0.314) * alpha, alpha);
+        return;
+    }
     vec4 texel = sampleFootprintAverage(source, vTexCoord);
     if (texel.a <= 0.0) {
         fragColor = vec4(0.0);

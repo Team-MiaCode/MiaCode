@@ -5105,6 +5105,10 @@ Error: %1</source>
         <source>Quit</source>
         <translation>終了</translation>
     </message>
+    <message id="action.play_selection">
+        <source>Play Selection</source>
+        <translation>選択範囲を再生</translation>
+    </message>
 </context>
 
 
