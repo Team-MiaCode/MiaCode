@@ -1257,6 +1257,7 @@ miacode::timeline::TimelineSceneState TimelineQuickItem::currentSceneState() con
             headerMarkerRightLimit_ > 0 ? headerMarkerRightLimit_ : request.viewportSize.width();
         request.zoomScale = stateBridge_->zoomScale();
         request.contentScale = stateBridge_->contentScale();
+        request.noteScale = stateBridge_->noteScale();
         request.fitViewportHeight = true;
         request.waveformBrightness = stateBridge_->waveformBrightness();
         request.measureLineBrightness = stateBridge_->measureLineBrightness();

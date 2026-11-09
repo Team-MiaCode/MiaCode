@@ -3973,6 +3973,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Grid Line Brightness</source>
         <translation>Grid Line Brightness</translation>
     </message>
+    <message id="timeline.note_scale">
+        <source>Note size</source>
+        <translation>Note size</translation>
+    </message>
     <message id="shell.timeline_waveform_brightness">
         <source>Waveform Brightness</source>
         <translation>Waveform Brightness</translation>

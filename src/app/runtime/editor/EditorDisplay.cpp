@@ -155,6 +155,10 @@ void miacode::runtime::EditorHost::loadPortableState()
     }
     applyPortablePreviewSettings(preview);
     if (state_.timeline_.timelineQuickStateBridge_ != nullptr) {
+        if (preview.value("timeline_note_scale").isDouble()) {
+            state_.timeline_.timelineQuickStateBridge_->setNoteScale(
+                preview.value("timeline_note_scale").toDouble());
+        }
         if (preview.value("timeline_zoom_scale").isDouble()) {
             state_.timeline_.timelineQuickStateBridge_->setZoomScale(
                 preview.value("timeline_zoom_scale").toDouble(state_.timeline_.timelineQuickStateBridge_->zoomScale())
@@ -637,6 +641,11 @@ void miacode::runtime::EditorHost::savePortableState() const
     preview.insert("viewport_lock", true);
     preview.insert("follow_progress", true);
     preview.insert("timeline_sync", state_.timeline_.timelineSyncEnabled_);
+    preview.insert(
+        "timeline_note_scale",
+        state_.timeline_.timelineQuickStateBridge_ != nullptr
+            ? state_.timeline_.timelineQuickStateBridge_->noteScale()
+            : miacode::timeline::kTimelineNoteScaleDefault);
     preview.insert(
         "timeline_zoom_scale",
         state_.timeline_.timelineQuickStateBridge_ != nullptr ? state_.timeline_.timelineQuickStateBridge_->zoomScale() : 0.5

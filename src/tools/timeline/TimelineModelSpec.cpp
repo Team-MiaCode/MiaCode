@@ -1,5 +1,6 @@
 #include "timeline/TimelineQuickModel.h"
 #include "timeline/TimelineQuickModelPrivate.h"
+#include "timeline/TimelineSceneStateBuilder.h"
 #include "core/chart/document/SimaiTimingMetadata.h"
 #include "core/chart/parser/SimaiParser.h"
 
@@ -2343,6 +2344,36 @@ int main(int argc, char** argv)
                    QStringLiteral("2"),
                    0.0),
                QStringLiteral("incremental HS edits match a full rebuild, including downstream note state"));
+    }
+
+    {
+        using namespace miacode::timeline;
+        TimelineQuickModel model;
+        model.rebuildFromText(QStringLiteral("(120){4}1,2h[8:1],3-8[8:1],A1,E"), 0.0);
+        TimelineSceneBuildRequest request;
+        request.snapshot = model.snapshot();
+        request.viewportSize = QSize(1000, 360);
+        request.skinDirectory = QDir(QStringLiteral(MIACODE_SOURCE_ROOT))
+            .filePath(QStringLiteral("assets/skin/skinSD"));
+        request.zoomScale = 0.5;
+        const auto baseline = TimelineSceneStateBuilder::build(request);
+        request.noteScale = 3.0;
+        const auto enlarged = TimelineSceneStateBuilder::build(request);
+        request.zoomScale = 1.0;
+        const auto zoomed = TimelineSceneStateBuilder::build(request);
+        expect(!baseline.noteSprites.isEmpty() && !enlarged.noteSprites.isEmpty() && !zoomed.noteSprites.isEmpty()
+                   && !baseline.holdSpans.isEmpty() && !enlarged.holdSpans.isEmpty()
+                   && !baseline.trackSprites.isEmpty() && !enlarged.trackSprites.isEmpty()
+                   && nearlyEqual(enlarged.noteSprites.first().scale, 3.0 * baseline.noteSprites.first().scale)
+                   && nearlyEqual(enlarged.noteSprites.first().scale, zoomed.noteSprites.first().scale)
+                   && enlarged.holdSpans.first().baseIconScale > baseline.holdSpans.first().baseIconScale
+                   && nearlyEqual(enlarged.trackSprites.first().scale, baseline.trackSprites.first().scale)
+                   && !zoomed.trackSprites.isEmpty()
+                   && zoomed.trackSprites.first().scale > enlarged.trackSprites.first().scale
+                   && enlarged.noteSprites.first().center == baseline.noteSprites.first().center
+                   && enlarged.pixelsPerSecond == baseline.pixelsPerSecond
+                   && enlarged.pixelsPerSecond != zoomed.pixelsPerSecond,
+               QStringLiteral("note size scales glyphs and holds without changing slide track scaling or time spacing"));
     }
 
     if (failed > 0) {

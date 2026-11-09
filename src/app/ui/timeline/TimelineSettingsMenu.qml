@@ -112,6 +112,18 @@ AppStickyPopup {
 
         ParameterItem {
             width: parent.width
+            text: qsTrId("timeline.note_scale")
+            readonly property int percent: root.stateBridge ? Math.round(root.stateBridge.noteScale * 100) : 100
+            valueText: qsTrId("qml.1").arg(percent)
+            from: 50
+            to: 300
+            stepSize: 5
+            value: percent
+            onEdited: value => { if (root.stateBridge) root.stateBridge.noteScale = value / 100 }
+        }
+
+        ParameterItem {
+            width: parent.width
             text: qsTrId("shell.timeline_waveform_brightness")
             readonly property real brightness: root.stateBridge ? root.stateBridge.waveformBrightness : 0.5
             valueText: qsTrId("qml.1").arg(Math.round(brightness * 100))

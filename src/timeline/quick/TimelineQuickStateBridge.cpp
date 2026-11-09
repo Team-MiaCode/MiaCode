@@ -457,6 +457,23 @@ QSize TimelineQuickStateBridge::viewportSize() const
     return effectiveViewportSize();
 }
 
+double TimelineQuickStateBridge::noteScale() const
+{
+    return noteScale_;
+}
+
+void TimelineQuickStateBridge::setNoteScale(double scale)
+{
+    const double normalized = miacode::timeline::normalizedTimelineNoteScale(scale);
+    if (qFuzzyCompare(noteScale_, normalized)) {
+        return;
+    }
+    noteScale_ = normalized;
+    bumpNotesRevision();
+    emit noteScaleChanged(noteScale_);
+    emit renderStateChanged();
+}
+
 double TimelineQuickStateBridge::contentScale() const
 {
     return contentScale_;

@@ -47,6 +47,7 @@ struct TimelineSceneBuildRequest {
     double zoomScale = 0.5;
     double contentScale = 1.0;
     bool fitViewportHeight = false;
+    double noteScale = kTimelineNoteScaleDefault;
     double waveformBrightness = kTimelineWaveformBrightnessDefault;
     double measureLineBrightness = kTimelineMeasureLineBrightnessDefault;
     double waveformPhaseCompensationSeconds = 0.0;

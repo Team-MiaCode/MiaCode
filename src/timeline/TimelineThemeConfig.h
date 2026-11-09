@@ -17,6 +17,15 @@ constexpr double kTimelineWaveformBrightnessDefault = 0.5;
 constexpr double kTimelineMeasureLineBrightnessMin = 0.2;
 constexpr double kTimelineMeasureLineBrightnessMax = 2.0;
 constexpr double kTimelineMeasureLineBrightnessDefault = 1.0;
+constexpr double kTimelineNoteScaleMin = 0.5;
+constexpr double kTimelineNoteScaleMax = 3.0;
+constexpr double kTimelineNoteScaleDefault = 1.0;
+
+inline double normalizedTimelineNoteScale(double scale)
+{
+    return qIsFinite(scale) ? qBound(kTimelineNoteScaleMin, scale, kTimelineNoteScaleMax)
+                            : kTimelineNoteScaleDefault;
+}
 
 inline double normalizedTimelineWaveformBrightness(double brightness)
 {

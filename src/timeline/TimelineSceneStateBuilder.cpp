@@ -967,6 +967,12 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
         return a.sourceSequence > b.sourceSequence;
     });
 
+    const qreal noteScale = normalizedTimelineNoteScale(request.noteScale);
+    const qreal zoomIconScale = request.zoomScale <= 0.25
+        ? qMin<qreal>(0.5, state.contentScale) : state.contentScale;
+    const qreal baseIconScale = zoomIconScale * noteScale;
+    const int noteCullPadding = qMax(scaledMetric(kNoteSize, state.contentScale),
+                                    qCeil(kNoteSize * baseIconScale));
     const auto noteSecond = [](const TimelineRenderLine& line, const TimelineRenderNote& note) {
         return timelineRenderAbsoluteSecond(line, note.secondOffset);
     };
@@ -1053,7 +1059,6 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
                 extentRight = qMax(extentRight, markerX);
             }
         }
-        const int noteCullPadding = scaledMetric(kNoteSize, state.contentScale);
         if (extentRight < state.timelineLeft - noteCullPadding
             || extentLeft > state.contentWidth + noteCullPadding) {
             return;
@@ -1061,9 +1066,6 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
 
         const qreal rowTop = state.timelineTop + (note.lane - 1) * state.laneHeight;
         const qreal rowCenterY = rowTop + (state.laneHeight / 2.0);
-        const qreal baseIconScale =
-            request.zoomScale <= 0.25 ? qMin<qreal>(0.5, state.contentScale)
-                                      : static_cast<qreal>(state.contentScale);
         QString iconType;
         switch (note.kind) {
         case TimelineRenderNoteKind::Tap:
@@ -1226,7 +1228,7 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
                 QPointF(x, rowCenterY),
                 QPointF(secondToSceneX(state, endSecond), rowCenterY),
                 touchHoldColor,
-                4.0);
+                4.0 * noteScale);
         }
         if (timelineRenderFlagSet(note, TimelineRenderFlagIsFirework)
             && (note.kind == TimelineRenderNoteKind::Touch || note.kind == TimelineRenderNoteKind::TouchHold)) {

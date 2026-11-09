@@ -401,6 +401,12 @@ Session::Session(miacode::ApplicationServices& services, QObject* parent)
             &TimelineQuickStateBridge::renderCadenceTick,
             this,
             &Session::onTimelineRenderCadenceTick);
+    connect(state_.timeline_.timelineQuickStateBridge_, &TimelineQuickStateBridge::noteScaleChanged,
+            this, [this] {
+        if (visualLayoutPersistTimer_ != nullptr) {
+            visualLayoutPersistTimer_->start();
+        }
+    });
     connect(state_.timeline_.timelineQuickStateBridge_, &TimelineQuickStateBridge::zoomScaleChanged, this, [this](double) {
         savePortableState();
     });
