@@ -1,5 +1,6 @@
 #include "timeline/TimelineQuickModel.h"
 #include "timeline/TimelineQuickModelPrivate.h"
+#include "timeline/TimelineSceneStateBuilder.h"
 #include "core/chart/document/SimaiTimingMetadata.h"
 #include "core/chart/parser/SimaiParser.h"
 
@@ -11,6 +12,9 @@
 #include <QTextDocument>
 #include <QTextStream>
 #include <QtMath>
+
+#include <algorithm>
+#include <array>
 
 #ifndef MIACODE_SOURCE_ROOT
 #error "MIACODE_SOURCE_ROOT must be defined as the absolute repository root"
@@ -763,6 +767,82 @@ int main(int argc, char** argv)
         err << "[FAIL] " << message << '\n';
         ++failed;
     };
+
+    {
+        using namespace miacode::timeline;
+        TimelineQuickModel model;
+        model.rebuildFromText(QStringLiteral("(120){4}1,2h[8:1],3-8[8:1],A1,E"), 0.0);
+        TimelineSceneBuildRequest request;
+        request.snapshot = model.snapshot();
+        request.viewportSize = QSize(1000, 360);
+        request.skinDirectory = QDir(QStringLiteral(MIACODE_SOURCE_ROOT))
+            .filePath(QStringLiteral("assets/skin/skinSD"));
+        for (const auto& line : request.snapshot.lines) {
+            for (const auto& note : line.notes) {
+                if (note.kind == TimelineRenderNoteKind::Slide) {
+                    request.muriMarkersByLocation.insert(timelineRenderLocationId(line, note), {
+                        {timelineRenderAbsoluteSecond(line, note.endSecondOffset), true, QStringLiteral("slide")}
+                    });
+                } else if (note.kind == TimelineRenderNoteKind::Touch) {
+                    request.muriMarkersByLocation.insert(timelineRenderLocationId(line, note), {
+                        {timelineRenderAbsoluteSecond(line, note.secondOffset), true, QStringLiteral("touch")}
+                    });
+                }
+            }
+        }
+
+        const std::array orders{
+            TimelineLaneOrder::Natural, TimelineLaneOrder::Rotated,
+            TimelineLaneOrder::Reversed, TimelineLaneOrder::RotatedReversed
+        };
+        const std::array<QString, 4> expectedLabels{
+            QStringLiteral("12345678"), QStringLiteral("56781234"),
+            QStringLiteral("87654321"), QStringLiteral("43218765")
+        };
+        const auto natural = TimelineSceneStateBuilder::build(request);
+        for (size_t i = 0; i < orders.size(); ++i) {
+            request.laneOrder = orders[i];
+            const auto scene = TimelineSceneStateBuilder::build(request);
+            QString labels;
+            for (const auto& label : scene.laneLabels) {
+                labels += label.text;
+            }
+            const auto slotCenter = [&](int key) {
+                const int slot = expectedLabels[i].indexOf(QChar(static_cast<char16_t>(u'0' + key)));
+                return scene.timelineTop + (slot + 0.5) * scene.laneHeight;
+            };
+            const bool tapOnLane = std::any_of(scene.noteSprites.cbegin(), scene.noteSprites.cend(),
+                [&](const auto& sprite) {
+                    return sprite.spriteType == QLatin1String("tap")
+                        && nearlyEqual(sprite.center.y(), slotCenter(1));
+                });
+            const bool touchInPlace = std::any_of(scene.noteSprites.cbegin(), scene.noteSprites.cend(),
+                [&](const auto& sprite) {
+                    return sprite.spriteType == QLatin1String("touch")
+                        && nearlyEqual(sprite.center.y(), scene.timelineTop + 8.5 * scene.laneHeight);
+                });
+            const bool trackOnLanes = !scene.trackSprites.isEmpty()
+                && qAbs(scene.trackSprites.first().center.y() - slotCenter(3)) < 1.0
+                && qAbs(scene.trackSprites.last().center.y() - slotCenter(8)) < 1.0;
+            const bool holdOnLane = scene.holdSpans.size() == 1
+                && nearlyEqual(scene.holdSpans.first().rowTop + scene.laneHeight / 2, slotCenter(2));
+            const auto hasMarkerAt = [&](const char* tooltip, qreal y) {
+                return std::any_of(scene.muriDots.cbegin(), scene.muriDots.cend(),
+                    [&](const auto& marker) {
+                        return marker.tooltipText == QLatin1String(tooltip)
+                            && nearlyEqual(marker.rect.top() + 8.0, y);
+                    });
+            };
+            const bool markersOnLanes = !scene.trackSprites.isEmpty()
+                && hasMarkerAt("slide", scene.trackSprites.last().center.y())
+                && hasMarkerAt("touch", scene.timelineTop + 8.5 * scene.laneHeight);
+            expect(labels == expectedLabels[i] && tapOnLane && touchInPlace
+                       && holdOnLane && trackOnLanes && markersOnLanes
+                       && scene.pixelsPerSecond == natural.pixelsPerSecond,
+                   QStringLiteral("lane order %1 aligns labels, notes, slide paths and Muri markers")
+                       .arg(expectedLabels[i]));
+        }
+    }
 
     {
         expect(QDir(QStringLiteral(MIACODE_SOURCE_ROOT)).exists(),

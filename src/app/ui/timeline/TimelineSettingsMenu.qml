@@ -134,6 +134,20 @@ AppStickyPopup {
             onEdited: value => root.stateBridge.measureLineBrightness = value / 100
         }
 
+        LabeledCombo {
+            width: parent.width
+            enabled: !!root.stateBridge
+            label: qsTrId("timeline.layout.lane_order")
+            currentValue: root.stateBridge ? root.stateBridge.laneOrder : "natural"
+            options: [
+                { value: "natural", label: "1-2-3-4-5-6-7-8" },
+                { value: "rotated", label: "5-6-7-8-1-2-3-4" },
+                { value: "reversed", label: "8-7-6-5-4-3-2-1" },
+                { value: "rotated_reversed", label: "4-3-2-1-8-7-6-5" }
+            ]
+            onPicked: value => { if (root.stateBridge) root.stateBridge.laneOrder = value }
+        }
+
         AppMenuSeparator { width: parent.width }
 
         AppSwitch {

@@ -65,10 +65,10 @@ struct HeaderLineLabel {
     int screenX = 0;
 };
 
-QString laneLabelForIndex(int laneIndex)
+QString laneLabelForIndex(miacode::timeline::TimelineLaneOrder order, int laneIndex)
 {
     if (laneIndex >= 0 && laneIndex < kPlayableLaneCount) {
-        return QString::number(laneIndex + 1);
+        return QString::number(miacode::timeline::timelineLaneForSlot(order, laneIndex + 1));
     }
     return QString();
 }
@@ -214,7 +214,7 @@ qreal muriMarkerAnchorY(
     const TimelineRenderNote& note,
     double triggerSecond)
 {
-    const int startLane = qBound(1, note.lane, kPlayableLaneCount);
+    const int startLane = miacode::timeline::timelineSlotForLane(state.laneOrder, note.lane);
     const qreal startY = static_cast<qreal>(
         state.timelineTop + (startLane - 1) * state.laneHeight + state.laneHeight / 2);
     if (note.kind != TimelineRenderNoteKind::Slide && note.kind != TimelineRenderNoteKind::Wifi) {
@@ -232,7 +232,8 @@ qreal muriMarkerAnchorY(
         return startY;
     }
 
-    const int endLane = qBound(1, note.endLane, kPlayableLaneCount);
+    const int endLane = miacode::timeline::timelineSlotForLane(
+        state.laneOrder, qBound(1, note.endLane, kPlayableLaneCount));
     const qreal endY = static_cast<qreal>(
         state.timelineTop + (endLane - 1) * state.laneHeight + state.laneHeight / 2);
     if (triggerSecond <= traceSecond) {
@@ -462,6 +463,7 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
     TimelineSceneState state;
     const TimelineSceneLayoutMetrics metrics = buildLayoutMetrics(request);
     applyLayoutMetrics(&state, metrics);
+    state.laneOrder = request.laneOrder;
     state.horizontalScrollValue = qMax(0.0, request.horizontalScrollValue);
     state.headerLeftLimit = qMax(0, request.headerLeftLimit);
     state.headerRightLimit = request.headerRightLimit > 0 ? request.headerRightLimit : request.viewportSize.width();
@@ -566,7 +568,7 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
             continue;
         }
         TimelineSceneTextLabel label;
-        label.text = laneLabelForIndex(lane);
+        label.text = laneLabelForIndex(state.laneOrder, lane);
         if (label.text.isEmpty()) {
             continue;
         }
@@ -1059,7 +1061,8 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
             return;
         }
 
-        const qreal rowTop = state.timelineTop + (note.lane - 1) * state.laneHeight;
+        const int laneSlot = timelineSlotForLane(state.laneOrder, note.lane);
+        const qreal rowTop = state.timelineTop + (laneSlot - 1) * state.laneHeight;
         const qreal rowCenterY = rowTop + (state.laneHeight / 2.0);
         const qreal baseIconScale =
             request.zoomScale <= 0.25 ? qMin<qreal>(0.5, state.contentScale)
@@ -1150,8 +1153,10 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
                 return;
             }
             const auto& noteMetrics = sceneNoteMetrics(request);
-            const int startLane = qBound(1, note.lane, kPlayableLaneCount);
-            const int endLane = qBound(1, note.endLane, kPlayableLaneCount);
+            const int startLane = timelineSlotForLane(
+                state.laneOrder, qBound(1, note.lane, kPlayableLaneCount));
+            const int endLane = timelineSlotForLane(
+                state.laneOrder, qBound(1, note.endLane, kPlayableLaneCount));
             const int startY =
                 state.timelineTop + (startLane - 1) * state.laneHeight + state.laneHeight / 2;
             const int endY =

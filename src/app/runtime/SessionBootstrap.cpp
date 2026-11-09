@@ -410,6 +410,8 @@ Session::Session(miacode::ApplicationServices& services, QObject* parent)
     connect(state_.timeline_.timelineQuickStateBridge_, &TimelineQuickStateBridge::measureLineBrightnessChanged, this, [this](double) {
         savePortableState();
     });
+    connect(state_.timeline_.timelineQuickStateBridge_, &TimelineQuickStateBridge::laneOrderChanged,
+            this, [this] { savePortableState(); });
     logStartupStage("timeline_ready");
 
     finishFrameBootstrap(logStartupStage);
