@@ -48,7 +48,7 @@ jobs:
             version: ffmpeg8.1.2
             artifact_ext: 7z
           - platform: macos-arm64
-            runner: macos-14
+            runner: macos-15
             toolchain: apple-clang
             build: build-macos
             qt: .qt/6.11.1
