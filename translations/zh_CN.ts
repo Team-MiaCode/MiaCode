@@ -5053,6 +5053,42 @@ Error: %1</source>
     <message id="dialog.preferences.theme.dracula"><source>Dracula</source><translation>德古拉</translation></message>
     <message id="dialog.preferences.theme.tokyo_night"><source>Tokyo Night</source><translation>东京之夜</translation></message>
     <message id="dialog.preferences.theme.noah"><source>Noa</source><translation>诺亚</translation></message>
+    <message id="cover.text_stroke">
+        <source>Text outline</source>
+        <translation>文字描边</translation>
+    </message>
+    <message id="cover.text_stroke_color">
+        <source>Outline color</source>
+        <translation>描边颜色</translation>
+    </message>
+    <message id="cover.text_stroke_width">
+        <source>Outline width</source>
+        <translation>描边宽度</translation>
+    </message>
+    <message id="cover.text_shadow">
+        <source>Text shadow</source>
+        <translation>文字阴影</translation>
+    </message>
+    <message id="cover.text_shadow_color">
+        <source>Shadow color</source>
+        <translation>阴影颜色</translation>
+    </message>
+    <message id="cover.text_shadow_opacity">
+        <source>Shadow opacity</source>
+        <translation>阴影不透明度</translation>
+    </message>
+    <message id="cover.text_shadow_blur">
+        <source>Shadow blur</source>
+        <translation>阴影模糊</translation>
+    </message>
+    <message id="cover.text_shadow_x">
+        <source>Shadow X offset</source>
+        <translation>阴影水平偏移</translation>
+    </message>
+    <message id="cover.text_shadow_y">
+        <source>Shadow Y offset</source>
+        <translation>阴影垂直偏移</translation>
+    </message>
 </context>
 <context>
     <!-- Qt loads qtbase texts for the system locale; this context keeps the

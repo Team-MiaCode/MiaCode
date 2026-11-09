@@ -166,6 +166,7 @@ public:
     Q_INVOKABLE void setActiveLayerText(const QString& text);
     Q_INVOKABLE void setActiveLayerTextColor(const QString& color);
     Q_INVOKABLE void setActiveLayerTextBold(bool bold);
+    Q_INVOKABLE void setActiveLayerTextEffect(const QString& property, const QVariant& value);
     Q_INVOKABLE void setActiveLayerFrameSeconds(double seconds);
     Q_INVOKABLE void previewActiveLayerFrameSeconds(double seconds);
     Q_INVOKABLE void commitActiveLayerFrameSeconds();

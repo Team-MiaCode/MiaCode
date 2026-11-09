@@ -5053,6 +5053,42 @@ Error: %1</source>
     <message id="dialog.preferences.theme.dracula"><source>Dracula</source><translation>ドラキュラ</translation></message>
     <message id="dialog.preferences.theme.tokyo_night"><source>Tokyo Night</source><translation>東京の夜</translation></message>
     <message id="dialog.preferences.theme.noah"><source>Noa</source><translation>ノア</translation></message>
+    <message id="cover.text_stroke">
+        <source>Text outline</source>
+        <translation>文字の縁取り</translation>
+    </message>
+    <message id="cover.text_stroke_color">
+        <source>Outline color</source>
+        <translation>縁取りの色</translation>
+    </message>
+    <message id="cover.text_stroke_width">
+        <source>Outline width</source>
+        <translation>縁取りの幅</translation>
+    </message>
+    <message id="cover.text_shadow">
+        <source>Text shadow</source>
+        <translation>文字の影</translation>
+    </message>
+    <message id="cover.text_shadow_color">
+        <source>Shadow color</source>
+        <translation>影の色</translation>
+    </message>
+    <message id="cover.text_shadow_opacity">
+        <source>Shadow opacity</source>
+        <translation>影の不透明度</translation>
+    </message>
+    <message id="cover.text_shadow_blur">
+        <source>Shadow blur</source>
+        <translation>影のぼかし</translation>
+    </message>
+    <message id="cover.text_shadow_x">
+        <source>Shadow X offset</source>
+        <translation>影の横方向オフセット</translation>
+    </message>
+    <message id="cover.text_shadow_y">
+        <source>Shadow Y offset</source>
+        <translation>影の縦方向オフセット</translation>
+    </message>
 </context>
 <context>
     <!-- Qt loads qtbase texts for the system locale; this context keeps the

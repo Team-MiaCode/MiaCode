@@ -853,6 +853,18 @@ void CoverExportSession::setActiveLayerTextColor(const QString& color)
         layer->setTextColor(color); persistComposition();
     }
 }
+void CoverExportSession::setActiveLayerTextEffect(const QString& property, const QVariant& value)
+{
+    auto* layer = activeCoverLayer();
+    if (!layer || layer->kind() != QStringLiteral("text")) return;
+    static const QStringList properties = {"textStrokeEnabled", "textStrokeColor", "textStrokeWidth",
+        "textShadowEnabled", "textShadowColor", "textShadowOpacity", "textShadowBlur",
+        "textShadowOffsetX", "textShadowOffsetY"};
+    if (!properties.contains(property)) return;
+    layer->setProperty(property.toUtf8().constData(), value);
+    persistComposition();
+}
+
 void CoverExportSession::setActiveLayerTextBold(bool bold)
 {
     if (auto* layer = activeCoverLayer(); layer != nullptr && layer->kind() == QStringLiteral("text")) {

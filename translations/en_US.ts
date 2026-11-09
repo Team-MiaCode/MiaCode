@@ -5053,6 +5053,42 @@ Error: %1</translation>
     <message id="dialog.preferences.theme.dracula"><source>Dracula</source><translation>Dracula</translation></message>
     <message id="dialog.preferences.theme.tokyo_night"><source>Tokyo Night</source><translation>Tokyo Night</translation></message>
     <message id="dialog.preferences.theme.noah"><source>Noa</source><translation>Noa</translation></message>
+    <message id="cover.text_stroke">
+        <source>Text outline</source>
+        <translation>Text outline</translation>
+    </message>
+    <message id="cover.text_stroke_color">
+        <source>Outline color</source>
+        <translation>Outline color</translation>
+    </message>
+    <message id="cover.text_stroke_width">
+        <source>Outline width</source>
+        <translation>Outline width</translation>
+    </message>
+    <message id="cover.text_shadow">
+        <source>Text shadow</source>
+        <translation>Text shadow</translation>
+    </message>
+    <message id="cover.text_shadow_color">
+        <source>Shadow color</source>
+        <translation>Shadow color</translation>
+    </message>
+    <message id="cover.text_shadow_opacity">
+        <source>Shadow opacity</source>
+        <translation>Shadow opacity</translation>
+    </message>
+    <message id="cover.text_shadow_blur">
+        <source>Shadow blur</source>
+        <translation>Shadow blur</translation>
+    </message>
+    <message id="cover.text_shadow_x">
+        <source>Shadow X offset</source>
+        <translation>Shadow X offset</translation>
+    </message>
+    <message id="cover.text_shadow_y">
+        <source>Shadow Y offset</source>
+        <translation>Shadow Y offset</translation>
+    </message>
 </context>
 <context>
     <!-- Qt loads qtbase texts for the system locale; this context keeps the
