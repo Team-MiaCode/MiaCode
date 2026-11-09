@@ -195,6 +195,10 @@ QVariantList ExportSession::sizePresetOptions() const
         qtTrId("dialog.video_export.size_preset.compact"),
         qtTrId("dialog.video_export.size_preset.ultra_compact_with_pv"),
         qtTrId("dialog.video_export.size_preset.ultra_compact"),
+        QStringLiteral("30 MB"),
+        QStringLiteral("100 MB"),
+        QStringLiteral("200 MB"),
+        qtTrId("video_size.custom"),
     };
 }
 
@@ -205,17 +209,7 @@ int ExportSession::presetIndex() const
 
 int ExportSession::sizePresetIndex() const
 {
-    switch (task_.sizePreset) {
-    case VideoExportSizePreset::Compact:
-        return 1;
-    case VideoExportSizePreset::UltraCompactWithPv:
-        return 2;
-    case VideoExportSizePreset::UltraCompact:
-        return 3;
-    case VideoExportSizePreset::Standard:
-    default:
-        return 0;
-    }
+    return static_cast<int>(task_.sizePreset);
 }
 
 int ExportSession::introBackgroundModeIndex() const
@@ -1245,24 +1239,22 @@ void ExportSession::setPresetIndex(int index)
 
 void ExportSession::setSizePresetIndex(int index)
 {
-    VideoExportSizePreset next = VideoExportSizePreset::Standard;
-    switch (index) {
-    case 1:
-        next = VideoExportSizePreset::Compact;
-        break;
-    case 2:
-        next = VideoExportSizePreset::UltraCompactWithPv;
-        break;
-    case 3:
-        next = VideoExportSizePreset::UltraCompact;
-        break;
-    default:
-        break;
-    }
-    if (task_.sizePreset == next) {
+    if (index < 0 || index > static_cast<int>(VideoExportSizePreset::Custom)
+        || index == sizePresetIndex()) {
         return;
     }
-    task_.sizePreset = next;
+    task_.sizePreset = static_cast<VideoExportSizePreset>(index);
+    emit outputChanged();
+    savePreferences();
+}
+
+void ExportSession::setTargetVideoBitrateMbps(double value)
+{
+    const double bitrate = miacode::video_export::normalizedCustomVideoBitrateMbps(value);
+    if (task_.targetVideoBitrateMbps == bitrate) {
+        return;
+    }
+    task_.targetVideoBitrateMbps = bitrate;
     emit outputChanged();
     savePreferences();
 }

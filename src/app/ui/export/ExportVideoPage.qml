@@ -511,6 +511,19 @@ Rectangle {
                             }
                         }
 
+                        LabeledSlider {
+                            Layout.fillWidth: true
+                            visible: !!root.session && root.session.customBitrate && root.session.outputModeIndex !== 1
+                            label: qsTrId("video_size.target_mbps")
+                            suffix: ""
+                            from: 0.1
+                            to: 100
+                            stepSize: 0.1
+                            decimals: 1
+                            value: root.session ? root.session.targetVideoBitrateMbps : 8
+                            onMoved: if (root.session) root.session.targetVideoBitrateMbps = value
+                        }
+
                         SettingsSection {
                             title: qsTrId("video_export.export_range")
 

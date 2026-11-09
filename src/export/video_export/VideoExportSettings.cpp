@@ -63,20 +63,7 @@ VideoExportSizePreset videoExportSizePresetFromPreference(
     const QJsonValue& value,
     VideoExportSizePreset fallback)
 {
-    const QString token = value.toString().trimmed();
-    if (token.compare(QStringLiteral("compact"), Qt::CaseInsensitive) == 0) {
-        return VideoExportSizePreset::Compact;
-    }
-    if (token.compare(QStringLiteral("ultra_compact"), Qt::CaseInsensitive) == 0) {
-        return VideoExportSizePreset::UltraCompact;
-    }
-    if (token.compare(QStringLiteral("ultra_compact_with_pv"), Qt::CaseInsensitive) == 0) {
-        return VideoExportSizePreset::UltraCompactWithPv;
-    }
-    if (token.compare(QStringLiteral("standard"), Qt::CaseInsensitive) == 0) {
-        return VideoExportSizePreset::Standard;
-    }
-    return fallback;
+    return videoExportSizePresetFromToken(value.toString(), fallback);
 }
 
 void applyVideoExportPreferences(const QJsonObject& settings, VideoExportTask* task)
@@ -98,6 +85,8 @@ void applyVideoExportPreferences(const QJsonObject& settings, VideoExportTask* t
     task->preset = videoExportPresetFromPreference(settings.value(QStringLiteral("preset")), task->preset);
     task->sizePreset = videoExportSizePresetFromPreference(
         settings.value(QStringLiteral("size_preset")), task->sizePreset);
+    task->targetVideoBitrateMbps = normalizedCustomVideoBitrateMbps(
+        settings.value(QStringLiteral("target_video_bitrate_mbps")).toDouble(task->targetVideoBitrateMbps));
     task->clockCountEnabled = settings.value(QStringLiteral("clock_count_enabled"))
                                   .toBool(task->clockCountEnabled);
     // Intro selection belongs to one export, not to saved preferences.
@@ -138,6 +127,7 @@ void appendVideoExportPreferences(QJsonObject* settings, const VideoExportTask& 
     settings->insert(QStringLiteral("output_mode"), videoExportOutputModeToken(task.outputMode));
     settings->insert(QStringLiteral("preset"), videoExportPreferencePresetToken(task.preset));
     settings->insert(QStringLiteral("size_preset"), videoExportSizePresetToken(task.sizePreset));
+    settings->insert(QStringLiteral("target_video_bitrate_mbps"), task.targetVideoBitrateMbps);
     settings->insert(QStringLiteral("clock_count_enabled"), task.clockCountEnabled);
     settings->remove(QStringLiteral("add_intro"));
     settings->remove(QStringLiteral("intro_style"));
@@ -226,6 +216,7 @@ void copyVideoExportUserSettings(const VideoExportTask& source, VideoExportTask*
     target->outputMode = source.outputMode;
     target->preset = source.preset;
     target->sizePreset = source.sizePreset;
+    target->targetVideoBitrateMbps = source.targetVideoBitrateMbps;
     target->backgroundBrightnessOuter = source.backgroundBrightnessOuter;
     target->backgroundBrightnessInner = source.backgroundBrightnessInner;
     target->layoutSquareScale = source.layoutSquareScale;

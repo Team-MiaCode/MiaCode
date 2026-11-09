@@ -17,7 +17,7 @@ struct VideoExportResolutionPreset {
     double aspectRatio = 1.0;
 };
 
-inline constexpr std::array<VideoExportResolutionPreset, 9> kVideoExportResolutionPresets{{
+inline constexpr std::array<VideoExportResolutionPreset, 21> kVideoExportResolutionPresets{{
     {720, 720, "720x720 (1:1)", 1.0},
     {960, 720, "960x720 (4:3)", 4.0 / 3.0},
     {1280, 720, "1280x720 (16:9)", 16.0 / 9.0},
@@ -27,6 +27,18 @@ inline constexpr std::array<VideoExportResolutionPreset, 9> kVideoExportResoluti
     {1440, 1440, "1440x1440 (1:1)", 1.0},
     {1920, 1440, "1920x1440 (4:3)", 4.0 / 3.0},
     {2560, 1440, "2560x1440 (16:9)", 16.0 / 9.0},
+    {360, 360, "360x360 (1:1)", 1.0},
+    {480, 360, "480x360 (4:3)", 4.0 / 3.0},
+    {640, 360, "640x360 (16:9)", 16.0 / 9.0},
+    {480, 480, "480x480 (1:1)", 1.0},
+    {640, 480, "640x480 (4:3)", 4.0 / 3.0},
+    {854, 480, "854x480 (16:9)", 16.0 / 9.0},
+    {540, 540, "540x540 (1:1)", 1.0},
+    {720, 540, "720x540 (4:3)", 4.0 / 3.0},
+    {960, 540, "960x540 (16:9)", 16.0 / 9.0},
+    {2160, 2160, "2160x2160 (1:1)", 1.0},
+    {2880, 2160, "2880x2160 (4:3)", 4.0 / 3.0},
+    {3840, 2160, "3840x2160 (16:9)", 16.0 / 9.0},
 }};
 
 inline constexpr std::array<int, 5> kVideoExportAudioBitrateOptionsKbps{{128, 160, 192, 256, 320}};

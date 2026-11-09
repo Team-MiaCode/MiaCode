@@ -85,20 +85,6 @@ VideoExportPreset videoExportPresetFromToken(const QString& token)
     return VideoExportPreset::HighQuality;
 }
 
-VideoExportSizePreset videoExportSizePresetFromToken(const QString& token)
-{
-    if (token.compare(QStringLiteral("compact"), Qt::CaseInsensitive) == 0) {
-        return VideoExportSizePreset::Compact;
-    }
-    if (token.compare(QStringLiteral("ultra_compact"), Qt::CaseInsensitive) == 0) {
-        return VideoExportSizePreset::UltraCompact;
-    }
-    if (token.compare(QStringLiteral("ultra_compact_with_pv"), Qt::CaseInsensitive) == 0) {
-        return VideoExportSizePreset::UltraCompactWithPv;
-    }
-    return VideoExportSizePreset::Standard;
-}
-
 PreviewBackgroundScaleMode backgroundScaleModeFromToken(const QString& token)
 {
     const QString normalized = token.trimmed().toLower();
@@ -232,6 +218,7 @@ QJsonObject VideoExportSnapshot::toJson() const
     exportObject.insert(
         QStringLiteral("size_preset"),
         miacode::video_export::videoExportSizePresetToken(sizePreset));
+    exportObject.insert(QStringLiteral("target_video_bitrate_mbps"), targetVideoBitrateMbps);
     exportObject.insert(QStringLiteral("full_range_export"), fullRangeExport);
     exportObject.insert(QStringLiteral("output_path"), outputPath);
     exportObject.insert(QStringLiteral("output_mode"), videoExportOutputModeToken(outputMode));
@@ -397,8 +384,10 @@ bool VideoExportSnapshot::fromJson(
     parsed.audioBitrateKbps = exportObject.value(QStringLiteral("audio_bitrate_kbps"))
                                   .toInt(parsed.audioBitrateKbps);
     parsed.preset = videoExportPresetFromToken(exportObject.value(QStringLiteral("preset")).toString());
-    parsed.sizePreset = videoExportSizePresetFromToken(
+    parsed.sizePreset = miacode::video_export::videoExportSizePresetFromToken(
         exportObject.value(QStringLiteral("size_preset")).toString());
+    parsed.targetVideoBitrateMbps = miacode::video_export::normalizedCustomVideoBitrateMbps(
+        exportObject.value(QStringLiteral("target_video_bitrate_mbps")).toDouble(parsed.targetVideoBitrateMbps));
     parsed.fullRangeExport = exportObject.value(QStringLiteral("full_range_export")).toBool(parsed.fullRangeExport);
     parsed.outputPath = exportObject.value(QStringLiteral("output_path")).toString();
     parsed.outputMode = videoExportOutputModeFromToken(exportObject.value(QStringLiteral("output_mode")).toString());
@@ -533,6 +522,7 @@ bool buildVideoExportTaskFromSnapshot(
     built.audioBitrateKbps = qBound(96, snapshot.audioBitrateKbps, 320);
     built.preset = snapshot.preset;
     built.sizePreset = snapshot.sizePreset;
+    built.targetVideoBitrateMbps = snapshot.targetVideoBitrateMbps;
     built.fullRangeExport = snapshot.fullRangeExport;
     built.showTimestamp = snapshot.showTimestamp;
     built.showObjectStatsHud = snapshot.showObjectStatsHud;

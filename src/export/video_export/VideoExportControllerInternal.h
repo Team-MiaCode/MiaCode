@@ -125,13 +125,13 @@ struct X264TuningPlan {
     int bframes = 0;
     QString tune;
 
-    QStringList toArgs() const
+    QStringList toArgs(bool useCrf = true) const
     {
-        QStringList args{
-            QStringLiteral("-preset"), preset,
-            QStringLiteral("-crf"), QString::number(crf),
-            QStringLiteral("-bf"), QString::number(bframes)
-        };
+        QStringList args{QStringLiteral("-preset"), preset};
+        if (useCrf) {
+            args << QStringLiteral("-crf") << QString::number(crf);
+        }
+        args << QStringLiteral("-bf") << QString::number(bframes);
         if (!tune.isEmpty()) {
             args << QStringLiteral("-tune") << tune;
         }
@@ -418,7 +418,8 @@ void applyVideoEncodingParameters(
     int outputHeight,
     int fps,
     const SystemMemoryInfo& memoryInfo,
-    const ExportRuntimeConfig& exportConfig);
+    const ExportRuntimeConfig& exportConfig,
+    qint64 targetVideoKbps = 0);
 
 // VideoExportFrameRender.cpp
 void appendRenderBackendFallbackDetail(QString* detail, const QString& entry);

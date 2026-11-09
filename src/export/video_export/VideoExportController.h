@@ -256,6 +256,7 @@ struct VideoExportTask {
     // Encoding quality settings apply to the selected hardware or software codec.
     VideoExportPreset preset = VideoExportPreset::HighQuality;
     VideoExportSizePreset sizePreset = VideoExportSizePreset::Standard;
+    double targetVideoBitrateMbps = miacode::video_export::kCustomVideoBitrateDefaultMbps;
     bool fullRangeExport = true;
     bool showTimestamp = true;
     bool showObjectStatsHud = false;

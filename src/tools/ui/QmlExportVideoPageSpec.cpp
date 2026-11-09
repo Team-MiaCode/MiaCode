@@ -103,6 +103,9 @@ ApplicationWindow {
         property var presetOptions: ["Fast", "High quality"]
         property int sizePresetIndex: 0
         property var sizePresetOptions: ["Standard"]
+        property int outputModeIndex: 0
+        property bool customBitrate: false
+        property real targetVideoBitrateMbps: 8.0
         property bool showObjectStatsHud: false
         property bool showChartInfoHud: false
         property bool clockCountEnabled: false

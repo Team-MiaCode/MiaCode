@@ -228,15 +228,22 @@ void applyVideoEncodingParameters(
     int outputHeight,
     int fps,
     const SystemMemoryInfo& memoryInfo,
-    const ExportRuntimeConfig& exportConfig)
+    const ExportRuntimeConfig& exportConfig,
+    qint64 targetVideoKbps)
 {
-    const VideoBitratePlan bitrate = chooseVideoBitratePlan(preset, sizePreset, outputWidth, outputHeight, fps);
+    const bool explicitTarget = targetVideoKbps > 0;
     const auto sizePolicy = miacode::video_export::videoExportSizePolicy(sizePreset);
-    const QStringList bitrateArgs = bitrate.toArgs();
+    const bool boundedTarget = miacode::video_export::videoExportTargetBytes(sizePreset) > 0;
+    const VideoBitratePlan bitrate = explicitTarget
+        ? VideoBitratePlan{targetVideoKbps, targetVideoKbps, targetVideoKbps * 2}
+        : chooseVideoBitratePlan(preset, sizePreset, outputWidth, outputHeight, fps);
+    const QStringList bitrateArgs = explicitTarget && !boundedTarget
+        ? QStringList{QStringLiteral("-b:v"), QStringLiteral("%1k").arg(targetVideoKbps)}
+        : bitrate.toArgs();
     if (encoder->codec == QLatin1String("libx264")) {
         const auto tuning = chooseX264TuningPlan(preset, sizePreset, exportConfig, memoryInfo,
             outputWidth, outputHeight, fps, qMax(1, QThread::idealThreadCount()));
-        encoder->extraArgs << tuning.toArgs();
+        encoder->extraArgs << tuning.toArgs(!explicitTarget);
         if (sizePreset != VideoExportSizePreset::Standard) encoder->extraArgs << bitrateArgs;
         return;
     }
@@ -245,7 +252,8 @@ void applyVideoEncodingParameters(
         if (sizePreset == VideoExportSizePreset::Standard && preset == VideoExportPreset::HighQuality) {
             target = qRound64(target * 1.10);
         }
-        encoder->extraArgs << QStringLiteral("-b:v") << QString::number(qMax<qint64>(600, target)) + QLatin1String("k");
+        encoder->extraArgs << QStringLiteral("-b:v")
+            << QStringLiteral("%1k").arg(explicitTarget ? target : qMax<qint64>(600, target));
         return;
     }
     if (encoder->codec == QLatin1String("mpeg4") && sizePreset == VideoExportSizePreset::Standard) {
@@ -254,7 +262,7 @@ void applyVideoEncodingParameters(
         return;
     }
     encoder->extraArgs << bitrateArgs;
-    if (encoder->codec == QLatin1String("h264_mf") && sizePolicy.usePeakConstrainedVbr) {
+    if (encoder->codec == QLatin1String("h264_mf") && (boundedTarget || sizePolicy.usePeakConstrainedVbr)) {
         encoder->extraArgs << QStringLiteral("-rate_control") << QStringLiteral("pc_vbr")
                            << QStringLiteral("-scenario") << QStringLiteral("archive");
     }

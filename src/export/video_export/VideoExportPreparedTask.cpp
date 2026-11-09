@@ -437,6 +437,22 @@ VideoExportResult VideoExportController::exportPreparedTask(
     const int frameCount = previewCapped
         ? qBound(1, qRound(task.previewMaxOutputSeconds * qMax(1, task.fps)), fullFrameCount)
         : fullFrameCount;
+    using miacode::video_export::effectiveVideoExportAudioBitrateKbps;
+    using miacode::video_export::normalizedCustomVideoBitrateMbps;
+    using miacode::video_export::videoExportTargetBitrateKbps;
+    using miacode::video_export::videoExportTargetBytes;
+    const qint64 targetBytes = videoExportTargetBytes(task.sizePreset);
+    const bool customBitrate = task.sizePreset == VideoExportSizePreset::Custom;
+    qint64 targetVideoKbps = 0;
+    if (videoExportProducesMp4(task.outputMode) && (targetBytes > 0 || customBitrate)) {
+        const int audioKbps = effectiveVideoExportAudioBitrateKbps(task.sizePreset, task.audioBitrateKbps);
+        targetVideoKbps = customBitrate ? qRound64(normalizedCustomVideoBitrateMbps(task.targetVideoBitrateMbps) * 1000.0)
+            : videoExportTargetBitrateKbps(task.sizePreset, static_cast<double>(frameCount) / task.fps, audioKbps);
+        if (targetVideoKbps < 64) {
+            result.message = QStringLiteral("The selected size budget is too small for this duration and audio bitrate.");
+            return result;
+        }
+    }
     const double alignedTotalSeconds = audioRenderPlan.alignedTotalSeconds;
     const double timelineOriginSecond = audioRenderPlan.timelineOriginSecond;
     const bool partialRangeExport = !task.fullRangeExport;
@@ -742,23 +758,25 @@ VideoExportResult VideoExportController::exportPreparedTask(
     const SystemMemoryInfo memoryInfo = querySystemMemoryInfo();
     appendVideoExportLog(QStringLiteral("memory_snapshot"), memoryInfoToLog(memoryInfo));
     QString encoderProbeLog;
-    VideoEncoderConfig encoderConfig = chooseVideoEncoder(
+    const VideoEncoderConfig selectedEncoder = chooseVideoEncoder(
         ffmpegPath, frameWidth, frameHeight, task.fps, exportConfig, &encoderProbeLog);
     appendVideoExportLog(QStringLiteral("encoder_select"), encoderProbeLog);
-    if (encoderConfig.codec.isEmpty()) {
+    if (selectedEncoder.codec.isEmpty()) {
         result.message = QStringLiteral("Unable to select video encoder.");
         result.details = withExportLogPath(encoderProbeLog);
         appendVideoExportLog(QStringLiteral("fail_video_encoder_select"), encoderProbeLog);
         return result;
     }
+    VideoEncoderConfig encoderConfig = selectedEncoder;
     applyVideoEncodingParameters(&encoderConfig, task.preset, task.sizePreset,
-        frameWidth, frameHeight, task.fps, memoryInfo, exportConfig);
+        frameWidth, frameHeight, task.fps, memoryInfo, exportConfig, targetVideoKbps);
     appendVideoExportLog(QStringLiteral("encoding_parameters"),
         QStringLiteral("preset=%1 sizePreset=%2 codec=%3 args=%4")
             .arg(videoExportPresetToken(task.preset))
             .arg(miacode::video_export::videoExportSizePresetToken(task.sizePreset))
             .arg(encoderConfig.codec)
             .arg(encoderConfig.extraArgs.join(QLatin1Char(' '))));
+    QStringList hardwareDeviceArgs;
     if (encoderConfig.needsVaapiHwUpload) {
         if (encoderConfig.vaapiDevicePath.isEmpty()) {
             result.message = QStringLiteral("VAAPI encoder selected but no DRM render node was found.");
@@ -768,12 +786,12 @@ VideoExportResult VideoExportController::exportPreparedTask(
             return result;
         }
         constexpr int kAfterLoglevelError = 4;
-        args.insert(kAfterLoglevelError, QStringLiteral("-init_hw_device"));
-        args.insert(
-            kAfterLoglevelError + 1,
-            QStringLiteral("vaapi=va:%1").arg(encoderConfig.vaapiDevicePath));
-        args.insert(kAfterLoglevelError + 2, QStringLiteral("-filter_hw_device"));
-        args.insert(kAfterLoglevelError + 3, QStringLiteral("va"));
+        hardwareDeviceArgs = {QStringLiteral("-init_hw_device"),
+            QStringLiteral("vaapi=va:%1").arg(encoderConfig.vaapiDevicePath),
+            QStringLiteral("-filter_hw_device"), QStringLiteral("va")};
+        for (qsizetype index = 0; index < hardwareDeviceArgs.size(); ++index) {
+            args.insert(kAfterLoglevelError + index, hardwareDeviceArgs.at(index));
+        }
         appendVideoExportLog(
             QStringLiteral("vaapi_device"),
             QStringLiteral("path=%1").arg(encoderConfig.vaapiDevicePath));
@@ -2290,6 +2308,71 @@ VideoExportResult VideoExportController::exportPreparedTask(
         );
         QFile::remove(remuxStagePath);
         return result;
+    }
+    if (targetBytes > 0) {
+        qint64 actualBytes = QFileInfo(remuxStagePath).size();
+        const QString correctedPath = QDir(tempDir.path()).filePath(QStringLiteral("size_corrected.mp4"));
+        // Each retry starts from the same remuxed source to avoid compounding quality loss.
+        for (int attempt = 0; actualBytes > targetBytes && attempt < 3; ++attempt) {
+            targetVideoKbps = qMax<qint64>(32, static_cast<qint64>(targetVideoKbps
+                * (static_cast<double>(targetBytes) / actualBytes) * 0.93));
+            VideoEncoderConfig correctionEncoder = selectedEncoder;
+            applyVideoEncodingParameters(&correctionEncoder, task.preset, task.sizePreset,
+                frameWidth, frameHeight, task.fps, memoryInfo, exportConfig, targetVideoKbps);
+            QStringList correctionArgs{QStringLiteral("-y"), QStringLiteral("-hide_banner"),
+                QStringLiteral("-loglevel"), QStringLiteral("error")};
+            correctionArgs << hardwareDeviceArgs << QStringLiteral("-i") << remuxStagePath
+                << QStringLiteral("-map") << QStringLiteral("0:v:0") << QStringLiteral("-map") << QStringLiteral("0:a:0?")
+                << QStringLiteral("-g") << QString::number(qMax(1, task.fps * sizePolicy.gopSeconds))
+                << QStringLiteral("-c:v") << correctionEncoder.codec;
+            if (correctionEncoder.needsVaapiHwUpload) {
+                correctionArgs << QStringLiteral("-vf") << QStringLiteral("format=nv12,hwupload");
+            } else {
+                correctionArgs << QStringLiteral("-pix_fmt") << QStringLiteral("yuv420p");
+            }
+            if (correctionEncoder.explicitBframes >= 0) {
+                correctionArgs << QStringLiteral("-bf") << QString::number(correctionEncoder.explicitBframes);
+            }
+            if (!correctionEncoder.isHardware) {
+                correctionArgs << QStringLiteral("-threads") << QString::number(effectiveEncoderThreads);
+            }
+            correctionArgs << correctionEncoder.extraArgs
+                << QStringLiteral("-c:a") << QStringLiteral("copy")
+                << QStringLiteral("-movflags") << QStringLiteral("+faststart") << correctedPath;
+            QProcess correction;
+            correction.setProcessChannelMode(QProcess::MergedChannels);
+            correction.start(ffmpegPath, correctionArgs, QIODevice::ReadOnly);
+            if (!correction.waitForStarted(5000)
+                || !waitForProcessWithProgress(correction, QStringLiteral("size_correction_begin"),
+                    QStringLiteral("size_correction_end"), QLatin1String(miacode::video_export::kVideoExportSizeCorrectionProgress),
+                    97, setProgressPercent, QStringLiteral("stage=size_correction"), &result)
+                || correction.exitStatus() != QProcess::NormalExit || correction.exitCode() != 0
+                || QFileInfo(correctedPath).size() <= 0) {
+                if (result.message != QLatin1String("canceled")) {
+                    result.message = QStringLiteral("Unable to meet the selected file size budget.");
+                    result.details = withExportLogPath(processOutputAndErrorForLog(correction, 2000));
+                }
+                QFile::remove(remuxStagePath);
+                return result;
+            }
+            actualBytes = QFileInfo(correctedPath).size();
+            if (actualBytes <= targetBytes) {
+                QString correctionError;
+                if (!replaceOutputFileAtomicallyBestEffort(correctedPath, remuxStagePath, &correctionError)) {
+                    result.message = QStringLiteral("Failed to stage the size-corrected video.");
+                    result.details = withExportLogPath(correctionError);
+                    QFile::remove(remuxStagePath);
+                    return result;
+                }
+            }
+        }
+        if (actualBytes > targetBytes) {
+            result.message = QStringLiteral("The completed video exceeds the selected file size budget.");
+            QFile::remove(remuxStagePath);
+            return result;
+        }
+        appendVideoExportLog(QStringLiteral("size_budget_verified"), QStringLiteral("budget=%1 actual=%2")
+            .arg(targetBytes).arg(actualBytes));
     }
     const qint64 remuxElapsedMs = remuxTimer.elapsed();
 

@@ -52,6 +52,8 @@ class ExportSession final : public QObject, public miacode::ExportPagePort
     Q_PROPERTY(int presetIndex READ presetIndex WRITE setPresetIndex NOTIFY outputChanged)
     Q_PROPERTY(QVariantList presetOptions READ presetOptions NOTIFY localeLabelsChanged)
     Q_PROPERTY(int sizePresetIndex READ sizePresetIndex WRITE setSizePresetIndex NOTIFY outputChanged)
+    Q_PROPERTY(bool customBitrate READ customBitrate NOTIFY outputChanged)
+    Q_PROPERTY(double targetVideoBitrateMbps READ targetVideoBitrateMbps WRITE setTargetVideoBitrateMbps NOTIFY outputChanged)
     Q_PROPERTY(QVariantList sizePresetOptions READ sizePresetOptions NOTIFY localeLabelsChanged)
 
     Q_PROPERTY(bool showObjectStatsHud READ showObjectStatsHud WRITE setShowObjectStatsHud NOTIFY videoChanged)
@@ -143,6 +145,8 @@ public:
     int presetIndex() const;
     QVariantList presetOptions() const;
     int sizePresetIndex() const;
+    bool customBitrate() const { return task_.sizePreset == VideoExportSizePreset::Custom; }
+    double targetVideoBitrateMbps() const { return task_.targetVideoBitrateMbps; }
     QVariantList sizePresetOptions() const;
 
     bool showObjectStatsHud() const { return task_.showObjectStatsHud; }
@@ -236,6 +240,7 @@ public:
     void setOutputModeIndex(int index);
     void setPresetIndex(int index);
     void setSizePresetIndex(int index);
+    void setTargetVideoBitrateMbps(double value);
     void setShowObjectStatsHud(bool value);
     void setShowChartInfoHud(bool value);
     void setClockCountEnabled(bool value);

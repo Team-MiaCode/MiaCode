@@ -202,6 +202,9 @@ QString localizeExportWorkerMessageForUiLanguage(const QString& rawMessage)
     if (trimmed == QLatin1String("Repacking MP4 for fast start...")) {
         return qtTrId("dialog.video_export.progress.repacking");
     }
+    if (trimmed == QLatin1String(miacode::video_export::kVideoExportSizeCorrectionProgress)) {
+        return qtTrId("video_size.correcting");
+    }
     if (trimmed == QLatin1String("Collecting export summary...")) {
         return qtTrId("dialog.video_export.progress.finishing");
     }

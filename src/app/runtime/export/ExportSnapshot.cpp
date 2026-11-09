@@ -509,6 +509,7 @@ bool miacode::runtime::VideoExportHost::buildVideoExportSnapshot(
     built.outputMode = requestedTask.outputMode;
     built.preset = requestedTask.preset;
     built.sizePreset = requestedTask.sizePreset;
+    built.targetVideoBitrateMbps = requestedTask.targetVideoBitrateMbps;
     built.fullRangeExport = requestedTask.fullRangeExport;
     const QString exportStem = sanitizeExportFileStem(session_.applicationServices_.workspace().document().title, QStringLiteral("out"));
     const QString difficultyName = SimaiDocument::difficultyShortName(resolvedDifficultyId).replace(':', '_');
@@ -720,6 +721,7 @@ bool miacode::runtime::VideoExportHost::buildVideoExportSnapshotForChartDirector
     built.outputMode = requestedTask.outputMode;
     built.preset = requestedTask.preset;
     built.sizePreset = requestedTask.sizePreset;
+    built.targetVideoBitrateMbps = requestedTask.targetVideoBitrateMbps;
     built.fullRangeExport = true;
     built.outputPath = resolveVideoExportOutputPath(
         QString(),

@@ -5053,6 +5053,26 @@ Error: %1</source>
     <message id="dialog.preferences.theme.dracula"><source>Dracula</source><translation>ドラキュラ</translation></message>
     <message id="dialog.preferences.theme.tokyo_night"><source>Tokyo Night</source><translation>東京の夜</translation></message>
     <message id="dialog.preferences.theme.noah"><source>Noa</source><translation>ノア</translation></message>
+    <message id="video_size.custom">
+        <source>Custom</source>
+        <translation>カスタム</translation>
+    </message>
+    <message id="video_size.target_mbps">
+        <source>Target video bitrate (Mbps)</source>
+        <translation>目標映像ビットレート（Mbps）</translation>
+    </message>
+    <message id="video_size.correcting">
+        <source>Adjusting video bitrate to fit the size limit…</source>
+        <translation>容量上限に収まるよう映像のビットレートを調整中…</translation>
+    </message>
+    <message id="video_size.budget_too_small">
+        <source>The size limit is too small for this duration and audio bitrate.</source>
+        <translation>この長さと音声ビットレートでは、指定された容量上限に収まりません。</translation>
+    </message>
+    <message id="video_size.budget_exceeded">
+        <source>The video could not fit the selected size limit.</source>
+        <translation>映像を指定された容量上限に収められませんでした。</translation>
+    </message>
 </context>
 <context>
     <!-- Qt loads qtbase texts for the system locale; this context keeps the

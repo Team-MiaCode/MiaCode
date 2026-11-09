@@ -2,6 +2,7 @@
 #include <QTextStream>
 
 #include <optional>
+#include <limits>
 
 #include "export/video_export/VideoExportRuntimePolicy.h"
 
@@ -25,6 +26,10 @@ bool verifyPolicy(QTextStream& err)
     using miacode::video_export::shouldRetryVideoExportWorkerAfterCrash;
     using miacode::video_export::videoExportSizePolicy;
     using miacode::video_export::videoExportSizePresetToken;
+    using miacode::video_export::videoExportSizePresetFromToken;
+    using miacode::video_export::videoExportTargetBitrateKbps;
+    using miacode::video_export::videoExportTargetBytes;
+    using miacode::video_export::normalizedCustomVideoBitrateMbps;
 
     const auto standard = videoExportSizePolicy(VideoExportSizePreset::Standard);
     const auto compact = videoExportSizePolicy(VideoExportSizePreset::Compact);
@@ -50,6 +55,28 @@ bool verifyPolicy(QTextStream& err)
                              == qMin(320, policy.maxAudioBitrateKbps),
                      QStringLiteral("encoder settings apply the selected size policy"), err)) return false;
     }
+
+    constexpr auto target30 = VideoExportSizePreset::Target30Mb;
+    constexpr auto target100 = VideoExportSizePreset::Target100Mb;
+    constexpr auto target200 = VideoExportSizePreset::Target200Mb;
+    for (const auto preset : {target30, target100, target200, VideoExportSizePreset::Custom}) {
+        if (!require(videoExportSizePresetFromToken(videoExportSizePresetToken(preset)) == preset,
+                     QStringLiteral("every new encoding mode survives token serialization"), err)) return false;
+    }
+    if (!require(videoExportTargetBytes(target30) == 30'000'000
+                     && videoExportTargetBytes(target100) == 100'000'000
+                     && videoExportTargetBytes(target200) == 200'000'000
+                     && videoExportTargetBitrateKbps(target30, 120.0, 128) == 1806
+                     && videoExportTargetBitrateKbps(target30, 120.0, 192) == 1742
+                     && videoExportTargetBitrateKbps(target30, 240.0, 128) < 1806
+                     && videoExportTargetBitrateKbps(target30, 1e-12, 128) == 100'000
+                     && videoExportTargetBitrateKbps(target30, 0.0, 128) == 0
+                     && videoExportTargetBitrateKbps(target30, 1e8, 128) == 0,
+                 QStringLiteral("file-size budgets reserve mux and audio bits, account for duration, and bound bitrate"), err)) return false;
+    if (!require(normalizedCustomVideoBitrateMbps(-1.0) == 0.1
+                     && normalizedCustomVideoBitrateMbps(200.0) == 100.0
+                     && normalizedCustomVideoBitrateMbps(std::numeric_limits<double>::quiet_NaN()) == 8.0,
+                 QStringLiteral("custom bitrate rejects non-finite and bounds out-of-range inputs"), err)) return false;
 
     if (!require(
             shouldRequestOffscreenPboReadback(std::nullopt, std::nullopt),

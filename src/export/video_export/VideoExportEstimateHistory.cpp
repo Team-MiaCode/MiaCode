@@ -32,35 +32,6 @@ QString presetToken(VideoExportPreset preset)
         : QStringLiteral("high_quality");
 }
 
-VideoExportSizePreset sizePresetFromToken(const QString& token)
-{
-    if (token == QLatin1String("compact")) {
-        return VideoExportSizePreset::Compact;
-    }
-    if (token == QLatin1String("ultra_compact_with_pv")) {
-        return VideoExportSizePreset::UltraCompactWithPv;
-    }
-    if (token == QLatin1String("ultra_compact")) {
-        return VideoExportSizePreset::UltraCompact;
-    }
-    return VideoExportSizePreset::Standard;
-}
-
-QString sizePresetToken(VideoExportSizePreset preset)
-{
-    switch (preset) {
-    case VideoExportSizePreset::Compact:
-        return QStringLiteral("compact");
-    case VideoExportSizePreset::UltraCompactWithPv:
-        return QStringLiteral("ultra_compact_with_pv");
-    case VideoExportSizePreset::UltraCompact:
-        return QStringLiteral("ultra_compact");
-    case VideoExportSizePreset::Standard:
-    default:
-        return QStringLiteral("standard");
-    }
-}
-
 bool validProfile(const ExportEstimateProfile& profile)
 {
     return profile.outputWidth >= 64 && profile.outputWidth <= 16384
@@ -113,7 +84,7 @@ QVector<Sample> loadSamples(const QString& path)
         sample.profile.preset = preset == QLatin1String("fast")
             ? VideoExportPreset::Fast
             : VideoExportPreset::HighQuality;
-        sample.profile.sizePreset = sizePresetFromToken(
+        sample.profile.sizePreset = videoExportSizePresetFromToken(
             object.value(QStringLiteral("size_preset")).toString());
         sample.profile.outputMode = videoExportOutputModeFromToken(object.value(QStringLiteral("output_mode")).toString());
         sample.elapsedMs = object.value(QStringLiteral("elapsed_ms")).toVariant().toLongLong();
@@ -137,7 +108,7 @@ QJsonObject sampleToJson(const Sample& sample)
     object.insert(QStringLiteral("fps"), sample.profile.fps);
     object.insert(QStringLiteral("duration_seconds"), sample.profile.durationSeconds);
     object.insert(QStringLiteral("preset"), presetToken(sample.profile.preset));
-    object.insert(QStringLiteral("size_preset"), sizePresetToken(sample.profile.sizePreset));
+    object.insert(QStringLiteral("size_preset"), videoExportSizePresetToken(sample.profile.sizePreset));
     object.insert(QStringLiteral("output_mode"), videoExportOutputModeToken(sample.profile.outputMode));
     object.insert(QStringLiteral("elapsed_ms"), sample.elapsedMs);
     return object;

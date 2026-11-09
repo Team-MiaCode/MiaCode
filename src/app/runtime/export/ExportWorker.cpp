@@ -414,6 +414,7 @@ bool exportWorkerProgressUsesBusyIndicator(const QString& rawMessage)
     const QString trimmed = rawMessage.trimmed();
     return trimmed == QLatin1String("Finalizing encoded video stream...")
         || trimmed == QLatin1String("Repacking MP4 for fast start...")
+        || trimmed == QLatin1String(miacode::video_export::kVideoExportSizeCorrectionProgress)
         || trimmed == QLatin1String("Finalizing WAV audio...")
         || trimmed == QLatin1String("Collecting export summary...")
         || trimmed == QLatin1String("Export completed.");
@@ -449,6 +450,9 @@ miacode::LocalizedText localizeExportWorkerMessageForUiLanguage(const QString& r
     }
     if (trimmed == QLatin1String("Repacking MP4 for fast start...")) {
         return miacode::localizedText("dialog.video_export.progress.repacking");
+    }
+    if (trimmed == QLatin1String(miacode::video_export::kVideoExportSizeCorrectionProgress)) {
+        return miacode::localizedText("video_size.correcting");
     }
     if (trimmed == QLatin1String("Finalizing WAV audio...")) {
         return miacode::localizedText("dialog.video_export.progress.finalizing_wav");
@@ -589,6 +593,9 @@ miacode::LocalizedText localizeExportWorkerFailureForUiLanguage(
     }
 
     static const QHash<QString, const char*> summaryIds{
+        {QStringLiteral("The selected size budget is too small for this duration and audio bitrate."), "video_size.budget_too_small"},
+        {QStringLiteral("Unable to meet the selected file size budget."), "video_size.budget_exceeded"},
+        {QStringLiteral("The completed video exceeds the selected file size budget."), "video_size.budget_exceeded"},
         {QStringLiteral("ffmpeg executable was not found."), "dialog.video_export.error.ffmpeg_missing"},
         {QStringLiteral("Skin directory is empty."), "dialog.video_export.error.skin_missing"},
         {QStringLiteral("Failed to load export skin assets."), "dialog.video_export.error.skin_missing"},
