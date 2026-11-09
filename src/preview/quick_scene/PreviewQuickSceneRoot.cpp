@@ -34,7 +34,7 @@
 
 namespace {
 
-constexpr int kPreviewQuickSceneLayerSlotCount = 18;
+constexpr int kPreviewQuickSceneLayerSlotCount = 19;
 constexpr qint64 kNoteLayersEmptyAnomalyLogIntervalMs = 2000;
 
 class PreviewQuickRootNode final : public QSGNode

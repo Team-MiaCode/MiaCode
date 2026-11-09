@@ -5,6 +5,13 @@ miacode_add_dev_tool(preview_asset_loader_spec TEST
     INCLUDES src
 )
 
+miacode_add_dev_tool(preview_maimuri_judge_slot_spec TEST
+    SOURCES src/tools/preview/PreviewMaimuriJudgeSlotSpec.cpp
+    LIBS miacode_preview_quick Qt6::Core Qt6::Gui Qt6::Quick Qt6::Test
+    INCLUDES src
+)
+set_tests_properties(preview_maimuri_judge_slot_spec PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 miacode_add_dev_tool(preview_firework_lifecycle_spec TEST
     SOURCES
         src/tools/preview/PreviewFireworkLifecycleSpec.cpp
