@@ -223,12 +223,13 @@ bool EditorSyncController::setTouchPadPreviewAnchor(
 }
 
 bool EditorSyncController::seekPreviewToEditorLocation(
-    int difficultyId, qulonglong revision, int line, int column)
+    int difficultyId, qulonglong revision, int line, int column, bool atLineStart)
 {
     if (!readinessAccepts(difficultyId, revision)) {
         return false;
     }
     pendingPreviewSeek_ = {difficultyId, revision, qMax(1, line), qMax(1, column)};
+    pendingPreviewSeekAtLineStart_ = atLineStart;
     previewSeekPending_ = true;
     schedulePreviewSeekDelivery();
     return true;
@@ -384,7 +385,8 @@ void EditorSyncController::schedulePreviewSeekDelivery()
         if (!readinessAccepts(request.difficultyId, request.revision)) {
             return;
         }
-        emit previewSeekPublished(request.difficultyId, request.line, request.column);
+        emit previewSeekPublished(request.difficultyId, request.line, request.column,
+                                  pendingPreviewSeekAtLineStart_);
     }, Qt::QueuedConnection);
 }
 

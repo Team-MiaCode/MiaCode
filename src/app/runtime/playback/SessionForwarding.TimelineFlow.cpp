@@ -219,13 +219,22 @@ bool Session::applyTouchPadAuthoringPreviewAnchor(int difficultyId, int line, in
     return true;
 }
 
-bool Session::seekPreviewToEditorLocation(int difficultyId, int line, int column)
+bool Session::seekPreviewToEditorLocation(int difficultyId, int line, int column, bool atLineStart)
 {
     if (!hasActiveDifficulty() || difficultyId != activeDifficultyId_) {
         return false;
     }
     double second = 0.0;
-    if (!resolveTimelineSecondForCursor(qMax(1, line), qMax(1, column), &second)) {
+    if (atLineStart) {
+        // A gutter click can arrive before the deferred timeline update.
+        playback_->refreshTimelineQuickModelFromCurrentText();
+        const auto& lines = state_.timeline_.timelineQuickModel_.snapshot().lines;
+        if (line < 1 || line > lines.size()) {
+            return false;
+        }
+        // Empty and comment-only lines still have a parser entry time.
+        second = qMax(0.0, lines.at(line - 1).startSecond);
+    } else if (!resolveTimelineSecondForCursor(qMax(1, line), qMax(1, column), &second)) {
         return false;
     }
     // Park playback first so the seek lands on a stable clock, suppress the

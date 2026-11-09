@@ -73,7 +73,7 @@ public:
     Q_INVOKABLE bool beginPointerInteraction(int difficultyId, qulonglong revision);
     bool setTouchPadPreviewAnchor(int difficultyId, qulonglong revision, int line, int column);
     Q_INVOKABLE bool seekPreviewToEditorLocation(int difficultyId, qulonglong revision,
-                                                  int line, int column);
+                                                  int line, int column, bool atLineStart = false);
     Q_INVOKABLE bool requestSelectionRangeExport(int difficultyId, qulonglong revision,
                                                   int selectionStart, int selectionEnd);
 
@@ -89,7 +89,7 @@ signals:
     void pointerInteractionStarted(int difficultyId);
     void touchPadControlHoldChanged(bool active);
     void touchPadPreviewAnchorPublished(int difficultyId, int line, int column);
-    void previewSeekPublished(int difficultyId, int line, int column);
+    void previewSeekPublished(int difficultyId, int line, int column, bool atLineStart);
     void selectionRangeExportRequested(int difficultyId, int selectionStart, int selectionEnd);
     void editorContextChanged();
 
@@ -175,6 +175,7 @@ private:
     bool touchPadPreviewAnchorDeliveryQueued_ = false;
 
     EditorLocationState pendingPreviewSeek_;
+    bool pendingPreviewSeekAtLineStart_ = false;
     bool previewSeekPending_ = false;
     bool previewSeekDeliveryQueued_ = false;
 

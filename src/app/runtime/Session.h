@@ -263,7 +263,7 @@ public:
     void refreshEditorAuthoringContext();
     void setTouchPadAuthoringCtrlHold(bool active);
     bool applyTouchPadAuthoringPreviewAnchor(int difficultyId, int line, int column);
-    bool seekPreviewToEditorLocation(int difficultyId, int line, int column);
+    bool seekPreviewToEditorLocation(int difficultyId, int line, int column, bool atLineStart);
     void requestSelectionRangeExport(int difficultyId, int selectionStart, int selectionEnd);
     // v2 binds the same ShortcutRegistry ids directly in QML instead of using
     // the hidden v1 window's shortcut action layer.

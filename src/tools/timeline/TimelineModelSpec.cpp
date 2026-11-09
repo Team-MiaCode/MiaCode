@@ -1000,6 +1000,24 @@ int main(int argc, char** argv)
     }
 
     {
+        // The line-number gutter seeks to parser entry time, including lines
+        // without comma anchors. BPM changes only affect following intervals.
+        const QString chart = QStringLiteral("(120){4}1,\n\n|| comment\n(240)\n2,\nE");
+        for (double first : {0.0, 1.25, -0.75}) {
+            TimelineQuickModel model;
+            model.rebuildFromText(chart, first);
+            const auto& lines = model.snapshot().lines;
+            const QVector<double> expected{first, first + 0.5, first + 0.5,
+                                           first + 0.5, first + 0.5, first + 0.75};
+            bool timesMatch = lines.size() == expected.size();
+            for (int index = 0; timesMatch && index < expected.size(); ++index)
+                timesMatch = nearlyEqual(lines.at(index).startSecond, expected.at(index));
+            expect(timesMatch, QStringLiteral("line entry times preserve blanks, comments, BPM-only lines and &first=%1")
+                       .arg(first));
+        }
+    }
+
+    {
         TimelineQuickModel model;
         model.rebuildFromText(QStringLiteral("(120){4}1,12,\nE"), 0.0);
         double resolvedSecond = -1.0;

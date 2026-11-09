@@ -19,6 +19,7 @@ ScintillaDslStyler::ScintillaDslStyler(ScintillaQuick_item& editor, ScintillaDoc
 {
     editor_.send(SCI_SETILEXER, 0, 0);
     editor_.set_auto_line_number_margin(0, 12);
+    editor_.send(SCI_SETMARGINSENSITIVEN, 0, 1);
     editor_.send(SCI_SETMARGINTYPEN, 1, SC_MARGIN_SYMBOL);
     editor_.send(SCI_SETMARGINMASKN, 1, (1 << bookmarkMarker));
     editor_.send(SCI_SETMARGINWIDTHN, 1, 6);

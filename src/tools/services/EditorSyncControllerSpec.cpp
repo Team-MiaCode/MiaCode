@@ -134,11 +134,19 @@ bool verifyLocationPublishersShareTheGate(QTextStream& err)
     flush();
     ok = ok
         && require(seeks.count() == 1 && seeks.first().at(0).toInt() == kDifficulty
-                       && seeks.first().at(1).toInt() == 4 && seeks.first().at(2).toInt() == 9,
+                       && seeks.first().at(1).toInt() == 4 && seeks.first().at(2).toInt() == 9
+                       && !seeks.first().at(3).toBool(),
                    QStringLiteral("an accepted preview seek is delivered with its line and column"), err)
         && require(anchors.count() == 1 && anchors.first().at(1).toInt() == 2
                        && anchors.first().at(2).toInt() == 2,
                    QStringLiteral("a touch anchor resolves its offset to a line and column in C++"), err);
+
+    seeks.clear();
+    const bool gutterSubmitted = controller.seekPreviewToEditorLocation(kDifficulty, kRevision, 3, 1, true);
+    flush();
+    ok = ok && require(gutterSubmitted && seeks.count() == 1
+                           && seeks.first().at(1).toInt() == 3 && seeks.first().at(3).toBool(),
+                       QStringLiteral("a gutter seek requests the parser entry time"), err);
 
     // Same submission, invalidated before the queue runs.
     QSignalSpy lateSeeks(&controller, &EditorSyncController::previewSeekPublished);

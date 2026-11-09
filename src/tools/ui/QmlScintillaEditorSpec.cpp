@@ -9,6 +9,7 @@
 #include <QImage>
 #include <QFile>
 #include <QKeyEvent>
+#include <QMouseEvent>
 #include <QQmlComponent>
 #include <QQmlEngine>
 #include <QQuickWindow>
@@ -235,6 +236,56 @@ bool testEditor(QTextStream& out, const QString& capturePath)
     return glyphPixels > 10;
 }
 
+bool testLineNumberMargin(QTextStream& out)
+{
+    QQuickWindow window;
+    ScintillaQuick_item editor(window.contentItem());
+    editor.setSize({700, 500});
+    miacode::ui::ScintillaDocumentAdapter document(editor);
+    miacode::ui::ScintillaDslStyler styler(editor, document);
+    document.activate(QStringLiteral("margin-probe"), QStringLiteral("(120){4}1,\n\n|| comment\n2,"));
+    styler.reset();
+    styler.style();
+    ScintillaQuick_validation_access::capture_cached_frame(editor);
+
+    int clicks = 0;
+    int clickedLine = -1;
+    int clickedMargin = -1;
+    QObject::connect(&editor, &ScintillaQuick_item::marginClicked, &editor,
+        [&](Scintilla::Position position, Scintilla::KeyMod, int margin) {
+            ++clicks;
+            clickedLine = editor.send(SCI_LINEFROMPOSITION, position) + 1;
+            clickedMargin = margin;
+        });
+    const auto click = [&](qreal x, int line) {
+        const int position = editor.send(SCI_POSITIONFROMLINE, line - 1);
+        const qreal y = editor.send(SCI_POINTYFROMPOSITION, 0, position)
+            + editor.send(SCI_TEXTHEIGHT, line - 1) / 2.0;
+        const QPointF point(x, y);
+        QMouseEvent press(QEvent::MouseButtonPress, point, point,
+                          Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        QMouseEvent release(QEvent::MouseButtonRelease, point, point,
+                            Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(&editor, &press);
+        QCoreApplication::sendEvent(&editor, &release);
+    };
+    const int numberWidth = editor.send(SCI_GETMARGINWIDTHN, 0);
+    const int bookmarkWidth = editor.send(SCI_GETMARGINWIDTHN, 1);
+    bool passed = numberWidth > 0 && bookmarkWidth > 0;
+    for (int line : {1, 2, 3, 4}) {
+        const int previousClicks = clicks;
+        click(numberWidth / 2.0, line);
+        passed &= clicks == previousClicks + 1 && clickedMargin == 0 && clickedLine == line;
+    }
+    const int previousClicks = clicks;
+    click(numberWidth + bookmarkWidth / 2.0, 3);
+    passed &= clicks == previousClicks + 1 && clickedMargin == 1 && clickedLine == 3;
+    out << "line_number_margin=" << (passed ? "PASS" : "FAIL")
+        << " clicks=" << clicks << " last_margin=" << clickedMargin
+        << " last_line=" << clickedLine << Qt::endl;
+    return passed;
+}
+
 bool testWindowLayout(QTextStream& out)
 {
     QFile source(QStringLiteral(MIACODE_SOURCE_ROOT "/src/app/ui/editor/SourceEditor.qml"));
@@ -310,7 +361,7 @@ int main(int argc, char** argv)
     QTextStream out(stdout);
     const bool passed = testUndoSelection(out)
         && testEditor(out, argc > 1 ? QString::fromLocal8Bit(argv[1]) : QString{})
-        && testWindowLayout(out);
+        && testLineNumberMargin(out) && testWindowLayout(out);
     out << (passed ? "PASS" : "FAIL") << Qt::endl;
     return passed ? 0 : 1;
 }
