@@ -10,13 +10,16 @@
 #include "app/services/VideoExportPreferences.h"
 
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QJsonDocument>
 #include <QQmlComponent>
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QQuickStyle>
 #include <QQuickWindow>
+#include <QScopedValueRollback>
 #include <QSignalSpy>
 #include <QHash>
 #include <QSettings>
@@ -67,6 +70,119 @@ public:
 };
 }
 
+bool verifyVideoTemplates(const QString& workspace, QTextStream& err)
+{
+    const QString root = QFileInfo(workspace).canonicalFilePath();
+    const auto withinWorkspace = [&root](const QString& directory) {
+        const QString path = QFileInfo(directory).canonicalFilePath();
+        return !root.isEmpty() && (path == root || path.startsWith(root + QLatin1Char('/')));
+    };
+    const QString temp = QDir::tempPath();
+    const QString appDirectory = QCoreApplication::applicationDirPath();
+    if (!withinWorkspace(temp) || !withinWorkspace(appDirectory)) {
+        err << "Template fixture requires a workspace-local temp and binary directory" << Qt::endl;
+        return false;
+    }
+    QTemporaryDir scratch(QDir(temp).filePath(QStringLiteral("video-templates-XXXXXX")));
+    if (!scratch.isValid() || !withinWorkspace(scratch.path())) {
+        err << "Unable to create template fixture directory" << Qt::endl;
+        return false;
+    }
+    const QString preferencesPath = scratch.filePath(QStringLiteral("preferences.json"));
+    QTextStream(stdout) << "Template fixture preferences: " << preferencesPath << Qt::endl;
+    PreferenceDocument::Repository repository(preferencesPath, {});
+    using miacode::app_preferences::VideoExportPreferences;
+    const QScopedValueRollback preferences(miacode::app_preferences::videoExportPreferences(),
+        VideoExportPreferences([&repository] { return repository.snapshot(); },
+                               [&repository](const QJsonObject& value) { return repository.replace(value); }));
+    // An explicit empty value keeps seedFromDifficulty away from the legacy native store.
+    if (!miacode::app_preferences::saveDialogPreferences({{QStringLiteral("last_batch_output_directory"), QString()}})) {
+        err << "Unable to seed isolated template preferences" << Qt::endl;
+        return false;
+    }
+    QDir parent(scratch.path());
+    miacode::UiRequestService historyRequests;
+    miacode::ShellNotifications notifications;
+    miacode::JobProgressService progress;
+    miacode::PreviewAppearanceState appearance;
+    miacode::PreviewSurface* preview = nullptr;
+    QString historyId;
+    QObject::connect(&historyRequests, &miacode::UiRequestService::fileRequested,
+                     [&](const QString& id, const QVariantMap&) { historyId = id; });
+    const auto wait = [] { QCoreApplication::processEvents(); QTest::qWait(20); };
+    bool ok = true;
+    const auto expect = [&](bool condition, const char* message) {
+        if (!condition) { err << "FAIL: " << message << Qt::endl; ok = false; }
+    };
+    Engine seed;
+    seed.task.chartPath = parent.filePath(QStringLiteral("maidata.txt"));
+    seed.task.outputPath = parent.filePath(QStringLiteral("original.mp4"));
+    miacode::ExportEngine* seedSlot = &seed;
+    {
+        seed.task.contentDurationSeconds = 120.0;
+        miacode::ui::ExportSession session(notifications, historyRequests, progress, appearance, seedSlot, preview);
+        session.enter(5);
+        wait();
+        session.setFps(30);
+        session.setAudioBitrateKbps(256);
+        session.setIntroEnabled(true);
+        session.saveVideoTemplate(QStringLiteral("Upload"));
+        session.renameVideoTemplate(QStringLiteral("Upload"), QStringLiteral("Sharing"));
+        expect(session.videoTemplates().size() == 1
+                   && session.videoTemplates().constFirst().toMap().value(QStringLiteral("name")) == QStringLiteral("Sharing"),
+               "a named video template can be saved and renamed");
+        session.setFps(60);
+        session.setAudioBitrateKbps(192);
+        session.setIntroEnabled(false);
+        session.setIntroPvPreview(true);
+        session.setIntroPvStartSeconds(17.5);
+        session.setExportRangeSeconds(5, 25);
+        session.setOutputPath(parent.filePath(QStringLiteral("keep.mp4")));
+        session.applyVideoTemplate(QStringLiteral("Sharing"));
+        expect(session.fps() == 30 && session.audioBitrateKbps() == 256,
+               "applying a video template restores encoding settings");
+        expect(session.outputPath() == parent.filePath(QStringLiteral("keep.mp4"))
+                   && session.exportStartSeconds() == 5 && session.exportEndSeconds() == 25
+                   && !session.introEnabled() && session.introPvPreview() && session.introPvStartSeconds() == 17.5,
+               "applying a template preserves the output, selected range and one-export intro selection");
+        session.exportVideoTemplate();
+        historyRequests.submitFileResult(historyId, QUrl::fromLocalFile(parent.filePath(QStringLiteral("copy.json.miatemplate"))));
+        const QString templatePath = parent.filePath(QStringLiteral("copy.miatemplate"));
+        QFile templateFile(templatePath);
+        expect(templateFile.open(QIODevice::ReadOnly), "export writes one application suffix");
+        QJsonObject document = QJsonDocument::fromJson(templateFile.readAll()).object();
+        const QJsonObject settings = document.value(QStringLiteral("settings")).toObject();
+        expect(document.value(QStringLiteral("kind")) == QStringLiteral("miacode-video-template")
+                   && !settings.contains(QStringLiteral("intro_background_custom_path"))
+                   && !settings.contains(QStringLiteral("add_intro"))
+                   && !settings.contains(QStringLiteral("intro_style")),
+               "the file stores portable preferences and omits one-export fields");
+        templateFile.close();
+        session.setFps(60);
+        session.importVideoTemplate();
+        historyRequests.submitFileResult(historyId, QUrl::fromLocalFile(templatePath));
+        expect(session.fps() == 30 && session.videoTemplates().size() == 2,
+               "import applies and saves a local copy of the template");
+        const QString legacyTemplatePath = parent.filePath(QStringLiteral("legacy-video.json"));
+        QFile oldTemplate(legacyTemplatePath);
+        expect(oldTemplate.open(QIODevice::WriteOnly), "legacy template fixture opens");
+        oldTemplate.write(QJsonDocument(document).toJson());
+        oldTemplate.close();
+        session.setFps(60);
+        session.importVideoTemplate();
+        historyRequests.submitFileResult(historyId, QUrl::fromLocalFile(legacyTemplatePath));
+        expect(session.fps() == 30 && session.videoTemplates().size() == 3,
+               "the same template document can be imported with a JSON suffix");
+        session.removeVideoTemplate(QStringLiteral("Sharing"));
+        expect(session.videoTemplates().size() == 2, "a saved template can be deleted");
+        session.leave();
+    }
+    if (ok) {
+        QTextStream(stdout) << "video templates passed" << Qt::endl;
+    }
+    return ok;
+}
+
 // ExportSession reads v1's batch history from the native QSettings store,
 // which QSettings::setPath cannot redirect. Set the developer's real values
 // aside for the run and put them back afterwards, even when a check fails.
@@ -113,6 +229,10 @@ int main(int argc, char** argv)
     QTranslator translator;
     if (translator.load(QStringLiteral(":/i18n/zh_CN.qm"))) app.installTranslator(&translator);
     QTextStream err(stderr);
+    const QStringList arguments = app.arguments();
+    if (arguments.value(1) == QLatin1String("--templates-only")) {
+        return verifyVideoTemplates(arguments.value(2), err) ? 0 : 1;
+    }
     LegacyBatchHistoryGuard legacy;
     bool ok = true;
     const auto expect = [&](bool condition, const char* message) {

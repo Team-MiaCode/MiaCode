@@ -103,6 +103,7 @@ ApplicationWindow {
         property var presetOptions: ["Fast", "High quality"]
         property int sizePresetIndex: 0
         property var sizePresetOptions: ["Standard"]
+        property var videoTemplates: [{ name: "Template" }]
         property bool showObjectStatsHud: false
         property bool showChartInfoHud: false
         property bool clockCountEnabled: false
@@ -384,6 +385,26 @@ ApplicationWindow {
         }
     }
     return object;
+}
+
+bool verifyTemplateMenu(QTextStream& err)
+{
+    QQmlEngine engine;
+    engine.addImportPath(QStringLiteral(MIACODE_QML_SPEC_IMPORT_ROOT));
+    const auto window = createHarness(engine, err);
+    if (!window) {
+        return false;
+    }
+    QCoreApplication::processEvents();
+    auto* button = window->findChild<QObject*>(QStringLiteral("videoTemplateButton"));
+    auto* menu = window->findChild<QObject*>(QStringLiteral("videoTemplateMenu"));
+    if (!require(button && menu, QStringLiteral("video export has a template menu"), err)) {
+        return false;
+    }
+    const bool clicked = QMetaObject::invokeMethod(button, "clicked");
+    QCoreApplication::processEvents();
+    return require(clicked && menu->property("active").toBool(),
+                   QStringLiteral("the template button opens the menu"), err);
 }
 
 bool verifyRealExportPageControls(QTextStream& err)
@@ -1020,6 +1041,10 @@ bool verifySynchronousChoiceSequenceKeepsTheNextDialogOpen(QTextStream& err)
 
 int main(int argc, char** argv)
 {
+    const bool templatesOnly = argc > 1 && QByteArray(argv[1]) == "--templates-only";
+    if (templatesOnly) {
+        qputenv("QT_QPA_PLATFORM", "offscreen");
+    } else {
 #ifdef Q_OS_WIN
     // Qt 6.8's offscreen/minimal QPA initialization can hang before main-loop
     // entry on Windows; use the native platform plugin for these controls.
@@ -1027,9 +1052,13 @@ int main(int argc, char** argv)
 #else
     qputenv("QT_QPA_PLATFORM", "offscreen");
 #endif
+    }
     QQuickStyle::setStyle(QStringLiteral("Basic"));
     QGuiApplication app(argc, argv);
     QTextStream err(stderr);
+    if (templatesOnly) {
+        return verifyTemplateMenu(err) ? 0 : 1;
+    }
     const bool ok = verifyRealExportPageControls(err) && verifyBatchInputsOwnASettingsTab(err)
         && verifyVisualRangeSelectorDragsTheSharedPreview(err)
         && verifyVisualRangePlayheadKeepsDeviceWidth(err)
