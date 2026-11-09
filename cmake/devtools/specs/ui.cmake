@@ -193,15 +193,20 @@ miacode_add_dev_tool(cover_export_session_spec TEST
         src/app/ui/export/CoverExportSession.h
         src/app/ui/preferences/LocaleService.cpp
         src/app/ui/preferences/LocaleService.h
+        src/app/ui/preferences/ApplicationMenuTranslation.cpp
         src/app/services/PreferenceDocument.cpp
         src/app/services/ProjectPreferences.cpp
         src/app/services/UiRequestService.cpp
         src/app/services/UiRequestService.h
-    LIBS miacode_export Qt6::Quick
+    LIBS miacode_export miacode_preview_quickplugin Qt6::Quick
     INCLUDES src
 )
 target_compile_definitions(cover_export_session_spec PRIVATE
     "MIACODE_SOURCE_ROOT=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
+if(APPLE)
+    target_sources(cover_export_session_spec PRIVATE src/app/ui/preferences/ApplicationMenuTranslationMac.mm)
+    target_link_libraries(cover_export_session_spec PRIVATE "-framework AppKit")
+endif()
 
 miacode_add_dev_tool(qml_export_video_page_spec TEST
     SOURCES
