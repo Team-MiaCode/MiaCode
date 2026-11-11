@@ -31,6 +31,10 @@ Session::~Session()
     applicationServices_.setExportEngine(nullptr);
     applicationServices_.setEditorPageRouter(nullptr);
     applicationServices_.setLatencyEngine(nullptr);
+    applicationServices_.setMediaToolsEngine(nullptr);
+    if (mediaJobs_ != nullptr) {
+        mediaJobs_->shutdown();
+    }
     if (previewHost_ != nullptr) {
         previewHost_->invalidateSession();
     }
@@ -66,6 +70,11 @@ Session::~Session()
 
 void Session::preparePreviewForShutdown()
 {
+    applicationServices_.setMediaToolsEngine(nullptr);
+    if (mediaJobs_ != nullptr) {
+        mediaJobs_->shutdown();
+    }
+
     if (quickShellPreviewCompositeSurface_ != nullptr) {
         quickShellPreviewCompositeSurface_->setMediaHost(nullptr);
         quickShellPreviewCompositeSurface_->setActive(false);
