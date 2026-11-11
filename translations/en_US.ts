@@ -2738,8 +2738,8 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>Analyzing audio alignment...</translation>
     </message>
     <message id="media_tools.video_audio_missing">
-        <source>The background video has no audio stream to align.</source>
-        <translation>The background video has no audio stream to align.</translation>
+        <source>The background video has no audio stream and cannot be automatically aligned; no files were changed.</source>
+        <translation>The background video has no audio stream and cannot be automatically aligned; no files were changed.</translation>
     </message>
     <message id="media_tools.video_alignment_cancelled">
         <source>Audio alignment canceled.</source>
