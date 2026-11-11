@@ -5053,6 +5053,22 @@ Error: %1</translation>
     <message id="dialog.preferences.theme.dracula"><source>Dracula</source><translation>Dracula</translation></message>
     <message id="dialog.preferences.theme.tokyo_night"><source>Tokyo Night</source><translation>Tokyo Night</translation></message>
     <message id="dialog.preferences.theme.noah"><source>Noa</source><translation>Noa</translation></message>
+    <message id="video_template.title"><source>Video templates</source><translation>Video templates</translation></message>
+    <message id="video_template.export"><source>Export current template…</source><translation>Export current template…</translation></message>
+    <message id="video_template.import"><source>Import and apply template…</source><translation>Import and apply template…</translation></message>
+    <message id="video_template.invalid"><source>This video template is invalid or uses an unsupported version.</source><translation>This video template is invalid or uses an unsupported version.</translation></message>
+    <message id="video_template.file_filter">
+        <source>MiaCode video template (*.miatemplate)</source>
+        <translation>MiaCode video template (*.miatemplate)</translation>
+    </message>
+    <message id="video_template.compatible_file_filter">
+        <source>MiaCode video template (*.miatemplate *.json)</source>
+        <translation>MiaCode video template (*.miatemplate *.json)</translation>
+    </message>
+    <message id="video_template.path_exists">
+        <source>A template with that name already exists.</source>
+        <translation>A template with that name already exists.</translation>
+    </message>
 </context>
 <context>
     <!-- Qt loads qtbase texts for the system locale; this context keeps the

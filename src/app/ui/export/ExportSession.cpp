@@ -22,18 +22,28 @@
 #include <QEventLoop>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonDocument>
 #include <QJsonObject>
 #include <QScopedValueRollback>
+#include <QSaveFile>
 #include <QSettings>
 #include <QTimer>
 #include <QUrl>
 
+#include <algorithm>
 #include <cmath>
 #include <utility>
 
 
 namespace miacode::ui {
 namespace {
+
+constexpr auto kTemplateKind = "miacode-video-template";
+constexpr auto kTemplateSuffix = ".miatemplate";
+constexpr auto kTemplatesKey = "templates";
+constexpr int kTemplateVersion = 1;
+constexpr int kTemplateNameLimit = 120;
+constexpr qint64 kTemplateFileLimit = 1024 * 1024;
 
 constexpr auto kBatchOutputDirectoryKey = "last_batch_output_directory";
 
@@ -56,6 +66,18 @@ constexpr double kMinimumExportRangeSeconds = 5.0;
 double minimumExportRangeSecondsForChart(double chartDurationSeconds)
 {
     return qMin(kMinimumExportRangeSeconds, qMax(0.0, chartDurationSeconds));
+}
+
+QJsonObject savedVideoTemplates()
+{
+    return miacode::app_preferences::loadDialogPreferences().value(QLatin1String(kTemplatesKey)).toObject();
+}
+
+void removeLocalTemplatePaths(QJsonObject& settings)
+{
+    settings.remove(QStringLiteral("intro_background_custom_path"));
+    settings.remove(QStringLiteral("intro_card_font_display"));
+    settings.remove(QStringLiteral("intro_card_font_body"));
 }
 
 }  // namespace
@@ -1575,6 +1597,205 @@ void ExportSession::setBatchOutputDirectory(const QString& path)
     preferences.insert(QLatin1String(kBatchOutputDirectoryKey), path);
     miacode::app_preferences::saveDialogPreferences(preferences);
     emit batchChanged();
+}
+
+QVariantList ExportSession::videoTemplates() const
+{
+    QVariantList result;
+    const auto templates = savedVideoTemplates();
+    for (auto it = templates.begin(); it != templates.end(); ++it) {
+        result.append(QVariantMap{{QStringLiteral("name"), it.key()}});
+    }
+    return result;
+}
+
+QJsonObject ExportSession::currentTemplateSettings() const
+{
+    QJsonObject settings;
+    miacode::video_export::appendVideoExportPreferences(&settings, task_);
+    removeLocalTemplatePaths(settings);
+    return settings;
+}
+
+bool ExportSession::applyTemplateSettings(const QJsonObject& settings)
+{
+    if (exportRunning_) {
+        return false;
+    }
+    const int width = settings.value(QStringLiteral("resolution_width")).toInt();
+    const int height = settings.value(QStringLiteral("resolution_height")).toInt();
+    const int fps = settings.value(QStringLiteral("fps")).toInt();
+    const auto resolution = std::find_if(kResolutionPresets.begin(), kResolutionPresets.end(),
+        [width, height](const auto& preset) { return preset.width == width && preset.height == height; });
+    if (resolution == kResolutionPresets.end()
+        || std::find(kFpsOptions.begin(), kFpsOptions.end(), fps) == kFpsOptions.end()) {
+        return false;
+    }
+    QJsonObject portable = settings;
+    removeLocalTemplatePaths(portable);
+    const auto expected = currentTemplateSettings();
+    for (auto it = expected.begin(); it != expected.end(); ++it) {
+        if (portable.contains(it.key()) && portable.value(it.key()).type() != it.value().type()) {
+            return false;
+        }
+    }
+
+    const IntroBannerSpec previousIntro = task_.intro;
+    const auto previousMode = task_.outputMode;
+    miacode::video_export::applyVideoExportPreferences(portable, &task_);
+    task_.intro.enabled = previousIntro.enabled;
+    task_.intro.pvPreview = previousIntro.pvPreview;
+    task_.intro.pvPreviewStartSeconds = previousIntro.pvPreviewStartSeconds;
+    if (!portable.contains(QStringLiteral("output_mode"))) {
+        task_.outputMode = previousMode;
+    }
+    if (task_.intro.backgroundMode == QLatin1String("custom") && task_.intro.customBackgroundPath.isEmpty()) {
+        task_.intro.backgroundMode = QStringLiteral("jacket");
+    }
+    if (task_.outputMode != previousMode && !task_.outputPath.isEmpty()) {
+        task_.outputPath = videoExportPrimaryOutputPath(task_.outputPath, task_.outputMode);
+    }
+    resolutionIndex_ = static_cast<int>(resolution - kResolutionPresets.begin());
+    savePreferences();
+    emit outputChanged();
+    emit videoChanged();
+    emit introChanged();
+    if (pageSessionActive_) {
+        applyLivePreviewSettings();
+        if (engine()) {
+            engine()->refreshIntroState();
+        }
+    }
+    return true;
+}
+
+void ExportSession::saveVideoTemplates(const QJsonObject& templates)
+{
+    auto preferences = miacode::app_preferences::loadDialogPreferences();
+    preferences.insert(QLatin1String(kTemplatesKey), templates);
+    if (miacode::app_preferences::saveDialogPreferences(preferences)) {
+        emit templatesChanged();
+    }
+}
+
+void ExportSession::saveVideoTemplate(const QString& name)
+{
+    const QString key = name.trimmed();
+    if (key.isEmpty() || key.size() > kTemplateNameLimit || exportRunning_) {
+        return;
+    }
+    auto templates = savedVideoTemplates();
+    templates.insert(key, currentTemplateSettings());
+    saveVideoTemplates(templates);
+}
+
+void ExportSession::applyVideoTemplate(const QString& name)
+{
+    if (!applyTemplateSettings(savedVideoTemplates().value(name).toObject())) {
+        uiRequests_->postNotice(miacode::NoticeSeverity::Error,
+            miacode::localizedText("video_template.title"), miacode::localizedText("video_template.invalid"));
+    }
+}
+
+void ExportSession::renameVideoTemplate(const QString& oldName, const QString& newName)
+{
+    const QString name = newName.trimmed();
+    if (name.isEmpty() || name.size() > kTemplateNameLimit || exportRunning_) {
+        return;
+    }
+    auto templates = savedVideoTemplates();
+    if (!templates.contains(oldName) || templates.contains(name)) {
+        return;
+    }
+    templates.insert(name, templates.take(oldName));
+    saveVideoTemplates(templates);
+}
+
+void ExportSession::removeVideoTemplate(const QString& name)
+{
+    if (exportRunning_) {
+        return;
+    }
+    auto templates = savedVideoTemplates();
+    if (!templates.take(name).isUndefined()) {
+        saveVideoTemplates(templates);
+    }
+}
+
+void ExportSession::exportVideoTemplate()
+{
+    if (exportRunning_) {
+        return;
+    }
+    FileRequest request;
+    request.title = miacode::localizedText("video_template.export");
+    request.saveMode = true;
+    request.startPath = QStringLiteral("video-template.miatemplate");
+    request.nameFilters = {miacode::localizedText("video_template.file_filter")};
+    const QJsonObject object{{QStringLiteral("kind"), QLatin1String(kTemplateKind)},
+        {QStringLiteral("version"), kTemplateVersion}, {QStringLiteral("settings"), currentTemplateSettings()}};
+    QPointer<ExportSession> guard(this);
+    uiRequests_->requestFile(request, [guard, object](const QString& path) {
+        if (!guard || path.isEmpty()) {
+            return;
+        }
+        const QByteArray bytes = QJsonDocument(object).toJson();
+        const QString suffix = QString::fromLatin1(kTemplateSuffix);
+        QString targetPath = path;
+        while (targetPath.endsWith(QStringLiteral(".json"), Qt::CaseInsensitive)
+               || targetPath.endsWith(suffix, Qt::CaseInsensitive)) {
+            targetPath.chop(targetPath.endsWith(suffix, Qt::CaseInsensitive) ? suffix.size() : 5);
+        }
+        targetPath += suffix;
+        if (targetPath != path && QFileInfo::exists(targetPath)) {
+            guard->uiRequests_->postNotice(miacode::NoticeSeverity::Error,
+                miacode::localizedText("video_template.title"), miacode::localizedText("video_template.path_exists"), targetPath);
+            return;
+        }
+        QSaveFile file(targetPath);
+        if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit()) {
+            guard->uiRequests_->postNotice(miacode::NoticeSeverity::Error,
+                miacode::localizedText("video_template.title"), miacode::LocalizedText(file.errorString()));
+        }
+    });
+}
+
+void ExportSession::importVideoTemplate()
+{
+    if (exportRunning_) {
+        return;
+    }
+    FileRequest request;
+    request.title = miacode::localizedText("video_template.import");
+    request.nameFilters = {miacode::localizedText("video_template.compatible_file_filter")};
+    QPointer<ExportSession> guard(this);
+    uiRequests_->requestFile(request, [guard](const QString& path) {
+        if (!guard || path.isEmpty()) {
+            return;
+        }
+        QFile file(path);
+        const QByteArray bytes = file.open(QIODevice::ReadOnly) ? file.read(kTemplateFileLimit + 1) : QByteArray{};
+        const auto object = bytes.size() <= kTemplateFileLimit ? QJsonDocument::fromJson(bytes).object() : QJsonObject{};
+        const QString kind = object.value(QStringLiteral("kind")).toString();
+        if (kind != QLatin1String(kTemplateKind)
+            || object.value(QStringLiteral("version")).toInt() != kTemplateVersion
+            || !guard->applyTemplateSettings(object.value(QStringLiteral("settings")).toObject())) {
+            guard->uiRequests_->postNotice(miacode::NoticeSeverity::Error,
+                miacode::localizedText("video_template.title"), miacode::localizedText("video_template.invalid"));
+            return;
+        }
+        const auto existing = savedVideoTemplates();
+        QString base = QFileInfo(path).completeBaseName().left(kTemplateNameLimit).trimmed();
+        if (base.isEmpty()) {
+            base = QStringLiteral("Template");
+        }
+        QString name = base;
+        for (int i = 2; existing.contains(name); ++i) {
+            const QString suffix = QStringLiteral(" (%1)").arg(i);
+            name = base.left(kTemplateNameLimit - suffix.size()) + suffix;
+        }
+        guard->saveVideoTemplate(name);
+    });
 }
 
 } // namespace miacode::ui

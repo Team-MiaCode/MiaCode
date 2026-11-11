@@ -5053,6 +5053,22 @@ Error: %1</source>
     <message id="dialog.preferences.theme.dracula"><source>Dracula</source><translation>ドラキュラ</translation></message>
     <message id="dialog.preferences.theme.tokyo_night"><source>Tokyo Night</source><translation>東京の夜</translation></message>
     <message id="dialog.preferences.theme.noah"><source>Noa</source><translation>ノア</translation></message>
+    <message id="video_template.title"><source>Video templates</source><translation>動画テンプレート</translation></message>
+    <message id="video_template.export"><source>Export current template…</source><translation>現在のテンプレートを書き出す…</translation></message>
+    <message id="video_template.import"><source>Import and apply template…</source><translation>テンプレートを読み込んで適用…</translation></message>
+    <message id="video_template.invalid"><source>This video template is invalid or uses an unsupported version.</source><translation>動画テンプレートが無効か、未対応のバージョンです。</translation></message>
+    <message id="video_template.file_filter">
+        <source>MiaCode video template (*.miatemplate)</source>
+        <translation>MiaCode 動画テンプレート (*.miatemplate)</translation>
+    </message>
+    <message id="video_template.compatible_file_filter">
+        <source>MiaCode video template (*.miatemplate *.json)</source>
+        <translation>MiaCode 動画テンプレート (*.miatemplate *.json)</translation>
+    </message>
+    <message id="video_template.path_exists">
+        <source>A template with that name already exists.</source>
+        <translation>同じ名前のテンプレートが既に存在します。</translation>
+    </message>
 </context>
 <context>
     <!-- Qt loads qtbase texts for the system locale; this context keeps the

@@ -16,6 +16,7 @@
 
 #include "app/services/ShellNotifications.h"
 
+class QJsonObject;
 
 // Pure-QML export settings session for the v2 shell. The only export UI there
 // is; it drives audition + worker launch through miacode::ExportEngine and
@@ -103,6 +104,7 @@ class ExportSession final : public QObject, public miacode::ExportPagePort
     // Batch
     Q_PROPERTY(QStringList chartDirectories READ chartDirectories NOTIFY batchChanged)
     Q_PROPERTY(QVariantList batchDifficultyChecks READ batchDifficultyChecks NOTIFY batchChanged)
+    Q_PROPERTY(QVariantList videoTemplates READ videoTemplates NOTIFY templatesChanged)
     Q_PROPERTY(QString batchOutputDirectory READ batchOutputDirectory WRITE setBatchOutputDirectory NOTIFY batchChanged)
 
 public:
@@ -185,6 +187,13 @@ public:
 
     QStringList chartDirectories() const { return chartDirectories_; }
     QVariantList batchDifficultyChecks() const;
+    QVariantList videoTemplates() const;
+    Q_INVOKABLE void saveVideoTemplate(const QString& name);
+    Q_INVOKABLE void applyVideoTemplate(const QString& name);
+    Q_INVOKABLE void renameVideoTemplate(const QString& oldName, const QString& newName);
+    Q_INVOKABLE void removeVideoTemplate(const QString& name);
+    Q_INVOKABLE void exportVideoTemplate();
+    Q_INVOKABLE void importVideoTemplate();
     QString batchOutputDirectory() const { return batchOutputDirectory_; }
 
     void enter(int previousActiveDifficultyId) override;
@@ -278,6 +287,7 @@ signals:
     void rangePlaybackStateChanged();
     void playbackRangeRequested(bool enabled, double startSecond, double endSecond);
     void batchChanged();
+    void templatesChanged();
 
 private:
     void seedFromDifficulty(int difficultyId);
@@ -290,6 +300,9 @@ private:
     void stopAudition();
     void applyPreferences();
     void savePreferences() const;
+    QJsonObject currentTemplateSettings() const;
+    bool applyTemplateSettings(const QJsonObject& settings);
+    void saveVideoTemplates(const QJsonObject& templates);
     void resetIntroSelection();
     void setUnavailableReason(const QString& reason);
     bool difficultyExists(int difficultyId) const;

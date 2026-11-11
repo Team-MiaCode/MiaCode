@@ -88,6 +88,14 @@ Rectangle {
             sidebarTitle: true
             showMore: false
 
+            AppButton {
+                id: videoTemplateButton
+                objectName: "videoTemplateButton"
+                text: qsTrId("video_template.title")
+                selected: videoTemplateMenu.active
+                enabled: root.settingsAvailable && !root.session.exportRunning
+                onClicked: videoTemplateMenu.active ? videoTemplateMenu.close() : videoTemplateMenu.openAt(videoTemplateButton)
+            }
             AppChoiceButton {
                 text: qsTrId("action.batch_export")
                 enabled: root.session !== null
@@ -987,4 +995,58 @@ Rectangle {
                 exportRangeEndField.text = root.session.exportEndSeconds.toFixed(3)
         }
     }
+    AppMenu {
+        id: videoTemplateMenu
+        objectName: "videoTemplateMenu"
+        hugContent: true
+        AppMenuItem { text: qsTrId("video_template.export"); onTriggered: root.session.exportVideoTemplate() }
+        AppMenuItem { text: qsTrId("video_template.import"); onTriggered: root.session.importVideoTemplate() }
+        AppMenuItem { text: qsTrId("cover.manage_presets"); onTriggered: videoTemplateDialog.open() }
+        AppMenuSeparator {}
+        Instantiator {
+            model: root.session ? root.session.videoTemplates : []
+            delegate: AppMenuItem {
+                required property var modelData
+                text: modelData.name
+                onTriggered: root.session.applyVideoTemplate(modelData.name)
+            }
+            onObjectAdded: (index, item) => videoTemplateMenu.insertItem(index + 4, item)
+            onObjectRemoved: (index, item) => videoTemplateMenu.removeItem(item)
+        }
+    }
+    AppDialog {
+        id: videoTemplateDialog
+        title: qsTrId("video_template.title")
+        preferredWidth: 560
+        preferredHeight: 400
+        footer: DialogFooter { acceptText: qsTrId("action.close"); onAccepted: videoTemplateDialog.close() }
+        body: ColumnLayout {
+            spacing: Theme.settingsRowSpacing
+            RowLayout {
+                AppTextField {
+                    id: templateName
+                    Layout.fillWidth: true
+                    maximumLength: 120
+                    placeholderText: qsTrId("cover.preset_name")
+                }
+                AppButton {
+                    text: qsTrId("cover.save_preset")
+                    enabled: templateName.text.trim().length > 0
+                    onClicked: root.session.saveVideoTemplate(templateName.text)
+                }
+            }
+            Repeater {
+                model: root.session ? root.session.videoTemplates : []
+                delegate: RowLayout {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    AppTextField { id: savedName; Layout.fillWidth: true; maximumLength: 120; text: modelData.name }
+                    AppButton { text: qsTrId("cover.apply_preset"); onClicked: root.session.applyVideoTemplate(modelData.name) }
+                    AppButton { text: qsTrId("cover.rename_preset"); onClicked: root.session.renameVideoTemplate(modelData.name, savedName.text) }
+                    AppButton { text: qsTrId("cover.delete_preset"); onClicked: root.session.removeVideoTemplate(modelData.name) }
+                }
+            }
+        }
+    }
+
 }
