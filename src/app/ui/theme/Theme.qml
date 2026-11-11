@@ -56,21 +56,23 @@ QtObject {
             primary: "#297AA0",
             badge: "#307E9F",
             soft: "#A5D6FF",
-            focus: Qt.rgba(0x39 / 255, 0x94 / 255, 0xBC / 255, 0xB3 / 255)
+            focus: Qt.rgba(0x39 / 255, 0x94 / 255, 0xBC / 255, 0xB3 / 255),
+            // Persistent on/selected state: switch and checkbox on, the
+            // export range body. A step below primary in lightness and
+            // saturation so it never outweighs the primary action.
+            muted: "#306A88"
         },
         scroll: {
             handle: "#5E6062",
             handleHover: "#7A7C7E"
         },
-        // Boolean controls stay neutral while off; the on state carries a
-        // muted accent so a column of options never outweighs the solid
-        // primary action. AppSwitch and AppCheckBox share these.
+        // Boolean controls stay neutral while off; the on state uses
+        // accent.muted. AppSwitch and AppCheckBox share these.
         toggle: {
             track: "#333536",
             knob: "#808284",
             border: "#5C5D5E",
             knobBorder: Qt.rgba(0, 0, 0, 0.35),
-            checkedTrack: "#374B5A",
             checkedKnob: "#D6DCE2"
         },
         // AppSlider: a neutral fill, so the handle is what draws the eye.
@@ -202,7 +204,8 @@ QtObject {
             primary: "#526F98",
             badge: "#526F98",
             soft: "#B9CBE3",
-            focus: Qt.rgba(0x52 / 255, 0x6F / 255, 0x98 / 255, 0xB3 / 255)
+            focus: Qt.rgba(0x52 / 255, 0x6F / 255, 0x98 / 255, 0xB3 / 255),
+            muted: "#7088AA"
         },
         scroll: {
             handle: "#A3AFBD",
@@ -213,7 +216,6 @@ QtObject {
             knob: "#FFFFFF",
             border: "#A3AFBD",
             knobBorder: Qt.rgba(31 / 255, 45 / 255, 61 / 255, 0.22),
-            checkedTrack: "#7088AA",
             checkedKnob: "#FFFFFF"
         },
         slider: {
@@ -338,7 +340,8 @@ QtObject {
             primary: "#2E77D0",
             badge: "#2E77D0",
             soft: "#B8CCE5",
-            focus: Qt.rgba(0x2E / 255, 0x77 / 255, 0xD0 / 255, 0xB3 / 255)
+            focus: Qt.rgba(0x2E / 255, 0x77 / 255, 0xD0 / 255, 0xB3 / 255),
+            muted: "#6097DA"
         },
         scroll: {
             handle: "#9CB5CE",
@@ -349,7 +352,6 @@ QtObject {
             knob: "#FFFFFF",
             border: "#A9B6C6",
             knobBorder: Qt.rgba(32 / 255, 48 / 255, 64 / 255, 0.22),
-            checkedTrack: "#6097DA",
             checkedKnob: "#FFFFFF"
         },
         slider: {
@@ -472,7 +474,8 @@ QtObject {
             primary: "#4F8FEC",
             badge: "#4F8FEC",
             soft: "#A8C8F8",
-            focus: Qt.rgba(0x4F / 255, 0x8F / 255, 0xEC / 255, 0xB3 / 255)
+            focus: Qt.rgba(0x4F / 255, 0x8F / 255, 0xEC / 255, 0xB3 / 255),
+            muted: "#4774A6"
         },
         scroll: {
             handle: "#5A6A7B",
@@ -483,7 +486,6 @@ QtObject {
             knob: "#8494A6",
             border: "#5F6F82",
             knobBorder: Qt.rgba(0, 0, 0, 0.35),
-            checkedTrack: "#546D8C",
             checkedKnob: "#D8E0EA"
         },
         slider: {

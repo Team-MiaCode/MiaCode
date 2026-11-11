@@ -23,6 +23,8 @@ bool verifyPreferencesAndDifficultyReseed(QTextStream& err)
 {
     VideoExportTask edited;
     edited.introSoundFileName = QStringLiteral("custom-start.flac");
+    miacode::video_export::applyVideoExportPreferences(
+        {{QStringLiteral("intro_pv_brightness"), 0.35}}, &edited);
 
     // The intro volume belongs to the audio settings now; the export
     // preferences no longer carry a copy of it.
@@ -32,6 +34,10 @@ bool verifyPreferencesAndDifficultyReseed(QTextStream& err)
         !preferences.contains(QStringLiteral("intro_sound_volume")),
         QStringLiteral("shared export preferences do not serialize an intro volume"),
         err);
+    ok &= require(
+        nearlyEqual(preferences.value(QStringLiteral("intro_pv_brightness")).toDouble(-1.0), 0.35),
+        QStringLiteral("PV brightness survives saving and restoring export preferences"),
+        err);
 
     VideoExportTask reseeded;
     reseeded.outputPath = QStringLiteral("new-difficulty.mp4");
@@ -40,6 +46,18 @@ bool verifyPreferencesAndDifficultyReseed(QTextStream& err)
     ok &= require(
         reseeded.introSoundFileName == QStringLiteral("custom-start.flac"),
         QStringLiteral("difficulty reseeding preserves the selected intro sound"),
+        err);
+    ok &= require(
+        nearlyEqual(introBannerStyleMap(reseeded.intro)
+                        .value(QStringLiteral("pvPreviewBrightness")).toDouble(), 0.35),
+        QStringLiteral("difficulty reseeding preserves the independent PV brightness"),
+        err);
+    IntroBannerSpec rebuilt;
+    copyIntroStyling(edited.intro, &rebuilt);
+    ok &= require(
+        nearlyEqual(introBannerStyleMap(rebuilt)
+                        .value(QStringLiteral("pvPreviewBrightness")).toDouble(), 0.35),
+        QStringLiteral("snapshot rebuilding preserves PV brightness in the shared overlay style"),
         err);
     ok &= require(
         reseeded.outputPath == QStringLiteral("new-difficulty.mp4")
@@ -68,7 +86,10 @@ bool verifySnapshotAndWorkerRoundTrip(QTextStream& err)
     source.intro.pvPreview = true;
     source.intro.pvPreviewStartSeconds = 42.5;
 
-    const QJsonObject json = source.toJson();
+    QJsonObject json = source.toJson();
+    QJsonObject pvIntro = json.value(QStringLiteral("intro")).toObject();
+    pvIntro.insert(QStringLiteral("pv_preview_brightness"), 0.4);
+    json.insert(QStringLiteral("intro"), pvIntro);
     const QJsonObject intro = json.value(QStringLiteral("intro")).toObject();
     bool ok = require(
         intro.value(QStringLiteral("sound_file")).toString() == QStringLiteral("custom-start.flac")
@@ -104,6 +125,13 @@ bool verifySnapshotAndWorkerRoundTrip(QTextStream& err)
     ok &= require(
         workerTask.intro.pvPreview && nearlyEqual(workerTask.intro.pvPreviewStartSeconds, 42.5),
         QStringLiteral("worker task receives the PV preview intro segment"),
+        err);
+    ok &= require(
+        nearlyEqual(introBannerStyleMap(workerTask.intro)
+                        .value(QStringLiteral("pvPreviewBrightness")).toDouble(), 0.4)
+            && nearlyEqual(restored.toJson().value(QStringLiteral("intro")).toObject()
+                               .value(QStringLiteral("pv_preview_brightness")).toDouble(-1.0), 0.4),
+        QStringLiteral("PV brightness survives snapshot serialization and reaches the worker overlay"),
         err);
 
     QJsonObject clampedJson = json;

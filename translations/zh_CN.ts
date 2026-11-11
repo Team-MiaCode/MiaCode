@@ -1621,6 +1621,10 @@ Failed: %2</source>
         <source>SD</source>
         <translation>SD</translation>
     </message>
+    <message id="dialog.render_settings.video.firework_brightness">
+        <source>Firework brightness</source>
+        <translation>烟花亮度</translation>
+    </message>
     <message id="dialog.render_settings.video.smooth_brightness">
         <source>Smooth brightness</source>
         <translation>平滑亮度</translation>
@@ -1774,12 +1778,12 @@ Restore the backup from %1?</source>
         <translation>已有另一个导出正在进行。</translation>
     </message>
     <message id="dialog.video_export.error.worker_crash">
-        <source>Export worker crashed.</source>
-        <translation>导出子进程已崩溃。</translation>
+        <source>The export stopped unexpectedly.</source>
+        <translation>导出意外中断。</translation>
     </message>
     <message id="dialog.video_export.error.worker_exit">
-        <source>Export worker exited unexpectedly.</source>
-        <translation>导出子进程异常退出。</translation>
+        <source>The export stopped unexpectedly.</source>
+        <translation>导出意外中断。</translation>
     </message>
     <message id="dialog.video_export.error.worker_retry_final_attempt">
         <source>Safe-mode retry diagnostics</source>
@@ -1790,12 +1794,60 @@ Restore the backup from %1?</source>
         <translation>第一次尝试诊断</translation>
     </message>
     <message id="dialog.video_export.error.worker_retry_note">
-        <source>The export worker crashed once and was retried automatically with PBO disabled.</source>
-        <translation>导出子进程曾崩溃一次，系统已自动关闭 PBO 并重试。</translation>
+        <source>The first attempt stopped unexpectedly, so the export was retried in compatibility mode.</source>
+        <translation>第一次导出意外中断，已改用兼容模式重试。</translation>
     </message>
     <message id="dialog.video_export.error.worker_write_failed">
         <source>Failed to send export snapshot to worker.</source>
         <translation>无法将导出快照发送给导出子进程。</translation>
+    </message>
+    <message id="dialog.video_export.error.disk_full_temp">
+        <source>%1 is out of space. Export writes the video to the system temp folder (%2) first.</source>
+        <translation>%1空间不足。导出会先在系统临时目录（%2）生成视频。</translation>
+    </message>
+    <message id="dialog.video_export.error.disk_full_output">
+        <source>%1 is out of space, so the exported file could not be written.</source>
+        <translation>%1空间不足，无法写入导出文件。</translation>
+    </message>
+    <message id="dialog.video_export.error.temp_dir_failed">
+        <source>Could not create files in the system temp folder (%1).</source>
+        <translation>无法在系统临时目录（%1）中创建文件。</translation>
+    </message>
+    <message id="dialog.video_export.error.output_write_failed">
+        <source>Could not write %1. Another app may be using the file.</source>
+        <translation>无法写入 %1，文件可能正被其他程序占用。</translation>
+    </message>
+    <message id="dialog.video_export.error.ffmpeg_missing">
+        <source>The ffmpeg component is missing. Reinstall MiaCode and try again.</source>
+        <translation>缺少 ffmpeg 组件，重新安装 MiaCode 后重试。</translation>
+    </message>
+    <message id="dialog.video_export.error.render_failed">
+        <source>Rendering the export frames failed.</source>
+        <translation>导出画面渲染失败。</translation>
+    </message>
+    <message id="dialog.video_export.error.audio_failed">
+        <source>Could not generate the export audio track.</source>
+        <translation>无法生成导出音轨。</translation>
+    </message>
+    <message id="dialog.video_export.error.encode_failed">
+        <source>Video encoding failed.</source>
+        <translation>视频编码失败。</translation>
+    </message>
+    <message id="dialog.video_export.error.unknown">
+        <source>The export did not finish. See the details below.</source>
+        <translation>导出未完成，原因见下方详细信息。</translation>
+    </message>
+    <message id="dialog.video_export.volume.unknown">
+        <source>The disk</source>
+        <translation>磁盘</translation>
+    </message>
+    <message id="dialog.video_export.volume.drive">
+        <source>Drive %1:</source>
+        <translation>%1 盘</translation>
+    </message>
+    <message id="dialog.video_export.volume.named">
+        <source>Disk “%1”</source>
+        <translation>磁盘“%1”</translation>
     </message>
     <message id="dialog.video_export.fps">
         <source>FPS</source>
@@ -1864,6 +1916,18 @@ Restore the backup from %1?</source>
     <message id="preview.stop">
         <source>Stop</source>
         <translation>停止</translation>
+    </message>
+    <message id="preview.audio_unavailable.title">
+        <source>Can't Play Sound</source>
+        <translation>无法播放声音</translation>
+    </message>
+    <message id="preview.audio_unavailable.message">
+        <source>The audio output device could not be opened, so the preview is playing silently. Check the default output device in your system sound settings, or close any app that holds the device exclusively, then play again.</source>
+        <translation>无法打开音频输出设备，当前为静音预览。可在系统声音设置中检查默认输出设备，或关闭独占声卡的程序后重新播放。</translation>
+    </message>
+    <message id="preview.audio_unavailable.error_code">
+        <source>Audio error code: %1</source>
+        <translation>音频错误码：%1</translation>
     </message>
     <message id="dialog.video_export.progress.canceling">
         <source>Canceling export...</source>
@@ -1988,6 +2052,22 @@ Restore the backup from %1?</source>
     <message id="document.cannot_write_chart">
         <source>Cannot write the chart file.</source>
         <translation>无法写入谱面文件。</translation>
+    </message>
+    <message id="file_write.error.disk_full">
+        <source>Couldn't write %1: the disk is full.</source>
+        <translation>无法写入 %1：磁盘空间不足。</translation>
+    </message>
+    <message id="file_write.error.access_denied">
+        <source>Couldn't write %1: permission denied.</source>
+        <translation>无法写入 %1：没有写入权限。</translation>
+    </message>
+    <message id="file_write.error.in_use">
+        <source>Couldn't write %1 because another app is using it.</source>
+        <translation>无法写入 %1，文件正被其他程序占用。</translation>
+    </message>
+    <message id="file_write.error.generic">
+        <source>Couldn't write %1: unknown reason.</source>
+        <translation>无法写入 %1：原因不明。</translation>
     </message>
     <message id="document.cannot_write_file">
         <source>Cannot write file:
@@ -2706,6 +2786,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="menu.tools">
         <source>Tools(&amp;T)</source>
         <translation>工具(&amp;T)</translation>
+    </message>
+    <message id="menu.majnet_n">
+        <source>Network(&amp;N)</source>
+        <translation>网络(&amp;N)</translation>
     </message>
     <message id="menu.transform">
         <source>Modify(&amp;M)</source>
@@ -3579,6 +3663,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Preview rendering mode</source>
         <translation>预览渲染模式</translation>
     </message>
+    <message id="menu.preview_rendering_mode">
+        <source>Rendering Mode</source>
+        <translation>渲染模式</translation>
+    </message>
     <message id="qml.open_simai_file">
         <source>Open Simai file</source>
         <translation>打开 simai 文件</translation>
@@ -3742,6 +3830,14 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="qml.timeline_zoom">
         <source>Timeline zoom</source>
         <translation>时间轴缩放</translation>
+    </message>
+    <message id="qml.zoom_in">
+        <source>Zoom in</source>
+        <translation>放大</translation>
+    </message>
+    <message id="qml.zoom_out">
+        <source>Zoom out</source>
+        <translation>缩小</translation>
     </message>
     <message id="qml.title_font_preview">
         <source>Title-font preview</source>
@@ -4224,6 +4320,10 @@ Error: %1</source>
         <source>Majdata Net</source>
         <translation>谱面下载</translation>
     </message>
+    <message id="net.ui.majnet">
+        <source>Network</source>
+        <translation>网络</translation>
+    </message>
     <message id="net.ui.uploader">
         <source>Uploader</source>
         <translation>上传者</translation>
@@ -4657,6 +4757,26 @@ Error: %1</source>
         <source>Playback controls are in the detached preview window.</source>
         <translation>播放控件位于独立预览窗口。</translation>
     </message>
+    <message id="guide.timeline.title">
+        <source>Timeline options</source>
+        <translation>时间轴选项</translation>
+    </message>
+    <message id="guide.timeline.hint">
+        <source>Expand the bottom panel and select Timeline to view its settings.</source>
+        <translation>展开底部面板并选择「时间轴」，即可查看时间轴设置。</translation>
+    </message>
+    <message id="guide.timeline.zoom">
+        <source>Zoom: adjust the timeline's horizontal scale.</source>
+        <translation>缩放视图：调整时间轴的横向比例。</translation>
+    </message>
+    <message id="guide.timeline.brightness">
+        <source>Brightness: open settings in the timeline's upper-right corner to adjust the waveform and grid lines separately.</source>
+        <translation>显示亮度：点击时间轴右上角设置，分别调节波形图与网格线亮度。</translation>
+    </message>
+    <message id="guide.timeline.follow">
+        <source>Follow code: choose whether the timeline follows the current chart-source position in settings.</source>
+        <translation>代码跟随：在设置中切换是否跟随当前谱面代码位置。</translation>
+    </message>
     <message id="guide.editor.metadata_save">
         <source>Changes to the level, offset and designer above are saved immediately.</source>
         <translation>修改上方的等级、延迟与谱师信息会立即保存。</translation>
@@ -4701,9 +4821,13 @@ Error: %1</source>
         <source>Export page: export videos and covers, or package the chart as a ZIP.</source>
         <translation>导出页面：导出视频、封面与打包成 ZIP。</translation>
     </message>
+    <message id="guide.navigation.net">
+        <source>Net: chart download and upload.</source>
+        <translation>Net相关：谱面下载与上传。</translation>
+    </message>
     <message id="guide.navigation.tools">
-        <source>Toolbox: chart normalization, audio and video processing, Net management and more.</source>
-        <translation>工具箱：谱面整理、音视频处理工具、Net管理等。</translation>
+        <source>Toolbox: chart normalization, audio and video processing, and more.</source>
+        <translation>工具箱：谱面整理、音视频处理工具等。</translation>
     </message>
     <message id="guide.navigation.preferences">
         <source>Preferences: configure interface appearance and styling, the editor and shortcuts.</source>
@@ -4777,10 +4901,6 @@ Error: %1</source>
         <source>Set to current value</source>
         <translation>设为当前值</translation>
     </message>
-    <message id="dialog.video_export.range.play_clip">
-        <source>Play Range</source>
-        <translation>播放区间</translation>
-    </message>
     <message id="dialog.video_export.output_mode">
         <source>Output Format</source>
         <translation>输出格式</translation>
@@ -4805,82 +4925,116 @@ Error: %1</source>
         <source>The prepended PV exceeds its size budget or the 20 MB limit.</source>
         <translation>插入黑屏后的 PV 超出体积预算或 20 MB 上限。</translation>
     </message>
+    <message id="file_picker.native_failed">
+        <source>Could not open the system folder picker.</source>
+        <translation>无法打开系统文件夹选择窗口。</translation>
+    </message>
 </context>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <context>
-    <name>BatchCoverExport</name>
-    <message id="dialog.batch_export.cover_preset">
-        <source>Cover preset</source>
-        <translation>封面预设</translation>
+    <!-- Qt loads qtbase texts for the system locale; this context keeps the
+         native application menu in the interface language. -->
+    <name>MAC_APPLICATION_MENU</name>
+    <message>
+        <source>About %1</source>
+        <translation>关于 %1</translation>
     </message>
-    <message id="dialog.batch_export.cover_none">
-        <source>Cover export off</source>
-        <translation>关闭封面导出</translation>
+    <message>
+        <source>Preferences...</source>
+        <translation>首选项...</translation>
     </message>
-    <message id="dialog.batch_export.cover_summary">
-        <source>Covers: %1 succeeded, %2 failed</source>
-        <translation>封面导出：成功 %1 项，失败 %2 项</translation>
+    <message>
+        <source>Services</source>
+        <translation>服务</translation>
     </message>
-    <message id="dialog.batch_export.cover_preset_unavailable">
-        <source>The cover preset cannot be applied to this chart</source>
-        <translation>封面预设无法应用到此谱面</translation>
+    <message>
+        <source>Hide %1</source>
+        <translation>隐藏 %1</translation>
     </message>
-    <message id="dialog.batch_export.cover_frame_adjusted">
-        <source>%1: frame time adjusted from %2 s to %3 s</source>
-        <translation>%1：截图时间从 %2 秒调整为 %3 秒</translation>
+    <message>
+        <source>Hide Others</source>
+        <translation>隐藏其他</translation>
+    </message>
+    <message>
+        <source>Show All</source>
+        <translation>全部显示</translation>
+    </message>
+    <message>
+        <source>Quit %1</source>
+        <translation>退出 %1</translation>
     </message>
 </context>
+<context>
+    <!-- Cocoa identifies menu roles by matching the action text against these
+         words. Keep them in the interface language so the application menu
+         entries merge even when the system locale uses another language.
+         "Setup" is omitted on purpose: it would capture the beginner guide. -->
+    <name>QCocoaMenuItem</name>
+    <message>
+        <source>About</source>
+        <translation>关于</translation>
+    </message>
+    <message>
+        <source>Preference</source>
+        <translation>首选项</translation>
+    </message>
+    <message>
+        <source>Quit</source>
+        <translation>退出</translation>
+    </message>
+</context>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </TS>

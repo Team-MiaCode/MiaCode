@@ -57,6 +57,14 @@ AppTabPages {
             onMoved: function(v) { root.put("brightnessInner", Math.round(v)) }
         }
         LabeledSlider {
+            objectName: "previewFireworkBrightnessSlider"
+            label: root.labels.fireworkBrightness || ""
+            from: 50
+            to: 120
+            value: root.values.fireworkBrightness ?? 100
+            onMoved: function(v) { root.put("fireworkBrightness", Math.round(v)) }
+        }
+        LabeledSlider {
             objectName: "previewLayoutSquareScaleSlider"
             label: root.labels.layoutSquareScale || ""
             from: root.values.layoutSquareScaleMin || 50

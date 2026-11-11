@@ -39,7 +39,7 @@ Classic mode: All functions are on one page, similar to the layout in earlier ve
     </message>
     <message id="setup.wizard">
         <source>Setup wizard</source>
-        <translation>Setup wizard</translation>
+        <translation>Beginner guide</translation>
     </message>
     <message id="setup.save_failed">
         <source>Settings could not be saved. Check configuration directory permissions and try again.</source>
@@ -1621,6 +1621,10 @@ Failed: %2</translation>
         <source>SD</source>
         <translation>SD</translation>
     </message>
+    <message id="dialog.render_settings.video.firework_brightness">
+        <source>Firework brightness</source>
+        <translation>Firework brightness</translation>
+    </message>
     <message id="dialog.render_settings.video.smooth_brightness">
         <source>Smooth brightness</source>
         <translation>Smooth brightness</translation>
@@ -1774,12 +1778,12 @@ Restore the backup from %1?</translation>
         <translation>Another export is already running.</translation>
     </message>
     <message id="dialog.video_export.error.worker_crash">
-        <source>Export worker crashed.</source>
-        <translation>Export worker crashed.</translation>
+        <source>The export stopped unexpectedly.</source>
+        <translation>The export stopped unexpectedly.</translation>
     </message>
     <message id="dialog.video_export.error.worker_exit">
-        <source>Export worker exited unexpectedly.</source>
-        <translation>Export worker exited unexpectedly.</translation>
+        <source>The export stopped unexpectedly.</source>
+        <translation>The export stopped unexpectedly.</translation>
     </message>
     <message id="dialog.video_export.error.worker_retry_final_attempt">
         <source>Safe-mode retry diagnostics</source>
@@ -1790,12 +1794,60 @@ Restore the backup from %1?</translation>
         <translation>First attempt diagnostics</translation>
     </message>
     <message id="dialog.video_export.error.worker_retry_note">
-        <source>The export worker crashed once and was retried automatically with PBO disabled.</source>
-        <translation>The export worker crashed once and was retried automatically with PBO disabled.</translation>
+        <source>The first attempt stopped unexpectedly, so the export was retried in compatibility mode.</source>
+        <translation>The first attempt stopped unexpectedly, so the export was retried in compatibility mode.</translation>
     </message>
     <message id="dialog.video_export.error.worker_write_failed">
         <source>Failed to send export snapshot to worker.</source>
         <translation>Failed to send export snapshot to worker.</translation>
+    </message>
+    <message id="dialog.video_export.error.disk_full_temp">
+        <source>%1 is out of space. Export writes the video to the system temp folder (%2) first.</source>
+        <translation>%1 is out of space. Export writes the video to the system temp folder (%2) first.</translation>
+    </message>
+    <message id="dialog.video_export.error.disk_full_output">
+        <source>%1 is out of space, so the exported file could not be written.</source>
+        <translation>%1 is out of space, so the exported file could not be written.</translation>
+    </message>
+    <message id="dialog.video_export.error.temp_dir_failed">
+        <source>Could not create files in the system temp folder (%1).</source>
+        <translation>Could not create files in the system temp folder (%1).</translation>
+    </message>
+    <message id="dialog.video_export.error.output_write_failed">
+        <source>Could not write %1. Another app may be using the file.</source>
+        <translation>Could not write %1. Another app may be using the file.</translation>
+    </message>
+    <message id="dialog.video_export.error.ffmpeg_missing">
+        <source>The ffmpeg component is missing. Reinstall MiaCode and try again.</source>
+        <translation>The ffmpeg component is missing. Reinstall MiaCode and try again.</translation>
+    </message>
+    <message id="dialog.video_export.error.render_failed">
+        <source>Rendering the export frames failed.</source>
+        <translation>Rendering the export frames failed.</translation>
+    </message>
+    <message id="dialog.video_export.error.audio_failed">
+        <source>Could not generate the export audio track.</source>
+        <translation>Could not generate the export audio track.</translation>
+    </message>
+    <message id="dialog.video_export.error.encode_failed">
+        <source>Video encoding failed.</source>
+        <translation>Video encoding failed.</translation>
+    </message>
+    <message id="dialog.video_export.error.unknown">
+        <source>The export did not finish. See the details below.</source>
+        <translation>The export did not finish. See the details below.</translation>
+    </message>
+    <message id="dialog.video_export.volume.unknown">
+        <source>The disk</source>
+        <translation>The disk</translation>
+    </message>
+    <message id="dialog.video_export.volume.drive">
+        <source>Drive %1:</source>
+        <translation>Drive %1:</translation>
+    </message>
+    <message id="dialog.video_export.volume.named">
+        <source>Disk “%1”</source>
+        <translation>Disk “%1”</translation>
     </message>
     <message id="dialog.video_export.fps">
         <source>FPS</source>
@@ -1864,6 +1916,18 @@ Restore the backup from %1?</translation>
     <message id="preview.stop">
         <source>Stop</source>
         <translation>Stop</translation>
+    </message>
+    <message id="preview.audio_unavailable.title">
+        <source>Can't Play Sound</source>
+        <translation>Can't Play Sound</translation>
+    </message>
+    <message id="preview.audio_unavailable.message">
+        <source>The audio output device could not be opened, so the preview is playing silently. Check the default output device in your system sound settings, or close any app that holds the device exclusively, then play again.</source>
+        <translation>The audio output device could not be opened, so the preview is playing silently. Check the default output device in your system sound settings, or close any app that holds the device exclusively, then play again.</translation>
+    </message>
+    <message id="preview.audio_unavailable.error_code">
+        <source>Audio error code: %1</source>
+        <translation>Audio error code: %1</translation>
     </message>
     <message id="dialog.video_export.progress.canceling">
         <source>Canceling export...</source>
@@ -1988,6 +2052,22 @@ Restore the backup from %1?</translation>
     <message id="document.cannot_write_chart">
         <source>Cannot write the chart file.</source>
         <translation>Cannot write the chart file.</translation>
+    </message>
+    <message id="file_write.error.disk_full">
+        <source>Couldn't write %1: the disk is full.</source>
+        <translation>Couldn't write %1: the disk is full.</translation>
+    </message>
+    <message id="file_write.error.access_denied">
+        <source>Couldn't write %1: permission denied.</source>
+        <translation>Couldn't write %1: permission denied.</translation>
+    </message>
+    <message id="file_write.error.in_use">
+        <source>Couldn't write %1 because another app is using it.</source>
+        <translation>Couldn't write %1 because another app is using it.</translation>
+    </message>
+    <message id="file_write.error.generic">
+        <source>Couldn't write %1: unknown reason.</source>
+        <translation>Couldn't write %1: unknown reason.</translation>
     </message>
     <message id="document.cannot_write_file">
         <source>Cannot write file:
@@ -2706,6 +2786,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="menu.tools">
         <source>Tools(&amp;T)</source>
         <translation>Tools(&amp;T)</translation>
+    </message>
+    <message id="menu.majnet_n">
+        <source>Network(&amp;N)</source>
+        <translation>Network(&amp;N)</translation>
     </message>
     <message id="menu.transform">
         <source>Modify(&amp;M)</source>
@@ -3579,6 +3663,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Preview rendering mode</source>
         <translation>Preview rendering mode</translation>
     </message>
+    <message id="menu.preview_rendering_mode">
+        <source>Rendering Mode</source>
+        <translation>Rendering Mode</translation>
+    </message>
     <message id="qml.open_simai_file">
         <source>Open Simai file</source>
         <translation>Open Simai file</translation>
@@ -3742,6 +3830,14 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="qml.timeline_zoom">
         <source>Timeline zoom</source>
         <translation>Timeline zoom</translation>
+    </message>
+    <message id="qml.zoom_in">
+        <source>Zoom in</source>
+        <translation>Zoom in</translation>
+    </message>
+    <message id="qml.zoom_out">
+        <source>Zoom out</source>
+        <translation>Zoom out</translation>
     </message>
     <message id="qml.title_font_preview">
         <source>Title-font preview</source>
@@ -4224,6 +4320,10 @@ Error: %1</translation>
         <source>Majdata Net</source>
         <translation>Chart download</translation>
     </message>
+    <message id="net.ui.majnet">
+        <source>Network</source>
+        <translation>Network</translation>
+    </message>
     <message id="net.ui.uploader">
         <source>Uploader</source>
         <translation>Uploader</translation>
@@ -4657,6 +4757,26 @@ Error: %1</translation>
         <source>Playback controls are in the detached preview window.</source>
         <translation>Playback controls are in the detached preview window.</translation>
     </message>
+    <message id="guide.timeline.title">
+        <source>Timeline options</source>
+        <translation>Timeline options</translation>
+    </message>
+    <message id="guide.timeline.hint">
+        <source>Expand the bottom panel and select Timeline to view its settings.</source>
+        <translation>Expand the bottom panel and select Timeline to view its settings.</translation>
+    </message>
+    <message id="guide.timeline.zoom">
+        <source>Zoom: adjust the timeline's horizontal scale.</source>
+        <translation>Zoom: adjust the timeline's horizontal scale.</translation>
+    </message>
+    <message id="guide.timeline.brightness">
+        <source>Brightness: open settings in the timeline's upper-right corner to adjust the waveform and grid lines separately.</source>
+        <translation>Brightness: open settings in the timeline's upper-right corner to adjust the waveform and grid lines separately.</translation>
+    </message>
+    <message id="guide.timeline.follow">
+        <source>Follow code: choose whether the timeline follows the current chart-source position in settings.</source>
+        <translation>Follow code: choose whether the timeline follows the current chart-source position in settings.</translation>
+    </message>
     <message id="guide.editor.metadata_save">
         <source>Changes to the level, offset and designer above are saved immediately.</source>
         <translation>Changes to the level, offset and designer above are saved immediately.</translation>
@@ -4701,9 +4821,13 @@ Error: %1</translation>
         <source>Export page: export videos and covers, or package the chart as a ZIP.</source>
         <translation>Export page: export videos and covers, or package the chart as a ZIP.</translation>
     </message>
+    <message id="guide.navigation.net">
+        <source>Net: chart download and upload.</source>
+        <translation>Net: chart download and upload.</translation>
+    </message>
     <message id="guide.navigation.tools">
-        <source>Toolbox: chart normalization, audio and video processing, Net management and more.</source>
-        <translation>Toolbox: chart normalization, audio and video processing, Net management and more.</translation>
+        <source>Toolbox: chart normalization, audio and video processing, and more.</source>
+        <translation>Toolbox: chart normalization, audio and video processing, and more.</translation>
     </message>
     <message id="guide.navigation.preferences">
         <source>Preferences: configure interface appearance and styling, the editor and shortcuts.</source>
@@ -4777,10 +4901,6 @@ Error: %1</translation>
         <source>Set to current value</source>
         <translation>Set to current value</translation>
     </message>
-    <message id="dialog.video_export.range.play_clip">
-        <source>Play Range</source>
-        <translation>Play Range</translation>
-    </message>
     <message id="dialog.video_export.output_mode">
         <source>Output Format</source>
         <translation>Output Format</translation>
@@ -4805,82 +4925,97 @@ Error: %1</translation>
         <source>The prepended PV exceeds its size budget or the 20 MB limit.</source>
         <translation>The prepended PV exceeds its size budget or the 20 MB limit.</translation>
     </message>
+    <message id="file_picker.native_failed">
+        <source>Could not open the system folder picker.</source>
+        <translation>Could not open the system folder picker.</translation>
+    </message>
 </context>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <context>
-    <name>BatchCoverExport</name>
-    <message id="dialog.batch_export.cover_preset">
-        <source>Cover preset</source>
-        <translation>Cover preset</translation>
+    <!-- Qt loads qtbase texts for the system locale; this context keeps the
+         native application menu in the interface language. -->
+    <name>MAC_APPLICATION_MENU</name>
+    <message>
+        <source>About %1</source>
+        <translation>About %1</translation>
     </message>
-    <message id="dialog.batch_export.cover_none">
-        <source>Cover export off</source>
-        <translation>Cover export off</translation>
+    <message>
+        <source>Preferences...</source>
+        <translation>Preferences...</translation>
     </message>
-    <message id="dialog.batch_export.cover_summary">
-        <source>Covers: %1 succeeded, %2 failed</source>
-        <translation>Covers: %1 succeeded, %2 failed</translation>
+    <message>
+        <source>Services</source>
+        <translation>Services</translation>
     </message>
-    <message id="dialog.batch_export.cover_preset_unavailable">
-        <source>The cover preset cannot be applied to this chart</source>
-        <translation>The cover preset cannot be applied to this chart</translation>
+    <message>
+        <source>Hide %1</source>
+        <translation>Hide %1</translation>
     </message>
-    <message id="dialog.batch_export.cover_frame_adjusted">
-        <source>%1: frame time adjusted from %2 s to %3 s</source>
-        <translation>%1: frame time adjusted from %2 s to %3 s</translation>
+    <message>
+        <source>Hide Others</source>
+        <translation>Hide Others</translation>
+    </message>
+    <message>
+        <source>Show All</source>
+        <translation>Show All</translation>
+    </message>
+    <message>
+        <source>Quit %1</source>
+        <translation>Quit %1</translation>
     </message>
 </context>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </TS>

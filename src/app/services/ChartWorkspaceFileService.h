@@ -1,7 +1,9 @@
 #pragma once
 
+#include <QFileDevice>
 #include <QString>
 #include <QVector>
+#include <optional>
 
 #include "app/services/ChartWorkspace.h"
 
@@ -13,6 +15,10 @@ struct ChartWorkspaceFileResult {
     QString error;
     QVector<ChartWorkspaceIssue> issues;
     bool usedSystemEncoding = false;
+    // Set when a write failed on a known file: what the system said about it.
+    QString failedPath;
+    QFileDevice::FileError fileError = QFileDevice::NoError;
+    QString systemError;
 };
 
 // File-system boundary for ChartWorkspace.  This deliberately reports failures
@@ -45,8 +51,10 @@ public:
     // Cross-directory saves publish project media and settings before switching the workspace path.
     ChartWorkspaceFileResult saveAs(const QString& path, int difficultyId) const;
 
+    static std::optional<QString> decodeDocumentText(
+        const QByteArray& bytes, bool* usedSystemEncoding = nullptr);
+
 private:
-    static QString decodeDocumentText(const QByteArray& bytes, bool* usedSystemEncoding);
     ChartWorkspaceFileResult writeToPath(const QString& path, int difficultyId) const;
 
     ChartWorkspace* workspace_ = nullptr;

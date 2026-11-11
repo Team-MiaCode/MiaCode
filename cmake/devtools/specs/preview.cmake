@@ -54,6 +54,13 @@ miacode_add_dev_tool(preview_realtime_object_hot_path_spec TEST
     INCLUDES src
 )
 
+miacode_add_dev_tool(preview_runtime_frame_state_spec TEST
+    SOURCES
+        src/tools/preview/PreviewRuntimeFrameStateSpec.cpp
+    LIBS miacode_preview_quick Qt6::Core Qt6::Gui
+    INCLUDES src
+)
+
 miacode_add_dev_tool(preview_quick_sprite_batch_spec TEST
     SOURCES
         src/tools/preview/PreviewQuickSpriteBatchSpec.cpp

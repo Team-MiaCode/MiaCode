@@ -118,6 +118,11 @@ QJsonObject normalizedPreferencesRoot(const QJsonObject& raw)
     ui.insert("editor_overwrite_mode", ui.value("editor_overwrite_mode").toBool(false));
     ui.insert("editor_ime_input_disabled", ui.value("editor_ime_input_disabled").toBool(true));
     ui.remove("editor_auto_close_brackets");
+    // v1 named the scroll-past-end option editor_scroll_beyond_last_line.
+    if (!ui.contains("editor_scroll_past_end") && ui.contains("editor_scroll_beyond_last_line")) {
+        ui.insert("editor_scroll_past_end", ui.value("editor_scroll_beyond_last_line").toBool(true));
+    }
+    ui.remove("editor_scroll_beyond_last_line");
     normalized.insert(kUiSectionKey, ui);
 
     QJsonObject app = raw.value(kAppSectionKey).toObject();

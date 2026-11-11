@@ -343,6 +343,7 @@ void miacode::runtime::PlaybackCoordinator::handlePreviewAudioStartupCompletion(
     flowCompletion.degraded = !completion.success
         || state_.previewSfxRuntime_ == nullptr
         || !state_.previewSfxRuntime_->audioEngineInitialized();
+    flowCompletion.audioUnavailable = completion.audioEngineUnavailable;
     const Decision decision = decideCompletion(pending, flowCompletion);
     if (!decision.matchesPending) {
         appendPreviewPlaybackLog(
@@ -385,14 +386,37 @@ void miacode::runtime::PlaybackCoordinator::handlePreviewAudioStartupCompletion(
     state_.previewStartupPendingRetainedSequence_ = decision.state.pendingRetainedSequence;
     appendPreviewPlaybackLog(
         QStringLiteral("audio_startup_completion_accepted"),
-        QString("kind=%1 txn=%2 generation=%3 sequence=%4 requested=%5 effective=%6")
+        QString("kind=%1 txn=%2 generation=%3 sequence=%4 requested=%5 effective=%6 without_audio=%7 "
+                "native_error=%8")
             .arg(static_cast<int>(completion.kind))
             .arg(completion.identity.transactionId)
             .arg(completion.identity.generation)
             .arg(completion.identity.sequence)
             .arg(state_.previewStartupRequestedSecond_, 0, 'f', 6)
-            .arg(state_.previewStartupPreparedSecond_, 0, 'f', 6));
+            .arg(state_.previewStartupPreparedSecond_, 0, 'f', 6)
+            .arg(decision.proceedsWithoutAudio ? 1 : 0)
+            .arg(completion.nativeErrorCode));
     tryCommitPreviewStartupSync();
+    if (decision.proceedsWithoutAudio) {
+        noticePlaybackWithoutAudio(completion.nativeErrorCode);
+    }
+}
+
+void miacode::runtime::PlaybackCoordinator::noticePlaybackWithoutAudio(int nativeErrorCode)
+{
+    // Once per launch: later silent starts stay quiet even after audio recovers in between.
+    static bool noticed = false;
+    if (noticed) {
+        return;
+    }
+    noticed = true;
+    services_.uiRequests().postNotice(
+        miacode::NoticeSeverity::Warning,
+        miacode::localizedText("preview.audio_unavailable.title"),
+        miacode::localizedText("preview.audio_unavailable.message"),
+        nativeErrorCode != 0
+            ? miacode::localizedText("preview.audio_unavailable.error_code").arg(nativeErrorCode)
+            : miacode::LocalizedText());
 }
 
 void miacode::runtime::PlaybackCoordinator::handlePreviewPlayingRetainedSeekCompletion(
@@ -423,6 +447,7 @@ void miacode::runtime::PlaybackCoordinator::handlePreviewPlayingRetainedSeekComp
     flowCompletion.degraded = !completion.success
         || state_.previewSfxRuntime_ == nullptr
         || !state_.previewSfxRuntime_->audioEngineInitialized();
+    flowCompletion.audioUnavailable = completion.audioEngineUnavailable;
     const Decision decision = decideCompletion(pending, flowCompletion);
     if (!decision.matchesPending) {
         appendPreviewPlaybackLog(

@@ -2,20 +2,17 @@
 
 #include <QJsonObject>
 #include <QString>
-#include <functional>
 
 namespace miacode::net_configuration {
 
-// Optional application configuration, loaded once per process.
+// User Net settings, loaded once per process and persisted on update.
 class Repository final {
 public:
     explicit Repository(QString path);
     QJsonObject snapshot() const { return settings_; }
     QJsonValue value(const QString& key) const;
-    bool enabled() const;
     bool update(const QJsonObject& values);
-    bool migrate(QJsonObject& preferences,
-                 const std::function<bool(QJsonObject&)>& prepareSettings = {});
+    bool migrate(QJsonObject& preferences);
 
 private:
     bool replace(const QJsonObject& settings);
@@ -25,6 +22,7 @@ private:
 };
 
 QString filePath();
+QString configFilePath();
 QJsonValue value(const QString& key);
 bool enabled();
 bool update(const QJsonObject& values);

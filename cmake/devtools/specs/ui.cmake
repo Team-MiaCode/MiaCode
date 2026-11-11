@@ -158,6 +158,48 @@ miacode_add_dev_tool(qml_export_video_page_spec TEST
 target_compile_definitions(qml_export_video_page_spec PRIVATE
     "MIACODE_QML_SPEC_IMPORT_ROOT=\"${MIACODE_QML_SPEC_IMPORT_ROOT}\"")
 
+miacode_add_dev_tool(export_file_picker_spec TEST
+    SOURCES
+        src/tools/ui/ExportFilePickerSpec.cpp
+        src/app/ui/preview/PreviewSettingsModel.cpp
+        src/app/ui/preview/PreviewSettingsModel.h
+        src/app/ui/media/MediaToolsModel.cpp
+        src/app/ui/media/MediaToolsModel.h
+        src/app/ui/export/ExportSession.cpp
+        src/app/ui/export/ExportSession.h
+        src/app/ui/export/CoverExportSession.cpp
+        src/app/ui/export/CoverExportSession.h
+        src/app/ui/preferences/LocaleService.cpp
+        src/app/ui/preferences/LocaleService.h
+        src/app/services/PreferenceDocument.cpp
+        src/app/services/ProjectPreferences.cpp
+        src/app/services/ExportIntroPreferences.cpp
+        src/app/services/UiRequestService.cpp
+        src/app/services/UiRequestService.h
+        src/app/services/ShellNotifications.cpp
+        src/app/services/ShellNotifications.h
+        src/app/services/JobProgressService.cpp
+        src/app/services/JobProgressService.h
+        src/app/services/PreviewAppearanceState.cpp
+        src/app/services/PreviewAppearanceState.h
+    LIBS miacode_export miacode_media_tools Qt6::Quick Qt6::QuickControls2 Qt6::Test
+    INCLUDES src
+)
+target_compile_definitions(export_file_picker_spec PRIVATE
+    "MIACODE_QML_SPEC_IMPORT_ROOT=\"${MIACODE_QML_SPEC_IMPORT_ROOT}\"")
+miacode_enable_native_file_dialogs(export_file_picker_spec)
+if(APPLE)
+    set_target_properties(export_file_picker_spec PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.fanfaredash.MiaCodeFilePickerSpec"
+        MACOSX_BUNDLE_BUNDLE_NAME "MiaCode File Picker Spec")
+endif()
+qt_add_resources(export_file_picker_spec "file_picker_spec_i18n"
+    PREFIX "/i18n"
+    BASE "${CMAKE_CURRENT_BINARY_DIR}"
+    FILES ${MIACODE_TRANSLATION_QM_FILES})
+add_dependencies(export_file_picker_spec miacode_lrelease)
+
 miacode_add_dev_tool(qml_preview_rate_spec TEST
     SOURCES
         src/tools/ui/QmlPreviewRateSpec.cpp

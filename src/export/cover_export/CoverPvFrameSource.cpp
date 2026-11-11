@@ -4,7 +4,6 @@
 
 #include <QFileInfo>
 #include <QProcess>
-#include <QRegularExpression>
 
 namespace miacode::cover_export {
 
@@ -34,32 +33,6 @@ CoverPvFrameSource::CoverPvFrameSource(QObject* parent)
 CoverPvFrameSource::~CoverPvFrameSource()
 {
     cancelAll();
-}
-
-double CoverPvFrameSource::latestSeekableSecond(const QString& mediaPath)
-{
-    QProcess process;
-    process.start(VideoExportController::ffmpegExecutablePath(),
-                  {QStringLiteral("-hide_banner"), QStringLiteral("-nostdin"),
-                   QStringLiteral("-i"), mediaPath});
-    if (!process.waitForStarted(kDecodeTimeoutMs) || !process.waitForFinished(kDecodeTimeoutMs)) {
-        process.kill();
-        process.waitForFinished(1000);
-        return -1.0;
-    }
-    const QString metadata = QString::fromUtf8(process.readAllStandardError());
-    static const QRegularExpression durationPattern(
-        QStringLiteral(R"(Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?))"));
-    static const QRegularExpression fpsPattern(QStringLiteral(R"((\d+(?:\.\d+)?)\s+fps)"));
-    const auto duration = durationPattern.match(metadata);
-    if (!duration.hasMatch()) return -1.0;
-    const double seconds = duration.captured(1).toDouble() * 3600.0
-        + duration.captured(2).toDouble() * 60.0 + duration.captured(3).toDouble();
-    const auto fps = fpsPattern.match(metadata);
-    const double frameSeconds = fps.hasMatch() && fps.captured(1).toDouble() > 0.0
-        ? 1.0 / fps.captured(1).toDouble() : 0.1;
-    // The duration banner rounds to centiseconds; seek before the last frame.
-    return qMax(0.0, seconds - frameSeconds - 0.01);
 }
 
 QStringList CoverPvFrameSource::decodeArguments(const Request& request)

@@ -50,6 +50,13 @@ constexpr double kNormalizationEpsilon = 1e-6;
 constexpr int kMinimumSnapSubdivisionBeats = 16;
 constexpr int kMaximumSnapSubdivisionBeats = 384;
 constexpr double kSnapToleranceWhole = (1.0 / (2.0 * static_cast<double>(kMaximumSnapSubdivisionBeats))) + 1e-9;
+// Largest {N} an exact chunk may render. Common subdivisions of fine offsets
+// (`{995}` beside `{12}`) reach millions of slots per measure, which would
+// stall normalization; such charts are rejected instead.
+constexpr qint64 kMaximumExactSubdivisionBeats = 4096;
+// Set when a chunk needed more than kMaximumExactSubdivisionBeats during the
+// current normalizeChartFragment call on this thread.
+thread_local bool tExactSubdivisionExceeded = false;
 
 struct Rational {
     qint64 numerator = 0;
@@ -236,7 +243,6 @@ struct MeasureBuilder {
     int meterDenominator = miacode::simai::kDefaultWholeTimeSignatureDenominator;
     Rational startPhaseWhole;
     QVector<BoundaryItem> leadingItems;
-    QVector<BoundaryItem> trailingItems;
     QVector<MeasureMoment> moments;
     QVector<ExplicitSubdivisionSegment> explicitSegments;
 };
@@ -247,7 +253,6 @@ struct RenderMeasure {
     Rational startPhaseWhole;
     Rational lengthWhole;
     QVector<BoundaryItem> leadingItems;
-    QVector<BoundaryItem> trailingItems;
     QVector<MeasureMoment> moments;
     QVector<ExplicitSubdivisionSegment> explicitSegments;
 };
@@ -924,7 +929,10 @@ bool snapRangeFitsBeats(const QVector<Rational>& momentPositions, int beats)
     return true;
 }
 
-QString renderMeasureLineApproximate(const RenderMeasure& measure)
+// Note positions always snap to the 384 grid here; `reduceDurations` decides
+// whether hold/slide durations are approximated as well (only with 1/384
+// alignment, see normalizePlainDurationSignature).
+QString renderMeasureLineApproximate(const RenderMeasure& measure, bool reduceDurations)
 {
     const int measureGridLength = qMax(1, qRound(toDouble(measure.lengthWhole) * 384.0));
     const int startPhaseGrid = qMax(0, qRound(toDouble(measure.startPhaseWhole) * 384.0));
@@ -1031,7 +1039,7 @@ QString renderMeasureLineApproximate(const RenderMeasure& measure)
             lastSegmentBeats = beats;
         }
         for (const MomentGroups& slotGroup : slotGroups) {
-            line.append(buildMomentText(slotGroup, beats, true));
+            line.append(buildMomentText(slotGroup, beats, reduceDurations));
             line.append(QLatin1Char(','));
         }
         if (segmentEndGrid < endPhaseGrid && beatGrid > 0 && (segmentEndGrid % beatGrid) == 0) {
@@ -1078,7 +1086,8 @@ int chooseExactBeatsForRange(
         }
         const Rational relativePosition = moment.positionWhole - start;
         beats = safeLcm(beats, relativePosition.denominator);
-        if (beats <= 0 || beats > std::numeric_limits<int>::max()) {
+        if (beats <= 0 || beats > kMaximumExactSubdivisionBeats) {
+            tExactSubdivisionExceeded = true;
             return 0;
         }
     }
@@ -1092,6 +1101,10 @@ QString renderExactChunk(
     const Rational& end,
     int beats)
 {
+    if (beats > kMaximumExactSubdivisionBeats) {
+        tExactSubdivisionExceeded = true;
+        return QString();
+    }
     qint64 slotCount64 = 0;
     const Rational chunkLength = end - start;
     if (!scaleRationalExact(chunkLength, beats, &slotCount64) || slotCount64 <= 0) {
@@ -1316,7 +1329,7 @@ QString renderMeasureLine(const RenderMeasure& measure, const ChartNormalization
         // Mixed explicit subdivisions still use the existing safe renderer,
         // but compact-single-line output removes visual beat separators and spaces.
         QString compact = options.reduceTo384Grid
-            ? renderMeasureLineApproximate(measure)
+            ? renderMeasureLineApproximate(measure, true)
             : renderMeasureLine(measure, ChartNormalizationOptions{
                 options.startAtNewMeasure,
                 options.reduceTo384Grid,
@@ -1331,7 +1344,7 @@ QString renderMeasureLine(const RenderMeasure& measure, const ChartNormalization
     if (!options.reduceTo384Grid && measureRequiresExactRendering(measure)) {
         return renderMeasureLineExact(measure);
     }
-    return renderMeasureLineApproximate(measure);
+    return renderMeasureLineApproximate(measure, options.reduceTo384Grid);
 }
 
 QString summarizeValidationError(const SimaiValidationReport& report)
@@ -1470,6 +1483,7 @@ ChartNormalizationResult normalizeChartFragment(
     bool appendTrailingBeatsMarker = true)
 {
     ChartNormalizationResult result;
+    tExactSubdivisionExceeded = false;
 
     const SimaiValidationReport report = SimaiParser::buildValidationReport(
         input,
@@ -1560,7 +1574,6 @@ ChartNormalizationResult normalizeChartFragment(
     const auto appendRenderedMeasure = [&](const Rational& lengthWhole) {
         if (lengthWhole.isZero()
             && currentMeasure.leadingItems.isEmpty()
-            && currentMeasure.trailingItems.isEmpty()
             && currentMeasure.moments.isEmpty()) {
             return;
         }
@@ -1570,7 +1583,6 @@ ChartNormalizationResult normalizeChartFragment(
         stored.startPhaseWhole = currentMeasure.startPhaseWhole;
         stored.lengthWhole = lengthWhole;
         stored.leadingItems = currentMeasure.leadingItems;
-        stored.trailingItems = currentMeasure.trailingItems;
         stored.moments = currentMeasure.moments;
         stored.explicitSegments = currentMeasure.explicitSegments;
         renderedMeasures.append(stored);
@@ -1588,15 +1600,6 @@ ChartNormalizationResult normalizeChartFragment(
     const auto currentRemainingMeasureLength = [&]() {
         return measureLengthWhole(currentMeasure.meterNumerator, currentMeasure.meterDenominator)
             - currentMeasure.startPhaseWhole;
-    };
-    const auto appendBoundaryItem = [&](const BoundaryItem& item) {
-        flushMoment();
-        closeActiveSegmentAt(currentPositionWhole, true);
-        if (!currentMeasure.moments.isEmpty() || !currentPositionWhole.isZero()) {
-            currentMeasure.trailingItems.append(item);
-            return;
-        }
-        currentMeasure.leadingItems.append(item);
     };
     const auto restartMeasureAtCurrentPosition = [&](const BoundaryItem& item, int nextMeterNumerator, int nextMeterDenominator) {
         flushMoment();
@@ -1737,7 +1740,10 @@ ChartNormalizationResult normalizeChartFragment(
                 if (close < 0) {
                     break;
                 }
-                appendBoundaryItem(BoundaryItem{
+                // An HS change applies from the next note on, so a directive in
+                // the middle of a measure splits it there. Emitting it after
+                // the measure line would hand the following notes the old HS.
+                splitMeasureAtCurrentPosition(BoundaryItem{
                     BoundaryItemKind::StandaloneText,
                     line.mid(index, close - index + 1).trimmed()});
                 index = close;
@@ -1782,8 +1788,7 @@ ChartNormalizationResult normalizeChartFragment(
     closeActiveSegmentAt(currentPositionWhole, true);
     if (!currentMeasure.moments.isEmpty()
         || !currentPositionWhole.isZero()
-        || !currentMeasure.leadingItems.isEmpty()
-        || !currentMeasure.trailingItems.isEmpty()) {
+        || !currentMeasure.leadingItems.isEmpty()) {
         appendRenderedMeasure(currentPositionWhole);
     }
 
@@ -1811,13 +1816,18 @@ ChartNormalizationResult normalizeChartFragment(
         bool renderedCompactUnitMeasure = false;
         if (!measure.lengthWhole.isZero() || !measure.moments.isEmpty()) {
             const QString renderedLine = renderMeasureLine(measure, options);
+            if (tExactSubdivisionExceeded) {
+                result.errorMessage = QStringLiteral(
+                    "A measure needs a subdivision finer than {%1}; normalization skipped.")
+                                          .arg(kMaximumExactSubdivisionBeats);
+                return result;
+            }
             renderedCompactUnitMeasure = options.syntax == ChartNormalizationSyntax::CompactSingleLine
                 && renderedLine.trimmed() == QStringLiteral("{1},");
             outputLines.append(renderedLine);
             ++emittedMeasureLines;
             ++sectionMeasureIndex;
         }
-        appendBoundaryItems(&outputLines, measure.trailingItems);
         const int sectionLength = !options.splitEveryFourMeasures && options.sectionMeasureCount == 4
             ? 0
             : (options.sectionMeasureCount > 0

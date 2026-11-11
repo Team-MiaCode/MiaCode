@@ -1,5 +1,4 @@
 import QtQuick
-import QtQml.Models
 import QtQuick.Controls
 import QtQuick.Controls.impl as ControlsImpl
 import MiaCode.UI
@@ -9,10 +8,9 @@ Rectangle {
 
     property string activeView: "chart"
     property bool documentAvailable: true
-    property bool netEnabled: false
+    property bool netUploadEnabled: false
+    property bool networkActive: false
     property bool toolsAvailable: true
-    property bool chartEditorAvailable: true
-    property bool normalizationEnabled: true
     readonly property bool toolsMenuActive: toolsPopup.active
     signal viewRequested(string viewId)
     signal toolRequested(string toolId)
@@ -48,6 +46,14 @@ Rectangle {
             onClicked: root.viewRequested("export")
         }
         ActivityButton {
+            id: majnetButton
+            objectName: "majnetActivityButton"
+            iconSource: Qt.resolvedUrl("icons/globe.svg")
+            tooltip: qsTrId("net.ui.majnet")
+            selected: root.networkActive || majnetPopup.active
+            onClicked: majnetPopup.popup(majnetButton, majnetButton.width, 0)
+        }
+        ActivityButton {
             id: toolsButton
             iconSource: Qt.resolvedUrl("icons/tools.svg")
             filledIconSource: Qt.resolvedUrl("icons/tools-fill.svg")
@@ -63,21 +69,18 @@ Rectangle {
         }
     }
 
+    // Keep the left navigation entry and the top-level Majnet menu identical.
+    MajnetActionsMenu {
+        id: majnetPopup
+        uploadEnabled: root.netUploadEnabled
+        onDownloadRequested: root.toolRequested("net-download")
+        onUploadRequested: root.toolRequested("net-upload")
+    }
+
     AppMenu {
         id: toolsPopup
         hugContent: true
 
-        Instantiator {
-            model: root.netEnabled ? ["net-download", "net-upload"] : []
-            delegate: AppMenuAction {
-                required property string modelData
-                text: qsTrId(modelData === "net-download" ? "net.ui.download_page" : "net.ui.upload_page")
-                enabled: root.toolsAvailable
-                onTriggered: root.toolRequested(modelData)
-            }
-            onObjectAdded: (index, object) => toolsPopup.insertAction(index, object)
-            onObjectRemoved: (index, object) => toolsPopup.removeAction(object)
-        }
         AudioProcessingMenu {
             enabled: root.toolsAvailable
             documentAvailable: root.documentAvailable
@@ -87,11 +90,6 @@ Rectangle {
             enabled: root.toolsAvailable
             documentAvailable: root.documentAvailable
             onToolRequested: toolId => root.toolRequested("media." + toolId)
-        }
-        AppMenuAction {
-            text: qsTrId("qml.normalize_whole_chart")
-            enabled: root.chartEditorAvailable && root.normalizationEnabled
-            onTriggered: root.toolRequested("normalize")
         }
     }
 

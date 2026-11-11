@@ -1,4 +1,6 @@
 #include "app/ui/document/DocumentModel.h"
+#include "app/services/PreferenceDocument.h"
+#include <QDir>
 
 #include <QCoreApplication>
 #include <QFile>
@@ -178,11 +180,68 @@ bool verifyRejectedDraftBlocksPersistenceAndLeave()
     analysis.shutdown();
     return ok;
 }
+bool verifyPickerDirectories()
+{
+    QTemporaryDir directory;
+    QDir root(directory.path());
+    root.mkpath("charts"); root.mkpath("images"); root.mkpath("videos"); root.mkpath("documents");
+    const QString chart = directory.filePath("charts/maidata.txt");
+    const QString source = "&title=test\n&lv_5=12\n&inote_5=(120){4}1,E\n";
+    PreferenceDocument::savePreferencesObject({{"app", QJsonObject{{"last_open_dir", directory.filePath("documents")}}}});
+    miacode::ChartWorkspace workspace;
+    workspace.openSource(source, chart, 5, miacode::ChartDocumentOrigin::NetPreview);
+    miacode::ChartWorkspaceFileService files(workspace);
+    miacode::AnalysisService analysis(workspace);
+    analysis.setDiagnosticsDeferred(true);
+    miacode::ShellNotifications notifications;
+    miacode::UiRequestService requests;
+    FakeBridge fake;
+    miacode::DocumentBridge* bridge = &fake;
+    miacode::PreviewSurface* preview = nullptr;
+    miacode::ui::DocumentModel model(notifications, workspace, files, analysis, requests, bridge, preview);
+    QString id;
+    QVariantMap request;
+    QObject::connect(&requests, &miacode::UiRequestService::fileRequested,
+                     [&](const QString& nextId, const QVariantMap& value) { id = nextId; request = value; });
+    const auto folder = [&] { return request.value("startFolder").toUrl().toLocalFile(); };
+    model.saveWholeDocument();
+    bool ok = expect(folder() == directory.filePath("documents")
+        && request.value("startFile").toUrl().fileName() == QLatin1String("maidata.txt"),
+        "first network-preview save uses remembered documents folder and maidata name");
+    requests.cancelFileRequest(id);
+    ok &= expect(model.fileDialogLocation(false).value("folder").toUrl().toLocalFile() == directory.filePath("documents"),
+                 "main open uses the persisted document folder");
+    PreferenceDocument::savePreferencesObject({});
+    ok &= expect(model.fileDialogLocation(true).value("folder").toUrl().toLocalFile() != QFileInfo(chart).absolutePath(),
+                 "network preview with no history never suggests its cache directory");
+    PreferenceDocument::savePreferencesObject({{"app", QJsonObject{{"last_open_dir", QFileInfo(chart).absolutePath()}}}});
+    ok &= expect(model.fileDialogLocation(true).value("folder").toUrl().toLocalFile() != QFileInfo(chart).absolutePath(),
+                 "a network cache stored by an older runtime is not proposed as a save destination");
+    workspace.openSource(source, chart, 5);
+    ok &= expect(model.fileDialogLocation(true).value("file").toUrl().toLocalFile() == chart,
+                 "local save-as proposes the current chart path");
+    const auto pick = [&](bool video, const QString& sourcePath) {
+        if (video) model.importChartBackgroundVideo(); else model.importChartBackgroundImage();
+        requests.submitFileResult(id, QUrl::fromLocalFile(sourcePath));
+        if (video) model.importChartBackgroundVideo(); else model.importChartBackgroundImage();
+        ok &= expect(folder() == QFileInfo(sourcePath).absolutePath(),
+                     video ? "chart video import remembers its source" : "chart image import remembers its source");
+        requests.cancelFileRequest(id);
+    };
+    pick(false, directory.filePath("images/picture.png"));
+    pick(true, directory.filePath("videos/background.mp4"));
+    model.importChartBackgroundImage();
+    ok &= expect(folder() == directory.filePath("images"), "video selection does not overwrite image source history");
+    requests.cancelFileRequest(id);
+    analysis.shutdown();
+    return ok;
+}
 } // namespace
 
 int main(int argc, char** argv)
 {
     QCoreApplication app(argc, argv);
     QStandardPaths::setTestModeEnabled(true);
-    return verifyDifficultyCardProjection() && verifyRejectedDraftBlocksPersistenceAndLeave() ? 0 : 1;
+    app.setApplicationName(QStringLiteral("MiaCodeDocumentModelSaveSpec"));
+    return verifyDifficultyCardProjection() && verifyRejectedDraftBlocksPersistenceAndLeave() && verifyPickerDirectories() ? 0 : 1;
 }

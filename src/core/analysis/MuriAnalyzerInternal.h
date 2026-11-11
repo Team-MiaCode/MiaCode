@@ -90,6 +90,10 @@ double tickToSecond(int tick);
 // diagnostics (action clustering). Defaults live here (the sole declaration);
 // the definitions in MuriAnalyzer.cpp must not repeat them. `handRadius` is the
 // configured hand (handRadiusForOptions) for everything but wifi's fixed fan.
+bool sampleRuntimeHandAction(
+    const RuntimeHandAction& action,
+    double nowSecond,
+    RuntimeTouchPoint* touchPoint);
 QVector<RuntimeHandAction> buildRuntimeHandActions(
     const QVector<TimelineNoteMarker>& noteMarkers,
     const QVector<JudgeableSimpleNote>& notes,

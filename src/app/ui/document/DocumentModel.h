@@ -176,6 +176,8 @@ public:
     QStringList dirtyEditorKeys() const;
     qulonglong bookmarkGeneration() const;
 
+    // Fresh values for every open, shared by the shell and save-before-leave.
+    Q_INVOKABLE QVariantMap fileDialogLocation(bool saveMode) const;
     Q_INVOKABLE bool openFile(const QUrl& fileUrl);
     QJsonObject documentIdentity() const;
     net::NetEnginePort::Cancel openNetPreview(const QString& path, const QJsonObject& expected,
@@ -290,6 +292,7 @@ private:
     void refreshDocumentState();
     void refreshMetadataMedia(bool force = false);
     bool runWorkspaceMutation(const std::function<bool()>& mutate);
+    void noticeChartSaveFailed(const miacode::ChartWorkspaceFileResult& result);
     bool applyDesignerSlotsWithoutBridge(const QVector<QPair<int, QString>>& slotValues,
                                         bool unified, const QString& canonicalName);
     void reconcileUnifiedDesignerAfterSourceReplacement();

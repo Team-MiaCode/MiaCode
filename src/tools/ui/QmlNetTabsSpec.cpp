@@ -24,9 +24,15 @@ QtObject {
     function require(condition, message) { if (!condition && !failure) failure = message }
     function run() {
         state.openEditor(state.netDownloadEditorKey)
+        require(state.netEditorActive && state.openEditorTabs.length === 1, "Download opens by default without a document")
         state.openEditor(state.netUploadEditorKey)
-        require(state.openEditorTabs.length === 0 && root.netActivations === 0, "Disabled Net keeps its tabs hidden")
-        state.netEnabled = true
+        require(state.openEditorTabs.length === 1 && root.netActivations === 1, "Upload stays hidden without configuration")
+        state.setActiveEditor(state.netUploadEditorKey)
+        require(state.activeEditorKey === state.netDownloadEditorKey && root.netActivations === 1, "Direct upload activation requires configuration")
+        state.netUploadEnabled = true
+        state.openEditor(state.netUploadEditorKey)
+        require(state.activeEditorKey === state.netUploadEditorKey && state.openEditorTabs.length === 2, "Configuration enables upload")
+        state.closeEditor(state.netUploadEditorKey)
         state.openEditor(state.netDownloadEditorKey)
         require(state.netEditorActive && state.openEditorTabs.length === 1, "Net opens without a document")
         state.openEditor(state.netDownloadEditorKey)

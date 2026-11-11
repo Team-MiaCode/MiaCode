@@ -2,6 +2,7 @@
 
 #include "app/runtime/document/DocumentSessionHost.h"
 #include "app/services/UiRequestService.h"
+#include "app/services/ChartWorkspaceFileService.h"
 #include "app/runtime/Shared.h"
 
 #include "audio/QtPreviewSfxRuntime.h"
@@ -74,22 +75,13 @@ PreparedDocumentOpenPayload prepareDocumentOpenPayload(const QString& path, bool
     payload.readElapsedMs = phaseTimer.elapsed();
 
     phaseTimer.restart();
-    QString text;
-    if (bytes.startsWith("\xEF\xBB\xBF")) {
-        text = QString::fromUtf8(bytes.mid(3));
-    } else {
-        QStringDecoder utf8Decoder(QStringConverter::Utf8);
-        text = utf8Decoder.decode(bytes);
-        if (utf8Decoder.hasError()) {
-            QStringDecoder systemDecoder(QStringConverter::System);
-            text = systemDecoder.decode(bytes);
-            payload.usedSystemEncoding = true;
-        }
-    }
+    const auto text = miacode::ChartWorkspaceFileService::decodeDocumentText(
+        bytes, &payload.usedSystemEncoding);
+    if (!text || file.error() != QFileDevice::NoError) return payload;
     payload.decodeElapsedMs = phaseTimer.elapsed();
 
     phaseTimer.restart();
-    payload.document = SimaiDocument::fromText(text);
+    payload.document = SimaiDocument::fromText(*text);
     payload.parseElapsedMs = phaseTimer.elapsed();
 
     if (probeTrackDuration) {

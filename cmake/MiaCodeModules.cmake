@@ -14,6 +14,8 @@ miacode_add_module(miacode_base
         src/common/DebugLog.h
         src/common/DebugOptions.h
         src/common/FileContentStamp.h
+        src/common/FileWriteFailure.cpp
+        src/common/FileWriteFailure.h
         src/common/GpuDevicePolicy.cpp
         src/common/GpuDevicePolicy.h
         src/common/InputShortcutGesture.cpp
@@ -174,6 +176,7 @@ miacode_add_module(miacode_scene
         src/core/scene/PreviewMuriActionLayerState.h
         src/core/scene/PreviewMuriPadLayerState.cpp
         src/core/scene/PreviewMuriPadLayerState.h
+        src/core/scene/PreviewNoteLayerAnomaly.h
         src/core/scene/PreviewOpacityCurves.cpp
         src/core/scene/PreviewOpacityCurves.h
         src/core/scene/PreviewPreparedSceneCache.cpp
@@ -532,7 +535,6 @@ miacode_add_module(miacode_export
         src/export/cover_export/CoverCompositionPersistenceGuard.h
         src/export/cover_export/CoverCompositionState.cpp
         src/export/cover_export/CoverCompositionState.h
-        src/export/cover_export/CoverBatchExportPolicy.h
         src/export/cover_export/CoverFrameExportPlan.cpp
         src/export/cover_export/CoverFrameExportPlan.h
         src/export/cover_export/CoverFramePlaybackController.cpp

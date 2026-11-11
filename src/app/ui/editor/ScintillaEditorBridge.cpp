@@ -883,6 +883,12 @@ void ScintillaEditorBridge::beginUserInteraction()
 void ScintillaEditorBridge::keyPressEvent(QKeyEvent* event)
 {
     if (event->matches(QKeySequence::Find)) { emit findRequested(); event->accept(); return; }
+    if (event->key() == Qt::Key_H && event->modifiers().testFlag(Qt::ControlModifier)
+        && !event->modifiers().testFlag(Qt::AltModifier)) {
+        // Suppress ScintillaQuick's built-in find/replace shortcut.
+        event->accept();
+        return;
+    }
     if (event->key() == Qt::Key_Menu || (event->key() == Qt::Key_F10 && event->modifiers().testFlag(Qt::ShiftModifier))) {
         updatePolish();
         const auto rect = cursorRectangle(); emit contextMenuRequested(rect.x(), rect.bottom()); event->accept(); return;

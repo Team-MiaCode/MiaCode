@@ -383,7 +383,8 @@ bool progressRuntimeSlideOnce(
     RuntimeSlideNoteState* note,
     double nowSecond,
     const QHash<QString, RuntimePadEvent>& padStates,
-    const QHash<QString, RuntimePadEvent>& padUpThisTick)
+    const QHash<QString, RuntimePadEvent>& padUpThisTick,
+    QSet<QString>& consumedPadReleases)
 {
     if (note == nullptr || note->curAreaIdx >= note->totalAreaNum) {
         return false;
@@ -412,6 +413,7 @@ bool progressRuntimeSlideOnce(
         }
     } else {
         if (!padStates.contains(note->pressingPad)) {
+            consumedPadReleases.insert(note->pressingPad);
             note->pressingPad.clear();
             ++note->curAreaIdx;
             return true;
@@ -425,9 +427,13 @@ bool progressRuntimeSlideOnce(
             RuntimePadEvent cause;
             RuntimePadEvent padStateCause;
             const bool down = padStateForTick(padStates, pad, &padStateCause);
-            const bool up = padReleasedThisTick(padUpThisTick, pad, &cause);
+            const bool up = !consumedPadReleases.contains(pad)
+                && padReleasedThisTick(padUpThisTick, pad, &cause);
             if (!down && !up) {
                 continue;
+            }
+            if (!down) {
+                consumedPadReleases.insert(pad);
             }
 
             if (!note->areaHits[skippedAreaIndex].judged) {
@@ -464,9 +470,11 @@ void updateRuntimeSlideNote(
         return;
     }
 
+    // One regional UP cannot finish an area and activate another in this tick.
+    QSet<QString> consumedPadReleases;
     while (note->curAreaIdx < note->totalAreaNum) {
         miacode::task::CancellationScope::checkpoint();
-        if (!progressRuntimeSlideOnce(note, nowSecond, padStates, padUpThisTick)) {
+        if (!progressRuntimeSlideOnce(note, nowSecond, padStates, padUpThisTick, consumedPadReleases)) {
             break;
         }
     }
@@ -492,7 +500,8 @@ bool progressRuntimeWifiLaneOnce(
     double nowSecond,
     int lane,
     const QHash<QString, RuntimePadEvent>& padStates,
-    const QHash<QString, RuntimePadEvent>& padUpThisTick)
+    const QHash<QString, RuntimePadEvent>& padUpThisTick,
+    QSet<QString>& consumedPadReleases)
 {
     if (note == nullptr || lane < 0 || lane >= note->laneJudgeSequence.size()) {
         return false;
@@ -523,6 +532,7 @@ bool progressRuntimeWifiLaneOnce(
         }
     } else {
         if (!padStates.contains(note->pressingPads.at(lane))) {
+            consumedPadReleases.insert(note->pressingPads.at(lane));
             note->pressingPads[lane].clear();
             ++note->curAreaIdxes[lane];
             note->laneProgressSeconds[lane][note->curAreaIdxes.at(lane)] = nowSecond;
@@ -536,9 +546,13 @@ bool progressRuntimeWifiLaneOnce(
             RuntimePadEvent cause;
             RuntimePadEvent padStateCause;
             const bool down = padStateForTick(padStates, pad, &padStateCause);
-            const bool up = padReleasedThisTick(padUpThisTick, pad, &cause);
+            const bool up = !consumedPadReleases.contains(pad)
+                && padReleasedThisTick(padUpThisTick, pad, &cause);
             if (!down && !up) {
                 continue;
+            }
+            if (!down) {
+                consumedPadReleases.insert(pad);
             }
 
             note->pressingPads[lane] = pad;
@@ -572,9 +586,11 @@ void updateRuntimeWifiNote(
 
     for (int lane = 0; lane < note->laneJudgeSequence.size(); ++lane) {
         miacode::task::CancellationScope::checkpoint();
+        // Wifi lanes are independent queues and may share the same input.
+        QSet<QString> consumedPadReleases;
         while (note->curAreaIdxes.at(lane) < note->totalAreaNum) {
             miacode::task::CancellationScope::checkpoint();
-            if (!progressRuntimeWifiLaneOnce(note, nowSecond, lane, padStates, padUpThisTick)) {
+            if (!progressRuntimeWifiLaneOnce(note, nowSecond, lane, padStates, padUpThisTick, consumedPadReleases)) {
                 break;
             }
         }

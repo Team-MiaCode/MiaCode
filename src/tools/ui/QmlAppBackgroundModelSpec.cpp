@@ -1,5 +1,8 @@
 #include "app/ui/preferences/AppBackgroundModel.h"
 #include "common/DebugLog.h"
+#include "app/services/UiRequestService.h"
+#include <QUrl>
+#include <QFileInfo>
 
 #include <QCoreApplication>
 #include <QFile>
@@ -54,6 +57,15 @@ bool testImageStatesAndMerge(QTextStream& out)
             saved = next;
             return true;
         });
+
+    miacode::UiRequestService requests;
+    QVariantMap requested;
+    QObject::connect(&requests, &miacode::UiRequestService::fileRequested,
+                     [&](const QString&, const QVariantMap& value) { requested = value; });
+    miacode::ui::AppBackgroundModel chooser(&requests, [&root] { return root; }, [](const QJsonObject&) { return true; });
+    chooser.chooseImage();
+    if (!require(requested.value("startFolder").toUrl().toLocalFile() == QFileInfo(imagePath).absolutePath(),
+                 QStringLiteral("background chooser restores the persisted image directory"), out)) return false;
 
     if (!require(model.imagePath() == imagePath && model.imageReadable() && !model.sourceUrl().isEmpty(),
                  QStringLiteral("readable persisted path has three-state projection"), out)) {

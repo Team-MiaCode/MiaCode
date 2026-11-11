@@ -142,8 +142,12 @@ Item {
         id: actions
         property bool canTransform: true
         property bool canNormalize: true
+        property bool renderModeMenuAvailable: false
+        property int renderModeRequests: 0
         signal chartTransformRequested(string commandId)
+        signal renderModeMenuRequested()
         onChartTransformRequested: function(commandId) { root.selectedCommand = commandId }
+        onRenderModeMenuRequested: ++renderModeRequests
     }
     QtObject {
         id: shortcutModel
@@ -177,6 +181,24 @@ Item {
         }
         return false
     }
+    function renderModeItem() {
+        const menus = menu.nativeMenus()
+        for (let m = 0; m < menus.length; ++m) {
+            for (let i = 0; i < menus[m].count; ++i) {
+                const item = menus[m].itemAt(i)
+                if (item && item.action && item.action.objectName === "previewRenderModeMenuAction")
+                    return item
+            }
+        }
+        return null
+    }
+    function renderModeEnabled() { const item = renderModeItem(); return !!item && item.enabled }
+    function clickRenderMode(available) {
+        actions.renderModeMenuAvailable = available
+        const item = renderModeItem()
+        if (item) item.click()
+        return actions.renderModeRequests
+    }
     function selectLight() {
         preferences.darkTheme = false
         preferences.activeThemeToken = "light"
@@ -195,6 +217,19 @@ Item {
     bool ok = expect(triggered.toBool()
                          && harness->property("selectedCommand").toString() == QStringLiteral("transform.mirror_lr"),
                      QStringLiteral("transform menu row dispatches its command"), out, failed);
+    QVariant renderModeEnabled;
+    QMetaObject::invokeMethod(harness.get(), "renderModeEnabled", Q_RETURN_ARG(QVariant, renderModeEnabled));
+    QVariant requestsWhileUnavailable;
+    QMetaObject::invokeMethod(harness.get(), "clickRenderMode", Q_RETURN_ARG(QVariant, requestsWhileUnavailable),
+                              Q_ARG(QVariant, QVariant(false)));
+    ok &= expect(!renderModeEnabled.toBool() && requestsWhileUnavailable.toInt() == 0,
+                 QStringLiteral("预览 → 渲染模式 is unavailable while its dropdown button cannot be clicked"),
+                 out, failed);
+    QVariant requestsWhileAvailable;
+    QMetaObject::invokeMethod(harness.get(), "clickRenderMode", Q_RETURN_ARG(QVariant, requestsWhileAvailable),
+                              Q_ARG(QVariant, QVariant(true)));
+    ok &= expect(requestsWhileAvailable.toInt() == 1,
+                 QStringLiteral("预览 → 渲染模式 asks the shell to open the rendering-mode dropdown"), out, failed);
     const QVariant darkPanel = harness->property("panelColor");
     QMetaObject::invokeMethod(harness.get(), "selectLight");
     ok &= expect(harness->property("paletteToken").toString() == QStringLiteral("light")

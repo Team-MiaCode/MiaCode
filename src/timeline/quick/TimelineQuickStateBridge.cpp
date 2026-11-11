@@ -389,6 +389,16 @@ void TimelineQuickStateBridge::applyZoomPreset(double scale)
     setZoomScaleAnchored(scale, viewportCenterSecond());
 }
 
+void TimelineQuickStateBridge::stepZoomIn()
+{
+    stepZoomPreset(1, viewportCenterSecond());
+}
+
+void TimelineQuickStateBridge::stepZoomOut()
+{
+    stepZoomPreset(-1, viewportCenterSecond());
+}
+
 QStringList TimelineQuickStateBridge::zoomInWheelShortcuts() const
 {
     return zoomInWheelShortcuts_;

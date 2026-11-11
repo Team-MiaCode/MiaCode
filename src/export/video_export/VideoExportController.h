@@ -74,6 +74,8 @@ struct IntroBannerSpec {
     // read from its project preferences when the spec is built.
     bool pvPreview = false;
     double pvPreviewStartSeconds = 0.0;
+    // Background-only gain, independent of the chart's normal PV brightness.
+    double pvPreviewBrightness = 1.0;
 };
 
 inline int introDurationFrames(const IntroBannerSpec& intro)
@@ -179,6 +181,7 @@ inline void copyIntroStyling(const IntroBannerSpec& from, IntroBannerSpec* to)
     to->fontDisplayPath = from.fontDisplayPath;
     to->fontBodyPath = from.fontBodyPath;
     to->pvPreview = from.pvPreview;
+    to->pvPreviewBrightness = from.pvPreviewBrightness;
 }
 
 // IntroOverlay root properties beyond the track: custom backdrop URL (empty ->
@@ -200,6 +203,7 @@ inline QVariantMap introBannerStyleMap(const IntroBannerSpec& intro, bool pvVide
     style.insert(QStringLiteral("pvPreviewMode"), intro.pvPreview);
     style.insert(QStringLiteral("pvPreviewHoldFrames"), miacode::intro::kPvPreviewHoldFrames);
     style.insert(QStringLiteral("pvPreviewVideoUnderlay"), intro.pvPreview && pvVideoUnderlay);
+    style.insert(QStringLiteral("pvPreviewBrightness"), intro.pvPreviewBrightness);
     return style;
 }
 
@@ -221,6 +225,7 @@ struct VideoExportTask {
     double backgroundBrightnessOuter = miacode::preview_video::kBackgroundBrightnessDefault;
     double backgroundBrightnessInner = miacode::preview_video::kBackgroundBrightnessInnerDefault;
     double layoutSquareScale = miacode::preview_video::kLayoutSquareScaleDefault;
+    double fireworkBrightness = miacode::preview_video::kFireworkBrightnessDefault;
     bool smoothBrightness = miacode::preview_video::kSmoothBrightnessDefault;
     PreviewOutlineVariant outlineVariant = PreviewOutlineVariant::Line;
     QString outlineImagePath;

@@ -265,6 +265,7 @@ void Session::finishFrameBootstrap(const std::function<void(const QString&)>& lo
         scene_->setBackgroundBrightnessOuter(previewBackgroundBrightnessOuter_);
         scene_->setBackgroundBrightnessInner(previewBackgroundBrightnessInner_);
         scene_->setLayoutSquareScale(previewLayoutSquareScale_);
+        scene_->setFireworkBrightness(previewFireworkBrightness_);
         scene_->setSmoothBrightness(previewSmoothBrightness_);
         scene_->setBackgroundScaleMode(previewBackgroundScaleMode_);
         scene_->setTapFlowSpeed(previewTapFlowSpeed_);

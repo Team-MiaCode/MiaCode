@@ -34,8 +34,6 @@ public:
     static QImage decodeFrame(const QString& mediaPath, double seconds, int sidePx,
                               QString* errorMessage = nullptr);
 
-    static double latestSeekableSecond(const QString& mediaPath);
-
     void request(const QString& key, const QString& mediaPath, double seconds, int sidePx);
     void cancel(const QString& key);
     void cancelAll();

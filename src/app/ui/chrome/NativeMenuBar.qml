@@ -16,7 +16,6 @@ MenuBar {
     property bool editorCommandsEnabled: true
     property bool chartCommandsEnabled: true
     property bool toolCommandsEnabled: true
-    property bool normalizationEnabled: true
 
     property MainMenu menuDefinitions: MainMenu {
         visible: false
@@ -31,7 +30,6 @@ MenuBar {
         editorCommandsEnabled: root.editorCommandsEnabled
         chartCommandsEnabled: root.chartCommandsEnabled
         toolCommandsEnabled: root.toolCommandsEnabled
-        normalizationEnabled: root.normalizationEnabled
         nativeMenuMode: true
     }
 
@@ -58,7 +56,7 @@ MenuBar {
         const menus = root.menuDefinitions.nativeMenus()
         menus[0].addAction(root.quitApplicationAction)
         menus[1].addAction(root.preferencesApplicationAction)
-        menus[5].addAction(root.aboutApplicationAction)
+        menus[6].addAction(root.aboutApplicationAction)
         for (let i = 0; i < menus.length; ++i) {
             root.addMenu(menus[i])
         }

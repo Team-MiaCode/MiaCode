@@ -10,8 +10,109 @@
 #include "core/analysis/MuriConfig.h"
 #include "core/analysis/MuriTypes.h"  // makeMarkerAnalysisKey
 #include "core/analysis/MuriAnalyzerInternal.h"
+#include "core/analysis/MuriAnalyzerGeometry.h"
 
 namespace miacode::muri::detail {
+
+QVector<TimelineNoteMarker> prepareRuntimeMarkers(const QVector<TimelineNoteMarker>& noteMarkers)
+{
+    using namespace miacode::muri;
+    QVector<TimelineNoteMarker> prepared = noteMarkers;
+    struct SlideMotion {
+        int markerIndex = -1;
+        double firstAreaExitSecond = 0.0;
+        double criticalSecond = 0.0;
+        QVector<RuntimeHandAction> segments;
+    };
+    QVector<SlideMotion> slides;
+    for (int index = 0; index < noteMarkers.size(); ++index) {
+        miacode::task::CancellationScope::checkpoint();
+        const auto& marker = noteMarkers.at(index);
+        if (marker.type != QLatin1String("slide") || marker.isMine || marker.trackMine) {
+            continue;
+        }
+        const int count = qMin(marker.slideSegmentPoints.size(),
+            qMin(marker.slideSegmentShootSeconds.size(), marker.slideSegmentDurations.size()));
+        if (count == 0 || marker.slideSegmentPadEnterTimes.isEmpty()
+            || marker.slideSegmentPadEnterTimes.constFirst().isEmpty()
+            || marker.slideSegmentCriticalProportions.size() < count) {
+            continue;
+        }
+        SlideMotion motion;
+        motion.markerIndex = index;
+        motion.firstAreaExitSecond = marker.slideTraceSecond
+            + marker.slideSegmentDurations.constFirst()
+                * marker.slideSegmentPadEnterTimes.constFirst().constFirst().proportion;
+        motion.criticalSecond = marker.slideSegmentShootSeconds.at(count - 1)
+            + marker.slideSegmentDurations.at(count - 1) * marker.slideSegmentCriticalProportions.at(count - 1);
+        for (int segment = 0; segment < count; ++segment) {
+            miacode::task::CancellationScope::checkpoint();
+            RuntimeHandAction action;
+            action.kind = RuntimeHandActionKind::Slide;
+            action.startSecond = marker.slideSegmentShootSeconds.at(segment);
+            action.motionDurationSecond = marker.slideSegmentDurations.at(segment);
+            action.endSecond = action.startSecond + action.motionDurationSecond;
+            // The reference's workup compares the visual path, while judging
+            // follows real_path (which can differ for pp/qq slides).
+            action.points = centeredPathPoints(marker.slideSegmentPoints.at(segment));
+            motion.segments.append(action);
+        }
+        slides.append(motion);
+    }
+
+    for (TimelineNoteMarker& marker : prepared) {
+        miacode::task::CancellationScope::checkpoint();
+        if (marker.type != QLatin1String("hold")
+            || marker.endSecond - marker.second > kFakeHoldDurationSeconds + 1e-9) {
+            continue;
+        }
+        // Keep the hold in the chart. Only its simulated hand behaves as a tap,
+        // which can be supplied by the slide shooting from the same lane.
+        for (const auto& slide : noteMarkers) {
+            if (isSlideLike(slide) && !slide.isMine && !slide.trackMine
+                && slide.lane == marker.lane
+                && qAbs(slide.slideTraceSecond - marker.second) < kTapOnSlideThresholdSeconds) {
+                marker.slideHead = true;
+                break;
+            }
+        }
+    }
+
+    for (const SlideMotion& ending : slides) {
+        auto& marker = prepared[ending.markerIndex];
+        if (marker.beforeSlide) {
+            continue;
+        }
+        // Match MaiMuriDX's embedded-stroke check half a judge tick before the
+        // end. The containing chain may reverse direction at the exact join.
+        const double sampleSecond = marker.endSecond - 0.5 / kJudgeTps;
+        RuntimeTouchPoint tail;
+        if (!sampleRuntimeHandAction(ending.segments.constLast(), sampleSecond, &tail) || !tail.hasTangent) {
+            continue;
+        }
+        for (const SlideMotion& containing : slides) {
+            miacode::task::CancellationScope::checkpoint();
+            if (containing.markerIndex == ending.markerIndex
+                || marker.endSecond <= containing.firstAreaExitSecond
+                || marker.endSecond >= containing.criticalSecond) {
+                continue;
+            }
+            for (const auto& segment : containing.segments) {
+                RuntimeTouchPoint point;
+                if (sampleRuntimeHandAction(segment, sampleSecond, &point) && point.hasTangent
+                    && pointDistance(tail.center, point.center) < kSlideMergeDistance
+                    && tangentDelta(tail.tangent, point.tangent) < kSlideMergeTangentDelta) {
+                    marker.beforeSlide = true;
+                    break;
+                }
+            }
+            if (marker.beforeSlide) {
+                break;
+            }
+        }
+    }
+    return prepared;
+}
 
 QHash<QString, MarkerSourceRef> buildMarkerSourceRefs(const QVector<TimelineNoteMarker>& noteMarkers)
 {

@@ -21,6 +21,7 @@
 #include <QTextStream>
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 
 namespace {
@@ -98,6 +99,8 @@ double rollingMaxMs(const QVector<double>& samples, int count)
 // frame is reliably noticeable. Counted against the rolling sample window
 // so the HUD shows a per-second-scale figure.
 constexpr double kStutterMultiplier = 1.5;
+
+constexpr qint64 kNonFinitePlayheadLogIntervalMs = 5000;
 
 int rollingStutterCount(const QVector<double>& samples, int count, double thresholdMs)
 {
@@ -462,6 +465,25 @@ void PreviewRuntime::setFramePacingDebugState(
 
 void PreviewRuntime::setPlayheadSeconds(double seconds, bool requestUpdate)
 {
+    // Keep the last finite playhead: every scene-root cursor and the firework
+    // warm-up placement compare against it.
+    if (!std::isfinite(seconds)) {
+        ++nonFinitePlayheadIgnoredCount_;
+        if (!nonFinitePlayheadLogTimer_.isValid()
+            || nonFinitePlayheadLogTimer_.elapsed() >= kNonFinitePlayheadLogIntervalMs) {
+            nonFinitePlayheadLogTimer_.restart();
+            miacode::debug_log::appendLine(
+                miacode::debug_log::Channel::Runtime,
+                QStringLiteral("preview/runtime"),
+                QStringLiteral("action=non_finite_playhead_ignored value=%1 kept=%2 ignored_total=%3")
+                    .arg(seconds)
+                    .arg(frameState_.playheadSeconds, 0, 'f', 3)
+                    .arg(nonFinitePlayheadIgnoredCount_),
+                false,
+                miacode::debug_log::Level::Warn);
+        }
+        return;
+    }
     frameState_.playheadSeconds = seconds;
     refreshFireworkWarmupForPlayheadChange();
     if (requestUpdate) {
@@ -737,6 +759,12 @@ void PreviewRuntime::setBackgroundBrightnessInner(double brightness)
 void PreviewRuntime::setLayoutSquareScale(double scale)
 {
     frameState_.render.layoutSquareScale = miacode::preview_video::normalizedLayoutSquareScale(scale);
+    update();
+}
+
+void PreviewRuntime::setFireworkBrightness(double brightness)
+{
+    frameState_.render.fireworkBrightness = miacode::preview_video::normalizedFireworkBrightness(brightness);
     update();
 }
 
@@ -1062,7 +1090,11 @@ void PreviewRuntime::reset(bool releaseStorage)
     frameState_.muriAnalysisReport = MuriAnalysisReport();
     frameState_.playheadSeconds = 0.0;
     frameState_.hudPlayheadSecondsOverride = std::numeric_limits<double>::quiet_NaN();
-    frameState_.sceneContentRevision = 0;
+    // Advance, never rewind: without a storage-generation bump a rewound revision
+    // lets the next content reach a revision some PreviewQuickSceneRoot already
+    // cached for other markers, and that root's prepared cache skips the rebuild
+    // (issue #48: notes vanish while the statistics stay correct).
+    frameState_.sceneContentRevision += 1;
     // Restore the invariant "armed-but-not-done ⇒ exactly one synthetic in
     // noteMarkers, centred on fireworkWarmupCenterSecond_". The clear above drops
     // it, and refreshFireworkWarmupForPlayheadChange() no longer re-adds it on

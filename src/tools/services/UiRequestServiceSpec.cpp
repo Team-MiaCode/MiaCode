@@ -121,9 +121,12 @@ bool verifyCancellationAndUnknownIds(QTextStream& err)
     return ok;
 }
 
-QVariantMap requestPayload(const miacode::FileRequest& request)
+QVariantMap requestPayload(const miacode::FileRequest& request,
+                           const QString& defaultStartFolder = QString())
 {
     miacode::UiRequestService service;
+    if (!defaultStartFolder.isEmpty())
+        service.setDefaultStartFolder([defaultStartFolder] { return defaultStartFolder; });
     QSignalSpy requested(&service, &miacode::UiRequestService::fileRequested);
     service.requestFile(request, [](const QString&) {});
     return requested.isEmpty() ? QVariantMap() : requested.at(0).at(1).toMap();
@@ -183,9 +186,9 @@ bool verifyStartLocation(QTextStream& err)
 
     save.startPath = QStringLiteral("cover-layout.miacover");
     payload = requestPayload(save);
-    ok &= require(!payload.contains(QStringLiteral("startFolder"))
+    ok &= require(localPathOf(payload, "startFolder") == QDir::homePath()
                       && localPathOf(payload, "startFile") == QStringLiteral("cover-layout.miacover"),
-                  QStringLiteral("a bare save name is proposed without inventing a folder, "
+                  QStringLiteral("a bare save name opens in the default folder "
                                  "and is never read as a host name"),
                   err);
 
@@ -199,8 +202,22 @@ bool verifyStartLocation(QTextStream& err)
 
     folder.startPath = QString();
     payload = requestPayload(folder);
-    ok &= require(!payload.contains(QStringLiteral("startFolder")),
-                  QStringLiteral("no start path leaves the location to the platform"), err);
+    ok &= require(localPathOf(payload, "startFolder") == QDir::homePath(),
+                  QStringLiteral("no start path and no default opens the home folder, "
+                                 "never the previous pick's folder"), err);
+
+    payload = requestPayload(folder, chartDir);
+    ok &= require(localPathOf(payload, "startFolder") == chartDir,
+                  QStringLiteral("no start path opens the installed default folder"), err);
+
+    payload = requestPayload(folder, QDir(chartDir).filePath(QStringLiteral("gone")));
+    ok &= require(localPathOf(payload, "startFolder") == QDir::homePath(),
+                  QStringLiteral("a default folder that no longer exists falls back to home"), err);
+
+    open.startPath = chartDir;
+    payload = requestPayload(open, root.path());
+    ok &= require(localPathOf(payload, "startFolder") == chartDir,
+                  QStringLiteral("an explicit start path wins over the default folder"), err);
 
 #ifdef Q_OS_WIN
     save.startPath = QStringLiteral("C:/charts/song/out.mp4");
@@ -210,6 +227,60 @@ bool verifyStartLocation(QTextStream& err)
                   QStringLiteral("a drive-letter path stays a local path, not the share \\\\c\\charts"),
                   err);
 #endif
+    return ok;
+}
+
+bool verifyMultiplePaths(QTextStream& err)
+{
+    miacode::UiRequestService service;
+    QSignalSpy requested(&service, &miacode::UiRequestService::fileRequested);
+    miacode::FileRequest request;
+    request.selectFolder = true;
+    QStringList selected;
+    int calls = 0;
+    const auto id = service.requestFiles(request, [&](const QStringList& paths) {
+        selected = paths;
+        ++calls;
+    });
+    bool ok = require(requested.last().at(1).toMap().value("selectMultiple").toBool(),
+                      QStringLiteral("a list request tells the shell to allow multiple selections"), err);
+    QTemporaryDir scratch;
+    const QString a = QDir(scratch.path()).filePath(QStringLiteral("Song #1"));
+    const QString b = QDir(scratch.path()).filePath(QStringLiteral("中文 Song 2"));
+    QDir().mkpath(a);
+    QDir().mkpath(b);
+    service.submitFileResults(id, {QUrl::fromLocalFile(a), QUrl(QStringLiteral("https://example.com")),
+                                   QUrl::fromLocalFile(b), QUrl::fromLocalFile(a)});
+    service.cancelFileRequest(id);
+    service.submitFileResults(id, {QUrl::fromLocalFile(b)});
+    ok &= require(selected == QStringList{a, b} && calls == 1 && service.pendingFileRequestCount() == 0,
+                  QStringLiteral("all local paths arrive once, with order preserved and duplicates removed"), err);
+    service.cancelFileRequest(service.requestFiles(request, [&](const QStringList& paths) {
+        selected = paths;
+        ++calls;
+    }));
+    ok &= require(selected.isEmpty() && calls == 2,
+                  QStringLiteral("multi-selection cancellation resolves once with an empty list"), err);
+    const auto single = service.requestFile(request, [&](const QString& path) { selected = {path}; });
+    service.submitFileResults(single, {QUrl::fromLocalFile(a), QUrl::fromLocalFile(b)});
+    ok &= require(selected == QStringList{a}, QStringLiteral("single-path callers keep their single result"), err);
+    miacode::UiRequestService::NativeFolderResult finish;
+    QPointer<QObject> lifetime;
+    int opens = 0;
+    service.setNativeFolderPicker([&](QObject* context, QObject*, const QString&, const QUrl&, auto callback) {
+        lifetime = context;
+        finish = std::move(callback);
+        ++opens;
+    });
+    const auto nativeId = service.requestFiles(request, [&](const QStringList& paths) { selected = paths; });
+    service.openNativeFolders(nativeId, nullptr);
+    service.openNativeFolders(nativeId, nullptr);
+    QCoreApplication::processEvents();
+    ok &= require(opens == 1 && lifetime, QStringLiteral("a native request opens once and owns its dialog lifetime"), err);
+    service.cancelFileRequest(nativeId);
+    ok &= require(!lifetime && selected.isEmpty(), QStringLiteral("cancellation closes the native dialog lifetime"), err);
+    finish({QUrl::fromLocalFile(a)}, {});
+    ok &= require(selected.isEmpty(), QStringLiteral("a late native result cannot revive a cancelled request"), err);
     return ok;
 }
 
@@ -402,7 +473,7 @@ int main(int argc, char** argv)
     QCoreApplication app(argc, argv);
     QTextStream err(stderr);
     const bool ok = verifyFileRequestRoundTrip(err) && verifyCancellationAndUnknownIds(err)
-        && verifyStartLocation(err) && verifyNotices(err) && verifyActionableNotices(err) && verifyConfirmations(err)
+        && verifyStartLocation(err) && verifyMultiplePaths(err) && verifyNotices(err) && verifyActionableNotices(err) && verifyConfirmations(err)
         && verifyChoices(err);
     if (ok) {
         QTextStream out(stdout);

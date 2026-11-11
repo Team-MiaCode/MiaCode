@@ -64,10 +64,11 @@ Item {
     // ---- PV-preview style (IntroBannerSpec.pvPreview) ----
     property bool pvPreviewMode: false
     // Card + PV window [0, hold); also the cycle-2 start frame.
-    property int pvPreviewHoldFrames: 390
+    property int pvPreviewHoldFrames: 510
     // true -> the caller composites the PV segment under this overlay, so the
     // hold leaves the frame transparent around the card.
     property bool pvPreviewVideoUnderlay: false
+    property real pvPreviewBrightness: 1.0
     readonly property int pvFadeInFrames: 24
     // Preview only: the export page fades the card while its PV segment window
     // is dragged, so the PV under the card stays readable.
@@ -266,7 +267,7 @@ Item {
         visible: opacity > 0
     }
 
-    // PV preview without a video underlay: the backdrop image, crisp and undimmed,
+    // PV preview without a video underlay: the crisp backdrop image
     // stands in for the PV through the hold.
     Image {
         anchors.fill: parent
@@ -277,6 +278,15 @@ Item {
         asynchronous: false
         smooth: true
         mipmap: true
+    }
+
+    // Shared background-only dimming for the video underlay and still fallback.
+    // Stop at the hard cut so the card, wipe and chart keep their own brightness.
+    Rectangle {
+        anchors.fill: parent
+        color: "#000000"
+        opacity: 1.0 - root.clamp(root.pvPreviewBrightness, 0.0, 1.0)
+        visible: root.pvPreviewMode && root.frame < root.hideAbs && opacity > 0
     }
 
     // PV-preview fade-in: black over the PV underneath (below the card, so the

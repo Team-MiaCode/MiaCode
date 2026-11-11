@@ -6,7 +6,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QImageReader>
-#include <QSaveFile>
+#include "common/AtomicFileCopy.h"
 #include <QThread>
 #include <QUuid>
 #include <QVector>
@@ -57,42 +57,6 @@ QString temporaryPath(const QString& originalPath)
                 .arg(QUuid::createUuid().toString(QUuid::WithoutBraces)));
     } while (pathExistsCaseInsensitive(candidate));
     return candidate;
-}
-
-bool copyFileAtomically(const QString& sourcePath, const QString& targetPath, QString* detail)
-{
-    QFile source(sourcePath);
-    if (!source.open(QIODevice::ReadOnly)) {
-        if (detail != nullptr) *detail = source.errorString();
-        return false;
-    }
-
-    QSaveFile target(targetPath);
-    target.setDirectWriteFallback(false);
-    if (!target.open(QIODevice::WriteOnly)) {
-        if (detail != nullptr) *detail = target.errorString();
-        return false;
-    }
-
-    QByteArray buffer(1024 * 1024, Qt::Uninitialized);
-    while (!source.atEnd()) {
-        const qint64 read = source.read(buffer.data(), buffer.size());
-        if (read < 0) {
-            if (detail != nullptr) *detail = source.errorString();
-            target.cancelWriting();
-            return false;
-        }
-        if (read > 0 && target.write(buffer.constData(), read) != read) {
-            if (detail != nullptr) *detail = target.errorString();
-            target.cancelWriting();
-            return false;
-        }
-    }
-    if (!target.commit()) {
-        if (detail != nullptr) *detail = target.errorString();
-        return false;
-    }
-    return true;
 }
 
 struct MovedFile {
@@ -270,7 +234,7 @@ Result importToChartDirectory(const QString& sourcePath,
         }
     }
     QString copyError;
-    if (!copyFileAtomically(copySource, result.targetPath, &copyError)) {
+    if (!file_io::copyFileAtomically(copySource, result.targetPath, &copyError)) {
         rollback();
         result.errorCode = QStringLiteral("copy_failed");
         result.warnings.append(copyError);

@@ -90,13 +90,6 @@ public:
                           QObject* parent = nullptr);
     ~CoverExportSession() override;
 
-    static QVariantList batchPresetOptions();
-    static miacode::cover_export::CoverExportResult exportBatchCover(
-        miacode::ExportEngine& engine, miacode::UiRequestService& requests,
-        const VideoExportTask& task, const QString& presetToken, const QString& outputPath,
-        QStringList* frameAdjustments);
-
-
     QObject* uiRequests() const;
     bool pageSessionActive() const { return pageSessionActive_; }
     int selectedDifficultyId() const { return selectedDifficultyId_; }
@@ -237,14 +230,12 @@ private:
     bool containsDifficulty(int difficultyId) const;
     int defaultDifficultyId(int preferredDifficultyId) const;
     void seedFromDifficulty(int difficultyId);
-    void seedFromTask(const VideoExportTask& task);
-    static QVariantList builtinPresetChoices();
     void rebuildDifficultyList();
     void refreshSavedLists();
     bool renderChartFrame(miacode::cover_export::CoverLayer* layer, int sidePx = 0,
                           bool reportErrors = false);
     void syncPlaybackFromActiveLayer();
-    bool renderVisibleChartFramesForExport(int sidePx, bool reportErrors = true);
+    bool renderVisibleChartFramesForExport(int sidePx);
     // frameBgMode "pv": queue the layer's PV frame (latest-wins), or drop it
     // when the layer is in another mode / the chart has no video PV.
     void requestPvFrame(miacode::cover_export::CoverLayer* layer);
@@ -305,7 +296,6 @@ private:
     bool hasLoadedPreferences_ = false;
     QTimer compositionSaveTimer_;
     bool compositionDirty_ = false;
-    bool batchExportMode_ = false;
     bool outputDirty_ = false;
     bool backgroundDirty_ = false;
     bool blurBackground_ = true;

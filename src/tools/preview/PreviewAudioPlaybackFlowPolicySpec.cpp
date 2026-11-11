@@ -255,6 +255,40 @@ bool verifyFailedOrDegradedPrepareLeavesUiPaused(QTextStream& err)
     return ok;
 }
 
+bool verifyMissingAudioEngineProceedsOnVisualSecond(QTextStream& err)
+{
+    const State waiting = beginColdPrepare(State{}, Request{52, 521, 921, 7.5});
+    Completion missingEngine = completion(CompletionKind::Prepare, 52, 521, 921, 0.0, false, true);
+    missingEngine.audioUnavailable = true;
+    const Decision startup = decideCompletion(waiting, missingEngine);
+    Completion staleMissingEngine = missingEngine;
+    staleMissingEngine.sequence = 920;
+    const Decision stale = decideCompletion(waiting, staleMissingEngine);
+
+    State playing;
+    playing.audioPrepared = true;
+    playing.uiPlaying = true;
+    const State seeking = beginPlayingRetainedSeek(playing, Request{53, 522, 922, 20.0}, 7.5);
+    Completion missingEngineSeek = completion(CompletionKind::RetainedSeek, 53, 522, 922, 0.0, false);
+    missingEngineSeek.audioUnavailable = true;
+    const Decision seek = decideCompletion(seeking, missingEngineSeek);
+
+    bool ok = true;
+    ok &= expect(startup.proceedsWithoutAudio && startup.commitsAudioPreparation
+                     && startup.state.audioPrepared,
+                 "prepare without an audio engine still commits the startup", err);
+    ok &= expect(startup.state.effectiveWorkerSecond == 7.5
+                     && startup.state.transportAnchorSecond == 7.5,
+                 "startup without an audio engine anchors on the requested visual second", err);
+    ok &= expect(!stale.matchesPending && !stale.proceedsWithoutAudio && !stale.commitsAudioPreparation,
+                 "stale completion without an audio engine is still rejected", err);
+    ok &= expect(seek.proceedsWithoutAudio && seek.commitsWorkerSecond
+                     && seek.state.transportAnchorSecond == 20.0
+                     && seek.state.pendingPlayingSeekSequence == 0,
+                 "playing seek without an audio engine moves to the requested second", err);
+    return ok;
+}
+
 bool verifyPendingInitializersPreserveWorkerSecond(QTextStream& err)
 {
     const State startup = beginStartupPlayback(
@@ -439,6 +473,7 @@ int main()
     ok &= verifyVisualSecondWaitsForAuthoritativeCompletion(err);
     ok &= verifyPlayingSeekWaitsForAcceptedWorkerCompletion(err);
     ok &= verifyFailedOrDegradedPrepareLeavesUiPaused(err);
+    ok &= verifyMissingAudioEngineProceedsOnVisualSecond(err);
     ok &= verifyPendingInitializersPreserveWorkerSecond(err);
     ok &= verifyManualPauseCompletionRequiresItsImmutableIdentity(err);
     ok &= verifySupersededManualPauseNamesMissingPendingRequest(err);

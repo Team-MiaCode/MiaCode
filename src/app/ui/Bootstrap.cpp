@@ -25,11 +25,13 @@
 #include "app/ui/drop/ChartDropBridge.h"
 #include "app/ui/document/DocumentModel.h"
 #include "app/ui/layout/PageHost.h"
+#include "app/ui/dialogs/NativeFolderPicker.h"
 #include "common/DebugLog.h"
 #include "common/OperationLog.h"
 
 #include <QCoreApplication>
 #include <QGuiApplication>
+#include <QPointer>
 #include <QQmlApplicationEngine>
 #include <QQmlEngine>
 #include <QQuickItem>
@@ -95,6 +97,7 @@ bool Bootstrap::start(const QString& startupOpenTarget)
 #endif
 
     applicationServices_ = std::make_unique<miacode::ApplicationServices>();
+    installNativeFolderPicker(applicationServices_->uiRequests());
     connect(&miacode::LocaleService::instance(), &miacode::LocaleService::languageChanged,
             this, [this](const QString&) {
         applicationServices_->uiRequests().retranslate();
@@ -148,6 +151,13 @@ bool Bootstrap::start(const QString& startupOpenTarget)
     QObject::connect(static_cast<PageHost*>(applicationContext_->pages()),
         &PageHost::coverWindowRequested, this, &Bootstrap::openCoverExportWindow);
     auto* const document = static_cast<DocumentModel*>(applicationContext_->document());
+    // Picks that name no folder of their own open where 打开 would: the
+    // remembered document folder, then the current chart's.
+    applicationServices_->uiRequests().setDefaultStartFolder(
+        [document = QPointer<DocumentModel>(document)]() {
+            return document ? document->fileDialogLocation(false).value(QStringLiteral("folder")).toUrl().toLocalFile()
+                            : QString();
+        });
     QObject::connect(document, &DocumentModel::documentStateChanged, this,
         [this, document, chartPath = document->currentFilePath(),
          generation = document->documentOpenGeneration()]() mutable {
@@ -215,6 +225,9 @@ bool Bootstrap::start(const QString& startupOpenTarget)
     appendUiRuntimeLog(QStringLiteral("load_begin"), QStringLiteral("MiaCode.UI/Main"));
     miacode::oplog::appendStartupBeaconLine("ui/before_qml_load");
     engine_->loadFromModule(QStringLiteral("MiaCode.UI"), QStringLiteral("Main"));
+    // The engine loaded Qt's system-locale catalogs while starting; put the
+    // interface catalog back in front and retranslate what it built.
+    miacode::LocaleService::instance().prioritizeTranslator();
     miacode::oplog::appendStartupBeaconLine("ui/after_qml_load");
 
     if (engine_->rootObjects().isEmpty()) {

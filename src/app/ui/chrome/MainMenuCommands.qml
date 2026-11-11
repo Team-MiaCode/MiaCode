@@ -13,8 +13,8 @@ QtObject {
     property bool canCopy: false
     property bool canPaste: false
     property bool canTransform: false
-    property bool canNormalize: false
-    property bool netEnabled: false
+    property bool netUploadEnabled: false
+    property bool renderModeMenuAvailable: false
     property bool commandsEnabled: true
 
     signal openRequested()
@@ -36,7 +36,6 @@ QtObject {
     signal netUploadRequested()
     signal mediaToolRequested(string toolId)
     signal chartTransformRequested(string opId)
-    signal normalizeChartRequested()
     signal aboutRequested()
     signal setupWizardRequested()
     signal preferencesRequested()
@@ -46,6 +45,7 @@ QtObject {
     signal closeDocumentRequested()
     signal audioSettingsRequested()
     signal previewSettingsRequested()
+    signal renderModeMenuRequested()
     // -1 / +1 along the preview's playback-rate ladder.
     signal previewRateStepRequested(int direction)
     signal unavailableFeatureRequested(string featureName)

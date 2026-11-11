@@ -491,6 +491,7 @@ bool miacode::runtime::VideoExportHost::buildVideoExportSnapshot(
     built.backgroundBrightnessOuter = requestedTask.backgroundBrightnessOuter;
     built.backgroundBrightnessInner = requestedTask.backgroundBrightnessInner;
     built.layoutSquareScale = requestedTask.layoutSquareScale;
+    built.fireworkBrightness = requestedTask.fireworkBrightness;
     built.smoothBrightness = requestedTask.smoothBrightness;
     built.outlineVariant = requestedTask.outlineVariant;
     built.outlineImagePath = session_.resolvePreviewCustomOutlinePath();
@@ -700,6 +701,7 @@ bool miacode::runtime::VideoExportHost::buildVideoExportSnapshotForChartDirector
     built.backgroundBrightnessOuter = requestedTask.backgroundBrightnessOuter;
     built.backgroundBrightnessInner = requestedTask.backgroundBrightnessInner;
     built.layoutSquareScale = requestedTask.layoutSquareScale;
+    built.fireworkBrightness = requestedTask.fireworkBrightness;
     built.smoothBrightness = requestedTask.smoothBrightness;
     built.outlineVariant = requestedTask.outlineVariant;
     built.outlineImagePath = session_.resolvePreviewCustomOutlinePath();
@@ -916,6 +918,7 @@ bool miacode::runtime::VideoExportHost::exportPreviewVideoFromCli(
     task.backgroundBrightnessOuter = request.backgroundBrightnessOuter;
     task.backgroundBrightnessInner = request.backgroundBrightnessInner;
     task.layoutSquareScale = request.layoutSquareScale;
+    task.fireworkBrightness = request.fireworkBrightness;
     task.smoothBrightness = request.smoothBrightness;
     task.outlineVariant = request.outlineVariant;
     task.outlineImagePath = session_.resolvePreviewCustomOutlinePath();

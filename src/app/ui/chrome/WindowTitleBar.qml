@@ -24,7 +24,6 @@ Rectangle {
     property bool editorCommandsEnabled: true
     property bool chartCommandsEnabled: true
     property bool toolCommandsEnabled: true
-    property bool normalizationEnabled: true
     property real nativeHeight: 0
     property real leadingToolAreaWidth: 0
     property real trailingToolAreaWidth: 0
@@ -206,7 +205,6 @@ Rectangle {
                 editorCommandsEnabled: root.editorCommandsEnabled
                 chartCommandsEnabled: root.chartCommandsEnabled
                 toolCommandsEnabled: root.toolCommandsEnabled
-                normalizationEnabled: root.normalizationEnabled
             }
         }
     }

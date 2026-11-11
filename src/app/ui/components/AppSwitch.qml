@@ -4,7 +4,7 @@ import QtQuick.Layouts
 import MiaCode.UI
 
 // Themed switch — geometry/colors aligned with v2 Theme (not stock Fusion).
-// Off is neutral and on is a muted accent (Theme toggle colors), so a stack of
+// Off is neutral and on is accent.muted (shared with the export range), so a stack of
 // options stays quieter than the page's primary action.
 Switch {
     id: root
@@ -40,7 +40,7 @@ Switch {
         x: root.indicatorOnRight ? root.width - root.rightPadding - width : root.leftPadding
         y: parent.height / 2 - height / 2
         radius: height / 2
-        color: Theme.overlayColor(root.checked ? Theme.colors.toggle.checkedTrack
+        color: Theme.overlayColor(root.checked ? Theme.colors.accent.muted
                                                : Theme.colors.toggle.track)
         opacity: root.enabled ? 1 : 0.45
 

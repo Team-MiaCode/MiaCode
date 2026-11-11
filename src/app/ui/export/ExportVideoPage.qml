@@ -231,15 +231,6 @@ Rectangle {
                             }
                         }
 
-                        LabeledCombo {
-                            Layout.fillWidth: true
-                            label: qsTrId("dialog.batch_export.cover_preset")
-                            options: root.session ? root.session.batchCoverPresetOptions : []
-                            currentValue: root.session ? root.session.batchCoverPreset : ""
-                            enabled: root.session && !root.session.exportRunning
-                            onPicked: function(value) { if (root.session) root.session.batchCoverPreset = value }
-                        }
-
                         SettingsSection {
                             title: qsTrId("dialog.batch_export.chart_folders")
 
@@ -525,39 +516,12 @@ Rectangle {
 
                             visible: root.session && root.session.activeTab === "export"
 
-                            RowLayout {
+                            ExportRangeSelector {
+                                id: exportRangeSelector
+                                objectName: "exportRangeSelector"
                                 Layout.fillWidth: true
-                                spacing: Theme.settingsRowSpacing
-
-                                ExportRangeSelector {
-                                    id: exportRangeSelector
-                                    objectName: "exportRangeSelector"
-                                    Layout.fillWidth: true
-                                    exportSession: root.session
-                                    previewSession: root.previewSession
-                                }
-                                AppButton {
-                                    id: playExportRangeButton
-                                    objectName: "playExportRangeButton"
-                                    Layout.preferredWidth: Math.max(implicitWidth, exportRangeStartCurrentButton.implicitWidth)
-                                    Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                                    text: root.session && root.session.rangePlaybackEnabled
-                                        && root.previewSession.playing
-                                        ? qsTrId("preview.stop") : qsTrId("dialog.video_export.range.play_clip")
-                                    enabled: root.settingsAvailable && root.session.rangePreviewAvailable
-                                        && root.session.exportEndSeconds > root.session.exportStartSeconds
-                                    onClicked: {
-                                        if (root.session.rangePlaybackEnabled && root.previewSession.playing) {
-                                            root.previewSession.stop()
-                                            return
-                                        }
-                                        root.session.rangePlaybackEnabled = true
-                                        root.previewSession.stop()
-                                        root.previewSession.positionSeconds = exportRangeSelector.previewSecondForRangeSecond(
-                                            root.session.exportStartSeconds)
-                                        root.previewSession.playing = true
-                                    }
-                                }
+                                exportSession: root.session
+                                previewSession: root.previewSession
                             }
                             RowLayout {
                                 Layout.fillWidth: true
@@ -586,9 +550,7 @@ Rectangle {
                                 }
                                 Item { Layout.fillWidth: true }
                                 AppButton {
-                                    id: exportRangeStartCurrentButton
                                     objectName: "exportRangeStartCurrentButton"
-                                    Layout.preferredWidth: playExportRangeButton.width
                                     Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                                     text: qsTrId("dialog.video_export.range.set_current")
                                     enabled: root.settingsAvailable && root.session.rangePreviewAvailable
@@ -618,7 +580,6 @@ Rectangle {
                                 Item { Layout.fillWidth: true }
                                 AppButton {
                                     objectName: "exportRangeEndCurrentButton"
-                                    Layout.preferredWidth: playExportRangeButton.width
                                     Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                                     text: qsTrId("dialog.video_export.range.set_current")
                                     enabled: root.settingsAvailable && root.session.rangePreviewAvailable
@@ -739,6 +700,18 @@ Rectangle {
                                     model: [qsTrId("qml.automatic"), "DX", "SD"]
                                     currentIndex: root.session ? root.session.introModeIndex : 0
                                     onActivated: if (root.session) root.session.introModeIndex = currentIndex
+                                }
+                            }
+                            LabeledSlider {
+                                objectName: "introPvBrightnessSlider"
+                                visible: !!root.session && root.session.introPvPreview
+                                label: qsTrId("dialog.render_settings.video.brightness")
+                                from: 0
+                                to: 100
+                                value: root.session ? root.session.introPvBrightness * 100 : 100
+                                onMoved: function(v) {
+                                    if (root.session)
+                                        root.session.introPvBrightness = v / 100
                                 }
                             }
                             // The PV preview shows the PV itself; without one, the still is crisp.

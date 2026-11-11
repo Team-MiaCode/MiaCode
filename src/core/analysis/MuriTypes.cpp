@@ -80,7 +80,7 @@ const MuriDetailTemplateRow* detailTemplateRow(MuriDetailKind kind)
             },
             {
                 "%1 start may early-judge a following tap, gap %2.",
-                "%1 启动，可能会提前判定后续 tap，间隔 %2。",
+                "%1 启动时可能提前判定后续 tap，间隔 %2。",
                 "%1 が始動し、後続の tap を早入力判定する可能性があります（間隔 %2）。",
             },
         },
@@ -93,7 +93,7 @@ const MuriDetailTemplateRow* detailTemplateRow(MuriDetailKind kind)
             },
             {
                 "%1 jump-start may early-judge a following tap, gap %2.",
-                "%1 偷跑，可能会提前判定后续 tap，间隔 %2。",
+                "%1 偷跑时可能提前判定后续 tap，间隔 %2。",
                 "%1 が先行始動し、後続の tap を早入力判定する可能性があります（間隔 %2）。",
             },
         },
@@ -106,7 +106,7 @@ const MuriDetailTemplateRow* detailTemplateRow(MuriDetailKind kind)
             },
             {
                 "%1 start may early-judge %2, gap %3.",
-                "%1 启动，可能会提前判定 %2，间隔 %3。",
+                "%1 启动时可能提前判定 %2，间隔 %3。",
                 "%1 が始動し、%2 を早入力判定する可能性があります（間隔 %3）。",
             },
         },
@@ -119,7 +119,7 @@ const MuriDetailTemplateRow* detailTemplateRow(MuriDetailKind kind)
             },
             {
                 "%1 jump-start may early-judge %2, gap %3.",
-                "%1 偷跑，可能会提前判定 %2，间隔 %3。",
+                "%1 偷跑时可能提前判定 %2，间隔 %3。",
                 "%1 が先行始動し、%2 を早入力判定する可能性があります（間隔 %3）。",
             },
         },
@@ -132,7 +132,7 @@ const MuriDetailTemplateRow* detailTemplateRow(MuriDetailKind kind)
             },
             {
                 "%1 trajectory may collide with %2, gap %3.",
-                "%1 运行轨迹可能会撞到 %2，间隔 %3。",
+                "%1 的运行轨迹可能与 %2 发生碰撞，间隔 %3。",
                 "%1 の軌道が %2 と衝突する可能性があります（間隔 %3）。",
             },
         },
@@ -161,7 +161,11 @@ const MuriDetailTemplateRow* detailTemplateRow(MuriDetailKind kind)
                 "%1 构成多押。",
                 "%1 が多点押しを構成します。",
             },
-            {"", "", ""},
+            {
+                "%1 may be considered multi-touch.",
+                "%1 有可能被认为是多押。",
+                "%1 は多点押しと見なされる可能性があります。",
+            },
         },
         {
             MuriDetailKind::FormedOverlapSamePosition,

@@ -4,12 +4,16 @@
 #include <QTextStream>
 #include <QtMath>
 
+#include <limits>
+
 #include "core/video/PreviewGameplayConfig.h"
 #include "core/chart/parser/SimaiParser.h"
 #include "core/chart/model/TimelineMarkerOffset.h"
 #include "core/scene/PreviewActiveMarkerView.h"
+#include "core/scene/PreviewFireworkWarmupPolicy.h"
 #include "core/scene/PreviewMarkerDrawOrder.h"
 #include "core/scene/PreviewMuriActionLayerState.h"
+#include "core/scene/PreviewNoteLayerAnomaly.h"
 #include "core/scene/PreviewPreparedSceneCache.h"
 #include "core/scene/PreviewSceneConstants.h"
 #include "core/scene/PreviewSceneMath.h"
@@ -1219,6 +1223,110 @@ bool verifyTouchJudgeUsesTwoEightSparkleRings(QTextStream& err)
     return true;
 }
 
+// Issue #48: one NaN playhead used to drain both cursor indices to the end of
+// the layer, and forward playback then never activated a note again.
+bool verifyLayerWindowCursorRecoversFromNonFinitePlayhead(QTextStream& err)
+{
+    PreviewPreparedLayerWindow<PreviewPreparedMarkerEntry> layer;
+    for (int index = 0; index < 100; ++index) {
+        layer.entries.append(PreviewPreparedMarkerEntry{index, index * 1.0, index * 1.0 + 2.5, -1});
+    }
+    miacode::preview::scene::finalizePreparedLayerWindow(&layer);
+    const auto freshActive = [&layer](double playheadSeconds) {
+        PreviewLayerWindowCursor fresh;
+        miacode::preview::scene::syncPreviewLayerWindowCursor(layer, playheadSeconds, &fresh);
+        return fresh.activePreparedIndices;
+    };
+
+    for (double nonFinite : {std::numeric_limits<double>::quiet_NaN(),
+                             std::numeric_limits<double>::infinity(),
+                             -std::numeric_limits<double>::infinity()}) {
+        PreviewLayerWindowCursor cursor;
+        miacode::preview::scene::syncPreviewLayerWindowCursor(layer, 10.0, &cursor);
+        if (!require(cursor.activePreparedIndices.size() == 3,
+                     QStringLiteral("cursor holds three active entries at 10 s"), err)) {
+            return false;
+        }
+        miacode::preview::scene::syncPreviewLayerWindowCursor(layer, nonFinite, &cursor);
+        if (!require(!cursor.valid && cursor.activePreparedIndices.isEmpty(),
+                     QStringLiteral("playhead %1 invalidates the cursor (valid=%2 active=%3 next_activation=%4)")
+                         .arg(nonFinite)
+                         .arg(cursor.valid ? 1 : 0)
+                         .arg(cursor.activePreparedIndices.size())
+                         .arg(cursor.nextActivationIndex),
+                     err)) {
+            return false;
+        }
+        for (double second : {11.0, 30.0}) {
+            miacode::preview::scene::syncPreviewLayerWindowCursor(layer, second, &cursor);
+            if (!require(!cursor.activePreparedIndices.isEmpty() && cursor.activePreparedIndices == freshActive(second),
+                         QStringLiteral("forward playback after playhead %1 activates entries at %2 s (active=%3)")
+                             .arg(nonFinite)
+                             .arg(second)
+                             .arg(cursor.activePreparedIndices.size()),
+                         err)) {
+                return false;
+            }
+        }
+
+        PreviewLayerWindowCursor coldCursor;
+        miacode::preview::scene::syncPreviewLayerWindowCursor(layer, nonFinite, &coldCursor);
+        miacode::preview::scene::syncPreviewLayerWindowCursor(layer, 11.0, &coldCursor);
+        if (!require(coldCursor.activePreparedIndices == freshActive(11.0),
+                     QStringLiteral("a cursor first synced at playhead %1 recovers at 11 s").arg(nonFinite),
+                     err)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool verifyNoteLayersEmptyAnomalyPredicate(QTextStream& err)
+{
+    using miacode::preview::scene::previewNoteLayersEmptyAnomaly;
+    using miacode::preview::scene::previewNoteMarkerSpan;
+
+    TimelineNoteMarker hold = makeMarker(4.0, QStringLiteral("hold"));
+    hold.endSecond = 6.0;
+    TimelineNoteMarker warmup = makeMarker(100.0, QStringLiteral("touch"));
+    warmup.isFirework = true;
+    warmup.touchPoint = QPointF(miacode::preview::scene::kFireworkWarmupOffscreenCoordinate,
+                                miacode::preview::scene::kFireworkWarmupOffscreenCoordinate);
+    const QVector<TimelineNoteMarker> markers = {
+        makeMarker(2.0, QStringLiteral("tap")),
+        makeMarker(1.0, QStringLiteral("tap")),
+        hold,
+        warmup,
+    };
+
+    const auto span = previewNoteMarkerSpan(markers);
+    if (!require(span.noteCount == 3 && qFuzzyCompare(span.firstSecond, 1.0) && qFuzzyCompare(span.lastSecond, 6.0),
+                 QStringLiteral("note span covers chart notes and skips the warm-up synthetic (count=%1 first=%2 last=%3)")
+                     .arg(span.noteCount)
+                     .arg(span.firstSecond)
+                     .arg(span.lastSecond),
+                 err)) {
+        return false;
+    }
+    bool ok = require(previewNoteLayersEmptyAnomaly(span, 5.0, 0, 0, 0),
+                      QStringLiteral("empty head, track and touch cursors inside the chart are an anomaly"), err);
+    ok &= require(!previewNoteLayersEmptyAnomaly(span, 5.0, 1, 0, 0),
+                  QStringLiteral("an active head entry clears the anomaly"), err);
+    ok &= require(!previewNoteLayersEmptyAnomaly(span, 5.0, 0, 1, 0),
+                  QStringLiteral("an active track entry clears the anomaly"), err);
+    ok &= require(!previewNoteLayersEmptyAnomaly(span, 5.0, 0, 0, 1),
+                  QStringLiteral("an active touch entry clears the anomaly"), err);
+    ok &= require(!previewNoteLayersEmptyAnomaly(span, 0.5, 0, 0, 0),
+                  QStringLiteral("a playhead before the first note is not an anomaly"), err);
+    ok &= require(!previewNoteLayersEmptyAnomaly(span, 50.0, 0, 0, 0),
+                  QStringLiteral("a playhead after the last chart note is not an anomaly"), err);
+    ok &= require(!previewNoteLayersEmptyAnomaly(span, std::numeric_limits<double>::quiet_NaN(), 0, 0, 0),
+                  QStringLiteral("a NaN playhead is not reported as an anomaly"), err);
+    ok &= require(!previewNoteLayersEmptyAnomaly(previewNoteMarkerSpan({warmup}), 100.0, 0, 0, 0),
+                  QStringLiteral("a marker set holding only the warm-up synthetic is not an anomaly"), err);
+    return ok;
+}
+
 }  // namespace
 
 int main(int argc, char* argv[])
@@ -1261,6 +1369,12 @@ int main(int argc, char* argv[])
         return 1;
     }
     if (!verifyTouchJudgeUsesTwoEightSparkleRings(err)) {
+        return 1;
+    }
+    if (!verifyLayerWindowCursorRecoversFromNonFinitePlayhead(err)) {
+        return 1;
+    }
+    if (!verifyNoteLayersEmptyAnomalyPredicate(err)) {
         return 1;
     }
 

@@ -11,6 +11,7 @@
 #include "core/analysis/MuriAnalyzer.h"
 #include "core/analysis/MuriAnalyzerInternal.h"
 #include "core/analysis/MuriRuntimeModelBuilder.h"
+#include "core/analysis/MuriSlideWifiJudge.h"
 #include "core/analysis/MuriPanelEntries.h"
 #include "core/analysis/MuriStaticChecker.h"
 
@@ -212,6 +213,124 @@ int main(int argc, char** argv)
         expect(miacode::muri::normalizedHandRadiusPx(100000) == miacode::muri::kHandRadiusMaxPx
                    && miacode::muri::normalizedHandRadiusPx(-3) == miacode::muri::kHandRadiusMinPx,
                QStringLiteral("an out-of-range hand radius is clamped"));
+    }
+
+    {
+        const AnalyzedChart analyzed = analyzeChart(QStringLiteral(
+            "(146){16}6qq3[4:4]/4<2[4:4]*<2<4b[4:8],,,,,,,,,,,,,,,,,,,,,,,,E"));
+        expect(analyzed.parsed.ok, QStringLiteral("Overchannel embedded slide repro parses"));
+        expect(countDiagnostics(analyzed.report.diagnostics, MuriKind::MultiTouch) == 0,
+            QStringLiteral("a slide ending inside a matching chain has no extra release-tail hand"));
+        expect(countVisibleEntries(analyzed.visibleEntries, MuriKind::MultiTouch) == 0,
+            QStringLiteral("Overchannel embedded slide leaves no multitouch panel entry"));
+    }
+
+    {
+        const AnalyzedChart analyzed = analyzeChart(QStringLiteral(
+            "(110){24}4^1[8:1]/3^6[8:1],,,,,,4h[384:1]/3h[384:1],,,,E"));
+        expect(analyzed.parsed.ok, QStringLiteral("Itowokashi short-hold slide start repro parses"));
+        expect(countDiagnostics(analyzed.report.diagnostics, MuriKind::MultiTouch) == 0,
+            QStringLiteral("short holds at slide motion start do not add independent hands"));
+        expect(countVisibleEntries(analyzed.visibleEntries, MuriKind::MultiTouch) == 0,
+            QStringLiteral("short-hold slide starts leave no multitouch panel entry"));
+        for (const TimelineNoteMarker& marker : analyzed.parsed.noteMarkers) {
+            if (marker.type == QLatin1String("hold")) {
+                expect(marker.endSecond > marker.second,
+                    QStringLiteral("short-hold chart timing and type remain intact"));
+                const QString key = makeMarkerAnalysisKey(marker);
+                bool hasPressTrail = false;
+                for (const MuriActionTrail& trail : analyzed.report.actionTrails) {
+                    hasPressTrail |= trail.sourceMarkerKey == key;
+                }
+                expect(!hasPressTrail,
+                    QStringLiteral("short-hold slide starts also reuse the slide overlay hand"));
+            }
+        }
+
+        for (const QString& duration : {QStringLiteral("120:1"), QStringLiteral("#0.017")}) {
+            const auto boundary = analyzeChart(QStringLiteral(
+                "(120){4}1-5[4:2]/3-7[4:2],1h[%1]/3h[%1],,,,E").arg(duration));
+            expect(boundary.parsed.ok, QStringLiteral("short-hold boundary repro parses"));
+            expect(countDiagnostics(boundary.report.diagnostics, MuriKind::MultiTouch)
+                       == (duration == QLatin1String("120:1") ? 0 : 1),
+                QStringLiteral("only holds lasting at most one frame reuse the slide start"));
+        }
+        const auto independent = analyzeChart(QStringLiteral("(110){4}1h[384:1]/2/3,E"));
+        expect(countDiagnostics(independent.report.diagnostics, MuriKind::MultiTouch) == 1,
+            QStringLiteral("an independent short hold still counts toward real triple presses"));
+    }
+
+    {
+        const auto parsed = SimaiParser::parseForTimeline(QStringLiteral(
+            "(159){16}4,4,8,3,6,1,5-8[8:1],4,7,2,5V74[32:7],,,4,,,,,,,,E"));
+        expect(parsed.ok, QStringLiteral("Kaijin B6/A6 judge-area repro parses"));
+        for (int radius : {0, 15, 30, 60}) {
+            MuriRenderOptions options;
+            options.handRadiusPx = radius;
+            const auto report = MuriAnalyzer::analyze(parsed.noteMarkers, options);
+            expect(countDiagnostics(report.diagnostics, MuriKind::SlideTooFast) == 0,
+                QStringLiteral("one B6 release cannot advance both repeated areas at hand radius %1").arg(radius));
+        }
+
+        const auto repeated = analyzeChart(QStringLiteral(
+            "(150){16}5-8[8:1],,,,5V74[8:1],,4,,E"));
+        expect(repeated.parsed.ok, QStringLiteral("repeated B6 release repro parses"));
+        expect(countDiagnostics(repeated.report.diagnostics, MuriKind::SlideTooFast) == 0,
+            QStringLiteral("repeated B6 release does not skip A7 and early-clear the slide"));
+        const auto ordinary = analyzeChart(QStringLiteral(
+            "(150){16}5-8[8:1],,,,7-4[8:1],,4,,E"));
+        expect(countDiagnostics(ordinary.report.diagnostics, MuriKind::SlideTooFast) == 1,
+            QStringLiteral("ordinary B5 activation still permits a legitimate skip"));
+    }
+
+    {
+        using namespace miacode::muri::detail;
+        const auto simulatePresses = [](const QString& shape, bool reenterB6, bool duplicate) {
+            auto parsed = SimaiParser::parseForTimeline(QStringLiteral("(150){4}%1[8:1],,,E").arg(shape));
+            auto markers = parsed.noteMarkers;
+            if (duplicate) {
+                auto second = markers.constFirst();
+                second.sourceCol += 100;
+                markers.append(second);
+            }
+            QVector<JudgeableSimpleNote> presses;
+            const auto press = [&](const QString& pad, double start, double end) {
+                JudgeableSimpleNote note;
+                note.type = QStringLiteral("tap");
+                note.pad = pad;
+                note.markerKey = QStringLiteral("sensor_%1").arg(presses.size());
+                note.momentSecond = start;
+                note.pressEndSecond = end;
+                presses.append(note);
+            };
+            if (shape == QLatin1String("5V74")) {
+                press(QStringLiteral("A5"), 0.0, 0.02);
+                press(QStringLiteral("B6"), 0.04, 0.08);
+                if (reenterB6) {
+                    press(QStringLiteral("B6"), 0.12, 0.14);
+                }
+            } else {
+                press(QStringLiteral("A1"), 0.0, 0.02);
+                press(QStringLiteral("A3"), 0.0, 0.02);
+            }
+            press(QStringLiteral("A4"), 0.18, 0.20);
+            MuriRenderOptions options;
+            options.handRadiusPx = 0;
+            return simulateRuntimeSlideAndWifiJudgments(markers, presses, {}, {}, options);
+        };
+        const auto singleContact = simulatePresses(QStringLiteral("5V74"), false, false);
+        expect(singleContact.size() == 1 && !singleContact.constBegin()->judgeBad,
+            QStringLiteral("a single B6 contact cannot satisfy separated repeated areas"));
+        const auto reentry = simulatePresses(QStringLiteral("5V74"), true, false);
+        expect(reentry.size() == 1 && reentry.constBegin()->judgeBad,
+            QStringLiteral("a later real B6 ON can advance the repeated area"));
+        const auto sharedRelease = simulatePresses(QStringLiteral("1>4"), false, true);
+        bool bothJudgedEarly = sharedRelease.size() == 2;
+        for (const auto& result : sharedRelease) {
+            bothJudgedEarly = bothJudgedEarly && result.judgeBad && result.judgeSecond < 0.3;
+        }
+        expect(bothJudgedEarly,
+            QStringLiteral("different slide queues independently retain simultaneous-release tolerance"));
     }
 
     {

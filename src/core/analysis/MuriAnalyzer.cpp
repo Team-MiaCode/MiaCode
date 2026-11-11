@@ -191,6 +191,10 @@ bool touchPadsAreAdjacent(const QString& a, const QString& b)
 double notePressEndSecond(const TimelineNoteMarker& marker)
 {
     using namespace miacode::muri;
+    if (marker.type == QLatin1String("hold")
+        && marker.endSecond - marker.second <= kFakeHoldDurationSeconds + 1e-9) {
+        return marker.second + kReleaseDelaySeconds;
+    }
     if (marker.type == QLatin1String("hold") || marker.type == QLatin1String("touch_hold")) {
         return qMax(marker.second, marker.endSecond)
             + (marker.tailOnSlideHead ? 0.0 : kReleaseDelaySeconds);
@@ -485,7 +489,9 @@ QVector<MuriPadWindow> buildRuntimePadWindows(
             continue;
         }
         if (marker.type == QLatin1String("hold")) {
-            addPadWindow(&windows, pad, marker.second, notePressEndSecond(marker), markerKey, marker.type);
+            if (!marker.slideHead) {
+                addPadWindow(&windows, pad, marker.second, notePressEndSecond(marker), markerKey, marker.type);
+            }
             continue;
         }
         if (marker.type == QLatin1String("touch")) {
@@ -673,6 +679,9 @@ QVector<RuntimeHandAction> buildRuntimeHandActions(
         }
 
         if (note.type == QLatin1String("hold")) {
+            if (note.slideHead) {
+                continue;
+            }
             appendPressHandAction(
                 &actions,
                 note.markerKey,
@@ -1207,10 +1216,11 @@ MuriAnalysisReport MuriAnalyzer::analyze(
 }
 
 MuriAnalysisReport MuriAnalyzer::analyze(
-    const QVector<TimelineNoteMarker>& noteMarkers,
+    const QVector<TimelineNoteMarker>& sourceMarkers,
     const MuriRenderOptions& renderOptions,
     double staticTapOnSlideThresholdSeconds)
 {
+    const QVector<TimelineNoteMarker> noteMarkers = prepareRuntimeMarkers(sourceMarkers);
     MuriAnalysisReport report;
     QStringList signatureParts;
     signatureParts.reserve(noteMarkers.size());

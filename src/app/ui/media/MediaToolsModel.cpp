@@ -1,3 +1,4 @@
+#include "app/services/FileDialogPreferences.h"
 #include "common/LocalizedText.h"
 
 #include "app/ui/media/MediaToolsModel.h"
@@ -31,6 +32,7 @@ MediaToolsModel::MediaToolsModel(                               miacode::UiReque
     qRegisterMetaType<miacode::LocalizedText>();
     connect(&miacode::LocaleService::instance(), &miacode::LocaleService::languageChanged,
             this, [this](const QString&) { emit batchChanged(); });
+    batchDirectory_ = miacode::file_dialog_preferences::storedDirectory(miacode::file_dialog_preferences::Purpose::PvBatchRoot);
     batchSummary_ = miacode::localizedText("media_tools.batch_pv_empty");
 }
 
@@ -116,7 +118,8 @@ void MediaToolsModel::chooseBatchDirectory()
     }
     miacode::FileRequest request;
     request.title = miacode::localizedText("media_tools.batch_pv_choose_folder");
-    request.startPath = batchDirectory_;
+    request.startPath = miacode::file_dialog_preferences::recentDirectory(
+        miacode::file_dialog_preferences::Purpose::PvBatchRoot, batchDirectory_);
     request.selectFolder = true;
     requests->requestFile(request, [this](const QString& path) { setBatchDirectory(path); });
 }
@@ -127,6 +130,7 @@ void MediaToolsModel::setBatchDirectory(const QString& path)
         return;
     }
     batchDirectory_ = path;
+    miacode::file_dialog_preferences::rememberDirectory(miacode::file_dialog_preferences::Purpose::PvBatchRoot, path);
     emit batchChanged();
 }
 

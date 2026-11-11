@@ -59,7 +59,7 @@ Item {
 
     ViewState {
         id: state
-        netEnabled: root.pages.netEnabled
+        netUploadEnabled: root.pages.netUploadEnabled
     }
 
     Binding {
@@ -111,7 +111,7 @@ Item {
 
     MainMenuCommands {
         id: menuCommands
-        netEnabled: root.pages.netEnabled
+        netUploadEnabled: root.pages.netUploadEnabled
         commandsEnabled: !root.beginnerGuideActive
         canUndo: root.editorCommandsAvailable && splitView.canUndo
         canRedo: root.editorCommandsAvailable && splitView.canRedo
@@ -119,7 +119,7 @@ Item {
         canCopy: root.editorCommandsAvailable && splitView.canCopy
         canPaste: root.editorCommandsAvailable && splitView.canPaste
         canTransform: root.editorCommandsAvailable && splitView.canTransform
-        canNormalize: root.editorCommandsAvailable && splitView.normalizationAvailable
+        renderModeMenuAvailable: splitView.renderModeMenuAvailable
         onExitRequested: root.requestClose()
         onUndoRequested: root.undo()
         onRedoRequested: root.redo()
@@ -141,20 +141,16 @@ Item {
         onNetUploadRequested: root.pages.openNetPage("net-upload")
         onMediaToolRequested: toolId => root.runMediaTool(toolId)
         onUnavailableFeatureRequested: featureName => root.showUnavailableFeature(featureName)
-        onOpenRequested: openFileDialog.open()
+        onOpenRequested: root.showOpenFileDialog()
         onSaveRequested: root.saveDocument()
         onSaveWholeDocumentRequested: root.saveWholeDocument()
         onSaveAsRequested: {
             if (root.documentSession.hasDocument)
-                saveFileDialog.open()
+                root.showSaveFileDialog()
         }
         onChartTransformRequested: opId => {
             if (root.chartEditorActive)
                 root.applyChartTransform(opId)
-        }
-        onNormalizeChartRequested: {
-            if (root.chartEditorActive)
-                root.pages.openNormalizeWholeChart()
         }
         onAboutRequested: preferencesDialog.openPage("about")
         onSetupWizardRequested: setupWizard.open()
@@ -168,6 +164,8 @@ Item {
         }
         onAudioSettingsRequested: audioSettingsDialog.open()
         onPreviewSettingsRequested: previewSettingsDialog.open()
+        // Let the menu finish closing before the dropdown takes the popup layer.
+        onRenderModeMenuRequested: Qt.callLater(splitView.toggleRenderModeMenu)
         onPreviewRateStepRequested: direction => {
             if (root.chartEditorActive)
                 root.previewSession.adjustRate(direction)
@@ -252,11 +250,25 @@ Item {
         unavailableFeatureDialog.open()
     }
 
+    function showOpenFileDialog() {
+        const location = root.documentSession.fileDialogLocation(false)
+        openFileDialog.currentFolder = location.folder
+        openFileDialog.selectedFile = ""
+        openFileDialog.open()
+    }
+
+    function showSaveFileDialog() {
+        const location = root.documentSession.fileDialogLocation(true)
+        saveFileDialog.currentFolder = location.folder
+        saveFileDialog.selectedFile = location.file
+        saveFileDialog.open()
+    }
+
     function saveDocument() {
         if (!root.editorActive)
             return
         if (root.documentSession.currentFilePath.length === 0) {
-            saveFileDialog.open()
+            root.showSaveFileDialog()
             return
         }
         root.commands.saveDocument()
@@ -266,7 +278,7 @@ Item {
         if (!root.documentSession.hasDocument)
             return
         if (root.documentSession.currentFilePath.length === 0) {
-            saveFileDialog.open()
+            root.showSaveFileDialog()
             return
         }
         root.commands.saveWholeDocument()
@@ -339,7 +351,6 @@ Item {
                 trailingToolAreaWidth: root.platform.nativeMenuBar
                     ? mainToolBar.trailingActionsWidth : 0
                 documentTitle: root.documentTitle
-                normalizationEnabled: root.pages.activePageId !== "export"
             }
 
             MainToolBar {
@@ -376,7 +387,7 @@ Item {
                 }
                 onUndoRequested: root.undo()
                 onRedoRequested: root.redo()
-                onOpenRequested: openFileDialog.open()
+                onOpenRequested: root.showOpenFileDialog()
                 onOpenCurrentFolderRequested: root.commands.openCurrentFolder()
                 onSaveRequested: root.saveDocument()
                 onSaveWholeDocumentRequested: root.saveWholeDocument()
@@ -394,6 +405,8 @@ Item {
             MainSplitView {
                 id: splitView
                 anchors.fill: parent
+                timelineGuideActive: beginnerGuide.visible
+                    && beginnerGuide.selectedSection.id === "timeline-options"
                 backgroundSource: root.backgroundSource
                 backgroundOffset: root.mapToItem(root.backgroundSource,
                                                  mainViewHost.x, mainViewHost.y)
@@ -414,7 +427,7 @@ Item {
                 netUpload: root.applicationContext.netUpload
                 compact: root.compact
                 documentTitle: root.documentTitle
-                onOpenRequested: openFileDialog.open()
+                onOpenRequested: root.showOpenFileDialog()
                 onSettingsRequested: preferencesDialog.open()
                 onCompletionSettingsRequested: function(group) { preferencesDialog.openCompletionSettings(group) }
                 onAudioSettingsRequested: audioSettingsDialog.open()
@@ -686,6 +699,7 @@ Item {
                     Qt.resolvedUrl("icons/video.svg"),
                     Qt.resolvedUrl("icons/image.svg"),
                     Qt.resolvedUrl("icons/folder-zip.svg"),
+                    Qt.resolvedUrl("icons/globe.svg"),
                     Qt.resolvedUrl("icons/tools.svg"),
                     Qt.resolvedUrl("icons/settings.svg")
                 ] : [],
@@ -694,6 +708,7 @@ Item {
                 ] : [
                     { icon: Qt.resolvedUrl("icons/file.svg"), label: qsTrId("guide.navigation.chart") },
                     { icon: Qt.resolvedUrl("icons/export.svg"), label: qsTrId("guide.navigation.export") },
+                    { icon: Qt.resolvedUrl("icons/globe.svg"), label: qsTrId("guide.navigation.net") },
                     { icon: Qt.resolvedUrl("icons/tools.svg"), label: qsTrId("guide.navigation.tools") },
                     { icon: Qt.resolvedUrl("icons/settings.svg"), label: qsTrId("guide.navigation.preferences") }
                 ],
@@ -768,6 +783,22 @@ Item {
                     { icon: Qt.resolvedUrl("icons/preview-detach.svg"), label: qsTrId("guide.transport.detach") }
                 ],
                 placement: "above",
+                alignment: "end"
+            },
+            {
+                id: "timeline-options",
+                target: splitView.timelineGuideItem,
+                secondaryTarget: splitView.timelineSettingsGuideItem,
+                fallbackTarget: mainToolBar.workspaceActionsItem,
+                hint: qsTrId("guide.timeline.hint"),
+                title: qsTrId("guide.timeline.title"),
+                columns: 1,
+                features: [
+                    { sample: "100%", label: qsTrId("guide.timeline.zoom") },
+                    { icon: Qt.resolvedUrl("icons/sliders-horizontal.svg"), label: qsTrId("guide.timeline.brightness") },
+                    { icon: Qt.resolvedUrl("icons/file.svg"), label: qsTrId("guide.timeline.follow") }
+                ],
+                placement: "right",
                 alignment: "end"
             }
         ])

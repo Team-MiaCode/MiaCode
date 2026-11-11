@@ -2,7 +2,6 @@
 
 #include "app/services/PreferenceDocument.h"
 #include "app/services/PreferenceJsonFile.h"
-#include "app/services/net/NetAccountStore.h"
 #include <QFileInfo>
 #include <QDir>
 
@@ -19,7 +18,9 @@ void extractNetSettings(QJsonObject& preferences, QJsonObject& settings)
     const auto keys = preferences.keys();
     for (const auto& key : keys) {
         const auto value = preferences.value(key);
-        if (isNetSetting(key)) {
+        if (key == QStringLiteral("net_config")) {
+            preferences.remove(key);
+        } else if (isNetSetting(key)) {
             if (!settings.contains(key)) settings.insert(key, value);
             preferences.remove(key);
         } else if (value.isObject()) {
@@ -36,13 +37,8 @@ Repository& repository()
     static const bool initialized = [&] {
         auto preferences = PreferenceDocument::loadPreferencesObject();
         const auto original = preferences;
-        if (instance.migrate(preferences, [](QJsonObject& settings) {
-            const auto error = NetAccountStore::migrateLegacyCredentials(QStringLiteral("desktop"), settings);
-            if (!error.isEmpty()) preference_json_file::log(filePath(), error);
-            return error.isEmpty();
-        }) && preferences != original)
-            return PreferenceDocument::savePreferencesObject(preferences);
-        return false;
+        return instance.migrate(preferences)
+            && (preferences == original || PreferenceDocument::savePreferencesObject(preferences));
     }();
     Q_UNUSED(initialized);
     return instance;
@@ -52,8 +48,9 @@ Repository& repository()
 Repository::Repository(QString path) : path_(std::move(path))
 {
     const auto source = preference_json_file::read(path_);
-    available_ = source.status == preference_json_file::ReadStatus::Valid;
-    if (available_) settings_ = source.object;
+    available_ = source.status == preference_json_file::ReadStatus::Valid
+        || source.status == preference_json_file::ReadStatus::Missing;
+    settings_ = source.object;
 }
 
 QJsonValue Repository::value(const QString& key) const
@@ -61,16 +58,14 @@ QJsonValue Repository::value(const QString& key) const
     return settings_.contains(key) ? settings_.value(key) : QJsonValue(QJsonValue::Null);
 }
 
-bool Repository::enabled() const
-{
-    return value(QStringLiteral("net_config")).toBool(false);
-}
-
 bool Repository::replace(const QJsonObject& settings)
 {
-    if (!available_ || preference_json_file::read(path_).status != preference_json_file::ReadStatus::Valid)
+    const auto source = preference_json_file::read(path_);
+    if (!available_ || (source.status != preference_json_file::ReadStatus::Valid
+        && source.status != preference_json_file::ReadStatus::Missing))
         return false;
-    if (settings != settings_ && !preference_json_file::write(path_, settings)) return false;
+    if ((settings != settings_ || source.status == preference_json_file::ReadStatus::Missing)
+        && !preference_json_file::write(path_, settings)) return false;
     settings_ = settings;
     return true;
 }
@@ -82,29 +77,49 @@ bool Repository::update(const QJsonObject& values)
     return replace(settings);
 }
 
-bool Repository::migrate(QJsonObject& preferences,
-                         const std::function<bool(QJsonObject&)>& prepareSettings)
+bool Repository::migrate(QJsonObject& preferences)
 {
     if (!available_) return false;
     auto remaining = preferences;
     auto settings = settings_;
     extractNetSettings(remaining, settings);
-    if (prepareSettings && !prepareSettings(settings)) return false;
+    // The upload gate moved to config.json; legacy plaintext accounts are dropped.
+    for (const auto* key : {"net_config", "net_upload_username", "net_upload_password", "net_upload_credential_ref"})
+        settings.remove(QLatin1String(key));
     // Commit the destination before releasing the source settings.
     if (!replace(settings)) return false;
     preferences = remaining;
     return true;
 }
 
-QString filePath()
+namespace {
+QString userConfigFile(const QString& fileName)
 {
     const QString preferences = PreferenceDocument::preferencesFilePath();
-    return preferences.isEmpty() ? QString{}
-        : QFileInfo(preferences).dir().filePath(QStringLiteral("net_config.json"));
+    return preferences.isEmpty() ? QString{} : QFileInfo(preferences).dir().filePath(fileName);
+}
 }
 
+QString filePath() { return userConfigFile(QStringLiteral("net_config.json")); }
+
 QJsonValue value(const QString& key) { return repository().value(key); }
-bool enabled() { return repository().enabled(); }
+
+// Hand-edited and never rewritten, so release packages cannot overwrite it.
+QString configFilePath() { return userConfigFile(QStringLiteral("config.json")); }
+
+bool enabled()
+{
+    static const bool uploadEnabled = [] {
+        const QString path = configFilePath();
+        if (path.isEmpty()) return false;
+        const auto source = preference_json_file::read(path);
+        if (source.status == preference_json_file::ReadStatus::Missing)
+            preference_json_file::write(path, {});
+        return source.object.value(QStringLiteral("net_config")).toBool(false);
+    }();
+    return uploadEnabled;
+}
+
 bool update(const QJsonObject& values) { return repository().update(values); }
 
 } // namespace miacode::net_configuration

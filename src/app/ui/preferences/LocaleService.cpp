@@ -1,6 +1,7 @@
 #include "app/ui/preferences/LocaleService.h"
 
 #include "app/services/PreferenceDocument.h"
+#include "app/ui/preferences/ApplicationMenuTranslation.h"
 
 #include <QCoreApplication>
 #include <QQmlEngine>
@@ -54,6 +55,21 @@ void LocaleService::setQmlEngine(QQmlEngine* engine)
             engine, &QQmlEngine::retranslate, Qt::UniqueConnection);
 }
 
+void LocaleService::prioritizeTranslator()
+{
+    if (translator_ == nullptr) {
+        return;
+    }
+    QCoreApplication::removeTranslator(translator_);
+    if (!QCoreApplication::installTranslator(translator_)) {
+        return;
+    }
+    // Other translators installed later would keep shadowing ours; publish the
+    // language again so every dependent binding picks the catalog back up.
+    emit languageChanged(activeToken_);
+    retranslateNativeApplicationMenu();
+}
+
 void LocaleService::applyResolvedLanguage()
 {
     loadTranslatorForToken(PreferenceDocument::resolvedLanguageToken());
@@ -71,6 +87,7 @@ void LocaleService::setLanguageToken(const QString& token)
         return;
     }
     emit languageChanged(resolved);
+    retranslateNativeApplicationMenu();
 }
 
 bool LocaleService::loadTranslatorForToken(const QString& token)

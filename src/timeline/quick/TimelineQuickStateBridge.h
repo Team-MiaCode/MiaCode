@@ -66,6 +66,10 @@ public:
     QVector<double> zoomPresets() const;
     QVariantList zoomPresetValues() const;
     Q_INVOKABLE void applyZoomPreset(double scale);
+    // Arrow/wheel stepping through the zoom presets, anchored on the viewport
+    // center like every other zoom entry point.
+    Q_INVOKABLE void stepZoomIn();
+    Q_INVOKABLE void stepZoomOut();
     QStringList zoomInWheelShortcuts() const;
     QStringList zoomOutWheelShortcuts() const;
     void setZoomWheelShortcuts(const QStringList& zoomInShortcuts, const QStringList& zoomOutShortcuts);

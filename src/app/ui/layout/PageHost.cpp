@@ -258,14 +258,16 @@ bool PageHost::openLatencyPage()
     });
 }
 
-bool PageHost::netEnabled() const
+bool PageHost::netUploadEnabled() const
 {
     return net_configuration::enabled();
 }
 
 bool PageHost::openNetPage(const QString& page)
 {
-    if (!netEnabled() || (page != QLatin1String("net-download") && page != QLatin1String("net-upload")) || router() == nullptr || navigationPending_) return false;
+    if ((page != QLatin1String("net-download") && page != QLatin1String("net-upload"))
+        || (page == QLatin1String("net-upload") && !netUploadEnabled())
+        || router() == nullptr || navigationPending_) return false;
     if (activePageId_ == page) {
         emit netPageActivated(page);
         return true;
