@@ -23,6 +23,7 @@ Rectangle {
     property bool documentAvailable: true
     property bool editorCommandsEnabled: true
     property bool chartCommandsEnabled: true
+    property bool playbackCommandsEnabled: true
     property bool toolCommandsEnabled: true
     property real nativeHeight: 0
     property real leadingToolAreaWidth: 0
@@ -206,6 +207,7 @@ Rectangle {
                 documentAvailable: root.documentAvailable
                 editorCommandsEnabled: root.editorCommandsEnabled
                 chartCommandsEnabled: root.chartCommandsEnabled
+                playbackCommandsEnabled: root.playbackCommandsEnabled
                 toolCommandsEnabled: root.toolCommandsEnabled
             }
         }
