@@ -60,6 +60,7 @@ Item {
         editorHost.SplitView.minimumHeight + (root.bottomPanelEffectivelyVisible
             ? bottomPanel.minimumHeight + Theme.splitDividerThickness : 0),
         root.previewDetached ? 0 : preview.minimumHeight)
+    readonly property var inputContext: editorPane.inputContext
     readonly property bool canUndo: editorPane.canUndo
     readonly property bool canRedo: editorPane.canRedo
     readonly property bool canCut: editorPane.canCut

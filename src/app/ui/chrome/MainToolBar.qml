@@ -102,12 +102,14 @@ Rectangle {
         }
         Item { width: 6; height: 1 }
         ToolBarButton {
+            property bool preservesEditTarget: true
             iconSource: Qt.resolvedUrl("icons/undo.svg")
             tooltip: qsTrId("qml.undo")
             enabled: root.canUndo
             onClicked: root.undoRequested()
         }
         ToolBarButton {
+            property bool preservesEditTarget: true
             iconSource: Qt.resolvedUrl("icons/redo.svg")
             tooltip: qsTrId("action.redo")
             enabled: root.canRedo

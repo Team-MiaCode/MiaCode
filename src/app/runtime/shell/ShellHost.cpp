@@ -103,12 +103,15 @@ bool Session::eventFilter(QObject*, QEvent* event)
         // click it enables lands on the preview, which does not keep the
         // editor focused. This filter only observes — Ctrl shortcuts still run.
         bool controlArmsTouchAuthoring = false;
+        const bool workbenchAllowed = rootWindow
+            && rootWindow->property("workbenchCommandsAllowed").toBool();
         if (keyEvent->key() == Qt::Key_Control
             && !keyEvent->isAutoRepeat()
             && editorSyncController_ != nullptr) {
             if (event->type() == QEvent::KeyPress) {
                 controlArmsTouchAuthoring = previewTouchPadAuthoringShortcutEnabled_
                     && focusOnWorkbench
+                    && workbenchAllowed
                     && editorAuthoringContextActive();
                 if (controlArmsTouchAuthoring) {
                     editorSyncController_->setTouchPadControlHold(true);
@@ -124,6 +127,7 @@ bool Session::eventFilter(QObject*, QEvent* event)
         if (keyEvent->key() == hold.key && !controlArmsTouchAuthoring) {
             if (event->type() == QEvent::KeyPress
                 && !keyEvent->isAutoRepeat()
+                && focusOnWorkbench && workbenchAllowed
                 && keyEvent->modifiers() == hold.pressModifiers) {
                 setPauseDisplayAltHoldActive(true);
             } else if (event->type() == QEvent::KeyRelease && !keyEvent->isAutoRepeat()) {

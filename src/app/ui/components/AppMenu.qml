@@ -5,6 +5,7 @@ import MiaCode.UI
 // Shared popup menu — geometry mirrors v1 styleRoundedMenu.
 Menu {
     id: root
+    property bool preservesEditTarget: true
     popupType: Popup.Item
 
     property bool retainBackdrop: false

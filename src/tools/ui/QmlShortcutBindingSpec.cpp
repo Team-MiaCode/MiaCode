@@ -70,6 +70,66 @@ Item {
     pane->setParentItem(nullptr);
 }
 
+void checkInputOwnership(QTextStream& out, int* failed)
+{
+    QTemporaryDir storage;
+    miacode::ui::ShortcutRegistry registry(storage.filePath("shortcuts.json"));
+    miacode::ui::ShortcutModel shortcuts(registry);
+    miacode::ui::EditorInputContext input;
+    QQmlEngine engine;
+    engine.rootContext()->setContextProperty("testShortcuts", &shortcuts);
+    engine.rootContext()->setContextProperty("testInput", &input);
+    QQmlComponent component(&engine);
+    component.setData(QByteArray(R"(
+import QtQuick
+import "file:CHROME_DIR" as Chrome
+Window {
+    width: 320; height: 200; visible: true
+    property int executions: 0
+    QtObject {
+        id: preview
+        function stopOrPlay() { executions++ }
+        function togglePlayback() { executions++ }
+        function adjustRate(direction) { executions++ }
+    }
+    QtObject { id: commands; function shortcutCommandIds() { return ["transform.mirror_lr"] } }
+    TextInput { objectName: "field"; text: "field" }
+    Item { objectName: "neutral" }
+    Chrome.ShortcutBindings {
+        shortcuts: testShortcuts; commands: commands; previewSession: preview
+        commandsEnabled: testInput.workbenchCommandsAllowed
+        onChartTransformRequested: executions++
+    }
+}
+)").replace("CHROME_DIR", MIACODE_SOURCE_ROOT "/src/app/ui/chrome"), QUrl());
+    QScopedPointer<QObject> object(component.create());
+    auto* window = qobject_cast<QQuickWindow*>(object.data());
+    if (!expect(window != nullptr, component.errorString(), out, failed)) return;
+    input.setWindow(window);
+    window->requestActivate();
+    QTest::qWait(100);
+    auto* field = window->findChild<QQuickItem*>("field");
+    field->forceActiveFocus();
+    QTest::keyClick(window, Qt::Key_J, Qt::ControlModifier);
+    QTest::keyClick(window, Qt::Key_X, Qt::ControlModifier | Qt::ShiftModifier);
+    expect(window->property("executions").toInt() == 0 && !input.workbenchCommandsAllowed(),
+           QStringLiteral("text input owns keys instead of background chart commands"), out, failed);
+    expect(input.textInput() == field && input.performEdit("selectAll")
+               && field->property("selectedText").toString() == "field"
+               && window->activeFocusItem() == field,
+           QStringLiteral("editing targets the focused input without moving its focus"), out, failed);
+    window->findChild<QQuickItem*>("neutral")->forceActiveFocus();
+    QTest::keyClick(window, Qt::Key_J, Qt::ControlModifier);
+    expect(window->property("executions").toInt() > 0,
+           QStringLiteral("neutral workbench controls retain chart shortcuts"), out, failed);
+    window->setProperty("executions", 0);
+    shortcuts.setCaptureActive(true);
+    QTest::keyClick(window, Qt::Key_J, Qt::ControlModifier);
+    QTest::keyClick(window, Qt::Key_C, Qt::ControlModifier | Qt::ShiftModifier);
+    expect(window->property("executions").toInt() == 0,
+           QStringLiteral("shortcut capture excludes business commands"), out, failed);
+}
+
 struct MenuStandardKey {
     QString file;
     QString keyName;
@@ -232,6 +292,7 @@ int main(int argc, char** argv)
     int failed = 0;
 
     checkPendingInputCommit(out, &failed);
+    checkInputOwnership(out, &failed);
     checkTimelineShortcuts(out, &failed);
 
     miacode::ui::ShortcutModel model;

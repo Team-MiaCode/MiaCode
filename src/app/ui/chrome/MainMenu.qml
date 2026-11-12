@@ -458,7 +458,7 @@ Item {
                 text: qsTrId("metadata.find")
                 shortcut: StandardKey.Find
                 shortcutText: root.shortcuts.standardDisplayText(StandardKey.Find)
-                enabled: root.commandsEnabled && root.editorCommandsEnabled
+                enabled: root.commandsEnabled && root.commands.canFind
                 onTriggered: root.commands.findRequested()
             }
             AppMenuAction {
@@ -470,7 +470,7 @@ Item {
             }
             AppMenuAction {
                 text: qsTrId("qml.select_current_line")
-                enabled: root.commandsEnabled && root.editorCommandsEnabled
+                enabled: root.commandsEnabled && root.commands.canFind
                 onTriggered: root.commands.selectCurrentLineRequested()
             }
             AppMenuSeparator {}
