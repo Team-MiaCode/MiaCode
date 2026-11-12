@@ -768,6 +768,13 @@ void ScintillaEditorBridge::select(int anchor, int position)
     send(SCI_SETSELECTION, document_.bytePosition(position), document_.bytePosition(anchor));
     refreshSelection(!programmatic_);
 }
+void ScintillaEditorBridge::continueAtFollowCaret()
+{
+    if (!followCaretVisible()) return;
+    // The preview already sits at the follow position; do not publish it back as a seek.
+    QScopedValueRollback guard(programmatic_, true);
+    setCursorPosition(qBound(0, followCaretPosition_, int(document_.text().size())));
+}
 void ScintillaEditorBridge::selectCurrentLine()
 {
     const int line = cursorLine() - 1;

@@ -158,6 +158,10 @@ bool EditorInputContext::redirectTyping(QKeyEvent* event)
         || focused == target || target->isAncestorOf(focused)) {
         return false;
     }
+    // Before focus hides it, a visible follow caret (e.g. after scrubbing the timeline)
+    // decides where typing continues.
+    if (target->metaObject()->indexOfMethod("continueAtFollowCaret()") >= 0)
+        QMetaObject::invokeMethod(target, "continueAtFollowCaret", Qt::DirectConnection);
     target->forceActiveFocus(Qt::OtherFocusReason);
     if (!target->hasActiveFocus()) return false;
     // Delivered straight to the editor, so shortcuts are not matched a second time.

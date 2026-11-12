@@ -48,6 +48,8 @@ Window {
     Item {
         objectName: "source"; property bool chartEditorInput: true; property bool reservesPlainSpace: true
         property bool readonly: false; property string typed: ""
+        property int unfocusedContinues: 0
+        function continueAtFollowCaret() { if (!activeFocus) unfocusedContinues++ }
         Keys.onPressed: event => {
             typed += event.key === Qt.Key_Backspace ? "<" : event.text
             event.accepted = true
@@ -185,6 +187,8 @@ Window {
     check(typeFrom("neutral", Qt::Key_ParenLeft, Qt::ShiftModifier) == "("
               && window->activeFocusItem() == source,
           "an unbound character returns to the editor and is typed there");
+    check(source->property("unfocusedContinues").toInt() == 1,
+          "returning typing asks the editor to continue at its follow caret before focusing it");
     check(typeFrom("neutral", Qt::Key_Backspace) == "<", "Backspace returns to the editor");
     shortcuts.setShortcutText("preview.play_pause_non_text", "Ctrl+Alt+C");
     check(typeFrom("neutral", Qt::Key_Space) == " ", "an unbound Space returns to the editor");
