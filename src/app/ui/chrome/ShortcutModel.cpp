@@ -28,6 +28,22 @@ bool bindingsOverlap(const QString& first, const QString& second)
         || b.keySequence.matches(a.keySequence) != QKeySequence::NoMatch;
 }
 
+// Preferences spell macOS bindings as "⌘+C" rather than Qt's native "⌘C".
+QString preferenceText(const QString& shortcutText)
+{
+    QString text = miacode::input_shortcut::gestureDisplayText(shortcutText);
+#ifdef Q_OS_MACOS
+    static const QString modifierSymbols = QString::fromUtf16(u"⌃⌥⇧⌘");
+    QString joined;
+    for (const QChar symbol : text) {
+        joined += symbol;
+        if (modifierSymbols.contains(symbol)) joined += QLatin1Char('+');
+    }
+    text = joined;
+#endif
+    return text;
+}
+
 } // namespace
 
 ShortcutModel::ShortcutModel(QObject* parent)
@@ -114,6 +130,11 @@ QString ShortcutModel::displayText(const QString& id, const QString& fallback) c
     return resolve(registry_, id, fallback).toString(QKeySequence::NativeText);
 }
 
+QString ShortcutModel::nativeText(const QString& shortcutText) const
+{
+    return preferenceText(shortcutText);
+}
+
 QString ShortcutModel::standardDisplayText(int standardKey) const
 {
     return QKeySequence(static_cast<QKeySequence::StandardKey>(standardKey))
@@ -151,11 +172,8 @@ QVariantList ShortcutModel::editableShortcuts() const
         row.insert(
             QStringLiteral("labelFallback"),
             definition.labelEn.isEmpty() ? definition.id : definition.labelEn);
-        const auto nativeText = [](const QString& text) {
-            return QKeySequence(text, QKeySequence::PortableText).toString(QKeySequence::NativeText);
-        };
-        row.insert(QStringLiteral("shortcutText"), nativeText(current));
-        row.insert(QStringLiteral("defaultText"), nativeText(defaults));
+        row.insert(QStringLiteral("shortcutText"), preferenceText(current));
+        row.insert(QStringLiteral("defaultText"), preferenceText(defaults));
         row.insert(QStringLiteral("isDefault"), current == defaults);
         rows.append(row);
     }

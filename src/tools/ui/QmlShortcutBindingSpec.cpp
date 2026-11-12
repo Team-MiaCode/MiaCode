@@ -379,6 +379,9 @@ void checkReservedShortcuts(QTextStream& out, int* failed)
                && shortcuts.reservedShortcutOwner(QStringLiteral("Ctrl+Shift+N")) == "action.new"
                && shortcuts.reservedShortcutOwner(QStringLiteral("Ctrl+K")).isEmpty(),
            QStringLiteral("file and edit keys report the menu command that owns them"), out, failed);
+    expect(shortcuts.nativeText(QStringLiteral("Ctrl+C"))
+               == QKeySequence(QStringLiteral("Ctrl+C")).toString(QKeySequence::NativeText),
+           QStringLiteral("notices spell a recorded key the way the platform shows it"), out, failed);
     expect(!shortcuts.setShortcutText(stop, QStringLiteral("Ctrl+C")) && registry.shortcutText(stop) == before,
            QStringLiteral("recording a reserved key leaves the command unchanged"), out, failed);
     QStringList clashing;

@@ -47,6 +47,9 @@ public:
     Q_INVOKABLE QString reservedShortcutOwner(const QString& shortcutText) const;
     // Platform spelling for menu rows and tooltips.
     Q_INVOKABLE QString displayText(const QString& id, const QString& fallback = QString()) const;
+    // Preferences spelling of a portable binding, such as a key just recorded:
+    // the platform text, with "+" after each macOS modifier symbol ("⌘+C").
+    Q_INVOKABLE QString nativeText(const QString& shortcutText) const;
     // Menu rows whose binding is a Qt standard key (Open/Save/Undo/...) rather
     // than a registry id still need the platform spelling to display.
     Q_INVOKABLE QString standardDisplayText(int standardKey) const;
