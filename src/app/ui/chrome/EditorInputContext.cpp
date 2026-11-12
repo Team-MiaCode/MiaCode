@@ -62,7 +62,9 @@ void EditorInputContext::watch(QObject* object, const QList<QByteArray>& signalS
         const int index = object->metaObject()->indexOfSignal(signature.constData());
         if (index >= 0) connections.append(connect(object, object->metaObject()->method(index), this, slot));
     }
-    connections.append(connect(object, &QObject::destroyed, this, &EditorInputContext::refresh));
+    // Quick must remove a dying item from its focus chain before we inspect it.
+    connections.append(connect(object, &QObject::destroyed, this, &EditorInputContext::refresh,
+                               Qt::QueuedConnection));
 }
 
 void EditorInputContext::refresh()

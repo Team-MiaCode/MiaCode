@@ -8,6 +8,9 @@ ApplicationWindow {
     readonly property var inputContext: mainView.inputContext
     readonly property bool workbenchCommandsAllowed: inputContext && inputContext.workbenchCommandsAllowed
         && !window.applicationContext.shortcuts.captureActive
+    readonly property bool windowCommandsEnabled: !mainView.beginnerGuideActive
+        && inputContext && inputContext.editingCommandsAllowed
+        && !window.applicationContext.shortcuts.captureActive
     property bool sourceEditorFocused: false
     property bool sourceEditorOverlayHeld: false
     readonly property bool playbackCommandsEnabled: mainView.chartEditorActive
@@ -215,7 +218,7 @@ ApplicationWindow {
         commands: window.applicationContext.commands
         previewSession: window.applicationContext.preview
         timelineStateBridge: window.applicationContext.timeline.stateBridge
-        commandsEnabled: !mainView.beginnerGuideActive && window.workbenchCommandsAllowed
+        commandsEnabled: window.windowCommandsEnabled && window.workbenchCommandsAllowed
         chartCommandsEnabled: mainView.chartEditorActive && window.workbenchCommandsAllowed
         playbackCommandsEnabled: window.playbackCommandsEnabled
         menuOwnsChartTransformShortcuts: window.platform.nativeMenuBar
@@ -226,7 +229,7 @@ ApplicationWindow {
     UiScaleShortcuts {
         shortcuts: window.applicationContext.shortcuts
         preferencesModel: window.applicationContext.preferencesModel
-        commandsEnabled: !mainView.beginnerGuideActive && inputContext && inputContext.editingCommandsAllowed
+        commandsEnabled: window.windowCommandsEnabled
     }
 
     Loader {

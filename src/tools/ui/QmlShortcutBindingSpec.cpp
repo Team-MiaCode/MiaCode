@@ -130,6 +130,89 @@ Window {
            QStringLiteral("shortcut capture excludes business commands"), out, failed);
 }
 
+void checkPreviewWindowOwnership(QTextStream& out, int* failed)
+{
+    QTemporaryDir storage;
+    miacode::ui::ShortcutRegistry registry(storage.filePath("shortcuts.json"));
+    miacode::ui::ShortcutModel shortcuts(registry);
+    miacode::ui::EditorInputContext input;
+    QQmlEngine engine;
+    engine.rootContext()->setContextProperty("testShortcuts", &shortcuts);
+    engine.rootContext()->setContextProperty("testInput", &input);
+    QQmlComponent component(&engine);
+    component.setData(QByteArray(R"(
+import QtQuick
+import "file:CHROME_DIR" as Chrome
+Window {
+    id: main; width: 320; height: 200; visible: true
+    property int executions: 0
+    property bool allowed: true
+    QtObject {
+        id: preview
+        function stopOrPlay() { executions++ }
+        function togglePlayback() { executions++ }
+        function adjustRate(direction) { executions++ }
+    }
+    Chrome.PreviewShortcuts {
+        shortcuts: testShortcuts; previewSession: preview
+        commandsEnabled: main.allowed && testInput && testInput.workbenchCommandsAllowed
+    }
+    TextInput { objectName: "field"; text: "input" }
+    Item { objectName: "neutral" }
+    Window {
+        objectName: "detachedPreviewWindow"; width: 200; height: 200; visible: true; transientParent: null
+        Chrome.PreviewShortcuts {
+            shortcuts: testShortcuts; previewSession: preview
+            commandsEnabled: main.allowed && testInput && testInput.workbenchCommandsAllowed
+        }
+        TextInput { objectName: "field"; text: "input" }
+        Item { objectName: "neutral" }
+    }
+}
+)").replace("CHROME_DIR", MIACODE_SOURCE_ROOT "/src/app/ui/chrome"), QUrl());
+    QScopedPointer<QObject> object(component.create());
+    auto* window = qobject_cast<QQuickWindow*>(object.data());
+    if (!expect(window != nullptr, component.errorString(), out, failed)) return;
+    input.setWindow(window);
+    auto* detached = window->findChild<QQuickWindow*>("detachedPreviewWindow");
+    for (auto* active : {window, detached}) {
+        active->requestActivate();
+        auto* neutral = active->findChild<QQuickItem*>("neutral");
+        neutral->forceActiveFocus();
+        QTest::qWait(100);
+        const int before = window->property("executions").toInt();
+        QTest::keyClick(active, Qt::Key_C, Qt::ControlModifier | Qt::ShiftModifier);
+        QTest::keyClick(active, Qt::Key_X, Qt::ControlModifier | Qt::ShiftModifier);
+        QTest::keyClick(active, Qt::Key_O, Qt::ControlModifier);
+        QTest::keyClick(active, Qt::Key_P, Qt::ControlModifier);
+        if (window->property("executions").toInt() != before + 4)
+            out << "  preview executions=" << window->property("executions").toInt()
+                << " before=" << before << " active=" << (QGuiApplication::focusWindow() == active) << '\n';
+        expect(window->property("executions").toInt() == before + 4 && active->activeFocusItem() == neutral,
+               QStringLiteral("each preview key executes once in the active window"), out, failed);
+        auto* field = active->findChild<QQuickItem*>("field");
+        field->forceActiveFocus();
+        const int beforeInput = window->property("executions").toInt();
+        QTest::keyClick(active, Qt::Key_P, Qt::ControlModifier);
+        expect(window->property("executions").toInt() == beforeInput && active->activeFocusItem() == field,
+               QStringLiteral("each preview window protects its text input and focus"), out, failed);
+        neutral->forceActiveFocus();
+    }
+    shortcuts.setShortcutText("preview.speed_up", "Ctrl+Alt+9");
+    window->setProperty("executions", 0);
+    QTest::keyClick(detached, Qt::Key_P, Qt::ControlModifier);
+    QTest::keyClick(detached, Qt::Key_9, Qt::ControlModifier | Qt::AltModifier);
+    expect(window->property("executions").toInt() == 1,
+           QStringLiteral("detached preview uses live custom bindings"), out, failed);
+    window->setProperty("allowed", false);
+    QTest::keyClick(detached, Qt::Key_9, Qt::ControlModifier | Qt::AltModifier);
+    shortcuts.setCaptureActive(true);
+    window->setProperty("allowed", true);
+    QTest::keyClick(detached, Qt::Key_C, Qt::ControlModifier | Qt::ShiftModifier);
+    expect(window->property("executions").toInt() == 1,
+           QStringLiteral("preview windows honor command and capture guards"), out, failed);
+}
+
 struct MenuStandardKey {
     QString file;
     QString keyName;
@@ -293,6 +376,7 @@ int main(int argc, char** argv)
 
     checkPendingInputCommit(out, &failed);
     checkInputOwnership(out, &failed);
+    checkPreviewWindowOwnership(out, &failed);
     checkTimelineShortcuts(out, &failed);
 
     miacode::ui::ShortcutModel model;

@@ -143,7 +143,7 @@ int main(int argc, char** argv)
     QCoreApplication::processEvents();
     check(bindingObject && harness.stops == beforeEditor
           && bindingObject->property("shortcutStops").toInt() == beforeEditorShortcut + 1,
-          "focused editor retains its configured ApplicationShortcut Space");
+          "focused editor retains its configured preview Space shortcut");
     if (bindingObject) bindingObject->setProperty("shortcutStops", 0);
     window.setProperty("sourceEditorFocused", false);
     QQmlComponent component(&engine);
@@ -178,7 +178,7 @@ int main(int argc, char** argv)
         check(field->property("text").toString() == "  " && harness.stops == before,
               "dialog descendants retain Space without playback");
         check(bindingObject && bindingObject->property("shortcutStops").toInt() == 0,
-              "production ApplicationShortcut does not steal field or dialog Space");
+              "production preview shortcut does not steal field or dialog Space");
         QQuickItem dialogFocus(&dialog);
         dialogFocus.forceActiveFocus();
         QTest::keyClick(&window, Qt::Key_Space);
@@ -188,6 +188,24 @@ int main(int argc, char** argv)
               "dialog non-text focus also blocks the global Space shortcut");
         input->setParentItem(window.contentItem());
     }
+    QQuickWindow detached;
+    detached.resize(200, 200);
+    QQuickItem previewFocus(detached.contentItem());
+    detached.show();
+    detached.requestActivate();
+    previewFocus.forceActiveFocus();
+    QTest::qWait(30);
+    window.setProperty("sourceEditorFocused", true);
+    registry.resetUserShortcut("preview.stop_or_play");
+    const int beforeDetached = harness.toggles;
+    QKeyEvent detachedSpace(QEvent::KeyPress, Qt::Key_Space, Qt::NoModifier, " ");
+    check(harness.filter.handle(&detachedSpace, &window, true)
+          && harness.toggles == beforeDetached + 1 && detached.activeFocusItem() == &previewFocus,
+          "Space uses the active preview focus instead of the inactive editor");
+    previewFocus.setProperty("reservesPlainSpace", true);
+    QKeyEvent reservedSpace(QEvent::ShortcutOverride, Qt::Key_Space, Qt::NoModifier, " ");
+    check(harness.filter.handle(&reservedSpace, &window, true) && reservedSpace.isAccepted(),
+          "active preview controls can reserve Space");
     app.removeEventFilter(&harness);
     return passed ? 0 : 1;
 }
