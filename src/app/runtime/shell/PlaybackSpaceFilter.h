@@ -26,12 +26,14 @@ public:
         if (event->type() != QEvent::ShortcutOverride && event->type() != QEvent::KeyPress
             && event->type() != QEvent::KeyRelease) return false;
         const auto* key = static_cast<QKeyEvent*>(event);
+        auto* inputWindow = qobject_cast<QQuickWindow*>(QGuiApplication::focusWindow());
+        if (!inputWindow) inputWindow = window;
         if (!focusOnWorkbench || window == nullptr || key->key() != Qt::Key_Space
             || key->modifiers() != Qt::NoModifier
             || !window->property("playbackCommandsEnabled").toBool()
-            || window->property("sourceEditorFocused").toBool()) return false;
+            || (inputWindow == window && window->property("sourceEditorFocused").toBool())) return false;
         if (reservesSpace(QGuiApplication::focusObject())
-            || reservesSpace(window->activeFocusItem())) {
+            || reservesSpace(inputWindow->activeFocusItem())) {
             // Block application shortcuts while leaving key presses to the control.
             if (event->type() == QEvent::ShortcutOverride) {
                 event->accept();

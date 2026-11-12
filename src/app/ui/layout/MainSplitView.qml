@@ -449,17 +449,28 @@ Item {
 
         Shortcut {
             sequences: [StandardKey.Close]
+            enabled: root.Window.window.windowCommandsEnabled
             onActivated: detachedPreviewWindow.close()
+        }
+
+        PreviewShortcuts {
+            shortcuts: root.Window.window.applicationContext.shortcuts
+            previewSession: root.previewSession
+            commandsEnabled: root.Window.window.windowCommandsEnabled
+                && root.Window.window.workbenchCommandsAllowed
+            playbackCommandsEnabled: root.Window.window.playbackCommandsEnabled
         }
 
         UiScaleShortcuts {
             shortcuts: root.Window.window.applicationContext.shortcuts
             preferencesModel: root.preferencesModel
+            commandsEnabled: root.Window.window.windowCommandsEnabled
         }
 
         Shortcut {
             sequence: "Escape"
-            enabled: detachedPreviewWindow.visibility === Window.FullScreen
+            enabled: root.Window.window.windowCommandsEnabled
+                && detachedPreviewWindow.visibility === Window.FullScreen
             onActivated: detachedPreviewWindow.windowChrome.showRestored()
         }
     }

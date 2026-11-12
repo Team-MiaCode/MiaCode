@@ -147,7 +147,7 @@
       "label_en": "Stop or Play Preview",
       "default": "Ctrl+Shift+C",
       "context": "window",
-      "owner": "MainWindow.BootstrapAndMenus"
+      "owner": "QML PreviewShortcuts"
     },
     "preview.play_pause_global": {
       "label_key": "shortcut.preview.play_pause_global",
@@ -155,23 +155,23 @@
       "label_en": "Play/Pause Preview",
       "default": "Ctrl+Shift+X",
       "context": "window",
-      "owner": "MainWindow.BootstrapAndMenus"
+      "owner": "QML PreviewShortcuts"
     },
     "preview.speed_down": {
       "label_key": "shortcut.preview.speed_down",
       "label_zh": "播放速度降低",
       "label_en": "Playback Speed -",
       "default": "Ctrl+O",
-      "context": "application",
-      "owner": "MainWindow.BootstrapAndMenus"
+      "context": "window",
+      "owner": "QML PreviewShortcuts / native preview menu"
     },
     "preview.speed_up": {
       "label_key": "shortcut.preview.speed_up",
       "label_zh": "播放速度提高",
       "label_en": "Playback Speed +",
       "default": "Ctrl+P",
-      "context": "application",
-      "owner": "MainWindow.BootstrapAndMenus"
+      "context": "window",
+      "owner": "QML PreviewShortcuts / native preview menu"
     },
     "preview.pause_display_hold": {
       "label_key": "shortcut.preview.pause_display_hold",
