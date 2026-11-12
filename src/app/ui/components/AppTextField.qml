@@ -12,6 +12,11 @@ TextField {
     property color backgroundColor: Theme.colors.background.control
     property bool outlined: false
 
+    function commitPendingEdit() {
+        if (acceptableInput)
+            editingFinished()
+    }
+
     ContextMenu.menu: AppTextContextMenu {
         editor: root
     }

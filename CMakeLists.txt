@@ -890,6 +890,8 @@ qt_add_qml_module(MiaCode
         src/app/ui/editor/ScintillaDslStyler.h
         src/app/ui/chrome/ShortcutModel.cpp
         src/app/ui/chrome/ShortcutModel.h
+        src/app/ui/chrome/EditorInputContext.cpp
+        src/app/ui/chrome/EditorInputContext.h
         src/app/ui/export/ExportSession.cpp
         src/app/ui/export/ExportSession.h
         src/app/ui/export/CoverExportSession.cpp
@@ -964,6 +966,7 @@ target_include_directories(MiaCode PRIVATE
     src
     # qmltyperegistrar includes QML_ELEMENT headers by file name only; project
     # code includes them by their src-rooted path.
+    src/app/ui/chrome
     src/app/ui/editor
     src/app/ui/pet
     src/app/ui/timeline

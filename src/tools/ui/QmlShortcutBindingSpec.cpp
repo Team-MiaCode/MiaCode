@@ -1,6 +1,7 @@
 #include "app/ui/document/ChartTransformCommands.h"
 #include "app/ui/chrome/ShortcutCommands.h"
 #include "app/ui/chrome/ShortcutModel.h"
+#include "app/ui/chrome/EditorInputContext.h"
 #include "app/services/ShortcutRegistry.h"
 #include "app/runtime/playback/PreviewStopOrPlayPolicy.h"
 
@@ -34,6 +35,39 @@ bool expect(bool condition, const QString& message, QTextStream& out, int* faile
     out.flush();
     if (!condition) ++*failed;
     return condition;
+}
+
+void checkPendingInputCommit(QTextStream& out, int* failed)
+{
+    QQmlEngine engine;
+    QQmlComponent component(&engine);
+    component.setData(R"(
+import QtQuick
+Item {
+    width: 320; height: 200
+    TextInput {
+        objectName: "field"
+        text: "pending"
+        property string committedText: ""
+        function commitPendingEdit() { committedText = text }
+    }
+}
+)", QUrl());
+    QScopedPointer<QObject> object(component.create());
+    auto* pane = qobject_cast<QQuickItem*>(object.data());
+    if (!expect(pane != nullptr, component.errorString(), out, failed)) return;
+    QQuickWindow window;
+    pane->setParentItem(window.contentItem());
+    window.show();
+    auto* field = pane->findChild<QQuickItem*>("field");
+    field->forceActiveFocus();
+    miacode::ui::EditorInputContext input;
+    input.setWindow(&window);
+    input.commitPendingEdits(pane);
+    expect(field->property("committedText").toString() == "pending"
+               && window.activeFocusItem() == field,
+           QStringLiteral("committing pending input preserves its keyboard focus"), out, failed);
+    pane->setParentItem(nullptr);
 }
 
 struct MenuStandardKey {
@@ -197,6 +231,7 @@ int main(int argc, char** argv)
     QTextStream out(stdout);
     int failed = 0;
 
+    checkPendingInputCommit(out, &failed);
     checkTimelineShortcuts(out, &failed);
 
     miacode::ui::ShortcutModel model;
