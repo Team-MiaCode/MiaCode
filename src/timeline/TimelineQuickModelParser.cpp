@@ -809,7 +809,8 @@ bool TimelineQuickModel::parseNoteToken(
     }
 
     const double lineBaseSecond = lineState->render.startSecond;
-    const auto appendNote = [lineState, state, groupIndices, lineBaseSecond](TimelineRenderNote note) {
+    const auto appendNote = [lineState, state, groupIndices, lineBaseSecond, &token](TimelineRenderNote note) {
+        note.sourceLength = token.size();
         note.hsMultiplier = state->hsMultiplier;
         const int noteIndex = lineState->render.notes.size();
         lineState->render.notes.append(note);
@@ -927,9 +928,13 @@ bool TimelineQuickModel::parseNoteToken(
                     branch.prepend(startLane);
                 }
                 const QString branchToken = prefix + branch.mid(1);
-                if (!parseNoteToken(lineState, state, branchToken, lineNumber, column, groupIndices)) {
-                    return false;
-                }
+                const int firstBranchNote = lineState->render.notes.size();
+                const bool valid = parseNoteToken(lineState, state, branchToken, lineNumber, column, groupIndices);
+                // Drafts may have a visible prefix before a malformed branch.
+                // Every visible part still belongs to the complete source token.
+                for (int index = firstBranchNote; index < lineState->render.notes.size(); ++index)
+                    lineState->render.notes[index].sourceLength = token.size();
+                if (!valid) return false;
             }
             return true;
         }

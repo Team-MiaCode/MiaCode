@@ -73,6 +73,16 @@ Session::Session(miacode::ApplicationServices& services, QObject* parent)
     editorSyncController_ = &applicationServices_.editorSync();
     connect(editorSyncController_, &miacode::EditorSyncController::editorContextChanged,
             this, &Session::refreshEditorAuthoringContext);
+    connect(editorSyncController_, &miacode::EditorSyncController::editorContextChanged,
+            this, [this] { if (playback_) playback_->refreshEditorNoteSelection(); });
+    connect(editorSyncController_, &miacode::EditorSyncController::selectionPlaybackRequested,
+            this, [this](int difficultyId, quint64 revision, int start, int end) {
+                if (playback_) playback_->playEditorSelection(difficultyId, revision, start, end);
+            });
+    connect(editorSyncController_, &miacode::EditorSyncController::noteCatalogueRequested, this, [this] {
+        if (playback_ && !playback_->refreshTimelineQuickModelFromCurrentText())
+            playback_->refreshEditorNoteSelection();
+    });
     connect(editorSyncController_, &miacode::EditorSyncController::caretLocationPublished,
             this, &Session::onEditorCaretLocationPublished);
     connect(editorSyncController_, &miacode::EditorSyncController::pointerInteractionStarted,
@@ -214,6 +224,12 @@ Session::Session(miacode::ApplicationServices& services, QObject* parent)
     logStartupStage("runtime_pages_ready");
 
     scene_ = new PreviewRuntime(this);
+    connect(scene_, &PreviewRuntime::noteSelectionStarted, this, [this] {
+        if (playback_) playback_->beginPreviewNoteSelection();
+    });
+    connect(scene_, &PreviewRuntime::noteSelectionFinished, this, [this](const QSet<quint64>& locations, bool additive) {
+        if (playback_) playback_->finishPreviewNoteSelection(locations, additive);
+    });
     connect(scene_, &PreviewRuntime::touchPadAuthoringClicked, this, [this](const QString& pad, QChar separator) {
         if (editorSyncController_ != nullptr) {
             editorSyncController_->requestTouchPadAuthoring(pad, separator);
@@ -384,6 +400,12 @@ Session::Session(miacode::ApplicationServices& services, QObject* parent)
     logStartupStage("preview_runtime_ready");
 
     state_.timeline_.timelineQuickStateBridge_ = new TimelineQuickStateBridge(this, editorFont());
+    connect(state_.timeline_.timelineQuickStateBridge_, &TimelineQuickStateBridge::noteSelectionRequested,
+        this, [this](const QSet<quint64>& locations, bool additive) {
+            if (playback_) {
+                playback_->selectTimelineNotes(locations, additive);
+            }
+        });
     state_.timeline_.timelineQuickStateBridge_->setShowSlideTracks(true);
     state_.timeline_.timelineQuickStateBridge_->setSkinDirectory(resolvePreviewSkinDir());
     state_.timeline_.timelineQuickStateBridge_->setViewportLockEnabled(previewViewportLockEnabled_);

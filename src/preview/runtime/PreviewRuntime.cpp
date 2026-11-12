@@ -619,6 +619,13 @@ void PreviewRuntime::setRetainedVideoFallbackFrame(const QImage& frame)
     update();
 }
 
+void PreviewRuntime::setSelectedNoteLocations(const QSet<quint64>& locations)
+{
+    if (frameState_.selectedNoteLocations == locations) return;
+    frameState_.selectedNoteLocations = locations;
+    update();
+}
+
 void PreviewRuntime::setNoteMarkers(const QVector<TimelineNoteMarker>& notes)
 {
     frameState_.noteMarkers = notes;
@@ -1075,6 +1082,7 @@ void PreviewRuntime::reset(bool releaseStorage)
     } else {
         frameState_.noteMarkers.clear();
     }
+    frameState_.selectedNoteLocations.clear();
     frameState_.progressStatsCache.reset();
     frameState_.muriAnalysisReport = MuriAnalysisReport();
     frameState_.playheadSeconds = 0.0;

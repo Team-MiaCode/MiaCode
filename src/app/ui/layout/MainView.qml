@@ -119,6 +119,8 @@ Item {
         canCopy: root.editorCommandsAvailable && splitView.canCopy
         canPaste: root.editorCommandsAvailable && splitView.canPaste
         canTransform: root.editorCommandsAvailable && splitView.canTransform
+        canPlaySelection: root.chartEditorActive && root.editorSync.canPlaySelection
+        onPlaySelectionRequested: root.editorSync.playSelection()
         renderModeMenuAvailable: splitView.renderModeMenuAvailable
         onExitRequested: root.requestClose()
         onUndoRequested: root.undo()

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QImage>
+#include <QSet>
 #include <QRectF>
 #include <QVector>
 #include <QtGlobal>
@@ -255,6 +256,7 @@ struct PreviewRenderState {
 struct PreviewFrameState {
     PreviewHudFontSettings hudFontSettings;
     QVector<TimelineNoteMarker> noteMarkers;
+    QSet<quint64> selectedNoteLocations;
     std::shared_ptr<const PreviewProgressStatsCache> progressStatsCache;
     MuriAnalysisReport muriAnalysisReport;
     MuriRenderOptions muriRenderOptions;

@@ -100,6 +100,45 @@ bool testUndoSelection(QTextStream& out)
         out << "plain typing undo changed the normal caret behavior" << Qt::endl;
         return false;
     }
+    const QString objects = QStringLiteral("|| 中文😀\n(120){4}1/2,3,\nE");
+    document.activate(QStringLiteral("difficulty:7"), objects);
+    const int firstNote = objects.indexOf(QStringLiteral("1/2"));
+    const int lastNote = objects.indexOf(QStringLiteral("3,"));
+    const auto installObjectSelection = [&] {
+        editor.send(SCI_SETSELECTION, document.bytePosition(firstNote + 1), document.bytePosition(firstNote));
+        editor.send(SCI_ADDSELECTION, document.bytePosition(lastNote + 1), document.bytePosition(lastNote));
+        editor.send(SCI_SETMAINSELECTION, 0);
+    };
+    const auto objectEdit = [&] {
+        editor.send(SCI_BEGINUNDOACTION);
+        document.recordObjectSelectionForUndo();
+        editor.send(SCI_SETTARGETSTART, document.bytePosition(firstNote));
+        editor.send(SCI_SETTARGETEND, document.bytePosition(lastNote + 1));
+        editor.sends(SCI_REPLACETARGET, 2, "2,");
+        editor.send(SCI_ENDUNDOACTION);
+        editor.send(SCI_SETEMPTYSELECTION, document.bytePosition(firstNote));
+    };
+    const auto objectSelectionRestored = [&] {
+        return editor.send(SCI_GETSELECTIONS) == 2 && editor.send(SCI_GETMAINSELECTION) == 0
+            && editor.send(SCI_GETSELECTIONNSTART, 0) == document.bytePosition(firstNote)
+            && editor.send(SCI_GETSELECTIONNEND, 0) == document.bytePosition(firstNote + 1)
+            && editor.send(SCI_GETSELECTIONNSTART, 1) == document.bytePosition(lastNote)
+            && editor.send(SCI_GETSELECTIONNEND, 1) == document.bytePosition(lastNote + 1);
+    };
+    installObjectSelection();
+    objectEdit();
+    const QString editedObjects = QString(objects).replace(firstNote, lastNote + 1 - firstNote, QStringLiteral("2,"));
+    if (document.text() != editedObjects || !document.undo()
+        || document.text() != objects || !objectSelectionRestored()) {
+        out << "undo failed to restore both selected objects and their selection mode" << Qt::endl;
+        return false;
+    }
+    editor.send(SCI_REDO);
+    if (document.text() != editedObjects || !document.undo()
+        || document.text() != objects || !objectSelectionRestored()) {
+        out << "redo failed to preserve the object edit or its undo snapshot" << Qt::endl;
+        return false;
+    }
     out << "undo selection checks passed" << Qt::endl;
     return true;
 }

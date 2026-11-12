@@ -86,6 +86,7 @@ bool miacode::runtime::PlaybackCoordinator::preparePreviewStartState()
 void miacode::runtime::PlaybackCoordinator::onStopPreview()
 {
     MC_OP("miacode::runtime::PlaybackCoordinator::onStopPreview");
+    cancelSelectionPlayback();
     // Stop the export-page intro animation if it's mid-play (it clears the
     // overlay and leaves the chart paused at 0).
     if (state_.exportIntroLeadInActive_ || state_.exportIntroPvSegmentActive_) {

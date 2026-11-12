@@ -141,6 +141,7 @@ void Session::pauseQtPreviewPlaybackExact()
 
 void Session::stopQtPreviewPlayback(bool keepPosition)
 {
+    playback_->cancelSelectionPlayback();
     playback_->stopQtPreviewPlayback(keepPosition);
 }
 

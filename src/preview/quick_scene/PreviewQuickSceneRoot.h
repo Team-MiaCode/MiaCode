@@ -20,6 +20,7 @@
 #include "preview/quick_scene/PreviewQuickBackdropLayer.h"
 #include "preview/quick_scene/PreviewQuickChartReviewLayer.h"
 #include "preview/quick_scene/PreviewQuickGuideLayer.h"
+#include "preview/quick_scene/PreviewQuickSelectionLayer.h"
 #include "preview/quick_scene/PreviewQuickHeadLayer.h"
 #include "preview/quick_scene/PreviewQuickJudgeEffectLayer.h"
 #include "preview/quick_scene/PreviewQuickJudgeFireworkLayer.h"
@@ -36,6 +37,7 @@
 #include "preview/quick_scene/PreviewTextureRepository.h"
 #include "core/scene/PreviewPreparedSceneCache.h"
 #include "core/scene/PreviewLayerOrder.h"
+#include "preview/quick_scene/PreviewNoteHitTest.h"
 
 class PreviewRuntime;
 namespace miacode::preview::scene {
@@ -77,6 +79,7 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseUngrabEvent() override;
+    void keyPressEvent(QKeyEvent* event) override;
 
 private:
     QString instanceTag() const;
@@ -93,7 +96,16 @@ private:
     QPointer<PreviewRuntime> runtime_;
     QColor backgroundColor_{QStringLiteral("#191A1B")};
     Qt::MouseButton touchPadAuthoringPressedButton_ = Qt::NoButton;
+    bool selectionDragActive_ = false;
+    QPointF selectionDragStart_, selectionDragEnd_;
+    quint64 selectionContentRevision_ = 0, selectionStorageGeneration_ = 0;
+    double selectionPlayheadSeconds_ = 0.0;
+    double selectionLayoutSquareScale_ = 0.0;
+    double selectionTapFlowSpeed_ = 0.0;
+    double selectionTouchFlowSpeed_ = 0.0;
+    QVector<miacode::preview::selection::NoteHitShape> selectionHitShapes_;
     QMetaObject::Connection runtimeUpdateConnection_;
+    QMetaObject::Connection selectionInvalidatedConnection_;
     QMetaObject::Connection frameSwapConnection_;
 #ifdef Q_OS_MACOS
     QMetaObject::Connection framePresentedCaptureConnection_;
@@ -130,6 +142,7 @@ private:
     PreviewQuickMuriActionLayer muriActionLayer_;
     PreviewQuickJudgeFireworkLayer judgeFireworkLayer_;
     PreviewQuickGuideLayer guideLayer_;
+    PreviewQuickSelectionLayer selectionLayer_;
     PreviewQuickTouchHoverLayer touchHoverLayer_;
     PreviewQuickTrackLayer trackLayer_;
     PreviewQuickSlideMotionLayer slideMotionLayer_;

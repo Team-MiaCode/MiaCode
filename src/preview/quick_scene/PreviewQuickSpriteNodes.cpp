@@ -97,8 +97,10 @@ void writeSpriteVertices(
         return;
     }
 
-    const qreal halfWidth = sprite.width / 2.0;
-    const qreal halfHeight = sprite.height / 2.0;
+    const bool outline = sprite.effect == PreviewAnimatedSpriteEffect::SelectionOutline;
+    const qreal padding = outline ? 3.0 : 0.0;
+    const qreal halfWidth = sprite.width / 2.0 + padding;
+    const qreal halfHeight = sprite.height / 2.0 + padding;
     const QPointF localTopLeft(-halfWidth, -halfHeight);
     const QPointF localTopRight(halfWidth, -halfHeight);
     const QPointF localBottomLeft(-halfWidth, halfHeight);
@@ -109,10 +111,12 @@ void writeSpriteVertices(
     const QPointF bottomLeft = sprite.center + rotateLocalPoint(localBottomLeft, sprite.rotationDegrees);
     const QPointF bottomRight = sprite.center + rotateLocalPoint(localBottomRight, sprite.rotationDegrees);
 
-    const float leftU = static_cast<float>(uvRect.left());
-    const float rightU = static_cast<float>(uvRect.left() + uvRect.width());
-    const float topV = static_cast<float>(uvRect.top());
-    const float bottomV = static_cast<float>(uvRect.top() + uvRect.height());
+    const qreal padU = padding * uvRect.width() / sprite.width;
+    const qreal padV = padding * uvRect.height() / sprite.height;
+    const float leftU = static_cast<float>(uvRect.left() - padU);
+    const float rightU = static_cast<float>(uvRect.left() + uvRect.width() + padU);
+    const float topV = static_cast<float>(uvRect.top() - padV);
+    const float bottomV = static_cast<float>(uvRect.top() + uvRect.height() + padV);
     const float opacity = static_cast<float>(sprite.opacity);
     const float effect = static_cast<float>(sprite.effect);
 

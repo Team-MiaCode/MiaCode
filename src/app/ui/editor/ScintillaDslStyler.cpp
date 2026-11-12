@@ -70,9 +70,9 @@ void ScintillaDslStyler::setAppearance(const QFont& font, const QVariantMap& pal
         editor_.send(SCI_SETELEMENTCOLOUR, SC_ELEMENT_CARET_LINE_BACK, rgba("currentLine"));
     else
         editor_.send(SCI_RESETELEMENTCOLOUR, SC_ELEMENT_CARET_LINE_BACK);
-    for (int element : {SC_ELEMENT_SELECTION_BACK, SC_ELEMENT_SELECTION_INACTIVE_BACK})
+    for (int element : {SC_ELEMENT_SELECTION_BACK, SC_ELEMENT_SELECTION_ADDITIONAL_BACK, SC_ELEMENT_SELECTION_INACTIVE_BACK})
         editor_.send(SCI_SETELEMENTCOLOUR, element, rgba("selection"));
-    for (int element : {SC_ELEMENT_SELECTION_TEXT, SC_ELEMENT_SELECTION_INACTIVE_TEXT})
+    for (int element : {SC_ELEMENT_SELECTION_TEXT, SC_ELEMENT_SELECTION_ADDITIONAL_TEXT, SC_ELEMENT_SELECTION_INACTIVE_TEXT})
         editor_.send(SCI_RESETELEMENTCOLOUR, element);
     editor_.send(SCI_MARKERSETFORE, bookmarkMarker, color(palette, palette.contains("bookmark") ? "bookmark" : "accent"));
     editor_.send(SCI_MARKERSETBACK, bookmarkMarker, color(palette, palette.contains("bookmark") ? "bookmark" : "accent"));

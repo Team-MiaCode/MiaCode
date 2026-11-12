@@ -91,6 +91,7 @@ void miacode::runtime::PlaybackCoordinator::scheduleDeferredPreviewUiTail(
 
 void miacode::runtime::PlaybackCoordinator::schedulePreviewSeek(double second, bool centerView)
 {
+    cancelSelectionPlayback();
     requestPausedPreviewSeek(second, centerView, false, false);
 }
 

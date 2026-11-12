@@ -9,6 +9,7 @@
 #include <QSGGeometry>
 #include <QSGGeometryNode>
 #include <QSGNode>
+#include <QSGSimpleRectNode>
 #include <QSGRendererInterface>
 #include <QStringList>
 #include <QMetaObject>
@@ -52,7 +53,7 @@ namespace {
 
 constexpr double kTimelineKeyHoldAccelerationPerSecond = 1.0;
 constexpr int kTimelineKeyHoldTickIntervalMs = 16;
-constexpr int kTimelineLayerSlotCount = 6;  // grid + header + gridLines + wave(translucent,on-top) + notes + overlay
+constexpr int kTimelineLayerSlotCount = 7;  // grid, header, grid lines, waveform, notes, overlay, selection box
 
 // Phase 7 scroll-bucket index. Sole definition on purpose: the bucket is computed in two
 // places (the revision offset in applyDynamicSceneState, the rebuild cache key in
@@ -885,6 +886,7 @@ void TimelineQuickItem::setStateBridge(TimelineQuickStateBridge* stateBridge)
     if (bridgePlayheadConnection_) {
         QObject::disconnect(bridgePlayheadConnection_);
     }
+    cancelNoteSelection();
     stateBridge_ = stateBridge;
     cachedSceneStateValid_ = false;
     lastPaintedHorizontalScrollValue_ = -1;
@@ -1274,6 +1276,7 @@ miacode::timeline::TimelineSceneState TimelineQuickItem::currentSceneState() con
         request.waveformRevision = stateBridge_->waveformRevision();
         request.headerRevision = stateBridge_->headerRevision();
         request.notesRevision = stateBridge_->notesRevision();
+        request.selectedNoteLocations = stateBridge_->selectedNoteLocations();
         request.overlayRevision = stateBridge_->overlayRevision();
         request.overlayDynamicRevision = overlayDynamicRevisionForState(stateBridge_, dragActive_);
         cachedSceneState_ = miacode::timeline::TimelineSceneStateBuilder::build(request);
@@ -1522,6 +1525,21 @@ QSGNode* TimelineQuickItem::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeDat
     updateLayerSlot(layerSlotAt(root, slotIndex++), [&](QSGNode* oldChild) {
         return overlayLayer_->updateNode(oldChild, state, window(), textures_.get());
     });
+    updateLayerSlot(layerSlotAt(root, slotIndex++), [&](QSGNode* oldChild) -> QSGNode* {
+        delete oldChild;
+        if (!selectionDragActive_) return nullptr;
+        auto* rectangle = new QSGNode();
+        const QRectF area = QRectF(selectionDragStart_, selectionDragEnd_).normalized().intersected(
+            QRectF(state.timelineLeft, state.timelineTop, width() - state.timelineLeft, state.timelineHeight));
+        const QColor border(70, 150, 255);
+        rectangle->appendChildNode(new QSGSimpleRectNode(area, QColor(70, 150, 255, 35)));
+        for (const auto& edge : {QRectF(area.left(), area.top(), area.width(), 1),
+                 QRectF(area.left(), area.bottom() - 1, area.width(), 1),
+                 QRectF(area.left(), area.top(), 1, area.height()),
+                 QRectF(area.right() - 1, area.top(), 1, area.height())})
+            rectangle->appendChildNode(new QSGSimpleRectNode(edge, border));
+        return rectangle;
+    });
     updateReadyState(true);
 
     const qint64 elapsedNs = paintNodeTimer.nsecsElapsed();
@@ -1725,13 +1743,27 @@ void TimelineQuickItem::mousePressEvent(QMouseEvent* event)
         QQuickItem::mousePressEvent(event);
         return;
     }
-    if (event->modifiers().testFlag(Qt::ControlModifier) || event->modifiers().testFlag(Qt::MetaModifier)) {
+    if (stateBridge_ && event->modifiers().testFlag(Qt::ShiftModifier)) {
         emit timelineUserInteractionStarted();
-        emit headerNavigateRequested(clickSecond);
+        stopHeldHorizontalKeyScroll();
+        const auto captured = currentSceneState();
+        selectionDragActive_ = true;
+        selectionDragStart_ = selectionDragEnd_ = event->position();
+        selectionHitAreas_ = captured.noteHitAreas;
+        selectionNotesRevision_ = stateBridge_->notesRevision();
+        selectionLayoutRevision_ = stateBridge_->layoutRevision();
+        selectionScroll_ = captured.horizontalScrollValue;
+        setKeepMouseGrab(true);
+        update();
         event->accept();
         return;
     }
 
+    if (event->modifiers() & (Qt::ControlModifier | Qt::MetaModifier)) {
+        emit timelineUserInteractionStarted();
+        emit headerNavigateRequested(clickSecond);
+        event->accept(); return;
+    }
     emit timelineUserInteractionStarted();
     if (followProgressEnabled() && !playheadNearViewportCenter()) {
         const double centerSecond = viewportCenterSecondForScroll(
@@ -1759,6 +1791,10 @@ void TimelineQuickItem::mousePressEvent(QMouseEvent* event)
 
 void TimelineQuickItem::mouseMoveEvent(QMouseEvent* event)
 {
+    if (event && selectionDragActive_) {
+        selectionDragEnd_ = event->position();
+        update(); event->accept(); return;
+    }
     if (event == nullptr || !dragActive_ || stateBridge_ == nullptr) {
         QQuickItem::mouseMoveEvent(event);
         return;
@@ -1813,6 +1849,22 @@ void TimelineQuickItem::updateHoverTooltip(const QString& text, const QPointF& p
 
 void TimelineQuickItem::mouseReleaseEvent(QMouseEvent* event)
 {
+    if (event && event->button() == Qt::LeftButton && selectionDragActive_) {
+        QRectF area(selectionDragStart_, event->position());
+        area = area.normalized();
+        if (area.width() < 2) area.adjust(-1, 0, 1, 0);
+        if (area.height() < 2) area.adjust(0, -1, 0, 1);
+        area.translate(selectionScroll_, 0);
+        QSet<quint64> locations;
+        for (const auto& hit : selectionHitAreas_)
+            if (hit.rect.intersects(area)) locations.insert(hit.locationId);
+        const bool current = stateBridge_ && selectionNotesRevision_ == stateBridge_->notesRevision()
+            && selectionLayoutRevision_ == stateBridge_->layoutRevision()
+            && selectionScroll_ == stateBridge_->horizontalScrollValue();
+        cancelNoteSelection();
+        if (current) stateBridge_->requestNoteSelection(locations, true);
+        event->accept(); return;
+    }
     if (event != nullptr && event->button() == Qt::LeftButton && dragActive_) {
         dragActive_ = false;
         if (stateBridge_ != nullptr && followProgressEnabled()) {
@@ -1890,8 +1942,25 @@ void TimelineQuickItem::wheelEvent(QWheelEvent* event)
     event->accept();
 }
 
+void TimelineQuickItem::cancelNoteSelection()
+{
+    selectionDragActive_ = false;
+    selectionHitAreas_.clear();
+    setKeepMouseGrab(false);
+    update();
+}
+
+void TimelineQuickItem::mouseUngrabEvent()
+{
+    cancelNoteSelection();
+    QQuickItem::mouseUngrabEvent();
+}
+
 void TimelineQuickItem::keyPressEvent(QKeyEvent* event)
 {
+    if (event && event->key() == Qt::Key_Escape && selectionDragActive_) {
+        cancelNoteSelection(); event->accept(); return;
+    }
     if (event != nullptr
         && stateBridge_ != nullptr
         && event->modifiers() == Qt::NoModifier

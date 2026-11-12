@@ -39,6 +39,7 @@ using namespace miacode::runtime::playback_detail;
 
 void miacode::runtime::PlaybackCoordinator::seekPreviewToSecond(double second, bool centerView)
 {
+    cancelSelectionPlayback();
     preview_.ensurePreviewStageMediaRouteInitialized();
     ensurePreviewSfxRuntimePrepared(state_);
     const double clampedSecond = qBound(0.0, second, previewDurationSeconds());
@@ -131,6 +132,7 @@ void miacode::runtime::PlaybackCoordinator::seekPreviewToSecond(double second, b
 
 void miacode::runtime::PlaybackCoordinator::seekPreviewDiscreteToSecond(double second, bool centerView)
 {
+    cancelSelectionPlayback();
     QElapsedTimer totalTimer;
     totalTimer.start();
     preview_.ensurePreviewStageMediaRouteInitialized();
@@ -425,6 +427,7 @@ bool miacode::runtime::PlaybackCoordinator::startQtPreviewPlayback(double second
         state_.pendingPreviewPlaybackRevision_ = state_.timeline_.timelineRevision_;
         state_.pendingPreviewPlaybackDifficultyId_ = activeDifficultyId();
         state_.pendingPreviewPlaybackSecond_ = qBound(0.0, second, previewDurationSeconds());
+        if (!state_.pendingPreviewPlaybackStart_) cancelSelectionPlayback();
         return false;
     }
 
@@ -514,8 +517,8 @@ bool miacode::runtime::PlaybackCoordinator::startQtPreviewPlayback(double second
 
     state_.qtPreviewPlaybackReturnSecond_ = requestedSecond;
     const double playbackEndSecond = qMax(0.0, previewPlaybackEndSeconds());
-    state_.qtPreviewPlaybackEndSecond_ = rangePlaybackEndSeconds_ > 0.0
-        ? rangePlaybackEndSeconds_ : playbackEndSecond;
+    state_.qtPreviewPlaybackEndSecond_ = selectionPlayback_.active() ? selectionPlayback_.endSecond()
+        : rangePlaybackEndSeconds_ > 0.0 ? rangePlaybackEndSeconds_ : playbackEndSecond;
     applyPreviewStageMediaRoutePlaybackRate(state_, state_.previewPlaybackRate_, "playback_start_prepare");
     state_.pausedSeekMediaPending_ = false;
     state_.pausedSeekMediaSubmittedGeneration_ = 0;
@@ -590,6 +593,7 @@ bool miacode::runtime::PlaybackCoordinator::startQtPreviewPlayback(double second
                 .arg(retainedStartup ? 1 : 0)
                 .arg(static_cast<int>(audioSubmission.post.error)));
         cancelPreviewStartupSync("audio_submission_rejected");
+        cancelSelectionPlayback();
         return false;
     }
 
@@ -656,6 +660,15 @@ bool miacode::runtime::PlaybackCoordinator::startQtPreviewPlayback(double second
 
 void miacode::runtime::PlaybackCoordinator::finishQtPreviewPlaybackAndReturnToEntry()
 {
+    if (selectionPlayback_.active()) {
+        const double endSecond = selectionPlayback_.endSecond();
+        stopQtPreviewPlayback(true);
+        requestPausedPreviewSeek(endSecond, true, true);
+        cancelSelectionPlayback();
+        playbackState_.previewTransportState_ = miacode::PlaybackTransportState::Paused;
+        publishPreviewPlayhead();
+        return;
+    }
     stopQtPreviewPlayback(true);
     if (rangePlaybackEndSeconds_ > 0.0) {
         if (rangePlaybackStartSeconds_ <= kTimelineZeroSecondTolerance && exportIntroEnabled()) {

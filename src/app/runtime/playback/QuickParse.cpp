@@ -37,5 +37,6 @@ bool miacode::runtime::PlaybackCoordinator::refreshTimelineQuickModelFromCurrent
                 .arg(timer.nsecsElapsed() / 1000000.0, 0, 'f', 3)
         );
     }
+    refreshEditorNoteSelection();
     return true;
 }

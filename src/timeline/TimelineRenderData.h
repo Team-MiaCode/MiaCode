@@ -54,6 +54,8 @@ struct TimelineRenderNote {
     // HS multiplier frozen when this note was parsed.
     double hsMultiplier = 1.0;
     int sourceCol = 1;
+    // UTF-16 length of this independent note object (no timing/control text).
+    int sourceLength = 1;
     int lane = 1;
     int endLane = 1;
     int eachGroupId = -1;

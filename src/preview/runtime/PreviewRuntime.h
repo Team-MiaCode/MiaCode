@@ -162,6 +162,7 @@ public:
     );
     void setRetainedVideoFallbackFrame(const QImage& frame);
     void setNoteMarkers(const QVector<TimelineNoteMarker>& notes);
+    void setSelectedNoteLocations(const QSet<quint64>& locations);
     void setProgressStatsCache(std::shared_ptr<const miacode::preview::scene::PreviewProgressStatsCache> cache);
     void setMuriAnalysisReport(const MuriAnalysisReport& report);
     void setMuriRenderOptions(const MuriRenderOptions& options);
@@ -274,6 +275,9 @@ signals:
     void introOverlayDataChanged();
     void introOverlayStateChanged();
     void touchPadAuthoringClicked(const QString& pad, QChar separator);
+    void noteSelectionStarted();
+    void noteSelectionInvalidated();
+    void noteSelectionFinished(const QSet<quint64>& locations, bool additive);
 
 private:
     void publishFrameStateSnapshot();
