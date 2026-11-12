@@ -2,7 +2,7 @@
 #include "app/services/PreferenceJsonFile.h"
 #include "app/ui/chrome/ShortcutModel.h"
 
-#include <QCoreApplication>
+#include <QGuiApplication>
 #include <QJsonArray>
 #include <QSet>
 #include <QTemporaryDir>
@@ -23,7 +23,9 @@ QByteArray bytes(const QString& path)
 
 int main(int argc, char** argv)
 {
-    QCoreApplication app(argc, argv);
+    // ShortcutModel reads the platform's standard key bindings.
+    qputenv("QT_QPA_PLATFORM", "offscreen");
+    QGuiApplication app(argc, argv);
     QTemporaryDir temporary;
     if (!temporary.isValid()) {
         return 1;
