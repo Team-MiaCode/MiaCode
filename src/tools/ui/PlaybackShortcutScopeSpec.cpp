@@ -13,6 +13,8 @@
 // Plain Space is an ordinary registry binding (preview.play_pause_non_text), not a
 // hard-coded gesture. The contract: it plays outside text/menus/dialogs, it can be
 // rebound, and it yields to any other command that owns the same keys.
+// Typing keys belong to the chart editor: it types them before shortcuts, and typing
+// that no shortcut takes in a neutral area returns to it.
 int main(int argc, char** argv)
 {
     QGuiApplication app(argc, argv);
@@ -26,6 +28,7 @@ int main(int argc, char** argv)
     QQmlComponent component(&engine);
     component.setData(QByteArray(R"(
 import QtQuick
+import QtQuick.Controls
 import "file:CHROME_DIR" as Chrome
 Window {
     id: main; width: 320; height: 200; visible: true
@@ -41,8 +44,17 @@ Window {
         shortcuts: testShortcuts; previewSession: preview; inputContext: testInput
         commandsEnabled: testInput.workbenchCommandsAllowed
     }
-    TextInput { objectName: "source"; text: "source"; property bool chartEditorInput: true }
+    // Like ScintillaQuick, the chart editor is not a Qt text control and claims no keys itself.
+    Item {
+        objectName: "source"; property bool chartEditorInput: true; property bool reservesPlainSpace: true
+        property bool readonly: false; property string typed: ""
+        Keys.onPressed: event => {
+            typed += event.key === Qt.Key_Backspace ? "<" : event.text
+            event.accepted = true
+        }
+    }
     TextInput { objectName: "field"; text: "field" }
+    Popup { objectName: "popup"; Item { objectName: "popupItem"; focus: true } }
     Item { objectName: "neutral" }
     Item { objectName: "menu"; property bool preservesEditTarget: true }
     Item { objectName: "modal"; property bool blocksWorkbenchShortcuts: true }
@@ -128,5 +140,60 @@ Window {
         check(toggled() == 1, "both play/pause bindings on the same key run once");
         shortcuts.resetShortcut("preview.play_pause_global");
     }
+
+    auto* source = window->findChild<QQuickItem*>("source");
+    auto* neutral = window->findChild<QQuickItem*>("neutral");
+    input.setTypingTarget(source);
+    source->setProperty("typed", QString());
+    window->requestActivate();
+    QTest::qWait(80);
+    const auto typeFrom = [&](const char* name, Qt::Key key,
+                              Qt::KeyboardModifiers modifiers = Qt::NoModifier) {
+        auto* item = window->findChild<QQuickItem*>(name);
+        if (!item) return QStringLiteral("<missing item>");
+        item->forceActiveFocus();
+        QCoreApplication::processEvents();
+        QTest::keyClick(window, key, modifiers);
+        const QString typed = source->property("typed").toString();
+        source->setProperty("typed", QString());
+        return typed;
+    };
+
+    shortcuts.setShortcutText("preview.stop_or_play", "Space");
+    check(typeFrom("source", Qt::Key_Space) == " " && window->property("stops").toInt() == 0,
+          "the chart editor types a bound Space instead of running the shortcut");
+    check(typeFrom("neutral", Qt::Key_Space).isEmpty() && window->property("stops").toInt() == 1
+              && window->activeFocusItem() == neutral,
+          "outside the editor a bound Space stays a shortcut");
+    window->setProperty("stops", 0);
+    shortcuts.resetShortcut("preview.stop_or_play");
+
+    check(typeFrom("neutral", Qt::Key_ParenLeft, Qt::ShiftModifier) == "("
+              && window->activeFocusItem() == source,
+          "an unbound character returns to the editor and is typed there");
+    check(typeFrom("neutral", Qt::Key_Backspace) == "<", "Backspace returns to the editor");
+    shortcuts.setShortcutText("preview.play_pause_non_text", "Ctrl+Alt+C");
+    check(typeFrom("neutral", Qt::Key_Space) == " ", "an unbound Space returns to the editor");
+    shortcuts.resetShortcut("preview.play_pause_non_text");
+
+    bool kept = typeFrom("neutral", Qt::Key_A, Qt::ControlModifier).isEmpty()
+        && window->activeFocusItem() == neutral;
+    for (const Qt::Key key : {Qt::Key_Return, Qt::Key_Escape, Qt::Key_Delete, Qt::Key_Left, Qt::Key_F2})
+        kept = typeFrom("neutral", key).isEmpty() && window->activeFocusItem() == neutral && kept;
+    check(kept, "command and modified keys do not return to the editor");
+
+    QObject* popup = window->findChild<QObject*>("popup");
+    QMetaObject::invokeMethod(popup, "open");
+    QCoreApplication::processEvents();
+    bool stayed = true;
+    for (const char* name : {"field", "modal", "popupItem"}) {
+        stayed = typeFrom(name, Qt::Key_A).isEmpty()
+            && window->activeFocusItem() == window->findChild<QQuickItem*>(name) && stayed;
+    }
+    QMetaObject::invokeMethod(popup, "close");
+    source->setProperty("readonly", true);
+    stayed = typeFrom("neutral", Qt::Key_A).isEmpty() && stayed;
+    source->setProperty("readonly", false);
+    check(stayed, "text inputs, dialogs, popups and a read-only editor keep typing away from the editor");
     return passed ? 0 : 1;
 }

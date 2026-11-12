@@ -3,9 +3,13 @@
 #include <QQuickItem>
 #include <QGuiApplication>
 #include <QInputMethod>
+#include <QKeyEvent>
 #include <QMetaMethod>
 #include <QEvent>
 #include <QTimer>
+
+#include <algorithm>
+#include <memory>
 
 namespace miacode::ui {
 namespace {
@@ -33,6 +37,23 @@ bool isTextInput(QObject* object)
     return isTextControl(object) && !hasMarker(object, "chartEditorInput");
 }
 
+// Printable characters with or without Shift, plus Backspace. Ctrl/Alt/Meta keep a key a command.
+bool isTypingKey(const QKeyEvent* event)
+{
+    if (event->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier)) return false;
+    if (event->key() == Qt::Key_Backspace) return true;
+    const QString text = event->text();
+    return !text.isEmpty() && std::all_of(text.cbegin(), text.cend(), [](QChar c) { return c.isPrint(); });
+}
+
+bool insidePopup(QQuickItem* item)
+{
+    for (; item; item = item->parentItem()) {
+        if (item->inherits("QQuickPopupItem")) return true;
+    }
+    return false;
+}
+
 } // namespace
 
 EditorInputContext::EditorInputContext(QObject* parent) : QObject(parent)
@@ -53,6 +74,13 @@ void EditorInputContext::setWindow(QQuickWindow* window)
     }
     emit windowChanged();
     refresh();
+}
+
+void EditorInputContext::setTypingTarget(QQuickItem* target)
+{
+    if (typingTarget_ == target) return;
+    typingTarget_ = target;
+    emit typingTargetChanged();
 }
 
 void EditorInputContext::watch(QObject* object, const QList<QByteArray>& signalSignatures,
@@ -113,10 +141,53 @@ bool EditorInputContext::nonTextCommandsAllowed() const
         && !hasMarker(focusedItem_, "preservesEditTarget");
 }
 
-bool EditorInputContext::eventFilter(QObject*, QEvent* event)
+bool EditorInputContext::typingTargetWritable() const
 {
-    if (event->type() == QEvent::InputMethod) {
+    // ScintillaQuick spells its read-only flag "readonly".
+    return typingTarget_ && typingTarget_->isVisible() && typingTarget_->isEnabled()
+        && !typingTarget_->property("readonly").toBool();
+}
+
+bool EditorInputContext::redirectTyping(QKeyEvent* event)
+{
+    QQuickItem* target = typingTarget_;
+    QQuickItem* focused = window_->activeFocusItem();
+    // Text inputs, menus, dialogs and IME composition keep their keys.
+    if (!target || target->window() != window_ || !typingTargetWritable()
+        || !workbenchCommandsAllowed() || insidePopup(focused) || !isTypingKey(event)
+        || focused == target || target->isAncestorOf(focused)) {
+        return false;
+    }
+    target->forceActiveFocus(Qt::OtherFocusReason);
+    if (!target->hasActiveFocus()) return false;
+    // Delivered straight to the editor, so shortcuts are not matched a second time.
+    const std::unique_ptr<QKeyEvent> typed(event->clone());
+    QCoreApplication::sendEvent(target, typed.get());
+    event->accept();
+    return true;
+}
+
+bool EditorInputContext::eventFilter(QObject* object, QEvent* event)
+{
+    switch (event->type()) {
+    case QEvent::InputMethod:
         QTimer::singleShot(0, this, &EditorInputContext::refresh);
+        break;
+    case QEvent::ShortcutOverride:
+        // Like other text controls, the focused chart editor types before matching shortcuts.
+        if (object == typingTarget_ && typingTargetWritable()
+            && isTypingKey(static_cast<QKeyEvent*>(event))) {
+            event->accept();
+            return true;
+        }
+        break;
+    case QEvent::KeyPress:
+        // A key reaches the root item only after shortcuts and every focused item declined it.
+        if (window_ && object == window_->contentItem())
+            return redirectTyping(static_cast<QKeyEvent*>(event));
+        break;
+    default:
+        break;
     }
     return false;
 }
