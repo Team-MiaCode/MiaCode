@@ -30,23 +30,27 @@ Item {
     function ensureContentLayout() {
         durations.ensureContentLayout()
         divisions.ensureContentLayout()
+        durationSuffixes.ensureContentLayout()
         groups.ensurePolished()
         contentColumn.ensurePolished()
     }
     function releaseInputFocusOutside(origin, position) {
         durations.releaseInputFocusOutside(origin, position)
         divisions.releaseInputFocusOutside(origin, position)
+        durationSuffixes.releaseInputFocusOutside(origin, position)
     }
     function releaseInputFocus() {
         durations.releaseInputFocus()
         divisions.releaseInputFocus()
+        durationSuffixes.releaseInputFocus()
     }
     function openGroup(group) {
         root.expanded = true
         Qt.callLater(function() {
             if (root.visible && root.expanded) {
                 root.ensureContentLayout()
-                root.ensureVisibleRequested(group === "division" ? divisions : durations, "top")
+                const groupItems = { duration: durations, division: divisions, duration_suffix: durationSuffixes }
+                root.ensureVisibleRequested(groupItems[group] || durations, "top")
             }
         })
     }
@@ -111,10 +115,13 @@ Item {
             width: Math.max(0, parent.width - 24)
             spacing: 12
 
-            RowLayout {
+            GridLayout {
                 id: groups
                 Layout.fillWidth: true
-                spacing: 20
+                columns: Math.max(1, Math.min(3, Math.floor(
+                    (width + columnSpacing) / (5 * Theme.controlMinHeight + columnSpacing))))
+                columnSpacing: 20
+                rowSpacing: 20
                 CompletionCandidateList {
                     id: durations
                     Layout.fillWidth: true
@@ -137,6 +144,19 @@ Item {
                     candidateModel: root.preferencesModel.completionDivisions
                     title: qsTrId("preferences.completion.division")
                     inputHint: qsTrId("preferences.completion.division_hint")
+                    scrollViewport: root.scrollViewport
+                    onEnsureVisibleRequested: function(item) { root.ensureVisibleRequested(item, "contain") }
+                    onScrollRequested: function(distance) { root.scrollRequested(distance) }
+                }
+                CompletionCandidateList {
+                    id: durationSuffixes
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 1
+                    Layout.minimumWidth: 0
+                    Layout.alignment: Qt.AlignTop
+                    candidateModel: root.preferencesModel.completionDurationSuffixes
+                    title: qsTrId("preferences.completion.duration_suffix")
+                    inputHint: qsTrId("preferences.completion.duration_suffix_hint")
                     scrollViewport: root.scrollViewport
                     onEnsureVisibleRequested: function(item) { root.ensureVisibleRequested(item, "contain") }
                     onScrollRequested: function(distance) { root.scrollRequested(distance) }

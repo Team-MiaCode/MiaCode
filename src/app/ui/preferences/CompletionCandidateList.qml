@@ -218,7 +218,7 @@ Column {
                         anchors.verticalCenter: parent.verticalCenter
                         height: Math.max(28, Theme.controlMinHeight - 2)
                         width: Math.max(0, Math.min(card.width * 0.75, card.width - 62,
-                            Math.max(card.width * 0.375, valueMetrics.advanceWidth + leftPadding + rightPadding + 6)))
+                            Math.max(card.width * 0.225, valueMetrics.advanceWidth + leftPadding + rightPadding + 6)))
                         leftPadding: 4
                         rightPadding: 4
                         topPadding: 3

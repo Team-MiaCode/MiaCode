@@ -33,8 +33,6 @@ PreferencesModel::PreferencesModel(miacode::PreferencesStore*& storeSlot,
     , storeSlot_(&storeSlot)
     , settings_(&settings)
 {
-    completionDurations_.setHalfWidthInputEnabled(editorHalfWidthInput());
-    completionDivisions_.setHalfWidthInputEnabled(editorHalfWidthInput());
     reloadCompletionCandidates();
     connect(&settings, &WorkbenchSettings::editorSettingsChanged,
             this, &PreferencesModel::reloadCompletionCandidates);
@@ -46,6 +44,8 @@ PreferencesModel::PreferencesModel(miacode::PreferencesStore*& storeSlot,
             this, &PreferencesModel::persistCompletionCandidates);
     connect(&completionDivisions_, &CompletionCandidateModel::savedValuesChanged,
             this, &PreferencesModel::persistCompletionCandidates);
+    connect(&completionDurationSuffixes_, &CompletionCandidateModel::savedValuesChanged,
+            this, &PreferencesModel::persistCompletionCandidates);
     connect(&settings, &WorkbenchSettings::blurMaterialsEnabledChanged,
             this, &PreferencesModel::interfaceChanged);
     connect(&settings, &WorkbenchSettings::uiScalePercentChanged,
@@ -54,6 +54,7 @@ PreferencesModel::PreferencesModel(miacode::PreferencesStore*& storeSlot,
             this, [this](const QString&) {
                 completionDurations_.retranslateErrors();
                 completionDivisions_.retranslateErrors();
+                completionDurationSuffixes_.retranslateErrors();
                 emit interfaceChanged();
                 emit editorChanged();
                 emit performanceChanged();
@@ -311,22 +312,26 @@ void PreferencesModel::reloadCompletionCandidates()
     const bool halfWidthInputEnabled = editorHalfWidthInput();
     completionDurations_.setHalfWidthInputEnabled(halfWidthInputEnabled);
     completionDivisions_.setHalfWidthInputEnabled(halfWidthInputEnabled);
+    completionDurationSuffixes_.setHalfWidthInputEnabled(halfWidthInputEnabled);
     const auto& config = settings_->editorCompletionConfig();
     completionDurations_.replaceValues(config.durations);
     completionDivisions_.replaceValues(config.divisions);
+    completionDurationSuffixes_.replaceValues(config.durationSuffixes);
 }
 
 void PreferencesModel::persistCompletionCandidates()
 {
     if (store() == nullptr) return;
-    store()->applyEditorCompletionCandidates(completionDurations_.savedValues(),
-                                            completionDivisions_.savedValues(), true);
+    store()->applyEditorCompletionCandidates(
+        {completionDurations_.savedValues(), completionDivisions_.savedValues(),
+         completionDurationSuffixes_.savedValues()}, true);
 }
 
 void PreferencesModel::finishCompletionEditing()
 {
     completionDurations_.finishEditing();
     completionDivisions_.finishEditing();
+    completionDurationSuffixes_.finishEditing();
 }
 
 void PreferencesModel::resetCompletionCandidates()
@@ -334,6 +339,7 @@ void PreferencesModel::resetCompletionCandidates()
     const auto defaults = editor::defaultCompletionConfig();
     completionDurations_.replaceValues(defaults.durations, true);
     completionDivisions_.replaceValues(defaults.divisions, true);
+    completionDurationSuffixes_.replaceValues(defaults.durationSuffixes, true);
     persistCompletionCandidates();
 }
 
@@ -375,6 +381,7 @@ void PreferencesModel::setEditorInputHandlingMode(int mode)
     store()->applyEditorImeInputDisabled(blockInputMethods, true);
     completionDurations_.setHalfWidthInputEnabled(correctFullWidth);
     completionDivisions_.setHalfWidthInputEnabled(correctFullWidth);
+    completionDurationSuffixes_.setHalfWidthInputEnabled(correctFullWidth);
     emit editorChanged();
 }
 
@@ -391,6 +398,7 @@ void PreferencesModel::setEditorHalfWidthInput(bool enabled)
     store()->applyEditorHalfWidthInputEnabled(enabled, true);
     completionDurations_.setHalfWidthInputEnabled(enabled);
     completionDivisions_.setHalfWidthInputEnabled(enabled);
+    completionDurationSuffixes_.setHalfWidthInputEnabled(enabled);
     emit editorChanged();
 }
 
