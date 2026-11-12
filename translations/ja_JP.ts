@@ -4944,12 +4944,12 @@ Error: %1</source>
         <translation>カスタム後続候補</translation>
     </message>
     <message id="preferences.completion.duration_suffix_hint">
-        <source>Enter a suffix, e.g. :1</source>
-        <translation>後続候補を入力（例：:1）</translation>
+        <source>Enter a suffix</source>
+        <translation>後続候補を入力</translation>
     </message>
     <message id="preferences.completion.invalid_duration_suffix">
-        <source>Enter a valid duration suffix starting with :</source>
-        <translation>: で始まる有効な長さの後続候補を入力してください</translation>
+        <source>Enter a valid duration suffix</source>
+        <translation>有効な長さの後続候補を入力してください</translation>
     </message>
     <message id="preferences.completion.reorder">
         <source>Drag to reorder; use Up or Down when focused</source>

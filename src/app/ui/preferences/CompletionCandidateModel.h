@@ -47,6 +47,7 @@ private:
     int rowForKey(const QString& key) const;
     int savedCount() const { return savedCount_; }
     QString errorMessage(Error error) const;
+    QString editableValue(const QString& value) const;
     QString normalizeDraftInput(const QString& text) const;
     void notifyRemovalState();
 

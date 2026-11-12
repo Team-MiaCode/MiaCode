@@ -30,7 +30,7 @@ QVariant CompletionCandidateModel::data(const QModelIndex& index, int role) cons
     const Row& row = rows_.at(index.row());
     switch (role) {
     case KeyRole: return row.key;
-    case DraftRole: return row.draft;
+    case DraftRole: return editableValue(row.draft);
     case PlaceholderRole: return row.placeholder;
     case CanRemoveRole: return !row.placeholder && (row.saved.isEmpty() || savedCount() > 1);
     case ErrorRole: return errorMessage(row.error);
@@ -57,15 +57,28 @@ QStringList CompletionCandidateModel::savedValues() const
     return values;
 }
 
+QString CompletionCandidateModel::editableValue(const QString& value) const
+{
+    if (group_ == editor::CompletionCandidateGroup::DurationSuffix && value.startsWith(QLatin1Char(':')))
+        return value.mid(1);
+    return value;
+}
+
 QString CompletionCandidateModel::normalizeDraftInput(const QString& text) const
 {
     const QString normalized = halfWidthInputEnabled_ ? editor::normalizeSimaiInput(text) : text;
-    return editor::sanitizeCompletionInput(normalized);
+    QString value = editor::sanitizeCompletionInput(normalized);
+    if (group_ == editor::CompletionCandidateGroup::DurationSuffix) {
+        // Preserve the stored suffix syntax while editing only its value.
+        value = editableValue(value);
+        if (!value.isEmpty()) value.prepend(QLatin1Char(':'));
+    }
+    return value;
 }
 
 QString CompletionCandidateModel::normalizeInput(const QString& text) const
 {
-    return normalizeDraftInput(text);
+    return editableValue(normalizeDraftInput(text));
 }
 
 void CompletionCandidateModel::setHalfWidthInputEnabled(bool enabled)

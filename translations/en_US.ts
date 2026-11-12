@@ -4944,12 +4944,12 @@ Error: %1</translation>
         <translation>Custom continuation</translation>
     </message>
     <message id="preferences.completion.duration_suffix_hint">
-        <source>Enter a suffix, e.g. :1</source>
-        <translation>Enter a suffix, e.g. :1</translation>
+        <source>Enter a suffix</source>
+        <translation>Enter a suffix</translation>
     </message>
     <message id="preferences.completion.invalid_duration_suffix">
-        <source>Enter a valid duration suffix starting with :</source>
-        <translation>Enter a valid duration suffix starting with :</translation>
+        <source>Enter a valid duration suffix</source>
+        <translation>Enter a valid duration suffix</translation>
     </message>
     <message id="preferences.completion.reorder">
         <source>Drag to reorder; use Up or Down when focused</source>
