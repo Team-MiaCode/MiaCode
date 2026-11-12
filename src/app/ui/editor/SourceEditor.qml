@@ -414,6 +414,7 @@ Rectangle {
     ScintillaEditor {
         id: sourceArea
         objectName: "sourceArea"
+        property bool chartEditorInput: true
         property bool reservesPlainSpace: true
         anchors.left: parent.left
         anchors.right: verticalBar.left

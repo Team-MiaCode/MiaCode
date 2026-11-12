@@ -941,6 +941,10 @@ AppDialog {
                         }
                         ScrollBar.vertical: AppScrollBar {}
 
+                        Keys.onShortcutOverride: function(event) {
+                            if (root.capturingId.length > 0)
+                                event.accepted = true
+                        }
                         Keys.onPressed: function(event) {
                             if (root.capturingId.length === 0)
                                 return

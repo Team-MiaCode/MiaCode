@@ -20,6 +20,7 @@ Item {
     required property var netUpload
 
     readonly property Item sourceEditorItem: sourceEditor
+    readonly property var inputContext: editorInput
     EditorInputContext {
         id: editorInput
         window: root.Window.window

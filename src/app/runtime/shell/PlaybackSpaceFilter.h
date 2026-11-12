@@ -39,6 +39,8 @@ public:
             }
             return false;
         }
+        const QVariant workbenchAllowed = window->property("workbenchCommandsAllowed");
+        if (workbenchAllowed.isValid() && !workbenchAllowed.toBool()) return false;
         // Let explicit bindings own Space, including the first key of a chord.
         const QKeyCombination plainSpace(Qt::NoModifier, Qt::Key_Space);
         bool stopOrPlay = false;

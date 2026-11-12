@@ -72,7 +72,8 @@ Item {
             sequence: root.shortcuts.revision >= 0
                 ? root.shortcuts.sequence(modelData)
                 : ""
-            enabled: root.chartCommandsEnabled
+            enabled: root.commandsEnabled && root.chartCommandsEnabled
+                     && !root.shortcuts.captureActive
                      && !root.menuOwnsChartTransformShortcuts
                      && sequence !== ""
             context: Qt.WindowShortcut
@@ -87,7 +88,8 @@ Item {
         sequence: root.shortcuts.revision >= 0
             ? root.shortcuts.sequence("preview.stop_or_play", "Ctrl+Shift+C")
             : ""
-        enabled: root.playbackCommandsEnabled && sequence !== ""
+        enabled: root.commandsEnabled && root.playbackCommandsEnabled
+                 && !root.shortcuts.captureActive && sequence !== ""
         context: Qt.ApplicationShortcut
         onActivated: root.previewSession.stopOrPlay()
     }
@@ -96,7 +98,8 @@ Item {
         sequence: root.shortcuts.revision >= 0
             ? root.shortcuts.sequence("preview.play_pause_global", "Ctrl+Shift+X")
             : ""
-        enabled: root.playbackCommandsEnabled && sequence !== ""
+        enabled: root.commandsEnabled && root.playbackCommandsEnabled
+                 && !root.shortcuts.captureActive && sequence !== ""
         context: Qt.ApplicationShortcut
         onActivated: root.previewSession.togglePlayback()
     }
@@ -105,7 +108,8 @@ Item {
         sequence: root.shortcuts.revision >= 0
             ? root.shortcuts.sequence("preview.speed_down", "Ctrl+O")
             : ""
-        enabled: root.playbackCommandsEnabled
+        enabled: root.commandsEnabled && root.playbackCommandsEnabled
+                 && !root.shortcuts.captureActive
                  && !root.menuOwnsPreviewRateShortcuts
                  && sequence !== ""
         context: Qt.WindowShortcut
@@ -116,7 +120,8 @@ Item {
         sequence: root.shortcuts.revision >= 0
             ? root.shortcuts.sequence("preview.speed_up", "Ctrl+P")
             : ""
-        enabled: root.playbackCommandsEnabled
+        enabled: root.commandsEnabled && root.playbackCommandsEnabled
+                 && !root.shortcuts.captureActive
                  && !root.menuOwnsPreviewRateShortcuts
                  && sequence !== ""
         context: Qt.WindowShortcut
