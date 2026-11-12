@@ -981,8 +981,10 @@ AppDialog {
                             // File/edit keys stay with their menu commands; keep recording.
                             const owner = root.shortcuts.reservedShortcutOwner(text)
                             if (owner.length > 0) {
+                                const target = root.shortcutRows.find(row => row.id === root.capturingId)
                                 root.shortcutNotice = qsTrId("qml.shortcut_reserved")
                                     .arg(root.shortcuts.nativeText(text)).arg(qsTrId(owner))
+                                    .arg(target ? root.shortcutLabel(target) : "")
                                 return
                             }
                             const id = root.capturingId

@@ -3846,8 +3846,8 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>组合键“%1”已从“%2”转移到“%3”。</translation>
     </message>
     <message id="qml.shortcut_reserved">
-        <source>Shortcut %1 is used by %2 and can't be assigned to another command.</source>
-        <translation>组合键“%1”已用于“%2”，不能分配给其他命令。</translation>
+        <source>Shortcut %1 is used by %2 and can't be assigned to %3.</source>
+        <translation>组合键“%1”已用于“%2”，不能分配给“%3”。</translation>
     </message>
     <message id="qml.shortcut_unassigned">
         <source>Not set</source>
