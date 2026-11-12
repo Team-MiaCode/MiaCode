@@ -3842,12 +3842,12 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>Set as local default</translation>
     </message>
     <message id="qml.shortcut_moved">
-        <source>Moved this shortcut from %1 to %2.</source>
-        <translation>Moved this shortcut from %1 to %2.</translation>
+        <source>Moved shortcut %1 from %2 to %3.</source>
+        <translation>Moved shortcut %1 from %2 to %3.</translation>
     </message>
     <message id="qml.shortcut_reserved">
-        <source>This shortcut is used by %1 and can't be assigned to another command.</source>
-        <translation>This shortcut is used by %1 and can't be assigned to another command.</translation>
+        <source>Shortcut %1 is used by %2 and can't be assigned to another command.</source>
+        <translation>Shortcut %1 is used by %2 and can't be assigned to another command.</translation>
     </message>
     <message id="qml.shortcut_unassigned">
         <source>Not set</source>

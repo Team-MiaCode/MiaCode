@@ -180,8 +180,8 @@ AppDialog {
             && before.some(old => old.id === row.id && old.shortcutText.length > 0))
         const target = root.shortcutRows.find(row => row.id === id)
         root.shortcutNotice = released.length === 0 || !target ? ""
-            : qsTrId("qml.shortcut_moved").arg(released.map(root.shortcutLabel).join(" / "))
-                .arg(root.shortcutLabel(target))
+            : qsTrId("qml.shortcut_moved").arg(target.shortcutText)
+                .arg(released.map(root.shortcutLabel).join(" / ")).arg(root.shortcutLabel(target))
     }
 
     component PreferenceGroup: SettingsSection {
@@ -981,7 +981,8 @@ AppDialog {
                             // File/edit keys stay with their menu commands; keep recording.
                             const owner = root.shortcuts.reservedShortcutOwner(text)
                             if (owner.length > 0) {
-                                root.shortcutNotice = qsTrId("qml.shortcut_reserved").arg(qsTrId(owner))
+                                root.shortcutNotice = qsTrId("qml.shortcut_reserved")
+                                    .arg(root.shortcuts.nativeText(text)).arg(qsTrId(owner))
                                 return
                             }
                             const id = root.capturingId

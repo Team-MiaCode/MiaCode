@@ -3842,12 +3842,12 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>ローカル既定値に設定</translation>
     </message>
     <message id="qml.shortcut_moved">
-        <source>Moved this shortcut from %1 to %2.</source>
-        <translation>このショートカットを「%1」から「%2」に移しました。</translation>
+        <source>Moved shortcut %1 from %2 to %3.</source>
+        <translation>ショートカット「%1」を「%2」から「%3」に移しました。</translation>
     </message>
     <message id="qml.shortcut_reserved">
-        <source>This shortcut is used by %1 and can't be assigned to another command.</source>
-        <translation>このショートカットは「%1」で使用されているため、他のコマンドに割り当てできません。</translation>
+        <source>Shortcut %1 is used by %2 and can't be assigned to another command.</source>
+        <translation>ショートカット「%1」は「%2」で使用されているため、他のコマンドに割り当てできません。</translation>
     </message>
     <message id="qml.shortcut_unassigned">
         <source>Not set</source>

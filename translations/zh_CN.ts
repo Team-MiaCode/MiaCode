@@ -3842,12 +3842,12 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>设为本地默认</translation>
     </message>
     <message id="qml.shortcut_moved">
-        <source>Moved this shortcut from %1 to %2.</source>
-        <translation>该组合键已从“%1”转移到“%2”。</translation>
+        <source>Moved shortcut %1 from %2 to %3.</source>
+        <translation>组合键“%1”已从“%2”转移到“%3”。</translation>
     </message>
     <message id="qml.shortcut_reserved">
-        <source>This shortcut is used by %1 and can't be assigned to another command.</source>
-        <translation>该组合键已用于“%1”，不能分配给其他命令。</translation>
+        <source>Shortcut %1 is used by %2 and can't be assigned to another command.</source>
+        <translation>组合键“%1”已用于“%2”，不能分配给其他命令。</translation>
     </message>
     <message id="qml.shortcut_unassigned">
         <source>Not set</source>
