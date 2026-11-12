@@ -20,6 +20,7 @@ Item {
     required property var commands
     required property var previewSession
     property var timelineStateBridge: null
+    property var inputContext: null
     readonly property string zoomInGesture: timelineStateBridge && shortcuts.revision >= 0
         ? shortcuts.gestureText("timeline.zoom_in", "Ctrl+WheelUp") : ""
     readonly property string zoomOutGesture: timelineStateBridge && shortcuts.revision >= 0
@@ -84,6 +85,7 @@ Item {
     PreviewShortcuts {
         shortcuts: root.shortcuts
         previewSession: root.previewSession
+        inputContext: root.inputContext
         commandsEnabled: root.commandsEnabled
         playbackCommandsEnabled: root.playbackCommandsEnabled
         menuOwnsPreviewRateShortcuts: root.menuOwnsPreviewRateShortcuts

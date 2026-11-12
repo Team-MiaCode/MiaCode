@@ -23,10 +23,14 @@ bool hasMarker(QObject* object, const char* marker)
     return false;
 }
 
+bool isTextControl(QObject* object)
+{
+    return object && (object->inherits("QQuickTextInput") || object->inherits("QQuickTextEdit"));
+}
+
 bool isTextInput(QObject* object)
 {
-    return object && !hasMarker(object, "chartEditorInput")
-        && (object->inherits("QQuickTextInput") || object->inherits("QQuickTextEdit"));
+    return isTextControl(object) && !hasMarker(object, "chartEditorInput");
 }
 
 } // namespace
@@ -99,6 +103,14 @@ void EditorInputContext::refresh()
 bool EditorInputContext::workbenchCommandsAllowed() const
 {
     return window_ && !modalBlocked_ && !composing_ && !textInput_;
+}
+
+bool EditorInputContext::nonTextCommandsAllowed() const
+{
+    // The chart editor is a text control too; controls that keep Space opt in with a marker.
+    return workbenchCommandsAllowed() && !isTextControl(focusedItem_)
+        && !hasMarker(focusedItem_, "reservesPlainSpace")
+        && !hasMarker(focusedItem_, "preservesEditTarget");
 }
 
 bool EditorInputContext::eventFilter(QObject*, QEvent* event)

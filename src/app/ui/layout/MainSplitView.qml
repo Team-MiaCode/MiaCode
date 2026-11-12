@@ -456,6 +456,7 @@ Item {
         PreviewShortcuts {
             shortcuts: root.Window.window.applicationContext.shortcuts
             previewSession: root.previewSession
+            inputContext: root.Window.window.inputContext
             commandsEnabled: root.Window.window.windowCommandsEnabled
                 && root.Window.window.workbenchCommandsAllowed
             playbackCommandsEnabled: root.Window.window.playbackCommandsEnabled

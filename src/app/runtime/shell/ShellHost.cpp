@@ -1,5 +1,4 @@
 #include "app/runtime/shell/ShellHost.h"
-#include "app/runtime/shell/PlaybackSpaceFilter.h"
 
 #include "app/runtime/Session.h"
 #include "app/runtime/document/DocumentSessionHost.h"
@@ -93,11 +92,6 @@ bool Session::eventFilter(QObject*, QEvent* event)
                 || (focusWindow != nullptr && (focusWindow->transientParent() == rootWindow
                     || focusWindow == rootWindow->findChild<QWindow*>(
                         QStringLiteral("detachedPreviewWindow")))));
-        const miacode::runtime::PlaybackSpaceFilter spaceFilter(
-            miacode::ui::ShortcutRegistry::instance(),
-            [this] { if (playback_ != nullptr) playback_->togglePlayback(); },
-            [this] { if (playback_ != nullptr) playback_->stopOrPlay(); });
-        if (spaceFilter.handle(event, rootWindow, focusOnWorkbench)) return true;
         // Ctrl (Command on macOS) arms touch-pad authoring on the preview from
         // anywhere in the root window, not only from the focused editor: the
         // click it enables lands on the preview, which does not keep the

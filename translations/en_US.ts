@@ -4005,6 +4005,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Play/Pause Preview</source>
         <translation>Play/Pause Preview</translation>
     </message>
+    <message id="shortcut.preview.play_pause_non_text">
+        <source>Play/Pause Preview (Outside Editor)</source>
+        <translation>Play/Pause Preview (Outside Editor)</translation>
+    </message>
     <message id="shortcut.preview.speed_down">
         <source>Playback Speed -</source>
         <translation>Playback Speed -</translation>

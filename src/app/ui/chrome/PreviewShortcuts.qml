@@ -7,6 +7,7 @@ Item {
     id: root
     required property var shortcuts
     required property var previewSession
+    property var inputContext: null
     property bool commandsEnabled: true
     property bool playbackCommandsEnabled: true
     property bool menuOwnsPreviewRateShortcuts: false
@@ -21,6 +22,7 @@ Item {
         enabled: root.commandsEnabled && root.playbackCommandsEnabled
                  && !root.shortcuts.captureActive && sequence !== ""
         context: Qt.WindowShortcut
+        autoRepeat: false
         onActivated: root.previewSession.stopOrPlay()
     }
 
@@ -31,6 +33,23 @@ Item {
         enabled: root.commandsEnabled && root.playbackCommandsEnabled
                  && !root.shortcuts.captureActive && sequence !== ""
         context: Qt.WindowShortcut
+        autoRepeat: false
+        onActivated: root.previewSession.togglePlayback()
+    }
+
+    // Defaults to plain Space, so it must stay out of typing, menus and dialogs.
+    // Another command on the same keys wins instead of making Qt drop both.
+    Shortcut {
+        sequence: root.shortcuts.revision >= 0
+            ? root.shortcuts.sequence("preview.play_pause_non_text")
+            : ""
+        enabled: root.commandsEnabled && root.playbackCommandsEnabled
+                 && !root.shortcuts.captureActive && sequence !== ""
+                 && (!root.inputContext || root.inputContext.nonTextCommandsAllowed)
+                 && root.shortcuts.revision >= 0
+                 && !root.shortcuts.overlapsOtherShortcut("preview.play_pause_non_text")
+        context: Qt.WindowShortcut
+        autoRepeat: false
         onActivated: root.previewSession.togglePlayback()
     }
 
