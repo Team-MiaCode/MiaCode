@@ -3845,6 +3845,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Removed the shortcut from %1. Record a new one or restore its default.</source>
         <translation>“%1”的快捷键已移除，可重新录入或恢复默认。</translation>
     </message>
+    <message id="qml.shortcut_reserved">
+        <source>This shortcut is reserved for %1. Press another shortcut, or Esc to cancel.</source>
+        <translation>该组合键已用于“%1”，不能分配给其他命令。请按其他组合键，或按 Esc 取消。</translation>
+    </message>
     <message id="qml.shortcut_unassigned">
         <source>Not set</source>
         <translation>未设置</translation>

@@ -42,6 +42,9 @@ public:
     // True when another editable command starts with, or is a prefix of, this binding.
     // Qt would treat both as ambiguous and run neither.
     Q_INVOKABLE bool overlapsOtherShortcut(const QString& id) const;
+    // Label key of the fixed file/edit command (MainMenu, WindowTitleBar) whose binding
+    // overlaps this one, or empty. Editable commands may not take these bindings.
+    Q_INVOKABLE QString reservedShortcutOwner(const QString& shortcutText) const;
     // Platform spelling for menu rows and tooltips.
     Q_INVOKABLE QString displayText(const QString& id, const QString& fallback = QString()) const;
     // Menu rows whose binding is a Qt standard key (Open/Save/Undo/...) rather

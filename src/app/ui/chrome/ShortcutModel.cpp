@@ -5,6 +5,8 @@
 
 #include <QKeySequence>
 
+#include <utility>
+
 namespace miacode::ui {
 namespace {
 
@@ -64,6 +66,37 @@ bool ShortcutModel::overlapsOtherShortcut(const QString& id) const
         if (other.id != id && bindingsOverlap(own, registry_.shortcutText(other.id))) return true;
     }
     return false;
+}
+
+QString ShortcutModel::reservedShortcutOwner(const QString& shortcutText) const
+{
+    // Keep in step with the fixed bindings in MainMenu.qml and WindowTitleBar.qml.
+    static const std::pair<QKeySequence::StandardKey, const char*> standardKeys[] = {
+        {QKeySequence::Save, "action.save"}, {QKeySequence::SaveAs, "action.save_as"},
+        {QKeySequence::Close, "qml.close_document"}, {QKeySequence::Quit, "shortcut.file.quit"},
+        {QKeySequence::Undo, "qml.undo"}, {QKeySequence::Redo, "action.redo"},
+        {QKeySequence::Cut, "action.cut"}, {QKeySequence::Copy, "action.copy"},
+        {QKeySequence::Paste, "action.paste"}, {QKeySequence::Find, "metadata.find"},
+        {QKeySequence::SelectAll, "net.select_all"},
+    };
+    for (const auto& [standardKey, labelKey] : standardKeys) {
+        for (const QKeySequence& sequence : QKeySequence::keyBindings(standardKey)) {
+            if (bindingsOverlap(shortcutText, sequence.toString(QKeySequence::PortableText)))
+                return QString::fromLatin1(labelKey);
+        }
+    }
+    struct FixedCommand { const char* id; const char* fallback; const char* labelKey; };
+    static const FixedCommand fixedCommands[] = {
+        {"file.new", "Ctrl+Shift+N", "action.new"},
+        {"file.open", "Ctrl+Shift+O", "action.open"},
+        {"file.quit", "Ctrl+Esc", "shortcut.file.quit"},
+    };
+    for (const FixedCommand& command : fixedCommands) {
+        const QString binding = registry_.shortcutText(QString::fromLatin1(command.id),
+                                                       QString::fromLatin1(command.fallback));
+        if (bindingsOverlap(shortcutText, binding)) return QString::fromLatin1(command.labelKey);
+    }
+    return {};
 }
 
 void ShortcutModel::releaseOverlaps(const QString& id)
@@ -131,7 +164,8 @@ QVariantList ShortcutModel::editableShortcuts() const
 
 bool ShortcutModel::setShortcutText(const QString& id, const QString& shortcutText)
 {
-    if (!registry_.setUserShortcutText(id, shortcutText)) {
+    if (!reservedShortcutOwner(shortcutText).isEmpty()
+        || !registry_.setUserShortcutText(id, shortcutText)) {
         return false;
     }
     releaseOverlaps(id);

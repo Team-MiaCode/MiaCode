@@ -964,6 +964,7 @@ AppDialog {
                             event.accepted = true
                             if (event.key === Qt.Key_Escape) {
                                 root.capturingId = ""
+                                root.shortcutNotice = ""
                                 return
                             }
                             if (event.key === Qt.Key_Control || event.key === Qt.Key_Shift
@@ -972,6 +973,12 @@ AppDialog {
                             const text = root.shortcuts.shortcutTextForKeyEvent(event.key, event.modifiers)
                             if (text.length === 0)
                                 return
+                            // File/edit keys stay with their menu commands; keep recording.
+                            const owner = root.shortcuts.reservedShortcutOwner(text)
+                            if (owner.length > 0) {
+                                root.shortcutNotice = qsTrId("qml.shortcut_reserved").arg(qsTrId(owner))
+                                return
+                            }
                             const id = root.capturingId
                             root.capturingId = ""
                             root.applyShortcutChange(() => root.shortcuts.setShortcutText(id, text))

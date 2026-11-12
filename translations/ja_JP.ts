@@ -3845,6 +3845,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Removed the shortcut from %1. Record a new one or restore its default.</source>
         <translation>「%1」のショートカットを解除しました。再登録するか既定に戻してください。</translation>
     </message>
+    <message id="qml.shortcut_reserved">
+        <source>This shortcut is reserved for %1. Press another shortcut, or Esc to cancel.</source>
+        <translation>このショートカットは「%1」で使用されているため割り当てできません。別のキーを押すか、Esc でキャンセルしてください。</translation>
+    </message>
     <message id="qml.shortcut_unassigned">
         <source>Not set</source>
         <translation>未設定</translation>

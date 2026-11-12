@@ -366,6 +366,30 @@ Window {
 }
 } // namespace
 
+// File/edit menu keys are fixed: no editable command may take them, by default or by recording.
+void checkReservedShortcuts(QTextStream& out, int* failed)
+{
+    QTemporaryDir storage;
+    miacode::ui::ShortcutRegistry registry(storage.filePath(QStringLiteral("shortcuts.json")));
+    miacode::ui::ShortcutModel shortcuts(registry);
+    const QString stop = QStringLiteral("preview.stop_or_play");
+    const QString before = registry.shortcutText(stop);
+    expect(shortcuts.reservedShortcutOwner(QStringLiteral("Ctrl+C")) == "action.copy"
+               && shortcuts.reservedShortcutOwner(QStringLiteral("Ctrl+S")) == "action.save"
+               && shortcuts.reservedShortcutOwner(QStringLiteral("Ctrl+Shift+N")) == "action.new"
+               && shortcuts.reservedShortcutOwner(QStringLiteral("Ctrl+K")).isEmpty(),
+           QStringLiteral("file and edit keys report the menu command that owns them"), out, failed);
+    expect(!shortcuts.setShortcutText(stop, QStringLiteral("Ctrl+C")) && registry.shortcutText(stop) == before,
+           QStringLiteral("recording a reserved key leaves the command unchanged"), out, failed);
+    QStringList clashing;
+    for (const auto& definition : registry.editableShortcuts()) {
+        if (!shortcuts.reservedShortcutOwner(registry.shortcutText(definition.id)).isEmpty())
+            clashing.append(definition.id);
+    }
+    expect(clashing.isEmpty(), QStringLiteral("no default binding takes a reserved key: %1")
+               .arg(clashing.join(QStringLiteral(", "))), out, failed);
+}
+
 int main(int argc, char** argv)
 {
     qputenv("QT_QPA_PLATFORM", "offscreen");
@@ -378,6 +402,7 @@ int main(int argc, char** argv)
     checkInputOwnership(out, &failed);
     checkPreviewWindowOwnership(out, &failed);
     checkTimelineShortcuts(out, &failed);
+    checkReservedShortcuts(out, &failed);
 
     miacode::ui::ShortcutModel model;
     for (int flags = 0; flags < 8; ++flags) {
