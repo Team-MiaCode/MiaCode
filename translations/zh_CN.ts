@@ -3841,6 +3841,14 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Set as local default</source>
         <translation>设为本地默认</translation>
     </message>
+    <message id="qml.shortcut_released_from">
+        <source>Removed the shortcut from %1. Record a new one or restore its default.</source>
+        <translation>“%1”的快捷键已移除，可重新录入或恢复默认。</translation>
+    </message>
+    <message id="qml.shortcut_unassigned">
+        <source>Not set</source>
+        <translation>未设置</translation>
+    </message>
     <message id="qml.show_all_open_editors">
         <source>Show all open editors</source>
         <translation>显示所有已打开的编辑器</translation>

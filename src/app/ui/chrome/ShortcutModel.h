@@ -49,7 +49,8 @@ public:
     Q_INVOKABLE QString standardDisplayText(int standardKey) const;
     Q_INVOKABLE void reload();
 
-    // Shortcut editing. editableShortcuts() returns one row per command.
+    // Shortcut editing. editableShortcuts() returns one row per command. Assigning or
+    // resetting a binding unbinds every other command that overlaps it.
     Q_INVOKABLE QVariantList editableShortcuts() const;
     Q_INVOKABLE bool setShortcutText(const QString& id, const QString& shortcutText);
     Q_INVOKABLE void resetShortcut(const QString& id);
@@ -63,6 +64,7 @@ signals:
 
 private:
     void publishRevision();
+    void releaseOverlaps(const QString& id);
     ShortcutRegistry& registry_;
     qulonglong revision_ = 1;
     bool captureActive_ = false;

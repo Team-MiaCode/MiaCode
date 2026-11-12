@@ -130,15 +130,29 @@ Window {
         shortcuts.resetShortcut("preview.play_pause_non_text");
         shortcuts.setShortcutText("preview.stop_or_play", "Space");
         press(Qt::Key_Space);
-        check(toggled() == 0 && window->property("stops").toInt() == 1,
-              "another command on Space takes precedence");
+        check(toggled() == 0 && window->property("stops").toInt() == 1
+                  && shortcuts.sequence("preview.play_pause_non_text").isEmpty(),
+              "assigning Space to another command takes it from outside-editor playback");
         window->setProperty("stops", 0);
         shortcuts.resetShortcut("preview.stop_or_play");
+        shortcuts.resetShortcut("preview.play_pause_non_text");
 
-        shortcuts.setShortcutText("preview.play_pause_global", "Space");
+        // Configurations saved before bindings became exclusive may still share a key.
+        const auto legacyBinding = [&](const QString& id, const QString& text) {
+            text.isEmpty() ? registry.resetUserShortcut(id) : registry.setUserShortcutText(id, text);
+            shortcuts.reload();
+        };
+        legacyBinding("preview.stop_or_play", "Space");
+        press(Qt::Key_Space);
+        check(toggled() == 0 && window->property("stops").toInt() == 1,
+              "a legacy duplicate on Space leaves it to the other command");
+        window->setProperty("stops", 0);
+        legacyBinding("preview.stop_or_play", QString());
+
+        legacyBinding("preview.play_pause_global", "Space");
         press(Qt::Key_Space);
         check(toggled() == 1, "both play/pause bindings on the same key run once");
-        shortcuts.resetShortcut("preview.play_pause_global");
+        legacyBinding("preview.play_pause_global", QString());
     }
 
     auto* source = window->findChild<QQuickItem*>("source");

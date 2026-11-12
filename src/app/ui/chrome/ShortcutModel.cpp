@@ -1,6 +1,7 @@
 #include "app/ui/chrome/ShortcutModel.h"
 
 #include "app/services/ShortcutRegistry.h"
+#include "common/InputShortcutGesture.h"
 
 #include <QKeySequence>
 
@@ -12,6 +13,17 @@ QKeySequence resolve(const ShortcutRegistry& registry, const QString& id, const 
     const QKeySequence fallbackSequence =
         fallback.isEmpty() ? QKeySequence() : QKeySequence(fallback, QKeySequence::PortableText);
     return registry.sequence(id, fallbackSequence);
+}
+
+// The same binding, or one key sequence starting the other: Qt would run neither.
+bool bindingsOverlap(const QString& first, const QString& second)
+{
+    const auto a = miacode::input_shortcut::parseGesture(first);
+    const auto b = miacode::input_shortcut::parseGesture(second);
+    if (!a.isValid() || !b.isValid()) return false;
+    if (a.isWheel() || b.isWheel()) return a.canonicalText == b.canonicalText;
+    return a.keySequence.matches(b.keySequence) != QKeySequence::NoMatch
+        || b.keySequence.matches(a.keySequence) != QKeySequence::NoMatch;
 }
 
 } // namespace
@@ -47,15 +59,21 @@ QString ShortcutModel::gestureText(const QString& id, const QString& fallback) c
 
 bool ShortcutModel::overlapsOtherShortcut(const QString& id) const
 {
-    const QKeySequence own = registry_.sequence(id);
-    if (own.isEmpty()) return false;
+    const QString own = registry_.shortcutText(id);
     for (const ShortcutRegistry::ShortcutDefinition& other : registry_.editableShortcuts()) {
-        const QKeySequence sequence = registry_.sequence(other.id);
-        if (other.id == id || sequence.isEmpty()) continue;
-        if (own.matches(sequence) != QKeySequence::NoMatch
-            || sequence.matches(own) != QKeySequence::NoMatch) return true;
+        if (other.id != id && bindingsOverlap(own, registry_.shortcutText(other.id))) return true;
     }
     return false;
+}
+
+void ShortcutModel::releaseOverlaps(const QString& id)
+{
+    // The command that was just given a binding takes it from every other command.
+    const QString own = registry_.shortcutText(id);
+    for (const ShortcutRegistry::ShortcutDefinition& other : registry_.editableShortcuts()) {
+        if (other.id != id && bindingsOverlap(own, registry_.shortcutText(other.id)))
+            registry_.unbindUserShortcut(other.id);
+    }
 }
 
 QString ShortcutModel::displayText(const QString& id, const QString& fallback) const
@@ -116,6 +134,7 @@ bool ShortcutModel::setShortcutText(const QString& id, const QString& shortcutTe
     if (!registry_.setUserShortcutText(id, shortcutText)) {
         return false;
     }
+    releaseOverlaps(id);
     publishRevision();
     return true;
 }
@@ -123,6 +142,7 @@ bool ShortcutModel::setShortcutText(const QString& id, const QString& shortcutTe
 void ShortcutModel::resetShortcut(const QString& id)
 {
     if (registry_.resetUserShortcut(id)) {
+        releaseOverlaps(id);
         publishRevision();
     }
 }
