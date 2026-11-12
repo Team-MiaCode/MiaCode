@@ -3841,13 +3841,13 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Set as local default</source>
         <translation>ローカル既定値に設定</translation>
     </message>
-    <message id="qml.shortcut_released_from">
-        <source>Removed the shortcut from %1. Record a new one or restore its default.</source>
-        <translation>「%1」のショートカットを解除しました。再登録するか既定に戻してください。</translation>
+    <message id="qml.shortcut_moved">
+        <source>Moved this shortcut from %1 to %2.</source>
+        <translation>このショートカットを「%1」から「%2」に移しました。</translation>
     </message>
     <message id="qml.shortcut_reserved">
-        <source>This shortcut is reserved for %1. Press another shortcut, or Esc to cancel.</source>
-        <translation>このショートカットは「%1」で使用されているため割り当てできません。別のキーを押すか、Esc でキャンセルしてください。</translation>
+        <source>This shortcut is used by %1 and can't be assigned to another command.</source>
+        <translation>このショートカットは「%1」で使用されているため、他のコマンドに割り当てできません。</translation>
     </message>
     <message id="qml.shortcut_unassigned">
         <source>Not set</source>

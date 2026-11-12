@@ -3841,13 +3841,13 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Set as local default</source>
         <translation>设为本地默认</translation>
     </message>
-    <message id="qml.shortcut_released_from">
-        <source>Removed the shortcut from %1. Record a new one or restore its default.</source>
-        <translation>“%1”的快捷键已移除，可重新录入或恢复默认。</translation>
+    <message id="qml.shortcut_moved">
+        <source>Moved this shortcut from %1 to %2.</source>
+        <translation>该组合键已从“%1”转移到“%2”。</translation>
     </message>
     <message id="qml.shortcut_reserved">
-        <source>This shortcut is reserved for %1. Press another shortcut, or Esc to cancel.</source>
-        <translation>该组合键已用于“%1”，不能分配给其他命令。请按其他组合键，或按 Esc 取消。</translation>
+        <source>This shortcut is used by %1 and can't be assigned to another command.</source>
+        <translation>该组合键已用于“%1”，不能分配给其他命令。</translation>
     </message>
     <message id="qml.shortcut_unassigned">
         <source>Not set</source>

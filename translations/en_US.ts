@@ -3841,13 +3841,13 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Set as local default</source>
         <translation>Set as local default</translation>
     </message>
-    <message id="qml.shortcut_released_from">
-        <source>Removed the shortcut from %1. Record a new one or restore its default.</source>
-        <translation>Removed the shortcut from %1. Record a new one or restore its default.</translation>
+    <message id="qml.shortcut_moved">
+        <source>Moved this shortcut from %1 to %2.</source>
+        <translation>Moved this shortcut from %1 to %2.</translation>
     </message>
     <message id="qml.shortcut_reserved">
-        <source>This shortcut is reserved for %1. Press another shortcut, or Esc to cancel.</source>
-        <translation>This shortcut is reserved for %1. Press another shortcut, or Esc to cancel.</translation>
+        <source>This shortcut is used by %1 and can't be assigned to another command.</source>
+        <translation>This shortcut is used by %1 and can't be assigned to another command.</translation>
     </message>
     <message id="qml.shortcut_unassigned">
         <source>Not set</source>

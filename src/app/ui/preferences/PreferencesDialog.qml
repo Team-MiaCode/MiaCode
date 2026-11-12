@@ -167,16 +167,21 @@ AppDialog {
             0, Math.min(keepY, Math.max(0, shortcutList.contentHeight - shortcutList.height)))
     }
 
-    // Assigning a binding takes it from other commands; name the ones that lost theirs.
-    function applyShortcutChange(change) {
+    function shortcutLabel(row) {
+        return qsTrId(row.labelKey) || row.labelFallback
+    }
+
+    // Assigning a binding takes it from other commands; name where it moved from and to.
+    function applyShortcutChange(id, change) {
         const before = root.shortcutRows
         change()
         root.refreshShortcuts()
         const released = root.shortcutRows.filter(row => row.shortcutText.length === 0
             && before.some(old => old.id === row.id && old.shortcutText.length > 0))
-        root.shortcutNotice = released.length === 0 ? ""
-            : qsTrId("qml.shortcut_released_from").arg(released.map(row =>
-                qsTrId(row.labelKey) || row.labelFallback).join(" / "))
+        const target = root.shortcutRows.find(row => row.id === id)
+        root.shortcutNotice = released.length === 0 || !target ? ""
+            : qsTrId("qml.shortcut_moved").arg(released.map(root.shortcutLabel).join(" / "))
+                .arg(root.shortcutLabel(target))
     }
 
     component PreferenceGroup: SettingsSection {
@@ -981,7 +986,7 @@ AppDialog {
                             }
                             const id = root.capturingId
                             root.capturingId = ""
-                            root.applyShortcutChange(() => root.shortcuts.setShortcutText(id, text))
+                            root.applyShortcutChange(id, () => root.shortcuts.setShortcutText(id, text))
                         }
 
                         // The row is NOT one big button: the reset button sits beside
@@ -1034,7 +1039,7 @@ AppDialog {
                             AppButton {
                                 text: qsTrId("qml.restore_defaults")
                                 enabled: !shortcutRow.modelData.isDefault
-                                onClicked: root.applyShortcutChange(
+                                onClicked: root.applyShortcutChange(shortcutRow.modelData.id,
                                     () => root.shortcuts.resetShortcut(shortcutRow.modelData.id))
                             }
                         }
