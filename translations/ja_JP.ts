@@ -4939,6 +4939,18 @@ Error: %1</source>
         <source>Enter subdivision</source>
         <translation>拍の分割を入力</translation>
     </message>
+    <message id="preferences.completion.duration_suffix">
+        <source>Custom continuation</source>
+        <translation>カスタム後続候補</translation>
+    </message>
+    <message id="preferences.completion.duration_suffix_hint">
+        <source>Enter a suffix, e.g. :1</source>
+        <translation>後続候補を入力（例：:1）</translation>
+    </message>
+    <message id="preferences.completion.invalid_duration_suffix">
+        <source>Enter a valid duration suffix starting with :</source>
+        <translation>: で始まる有効な長さの後続候補を入力してください</translation>
+    </message>
     <message id="preferences.completion.reorder">
         <source>Drag to reorder; use Up or Down when focused</source>
         <translation>ドラッグで並べ替え。フォーカス時は上下キーで移動</translation>

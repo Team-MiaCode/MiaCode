@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/video/PreviewRenderSettings.h"
-#include <QStringList>
+#include "editor/SimaiCompletionCatalog.h"
 
 namespace miacode {
 
@@ -16,16 +16,15 @@ public:
     virtual bool editorHalfWidthInputEnabled() const = 0;
     virtual bool editorAutoCompletionEnabled() const = 0;
     virtual bool editorImeInputDisabled() const = 0;
-    virtual QStringList editorCompletionDurationCandidates() const = 0;
-    virtual QStringList editorCompletionDivisionCandidates() const = 0;
+    virtual const editor::SimaiCompletionConfig& editorCompletionConfig() const = 0;
 
     virtual void applyEditorTextFontSize(int pointSize, bool persist) = 0;
     virtual void applyEditorLineSpacingFactor(double factor, bool persist) = 0;
     virtual void applyEditorHalfWidthInputEnabled(bool enabled, bool persist) = 0;
     virtual void applyEditorAutoCompletionEnabled(bool enabled, bool persist) = 0;
     virtual void applyEditorImeInputDisabled(bool disabled, bool persist) = 0;
-    virtual void applyEditorCompletionCandidates(const QStringList& durations,
-                                                 const QStringList& divisions, bool persist) = 0;
+    virtual void applyEditorCompletionCandidates(const editor::SimaiCompletionConfig& config,
+                                                 bool persist) = 0;
 
     // ---- frame pacing ----
     virtual PreviewCanvasFrameRateMode previewCanvasFrameRateMode() const = 0;

@@ -4939,6 +4939,18 @@ Error: %1</source>
         <source>Enter subdivision</source>
         <translation>输入节拍细分</translation>
     </message>
+    <message id="preferences.completion.duration_suffix">
+        <source>Custom continuation</source>
+        <translation>自定义后续</translation>
+    </message>
+    <message id="preferences.completion.duration_suffix_hint">
+        <source>Enter a suffix, e.g. :1</source>
+        <translation>输入后续，如 :1</translation>
+    </message>
+    <message id="preferences.completion.invalid_duration_suffix">
+        <source>Enter a valid duration suffix starting with :</source>
+        <translation>请输入以 : 开头的有效时值后续</translation>
+    </message>
     <message id="preferences.completion.reorder">
         <source>Drag to reorder; use Up or Down when focused</source>
         <translation>拖动排序；聚焦后可用上下方向键调整</translation>

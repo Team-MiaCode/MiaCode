@@ -9,8 +9,7 @@ namespace miacode::ui {
 CompletionCandidateModel::CompletionCandidateModel(editor::CompletionCandidateGroup group, QObject* parent)
     : QAbstractListModel(parent), group_(group)
 {
-    const auto defaults = editor::defaultCompletionConfig();
-    replaceValues(group == editor::CompletionCandidateGroup::Duration ? defaults.durations : defaults.divisions);
+    replaceValues(editor::defaultCompletionValues(group));
 }
 
 int CompletionCandidateModel::rowCount(const QModelIndex& parent) const
@@ -140,9 +139,16 @@ void CompletionCandidateModel::setDraft(const QString& key, const QString& text)
 QString CompletionCandidateModel::errorMessage(Error error) const
 {
     if (error == Error::Duplicate) return qtTrId("preferences.completion.duplicate");
-    if (error == Error::Invalid)
-        return qtTrId(group_ == editor::CompletionCandidateGroup::Duration
-            ? "preferences.completion.invalid_duration" : "preferences.completion.invalid_division");
+    if (error == Error::Invalid) {
+        switch (group_) {
+        case editor::CompletionCandidateGroup::Duration:
+            return qtTrId("preferences.completion.invalid_duration");
+        case editor::CompletionCandidateGroup::Division:
+            return qtTrId("preferences.completion.invalid_division");
+        case editor::CompletionCandidateGroup::DurationSuffix:
+            return qtTrId("preferences.completion.invalid_duration_suffix");
+        }
+    }
     return {};
 }
 

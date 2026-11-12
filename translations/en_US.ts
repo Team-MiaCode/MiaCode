@@ -4939,6 +4939,18 @@ Error: %1</translation>
         <source>Enter subdivision</source>
         <translation>Enter subdivision</translation>
     </message>
+    <message id="preferences.completion.duration_suffix">
+        <source>Custom continuation</source>
+        <translation>Custom continuation</translation>
+    </message>
+    <message id="preferences.completion.duration_suffix_hint">
+        <source>Enter a suffix, e.g. :1</source>
+        <translation>Enter a suffix, e.g. :1</translation>
+    </message>
+    <message id="preferences.completion.invalid_duration_suffix">
+        <source>Enter a valid duration suffix starting with :</source>
+        <translation>Enter a valid duration suffix starting with :</translation>
+    </message>
     <message id="preferences.completion.reorder">
         <source>Drag to reorder; use Up or Down when focused</source>
         <translation>Drag to reorder; use Up or Down when focused</translation>
