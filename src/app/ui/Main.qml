@@ -40,6 +40,7 @@ ApplicationWindow {
         documentAvailable: mainView.documentSession.hasDocument
         editorCommandsEnabled: mainView.editMenuEnabled
         chartCommandsEnabled: mainView.chartEditorActive && window.workbenchCommandsAllowed
+        playbackCommandsEnabled: window.playbackCommandsEnabled && window.workbenchCommandsAllowed
         toolCommandsEnabled: mainView.documentSession.hasDocument
     }
 

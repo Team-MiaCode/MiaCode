@@ -366,6 +366,8 @@ Item {
                 documentAvailable: root.documentSession.hasDocument
                 editorCommandsEnabled: root.editMenuEnabled
                 chartCommandsEnabled: root.chartEditorActive && root.hostWindow.workbenchCommandsAllowed
+                playbackCommandsEnabled: root.hostWindow.playbackCommandsEnabled
+                    && root.hostWindow.workbenchCommandsAllowed
                 toolCommandsEnabled: root.documentSession.hasDocument
                 leadingInset: root.applicationContext.windowChrome
                     ? root.applicationContext.windowChrome.titleBarLeadingInset / Theme.uiScale
