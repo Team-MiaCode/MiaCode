@@ -24,6 +24,7 @@ Item {
     EditorInputContext {
         id: editorInput
         window: root.Window.window
+        typingTarget: sourceEditor.inputItem
     }
     readonly property Item difficultyFieldsItem: difficultyHeader
     readonly property bool sourceVisible: viewState.difficultyEditorActive
