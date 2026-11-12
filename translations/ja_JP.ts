@@ -3846,8 +3846,8 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>ショートカット「%1」を「%2」から「%3」に移しました。</translation>
     </message>
     <message id="qml.shortcut_reserved">
-        <source>Shortcut %1 is used by %2 and can't be assigned to another command.</source>
-        <translation>ショートカット「%1」は「%2」で使用されているため、他のコマンドに割り当てできません。</translation>
+        <source>Shortcut %1 is used by %2 and can't be assigned to %3.</source>
+        <translation>ショートカット「%1」は「%2」で使用されているため、「%3」に割り当てできません。</translation>
     </message>
     <message id="qml.shortcut_unassigned">
         <source>Not set</source>

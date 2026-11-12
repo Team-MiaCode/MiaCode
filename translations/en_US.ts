@@ -3846,8 +3846,8 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>Moved shortcut %1 from %2 to %3.</translation>
     </message>
     <message id="qml.shortcut_reserved">
-        <source>Shortcut %1 is used by %2 and can't be assigned to another command.</source>
-        <translation>Shortcut %1 is used by %2 and can't be assigned to another command.</translation>
+        <source>Shortcut %1 is used by %2 and can't be assigned to %3.</source>
+        <translation>Shortcut %1 is used by %2 and can't be assigned to %3.</translation>
     </message>
     <message id="qml.shortcut_unassigned">
         <source>Not set</source>
