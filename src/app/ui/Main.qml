@@ -219,6 +219,7 @@ ApplicationWindow {
         commands: window.applicationContext.commands
         previewSession: window.applicationContext.preview
         timelineStateBridge: window.applicationContext.timeline.stateBridge
+        inputContext: window.inputContext
         commandsEnabled: window.windowCommandsEnabled && window.workbenchCommandsAllowed
         chartCommandsEnabled: mainView.chartEditorActive && window.workbenchCommandsAllowed
         playbackCommandsEnabled: window.playbackCommandsEnabled

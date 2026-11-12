@@ -45,6 +45,19 @@ QString ShortcutModel::gestureText(const QString& id, const QString& fallback) c
     return registry_.shortcutText(id, fallback);
 }
 
+bool ShortcutModel::overlapsOtherShortcut(const QString& id) const
+{
+    const QKeySequence own = registry_.sequence(id);
+    if (own.isEmpty()) return false;
+    for (const ShortcutRegistry::ShortcutDefinition& other : registry_.editableShortcuts()) {
+        const QKeySequence sequence = registry_.sequence(other.id);
+        if (other.id == id || sequence.isEmpty()) continue;
+        if (own.matches(sequence) != QKeySequence::NoMatch
+            || sequence.matches(own) != QKeySequence::NoMatch) return true;
+    }
+    return false;
+}
+
 QString ShortcutModel::displayText(const QString& id, const QString& fallback) const
 {
     return resolve(registry_, id, fallback).toString(QKeySequence::NativeText);

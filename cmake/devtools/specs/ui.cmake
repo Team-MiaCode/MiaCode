@@ -1,16 +1,18 @@
-miacode_add_dev_tool(playback_space_filter_spec TEST
+miacode_add_dev_tool(playback_shortcut_scope_spec TEST
     SOURCES
-        src/tools/ui/PlaybackSpaceFilterSpec.cpp
+        src/tools/ui/PlaybackShortcutScopeSpec.cpp
+        src/app/ui/chrome/EditorInputContext.cpp
+        src/app/ui/chrome/EditorInputContext.h
         src/app/services/ShortcutRegistry.cpp
         src/app/ui/chrome/ShortcutModel.cpp
     LIBS miacode_base Qt6::Quick Qt6::Qml Qt6::Test
     INCLUDES src
 )
-qt_add_resources(playback_space_filter_spec "playback_space_shortcuts"
+qt_add_resources(playback_shortcut_scope_spec "playback_shortcut_scope"
     PREFIX "/" BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources"
     FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/shortcuts.json")
-set_tests_properties(playback_space_filter_spec PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-target_compile_definitions(playback_space_filter_spec PRIVATE
+set_tests_properties(playback_shortcut_scope_spec PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+target_compile_definitions(playback_shortcut_scope_spec PRIVATE
     "MIACODE_SOURCE_ROOT=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
 
 miacode_add_dev_tool(appearance_translations_spec TEST

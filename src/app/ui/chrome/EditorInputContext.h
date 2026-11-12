@@ -18,6 +18,7 @@ class EditorInputContext : public QObject
     Q_PROPERTY(QObject* textInput READ textInput NOTIFY contextChanged)
     Q_PROPERTY(bool modalBlocked READ modalBlocked NOTIFY contextChanged)
     Q_PROPERTY(bool editingCommandsAllowed READ editingCommandsAllowed NOTIFY contextChanged)
+    Q_PROPERTY(bool nonTextCommandsAllowed READ nonTextCommandsAllowed NOTIFY contextChanged)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY contextChanged)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY contextChanged)
     Q_PROPERTY(bool canCut READ canCut NOTIFY contextChanged)
@@ -34,6 +35,8 @@ public:
     QObject* textInput() const { return textInput_; }
     bool modalBlocked() const { return modalBlocked_; }
     bool editingCommandsAllowed() const { return !modalBlocked_ && !composing_; }
+    // Workbench commands that would otherwise swallow typing or menu navigation, such as plain Space.
+    bool nonTextCommandsAllowed() const;
     bool canUndo() const { return canEdit("undo"); }
     bool canRedo() const { return canEdit("redo"); }
     bool canCut() const { return canEdit("cut"); }

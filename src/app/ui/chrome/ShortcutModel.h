@@ -39,6 +39,9 @@ public:
     Q_INVOKABLE QString sequence(const QString& id, const QString& fallback = QString()) const;
     // Unlike sequence(), this preserves wheel gestures for non-keyboard consumers.
     Q_INVOKABLE QString gestureText(const QString& id, const QString& fallback = QString()) const;
+    // True when another editable command starts with, or is a prefix of, this binding.
+    // Qt would treat both as ambiguous and run neither.
+    Q_INVOKABLE bool overlapsOtherShortcut(const QString& id) const;
     // Platform spelling for menu rows and tooltips.
     Q_INVOKABLE QString displayText(const QString& id, const QString& fallback = QString()) const;
     // Menu rows whose binding is a Qt standard key (Open/Save/Undo/...) rather
