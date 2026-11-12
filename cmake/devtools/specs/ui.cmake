@@ -160,6 +160,8 @@ miacode_add_dev_tool(qml_analysis_model_spec TEST
 miacode_add_dev_tool(qml_shortcut_binding_spec TEST
     SOURCES
         src/tools/ui/QmlShortcutBindingSpec.cpp
+        src/app/ui/chrome/EditorInputContext.cpp
+        src/app/ui/chrome/EditorInputContext.h
         src/app/ui/chrome/ShortcutModel.cpp
         src/app/ui/chrome/ShortcutModel.h
         src/app/ui/chrome/ShortcutCommands.h
