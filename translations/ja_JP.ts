@@ -3841,6 +3841,14 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Set as local default</source>
         <translation>ローカル既定値に設定</translation>
     </message>
+    <message id="qml.shortcut_released_from">
+        <source>Removed the shortcut from %1. Record a new one or restore its default.</source>
+        <translation>「%1」のショートカットを解除しました。再登録するか既定に戻してください。</translation>
+    </message>
+    <message id="qml.shortcut_unassigned">
+        <source>Not set</source>
+        <translation>未設定</translation>
+    </message>
     <message id="qml.show_all_open_editors">
         <source>Show all open editors</source>
         <translation>開いているすべてのエディターを表示</translation>

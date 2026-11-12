@@ -118,7 +118,8 @@ bool Session::eventFilter(QObject*, QEvent* event)
         const PauseDisplayHoldKey hold = pauseDisplayHoldKey();
         // A Ctrl pause-display hold key yields to touch authoring, which owns
         // Ctrl whenever it can author.
-        if (keyEvent->key() == hold.key && !controlArmsTouchAuthoring) {
+        // An unbound hold key resolves to key 0, which some IME events also carry.
+        if (hold.key != 0 && keyEvent->key() == hold.key && !controlArmsTouchAuthoring) {
             if (event->type() == QEvent::KeyPress
                 && !keyEvent->isAutoRepeat()
                 && focusOnWorkbench && workbenchAllowed
