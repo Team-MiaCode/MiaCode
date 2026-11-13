@@ -3025,6 +3025,14 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Packaging ZIP...</source>
         <translation>Packaging ZIP...</translation>
     </message>
+    <message id="net.cancelling_download">
+        <source>Cancelling download…</source>
+        <translation>Cancelling download…</translation>
+    </message>
+    <message id="net.waiting_for_download_1">
+        <source>Waiting for server response: %1</source>
+        <translation>Waiting for server response: %1</translation>
+    </message>
     <message id="net.preparing_download">
         <source>Preparing download…</source>
         <translation>Preparing download…</translation>

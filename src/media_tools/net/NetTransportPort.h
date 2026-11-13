@@ -27,6 +27,7 @@ struct NetHttpRequest {
     QString accountRef;
     QString outputPath;
     int timeoutMs = 60000;
+    int firstByteTimeoutMs = 0;
     qint64 maximumBytes = 16 * 1024 * 1024;
     bool allowDeclaredEmptyChart = false;
     bool requireNonEmpty = true;
