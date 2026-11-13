@@ -5117,6 +5117,10 @@ Error: %1</translation>
         <source>Outline color</source>
         <translation>Outline color</translation>
     </message>
+    <message id="color_picker.open">
+        <source>Pick color</source>
+        <translation>Pick color</translation>
+    </message>
     <message id="cover.text_stroke_width">
         <source>Outline width</source>
         <translation>Outline width</translation>

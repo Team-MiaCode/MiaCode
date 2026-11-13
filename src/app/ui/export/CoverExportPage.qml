@@ -731,19 +731,9 @@ Rectangle {
                                         RowLayout {
                                             Layout.fillWidth: true
                                             FormLabel { text: qsTrId("cover.text_color") }
-                                            AppTextField {
-                                                Layout.fillWidth: true
-                                                text: root.activeLayer ? root.activeLayer.textColor : "#FFFFFF"
-                                                onEditingFinished: if (root.session) root.session.setActiveLayerTextColor(text)
-                                            }
-                                            // 色值是文本输入，一个小色板比读十六进制快。
-                                            Rectangle {
-                                                implicitWidth: 22
-                                                implicitHeight: 22
-                                                radius: Theme.controlRadius
+                                            AppColorField {
                                                 color: root.activeLayer ? root.activeLayer.textColor : "#FFFFFF"
-                                                border.width: Theme.controlBorderWidth
-                                                border.color: Theme.colors.border.control
+                                                onEdited: function(color) { if (root.session) root.session.setActiveLayerTextColor(color) }
                                             }
                                         }
                                         RowLayout {
@@ -767,10 +757,9 @@ Rectangle {
                                         RowLayout {
                                             Layout.fillWidth: true
                                             FormLabel { text: qsTrId("cover.text_stroke_color") }
-                                            AppTextField {
-                                                Layout.fillWidth: true
-                                                text: root.activeLayer ? root.activeLayer.textStrokeColor : "#000000"
-                                                onEditingFinished: root.session.setActiveLayerTextEffect("textStrokeColor", text)
+                                            AppColorField {
+                                                color: root.activeLayer ? root.activeLayer.textStrokeColor : "#000000"
+                                                onEdited: function(color) { root.session.setActiveLayerTextEffect("textStrokeColor", color) }
                                             }
                                         }
                                         LabeledSlider {
@@ -789,10 +778,9 @@ Rectangle {
                                         RowLayout {
                                             Layout.fillWidth: true
                                             FormLabel { text: qsTrId("cover.text_shadow_color") }
-                                            AppTextField {
-                                                Layout.fillWidth: true
-                                                text: root.activeLayer ? root.activeLayer.textShadowColor : "#000000"
-                                                onEditingFinished: root.session.setActiveLayerTextEffect("textShadowColor", text)
+                                            AppColorField {
+                                                color: root.activeLayer ? root.activeLayer.textShadowColor : "#000000"
+                                                onEdited: function(color) { root.session.setActiveLayerTextEffect("textShadowColor", color) }
                                             }
                                         }
                                         Repeater {

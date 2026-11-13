@@ -662,6 +662,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/components/FadeTransition.qml
     src/app/ui/components/AppDialog.qml
     src/app/ui/components/AppStickyPopup.qml
+    src/app/ui/components/AppColorField.qml
     src/app/ui/components/AppDropdownPanel.qml
     src/app/ui/components/AppMenuItem.qml
     src/app/ui/components/AppMenuSeparator.qml

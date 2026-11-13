@@ -5117,6 +5117,10 @@ Error: %1</source>
         <source>Outline color</source>
         <translation>縁取りの色</translation>
     </message>
+    <message id="color_picker.open">
+        <source>Pick color</source>
+        <translation>色を選択</translation>
+    </message>
     <message id="cover.text_stroke_width">
         <source>Outline width</source>
         <translation>縁取りの幅</translation>
