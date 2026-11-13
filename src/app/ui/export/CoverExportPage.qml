@@ -678,6 +678,16 @@ Rectangle {
                                         value: (root.activeLayer ? root.activeLayer.sizeFraction : 0.85) * 100
                                         onMoved: function(value) { if (root.session) root.session.setActiveLayerSizeFraction(value / 100) }
                                     }
+                                    LabeledSlider {
+                                        objectName: "coverLayerRotationSlider"
+                                        label: qsTrId("cover.rotation")
+                                        labelWidth: root.labelWidth
+                                        from: -180
+                                        to: 180
+                                        suffix: "°"
+                                        value: root.activeLayer ? root.activeLayer.rotation : 0
+                                        onMoved: function(value) { if (root.session) root.session.setActiveLayerRotation(value) }
+                                    }
 
                                     // ---- 图片 ----
                                     SettingsSection {

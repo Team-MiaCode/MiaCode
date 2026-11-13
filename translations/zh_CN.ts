@@ -915,6 +915,10 @@ Classic mode: All functions are on one page, similar to the layout in earlier ve
         <source>Reset to default…</source>
         <translation>重置为默认布局…</translation>
     </message>
+    <message id="cover.rotation">
+        <source>Rotation</source>
+        <translation>旋转</translation>
+    </message>
     <message id="cover.save_cover_layout">
         <source>Save cover layout</source>
         <translation>保存封面布局</translation>
