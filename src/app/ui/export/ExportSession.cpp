@@ -11,6 +11,7 @@
 #include "core/scene/PreviewSfxAssets.h"
 #include "core/video/PreviewRenderSettings.h"
 #include "app/services/VideoExportPreferences.h"
+#include "export/video_export/VideoExportAudioRenderPlan.h"
 #include "export/video_export/VideoExportSettings.h"
 #include "export/video_export/FontLibrary.h"
 #include "app/services/UserFontLibrary.h"
@@ -28,7 +29,9 @@
 #include <QTimer>
 #include <QUrl>
 
+#include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <utility>
 
 
@@ -105,6 +108,10 @@ ExportSession::ExportSession(miacode::ShellNotifications& notifications,
     // another transport action); it announces that through the presentation.
     connect(&notifications, &miacode::ShellNotifications::presentationChanged,
             this, &ExportSession::introPreviewStateChanged);
+    // The size estimate follows everything that feeds planVideoRate.
+    connect(this, &ExportSession::outputChanged, this, &ExportSession::estimateChanged);
+    connect(this, &ExportSession::rangeChanged, this, &ExportSession::estimateChanged);
+    connect(this, &ExportSession::introChanged, this, &ExportSession::estimateChanged);
     connect(this, &ExportSession::rangeChanged, this, [this]() {
         if (rangePlaybackEnabled_ && !hasPendingSelectionRangeExport_) {
             emit playbackRangeRequested(true, exportStartSeconds(), exportEndSeconds());
@@ -180,42 +187,59 @@ void ExportSession::setOutputModeIndex(int index)
     savePreferences();
 }
 
-QVariantList ExportSession::presetOptions() const
+namespace {
+
+using miacode::video_export::VideoQualityLevel;
+using miacode::video_export::VideoRateMode;
+
+// Page order of the rate-control and quality combos.
+constexpr VideoRateMode kRateModeOrder[] = {VideoRateMode::Quality, VideoRateMode::FileSize, VideoRateMode::Bitrate};
+constexpr VideoQualityLevel kQualityLevelOrder[] = {
+    VideoQualityLevel::High, VideoQualityLevel::Standard, VideoQualityLevel::Small};
+
+}  // namespace
+
+QVariantList ExportSession::rateModeOptions() const
 {
-    return QVariantList{
-        qtTrId("dialog.video_export.preset.fast"),
-        qtTrId("dialog.video_export.preset.high_quality"),
-    };
+    return {QVariantMap{{"value", 0}, {"label", qtTrId("dialog.video_export.rate_mode.quality")}},
+            QVariantMap{{"value", 1}, {"label", qtTrId("dialog.video_export.rate_mode.file_size")}},
+            QVariantMap{{"value", 2}, {"label", qtTrId("dialog.video_export.rate_mode.bitrate")}}};
 }
 
-QVariantList ExportSession::sizePresetOptions() const
+QVariantList ExportSession::qualityLevelOptions() const
 {
-    return QVariantList{
-        qtTrId("dialog.video_export.size_preset.standard"),
-        qtTrId("dialog.video_export.size_preset.compact"),
-        qtTrId("dialog.video_export.size_preset.ultra_compact_with_pv"),
-        qtTrId("dialog.video_export.size_preset.ultra_compact"),
-    };
+    return {QVariantMap{{"value", 0}, {"label", qtTrId("dialog.video_export.quality_level.high")}},
+            QVariantMap{{"value", 1}, {"label", qtTrId("dialog.video_export.quality_level.standard")}},
+            QVariantMap{{"value", 2}, {"label", qtTrId("dialog.video_export.quality_level.small")}}};
 }
 
-int ExportSession::presetIndex() const
+int ExportSession::rateModeIndex() const
 {
-    return task_.preset == VideoExportPreset::Fast ? 0 : 1;
+    return static_cast<int>(std::find(std::begin(kRateModeOrder), std::end(kRateModeOrder), task_.encoding.mode)
+                            - std::begin(kRateModeOrder));
 }
 
-int ExportSession::sizePresetIndex() const
+int ExportSession::qualityLevelIndex() const
 {
-    switch (task_.sizePreset) {
-    case VideoExportSizePreset::Compact:
-        return 1;
-    case VideoExportSizePreset::UltraCompactWithPv:
-        return 2;
-    case VideoExportSizePreset::UltraCompact:
-        return 3;
-    case VideoExportSizePreset::Standard:
-    default:
-        return 0;
-    }
+    return static_cast<int>(
+        std::find(std::begin(kQualityLevelOrder), std::end(kQualityLevelOrder), task_.encoding.quality)
+        - std::begin(kQualityLevelOrder));
+}
+
+double ExportSession::estimatedSizeBytes() const
+{
+    const VideoExportTask task = requestedTaskSettings();
+    const miacode::video_export::VideoExportTiming timing = miacode::video_export::videoExportTiming(task);
+    miacode::video_export::VideoRateInputs inputs;
+    inputs.width = task.outputWidth;
+    inputs.height = task.outputHeight;
+    inputs.fps = task.fps;
+    inputs.videoFrameCount = timing.outputFrameCount;
+    inputs.seconds = timing.outputSeconds;
+    inputs.audioKbps = miacode::video_export::normalizedVideoExportAudioBitrateKbps(task.audioBitrateKbps);
+    inputs.encoder = miacode::video_export::plannedVideoEncoder();
+    const miacode::video_export::VideoRatePlan plan = miacode::video_export::planVideoRate(task.encoding, inputs);
+    return plan.valid ? static_cast<double>(plan.estimatedBytes) : -1.0;
 }
 
 int ExportSession::introBackgroundModeIndex() const
@@ -728,13 +752,19 @@ void ExportSession::applyOwnerLiveFields(VideoExportTask* task) const
     task->muriRenderOptions = engine()->muriRenderOptions();
 }
 
-VideoExportTask ExportSession::buildRequestedTask() const
+VideoExportTask ExportSession::requestedTaskSettings() const
 {
     VideoExportTask task = task_;
     task.outputWidth = kResolutionPresets[qBound(0, resolutionIndex_, static_cast<int>(std::size(kResolutionPresets)) - 1)].width;
     task.outputHeight = kResolutionPresets[qBound(0, resolutionIndex_, static_cast<int>(std::size(kResolutionPresets)) - 1)].height;
     task.fullRangeExport = miacode::video_export::isFullRangeVideoExport(task.exportStartSeconds);
     task.intro.enabled = task.intro.enabled && task.fullRangeExport;
+    return task;
+}
+
+VideoExportTask ExportSession::buildRequestedTask() const
+{
+    VideoExportTask task = requestedTaskSettings();
     applyOwnerLiveFields(&task);
     return task;
 }
@@ -1232,39 +1262,53 @@ void ExportSession::setAudioBitrateKbps(int kbps)
     savePreferences();
 }
 
-void ExportSession::setPresetIndex(int index)
+void ExportSession::applyEncodingSettings(const miacode::video_export::VideoEncodingSettings& encoding)
 {
-    const VideoExportPreset next = index == 0 ? VideoExportPreset::Fast : VideoExportPreset::HighQuality;
-    if (task_.preset == next) {
+    const miacode::video_export::VideoEncodingSettings normalized =
+        miacode::video_export::normalizedVideoEncodingSettings(encoding);
+    if (task_.encoding == normalized) {
         return;
     }
-    task_.preset = next;
+    task_.encoding = normalized;
     emit outputChanged();
     savePreferences();
 }
 
-void ExportSession::setSizePresetIndex(int index)
+void ExportSession::setRateModeIndex(int index)
 {
-    VideoExportSizePreset next = VideoExportSizePreset::Standard;
-    switch (index) {
-    case 1:
-        next = VideoExportSizePreset::Compact;
-        break;
-    case 2:
-        next = VideoExportSizePreset::UltraCompactWithPv;
-        break;
-    case 3:
-        next = VideoExportSizePreset::UltraCompact;
-        break;
-    default:
-        break;
-    }
-    if (task_.sizePreset == next) {
+    if (index < 0 || index >= static_cast<int>(std::size(kRateModeOrder))) {
         return;
     }
-    task_.sizePreset = next;
-    emit outputChanged();
-    savePreferences();
+    miacode::video_export::VideoEncodingSettings encoding = task_.encoding;
+    encoding.mode = kRateModeOrder[index];
+    applyEncodingSettings(encoding);
+}
+
+void ExportSession::setQualityLevelIndex(int index)
+{
+    if (index < 0 || index >= static_cast<int>(std::size(kQualityLevelOrder))) {
+        return;
+    }
+    miacode::video_export::VideoEncodingSettings encoding = task_.encoding;
+    encoding.quality = kQualityLevelOrder[index];
+    applyEncodingSettings(encoding);
+}
+
+void ExportSession::setSizeLimitMb(int megabytes)
+{
+    miacode::video_export::VideoEncodingSettings encoding = task_.encoding;
+    encoding.sizeLimitMb = megabytes;
+    applyEncodingSettings(encoding);
+}
+
+void ExportSession::setVideoBitrateMbps(double megabitsPerSecond)
+{
+    if (!std::isfinite(megabitsPerSecond)) {
+        return;
+    }
+    miacode::video_export::VideoEncodingSettings encoding = task_.encoding;
+    encoding.videoBitrateKbps = qRound(megabitsPerSecond * 1000.0);
+    applyEncodingSettings(encoding);
 }
 
 void ExportSession::setShowObjectStatsHud(bool value)

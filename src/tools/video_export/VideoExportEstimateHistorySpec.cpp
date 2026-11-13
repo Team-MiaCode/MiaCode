@@ -29,8 +29,8 @@ bool verifyHistory(QTextStream& err)
     const QString path = directory.filePath(QStringLiteral("history.json"));
     ExportEstimateProfile standard{
         1920, 1080, 60, 120.0,
-        VideoExportPreset::Fast,
-        VideoExportSizePreset::Standard};
+        VideoRateMode::Quality,
+        VideoQualityLevel::Standard};
     if (!require(predictedExportTotalMs(standard, path) < 0,
                  QStringLiteral("empty history must not invent an estimate"), err)
         || !require(recordSuccessfulExportPerformance(standard, 60000, path),
@@ -48,18 +48,18 @@ bool verifyHistory(QTextStream& err)
     ExportEstimateProfile twiceAsLong = standard;
     twiceAsLong.durationSeconds = 240.0;
     const qint64 scaledEstimate = predictedExportTotalMs(twiceAsLong, path);
-    ExportEstimateProfile otherPreset = standard;
-    otherPreset.preset = VideoExportPreset::HighQuality;
-    ExportEstimateProfile otherSizePreset = standard;
-    otherSizePreset.sizePreset = VideoExportSizePreset::Compact;
+    ExportEstimateProfile otherQuality = standard;
+    otherQuality.qualityLevel = VideoQualityLevel::High;
+    ExportEstimateProfile otherRateMode = standard;
+    otherRateMode.rateMode = VideoRateMode::FileSize;
     if (!require(exactEstimate == 60000,
                  QStringLiteral("exact profile estimate must reproduce its sample"), err)
         || !require(scaledEstimate == 120000,
                     QStringLiteral("estimate must scale with rendered work"), err)
-        || !require(predictedExportTotalMs(otherPreset, path) < 0,
-                    QStringLiteral("quality presets must not share performance samples"), err)
-        || !require(predictedExportTotalMs(otherSizePreset, path) < 0,
-                    QStringLiteral("size presets must not share performance samples"), err)) {
+        || !require(predictedExportTotalMs(otherQuality, path) < 0,
+                    QStringLiteral("quality levels must not share performance samples"), err)
+        || !require(predictedExportTotalMs(otherRateMode, path) < 0,
+                    QStringLiteral("rate modes must not share performance samples"), err)) {
         return false;
     }
 
@@ -70,7 +70,7 @@ bool verifyHistory(QTextStream& err)
     const QJsonObject root = QJsonDocument::fromJson(file.readAll()).object();
     const QByteArray serialized = QJsonDocument(root).toJson(QJsonDocument::Compact);
     return require(root.value(QStringLiteral("schema")).toString()
-                       == QStringLiteral("miacode_export_performance_v1"),
+                       == QStringLiteral("miacode_export_performance_v2"),
                    QStringLiteral("history schema mismatch"), err)
         && require(!serialized.contains("path")
                        && !serialized.contains("title")

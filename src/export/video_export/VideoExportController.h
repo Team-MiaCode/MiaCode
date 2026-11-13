@@ -19,14 +19,8 @@
 #include "core/analysis/MuriTypes.h"
 #include "core/video/PreviewVideoGeometryConfig.h"
 #include "core/video/PreviewGameplayConfig.h"
-#include "export/video_export/VideoExportRuntimePolicy.h"
+#include "export/video_export/VideoExportEncoding.h"
 #include "export/video_export/VideoExportOutput.h"
-enum class VideoExportPreset {
-    Fast,
-    HighQuality,
-};
-
-using VideoExportSizePreset = miacode::video_export::VideoExportSizePreset;
 
 // Pre-roll "track-start" intro banner spec. Populated from the chart in
 // buildVideoExportSnapshot; consumed by the export session when `enabled`.
@@ -253,9 +247,8 @@ struct VideoExportTask {
     // quality bump for charts with stereo BGM, transparent for casual
     // phone playback. Routed into ffmpeg as `-b:a <kbps>k`.
     int audioBitrateKbps = 192;
-    // Encoding quality settings apply to the selected hardware or software codec.
-    VideoExportPreset preset = VideoExportPreset::HighQuality;
-    VideoExportSizePreset sizePreset = VideoExportSizePreset::Standard;
+    // Video rate control chosen on the export page; see planVideoRate.
+    miacode::video_export::VideoEncodingSettings encoding;
     bool fullRangeExport = true;
     bool showTimestamp = true;
     bool showObjectStatsHud = false;
