@@ -1861,6 +1861,10 @@ Restore the backup from %1?</translation>
         <source>Failed to send export snapshot to worker.</source>
         <translation>Failed to send export snapshot to worker.</translation>
     </message>
+    <message id="dialog.video_export.estimated_size">
+        <source>Estimated size: %1</source>
+        <translation>Estimated size: %1</translation>
+    </message>
     <message id="dialog.video_export.error.disk_full_temp">
         <source>%1 is out of space. Export writes the video to the system temp folder (%2) first.</source>
         <translation>%1 is out of space. Export writes the video to the system temp folder (%2) first.</translation>
@@ -1884,6 +1888,10 @@ Restore the backup from %1?</translation>
     <message id="dialog.video_export.error.render_failed">
         <source>Rendering the export frames failed.</source>
         <translation>Rendering the export frames failed.</translation>
+    </message>
+    <message id="dialog.video_export.error.size_limit_too_small">
+        <source>The size limit cannot hold this export&apos;s audio. Raise the limit or lower the audio bitrate.</source>
+        <translation>The size limit cannot hold this export&apos;s audio. Raise the limit or lower the audio bitrate.</translation>
     </message>
     <message id="dialog.video_export.error.audio_failed">
         <source>Could not generate the export audio track.</source>
@@ -1961,18 +1969,6 @@ Restore the backup from %1?</translation>
         <source>Show bottom-left timestamp</source>
         <translation>Show bottom-left timestamp</translation>
     </message>
-    <message id="dialog.video_export.preset">
-        <source>Export Quality</source>
-        <translation>Export Quality</translation>
-    </message>
-    <message id="dialog.video_export.preset.fast">
-        <source>Fast</source>
-        <translation>Fast</translation>
-    </message>
-    <message id="dialog.video_export.preset.high_quality">
-        <source>High Quality</source>
-        <translation>High Quality</translation>
-    </message>
     <message id="preview.stop">
         <source>Stop</source>
         <translation>Stop</translation>
@@ -2049,6 +2045,22 @@ Restore the backup from %1?</translation>
         <source>Worker ready...</source>
         <translation>Worker ready...</translation>
     </message>
+    <message id="dialog.video_export.quality_level">
+        <source>Quality</source>
+        <translation>Quality</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.high">
+        <source>High</source>
+        <translation>High</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.small">
+        <source>Compact</source>
+        <translation>Compact</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.standard">
+        <source>Standard</source>
+        <translation>Standard</translation>
+    </message>
     <message id="dialog.video_export.range.end">
         <source>End</source>
         <translation>End</translation>
@@ -2057,33 +2069,37 @@ Restore the backup from %1?</translation>
         <source>Start</source>
         <translation>Start</translation>
     </message>
+    <message id="dialog.video_export.rate_mode">
+        <source>Rate control</source>
+        <translation>Rate control</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.bitrate">
+        <source>Bitrate</source>
+        <translation>Bitrate</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.file_size">
+        <source>Size limit</source>
+        <translation>Size limit</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.quality">
+        <source>Quality first</source>
+        <translation>Quality first</translation>
+    </message>
     <message id="dialog.video_export.resolution">
         <source>Resolution</source>
         <translation>Resolution</translation>
     </message>
-    <message id="dialog.video_export.size_preset">
-        <source>File size</source>
-        <translation>File size</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.compact">
-        <source>Smaller</source>
-        <translation>Smaller</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.standard">
-        <source>Standard</source>
-        <translation>Standard</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.ultra_compact">
-        <source>Smallest (No PV)</source>
-        <translation>Smallest (No PV)</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.ultra_compact_with_pv">
-        <source>Smallest (With PV)</source>
-        <translation>Smallest (With PV)</translation>
+    <message id="dialog.video_export.size_limit">
+        <source>Size limit</source>
+        <translation>Size limit</translation>
     </message>
     <message id="dialog.video_export.title">
         <source>Export Video</source>
         <translation>Export Video</translation>
+    </message>
+    <message id="dialog.video_export.video_bitrate">
+        <source>Video bitrate</source>
+        <translation>Video bitrate</translation>
     </message>
     <message id="document.all_difficulties_share_this_designer">
         <source>All difficulties share this designer</source>

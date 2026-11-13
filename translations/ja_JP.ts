@@ -1861,6 +1861,10 @@ Restore the backup from %1?</source>
         <source>Failed to send export snapshot to worker.</source>
         <translation>出力スナップショットをワーカーへ送信できませんでした。</translation>
     </message>
+    <message id="dialog.video_export.estimated_size">
+        <source>Estimated size: %1</source>
+        <translation>推定サイズ：%1</translation>
+    </message>
     <message id="dialog.video_export.error.disk_full_temp">
         <source>%1 is out of space. Export writes the video to the system temp folder (%2) first.</source>
         <translation>%1の空き容量が不足しています。出力時はまずシステムの一時フォルダー（%2）に動画を作成します。</translation>
@@ -1884,6 +1888,10 @@ Restore the backup from %1?</source>
     <message id="dialog.video_export.error.render_failed">
         <source>Rendering the export frames failed.</source>
         <translation>出力映像のレンダリングに失敗しました。</translation>
+    </message>
+    <message id="dialog.video_export.error.size_limit_too_small">
+        <source>The size limit cannot hold this export&apos;s audio. Raise the limit or lower the audio bitrate.</source>
+        <translation>サイズ上限ではこのエクスポートの音声が収まりません。上限を上げるか、音声ビットレートを下げてください。</translation>
     </message>
     <message id="dialog.video_export.error.audio_failed">
         <source>Could not generate the export audio track.</source>
@@ -1961,18 +1969,6 @@ Restore the backup from %1?</source>
         <source>Show bottom-left timestamp</source>
         <translation>左下に時刻を表示</translation>
     </message>
-    <message id="dialog.video_export.preset">
-        <source>Export Quality</source>
-        <translation>出力品質</translation>
-    </message>
-    <message id="dialog.video_export.preset.fast">
-        <source>Fast</source>
-        <translation>高速</translation>
-    </message>
-    <message id="dialog.video_export.preset.high_quality">
-        <source>High Quality</source>
-        <translation>高品質</translation>
-    </message>
     <message id="preview.stop">
         <source>Stop</source>
         <translation>停止</translation>
@@ -2049,6 +2045,22 @@ Restore the backup from %1?</source>
         <source>Worker ready...</source>
         <translation>裏側の処理を準備済み...</translation>
     </message>
+    <message id="dialog.video_export.quality_level">
+        <source>Quality</source>
+        <translation>画質</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.high">
+        <source>High</source>
+        <translation>高</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.small">
+        <source>Compact</source>
+        <translation>軽量</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.standard">
+        <source>Standard</source>
+        <translation>標準</translation>
+    </message>
     <message id="dialog.video_export.range.end">
         <source>End</source>
         <translation>終了</translation>
@@ -2057,33 +2069,37 @@ Restore the backup from %1?</source>
         <source>Start</source>
         <translation>開始</translation>
     </message>
+    <message id="dialog.video_export.rate_mode">
+        <source>Rate control</source>
+        <translation>ビットレート制御</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.bitrate">
+        <source>Bitrate</source>
+        <translation>ビットレート指定</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.file_size">
+        <source>Size limit</source>
+        <translation>サイズ上限</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.quality">
+        <source>Quality first</source>
+        <translation>画質優先</translation>
+    </message>
     <message id="dialog.video_export.resolution">
         <source>Resolution</source>
         <translation>解像度</translation>
     </message>
-    <message id="dialog.video_export.size_preset">
-        <source>File size</source>
-        <translation>ファイルサイズ</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.compact">
-        <source>Smaller</source>
-        <translation>小さめ</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.standard">
-        <source>Standard</source>
-        <translation>標準</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.ultra_compact">
-        <source>Smallest (No PV)</source>
-        <translation>最小（PVなし）</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.ultra_compact_with_pv">
-        <source>Smallest (With PV)</source>
-        <translation>最小（PVあり）</translation>
+    <message id="dialog.video_export.size_limit">
+        <source>Size limit</source>
+        <translation>サイズ上限</translation>
     </message>
     <message id="dialog.video_export.title">
         <source>Export Video</source>
         <translation>動画出力</translation>
+    </message>
+    <message id="dialog.video_export.video_bitrate">
+        <source>Video bitrate</source>
+        <translation>映像ビットレート</translation>
     </message>
     <message id="document.all_difficulties_share_this_designer">
         <source>All difficulties share this designer</source>

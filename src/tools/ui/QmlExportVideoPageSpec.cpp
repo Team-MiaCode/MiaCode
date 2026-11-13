@@ -99,10 +99,17 @@ ApplicationWindow {
         property var fpsOptions: [30, 60, 120]
         property int audioBitrateKbps: 192
         property var audioBitrateOptions: [128, 192, 320]
-        property int presetIndex: 1
-        property var presetOptions: ["Fast", "High quality"]
-        property int sizePresetIndex: 0
-        property var sizePresetOptions: ["Standard"]
+        property int rateModeIndex: 0
+        property var rateModeOptions: [{ value: 0, label: "Quality first" }]
+        property int qualityLevelIndex: 1
+        property var qualityLevelOptions: [{ value: 1, label: "Standard" }]
+        property int sizeLimitMb: 100
+        property int sizeLimitMinMb: 5
+        property int sizeLimitMaxMb: 1000
+        property real videoBitrateMbps: 8
+        property real videoBitrateMinMbps: 0.1
+        property real videoBitrateMaxMbps: 100
+        property real estimatedSizeBytes: 96600000
         property bool showObjectStatsHud: false
         property bool showChartInfoHud: false
         property bool clockCountEnabled: false

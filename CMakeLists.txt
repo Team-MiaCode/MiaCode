@@ -671,6 +671,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/components/ChoiceDialog.qml
     src/app/ui/components/EditableValue.qml
     src/app/ui/components/LabeledCombo.qml
+    src/app/ui/components/LabeledFocusSlider.qml
     src/app/ui/components/LabeledSlider.qml
     src/app/ui/components/SettingsSection.qml
     src/app/ui/components/JobProgressOverlay.qml
