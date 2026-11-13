@@ -304,7 +304,10 @@ void NetModel::downloadSelected(bool includeVideo, bool createZip) {
         progressText_.clear();
         progressResource_.clear();
         paused_ = false;
+        statusText_.clear();
         appendLog(qtTrId("net.start_download_queue_selected_1").arg(ids.size()));
+        updateDownload();
+        return;
     }
     emit changed();
 }
