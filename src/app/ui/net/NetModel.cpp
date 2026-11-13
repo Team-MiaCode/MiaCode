@@ -11,6 +11,15 @@
 #include <algorithm>
 
 namespace miacode::ui {
+namespace {
+
+QString downloadHttpStatus(const QJsonObject& error)
+{
+    const int status = error.value("upstreamStatus").toInt();
+    return status > 0 ? QStringLiteral(" (HTTP %1)").arg(status) : QString{};
+}
+
+} // namespace
 
 NetModel::NetModel(NetService* service, QObject* parent) : QAbstractListModel(parent), service_(service)
 {
@@ -290,6 +299,7 @@ void NetModel::downloadSelected(bool includeVideo, bool createZip) {
     if (!accepted.ok()) errorText_ = qtTrId("net.ui.error").arg(accepted.error.value("code").toString());
     else {
         downloadJobId_ = accepted.result.toObject().value("jobId").toString();
+        downloadCreatesZip_ = createZip;
         progress_ = 0;
         progressText_.clear();
         progressResource_.clear();
@@ -359,12 +369,19 @@ void NetModel::updateDownload() {
             : phase == QLatin1String("video") ? QStringLiteral("pv.mp4") : QString{};
         QString text;
         if (state == QLatin1String("succeeded")) { text = qtTrId("net.done_folder"); ++completed; }
-        else if (state == QLatin1String("failed")) { text = qtTrId("net.failed_1").arg(item.value("error").toObject().value("code").toString()); ++completed; }
+        else if (state == QLatin1String("failed")) {
+            const auto error = item.value("error").toObject();
+            text = qtTrId("net.failed_1").arg(error.value("code").toString()) + downloadHttpStatus(error);
+            ++completed;
+        }
         else if (state == QLatin1String("cancelled")) { text = qtTrId("net.download_canceled"); ++completed; }
-        else if (state == QLatin1String("blocked")) text = qtTrId("net.paused");
+        else if (state == QLatin1String("blocked")) text = qtTrId("net.paused") + downloadHttpStatus(item.value("error").toObject());
         else if (state == QLatin1String("retry_wait")) text = qtTrId("net.retrying_1").arg(resourceName);
         else if (state == QLatin1String("running")) {
-            text = resourceName.isEmpty() ? qtTrId("net.packaging_zip") : qtTrId("net.downloading_1_2").arg(resourceName);
+            if (!resourceName.isEmpty()) text = qtTrId("net.downloading_1_2").arg(resourceName);
+            else if (phase == QLatin1String("publish")) {
+                text = downloadCreatesZip_ ? qtTrId("net.packaging_zip") : qtTrId("net.saving_download");
+            } else text = qtTrId("net.preparing_download");
             const auto bytes = item.value("bytesReceived").toString().toLongLong();
             const auto total = item.value("bytesTotal").toString().toLongLong();
             const QString resourceKey = item.value("itemId").toString() + ':' + phase + ':' + QString::number(item.value("attempt").toInt());
@@ -382,7 +399,10 @@ void NetModel::updateDownload() {
     }
     progress_ = items.isEmpty() ? 0 : (completed + fraction) / items.size();
     paused_ = job.value("state") == QLatin1String("blocked");
-    if (paused_) errorText_ = qtTrId("net.ui.error").arg(job.value("error").toObject().value("code").toString());
+    if (paused_) {
+        const auto error = job.value("error").toObject();
+        errorText_ = qtTrId("net.ui.error").arg(error.value("code").toString()) + downloadHttpStatus(error);
+    }
     if (JobRegistry::isTerminal(job.value("state").toString())) {
         const auto counts = job.value("counts").toObject();
         statusText_ = qtTrId("net.download_complete_1_succeeded_2").arg(counts.value("succeeded").toInt()).arg(counts.value("failed").toInt());

@@ -95,6 +95,7 @@ private:
     QStringList logs_, downloadChartIds_;
     double progress_ = 0;
     bool paused_ = false;
+    bool downloadCreatesZip_ = false;
     QElapsedTimer resourceTimer_;
     QString progressResource_;
     const QString principal_ = QStringLiteral("desktop");

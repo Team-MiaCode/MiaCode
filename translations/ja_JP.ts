@@ -3025,6 +3025,14 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Packaging ZIP...</source>
         <translation>Packaging ZIP...</translation>
     </message>
+    <message id="net.preparing_download">
+        <source>Preparing download…</source>
+        <translation>ダウンロードを準備中…</translation>
+    </message>
+    <message id="net.saving_download">
+        <source>Saving downloaded files…</source>
+        <translation>ダウンロードしたファイルを保存中…</translation>
+    </message>
     <message id="net.paused">
         <source>Paused</source>
         <translation>Paused</translation>
