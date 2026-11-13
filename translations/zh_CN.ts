@@ -4959,6 +4959,12 @@ Error: %1</source>
         <source>Custom candidates</source>
         <translation>自定义候选</translation>
     </message>
+    <message id="preferences.completion.help">
+        <source>"Duration" sets the completion list shown when typing [.
+"Beat subdivision" sets the completion list shown when typing {.</source>
+        <translation>“时值”为设置输入[时的自动补全列表。
+“节拍”为设置输入{时的自动补全列表。</translation>
+    </message>
     <message id="preferences.completion.expand">
         <source>Expand custom candidates</source>
         <translation>展开自定义候选</translation>
@@ -4973,7 +4979,7 @@ Error: %1</source>
     </message>
     <message id="preferences.completion.division">
         <source>Beat subdivision</source>
-        <translation>节拍细分</translation>
+        <translation>节拍</translation>
     </message>
     <message id="preferences.completion.duration_hint">
         <source>Enter duration</source>

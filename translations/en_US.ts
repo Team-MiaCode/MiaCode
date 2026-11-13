@@ -4959,6 +4959,12 @@ Error: %1</translation>
         <source>Custom candidates</source>
         <translation>Custom candidates</translation>
     </message>
+    <message id="preferences.completion.help">
+        <source>"Duration" sets the completion list shown when typing [.
+"Beat subdivision" sets the completion list shown when typing {.</source>
+        <translation>"Duration" sets the completion list shown when typing [.
+"Beat subdivision" sets the completion list shown when typing {.</translation>
+    </message>
     <message id="preferences.completion.expand">
         <source>Expand custom candidates</source>
         <translation>Expand custom candidates</translation>
