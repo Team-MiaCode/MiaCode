@@ -470,21 +470,28 @@ Rectangle {
                 SplitView.maximumWidth: 460
                 color: Theme.colors.background.panel
                 clip: true
+                readonly property int padding: 10
 
+                // The right padding belongs to the Flickable, so its clip edge is the
+                // pane edge and the scroll bar sits in that gutter instead of over
+                // swatches and switches that end on the content edge.
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 10
+                    anchors.margins: inspectorPane.padding
+                    anchors.rightMargin: 0
                     spacing: 8
 
                     AppTabBar {
                         id: inspectorTabs
                         Layout.fillWidth: true
+                        Layout.rightMargin: inspectorPane.padding
                         tabs: [{ id: "canvas", label: qsTrId("cover.canvas") },
                                { id: "layer", label: qsTrId("cover.layer"), objectName: "coverLayerTab" }]
                     }
 
                     Rectangle {
                         Layout.fillWidth: true
+                        Layout.rightMargin: inspectorPane.padding
                         Layout.preferredHeight: 1 / Screen.devicePixelRatio
                         color: Theme.separatorColor
                     }
@@ -500,7 +507,7 @@ Rectangle {
 
                         AppTabPages {
                             id: inspector
-                            width: parent.width
+                            width: parent.width - inspectorPane.padding
                             currentIndex: inspectorTabs.currentIndex
 
                             // ---- 画板 ----
