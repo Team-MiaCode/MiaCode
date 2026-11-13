@@ -2070,8 +2070,8 @@ Restore the backup from %1?</source>
         <translation>開始</translation>
     </message>
     <message id="dialog.video_export.rate_mode">
-        <source>Rate control</source>
-        <translation>ビットレート制御</translation>
+        <source>Export strategy</source>
+        <translation>エクスポート方針</translation>
     </message>
     <message id="dialog.video_export.rate_mode.bitrate">
         <source>Bitrate</source>
