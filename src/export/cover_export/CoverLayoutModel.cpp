@@ -695,11 +695,15 @@ void CoverLayoutModel::moveByViewRows(int fromRow, int toRow)
     if (dest > n) {
         dest = n;   // drop past the end → send to back
     }
-    CoverLayer* moving = view.takeAt(fromRow);
     if (dest > fromRow) {
-        dest -= 1;   // removing fromRow shifted everything after it left by one
+        dest -= 1;   // removing fromRow shifts everything after it left by one
     }
-    view.insert(qBound(0, dest, view.size()), moving);
+    dest = qBound(0, dest, n - 1);
+    if (dest == fromRow) {
+        return;   // dropped where it started: keep z and the delegates as they are
+    }
+    CoverLayer* moving = view.takeAt(fromRow);
+    view.insert(dest, moving);
     // Reassign z so the new view order holds: view row 0 = highest z (front).
     for (int i = 0; i < view.size(); ++i) {
         view.at(i)->setZ(view.size() - 1 - i);
