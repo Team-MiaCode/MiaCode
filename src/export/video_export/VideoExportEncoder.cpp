@@ -199,6 +199,11 @@ QString resolveFfmpegExecutable()
 {
 #ifdef Q_OS_WIN
     const QString ffmpegName = QStringLiteral("ffmpeg.exe");
+#if defined(Q_PROCESSOR_ARM_64)
+    const QString windowsExportDir = QStringLiteral("third_party/ffmpeg/windows/winarm64/");
+#else
+    const QString windowsExportDir = QStringLiteral("third_party/ffmpeg/windows/win64/");
+#endif
 #else
     const QString ffmpegName = QStringLiteral("ffmpeg");
 #endif
@@ -212,6 +217,11 @@ QString resolveFfmpegExecutable()
         appDir.filePath(ffmpegName),
         appDir.filePath(QStringLiteral("ffmpeg/%1").arg(ffmpegName)),
         appDir.filePath(QStringLiteral("../Resources/%1").arg(ffmpegName)),
+#ifdef Q_OS_WIN
+        // Development builds use the architecture-specific export binary before PATH.
+        appDir.filePath(QStringLiteral("../../") + windowsExportDir + ffmpegName),
+        appDir.filePath(QStringLiteral("../../../") + windowsExportDir + ffmpegName),
+#endif
         appDir.filePath(QStringLiteral("../../third_party/ffmpeg/windows/%1").arg(ffmpegName)),
         appDir.filePath(QStringLiteral("../../third_party/ffmpeg/macos/%1").arg(ffmpegName)),
         appDir.filePath(QStringLiteral("../../third_party/ffmpeg/linux/%1").arg(ffmpegName)),
