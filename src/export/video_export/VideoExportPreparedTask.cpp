@@ -1115,8 +1115,7 @@ VideoExportResult VideoExportController::exportPreparedTask(
          << mappedVideoPad
          << QStringLiteral("-map")
          << QStringLiteral("1:a:0")
-         << QStringLiteral("-fps_mode")
-         << QStringLiteral("cfr")
+         // Output -r already enforces CFR; -fps_mode is unavailable in FFmpeg 5.0.
          << QStringLiteral("-r")
          << QString::number(task.fps)
          // The pipe carries exactly frameCount frames (see frame_conservation). A
