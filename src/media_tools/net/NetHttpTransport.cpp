@@ -38,6 +38,7 @@ public:
     std::unique_ptr<QSaveFile> file;
     NetHttpResponse response;
     bool timedOut = false;
+    bool followedRedirect = false;
 
     void fail(const QString& code)
     {
@@ -72,6 +73,16 @@ public:
         }
     }
 
+    void readAvailable()
+    {
+        const qint64 previousBytes = response.bytes;
+        consume();
+        // File downloads time out only when the response stops making progress.
+        if (file && request.method == "GET" && response.bytes > previousBytes && timer.isActive()) {
+            timer.start(request.timeoutMs);
+        }
+    }
+
     void complete()
     {
         if (!done) return;
@@ -80,6 +91,9 @@ public:
             consume();
             response.status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
             if (response.status > 0) response.sent = true;
+            if (timedOut && followedRedirect && response.status >= 300 && response.status < 400) {
+                response.status = 0;
+            }
             response.contentType = reply->rawHeader("Content-Type");
             response.retryAfter = reply->rawHeader("Retry-After");
             const QByteArray lengthHeader = reply->rawHeader("Content-Length");
@@ -178,7 +192,8 @@ NetTransportPort::Cancel NetHttpTransport::request(const NetHttpRequest& value, 
     if ((value.url.scheme() != QLatin1String("https") && value.url.scheme() != QLatin1String("http"))
         || value.url.host().isEmpty() || !value.url.userInfo().isEmpty()
         || (value.method != "GET" && value.method != "POST")
-        || value.maximumBytes <= 0 || value.timeoutMs < 1 || value.timeoutMs > 90000) {
+        || value.maximumBytes <= 0 || value.timeoutMs < 1 || value.timeoutMs > 90000
+        || value.firstByteTimeoutMs < 0 || value.firstByteTimeoutMs > value.timeoutMs) {
         reject(QStringLiteral("request.invalid"));
     } else {
         if (!value.outputPath.isEmpty()) {
@@ -221,7 +236,9 @@ NetTransportPort::Cancel NetHttpTransport::request(const NetHttpRequest& value, 
                 transfer->reply = value.method == "GET" ? network->get(request)
                     : multipart ? network->post(request, multipart) : network->post(request, value.body);
                 if (multipart) multipart->setParent(transfer->reply);
-                connect(transfer->reply, &QNetworkReply::readyRead, transfer, [transfer] { transfer->consume(); });
+                connect(transfer->reply, &QNetworkReply::redirected, transfer,
+                    [transfer] { transfer->followedRedirect = true; });
+                connect(transfer->reply, &QNetworkReply::readyRead, transfer, [transfer] { transfer->readAvailable(); });
                 if (value.method == "POST") connect(transfer->reply, &QNetworkReply::uploadProgress, transfer,
                     [transfer](qint64 sent, qint64 total) {
                         if (sent > 0) transfer->response.sent = true;
@@ -232,7 +249,7 @@ NetTransportPort::Cancel NetHttpTransport::request(const NetHttpRequest& value, 
                     transfer->timedOut = true;
                     if (transfer->reply) transfer->reply->abort();
                 });
-                transfer->timer.start(value.timeoutMs);
+                transfer->timer.start(value.firstByteTimeoutMs > 0 ? value.firstByteTimeoutMs : value.timeoutMs);
             } else delete multipart;
         }
     }

@@ -28,6 +28,7 @@ enum ResourceIndex { Track, Image, Chart, Video };
 const QList<Resource> resources{{"track", "track", "track.mp3"}, {"image", "image?fullImage=true", "bg.jpg"},
     {"chart", "chart", "maidata.txt"}, {"video", "video", "pv.mp4"}};
 constexpr int kDownloadConcurrency = 2;
+constexpr int kDownloadFirstByteTimeoutMs = 15000;
 constexpr std::array kVideoDownloadOrder{Track, Video, Image, Chart};
 struct ResourceTransfer {
     NetTransportPort::Cancel cancel;
@@ -38,6 +39,12 @@ struct ResourceTransfer {
     int attempt = 0;
 };
 struct Publication { QJsonObject manifest; QString directory; QString zip; QJsonObject failure; };
+
+bool pathOccupied(const QString& path)
+{
+    const QFileInfo entry(path);
+    return entry.exists() || entry.isSymLink();
+}
 }
 
 class NetResourceOperation final : public QObject {
@@ -196,14 +203,28 @@ private:
             fetchResource(prioritizeVideo ? static_cast<int>(kVideoDownloadOrder[slot]) : slot);
         }
     }
-    void reportResourceProgress(int index) {
-        // Job items expose one resource phase, so keep it in manifest order.
-        if (index != firstUnfinishedResource_) return;
-        const auto& transfer = transfers_[index];
-        const QJsonObject progress{{"bytesReceived", QString::number(transfer.received)},
-            {"bytesTotal", transfer.total > 0 ? QJsonValue(QString::number(transfer.total)) : QJsonValue::Null},
-            {"attempt", transfer.attempt}};
-        emitItem(transfer.retryError.isEmpty() ? "running" : "retry_wait", resources[index].kind, transfer.retryError, progress);
+    void reportResourceProgress() {
+        if (preview_) return;
+        qint64 received = 0;
+        qint64 total = 0;
+        bool totalKnown = true;
+        int displayIndex = firstUnfinishedResource_;
+        for (int index = 0; index < transfers_.size(); ++index) {
+            const auto& transfer = transfers_[index];
+            received += transfer.received;
+            if (transfer.total < 0) totalKnown = false;
+            else total += transfer.total;
+            const auto& displayed = transfers_[displayIndex];
+            if (transfer.entry.isEmpty() && transfer.attempt > 0 && transfer.retryError.isEmpty()
+                && (displayed.attempt == 0 || !displayed.retryError.isEmpty())) {
+                displayIndex = index;
+            }
+        }
+        const auto& displayed = transfers_[displayIndex];
+        const QJsonObject progress{{"bytesReceived", QString::number(received)},
+            {"bytesTotal", totalKnown ? QJsonValue(QString::number(total)) : QJsonValue::Null},
+            {"attempt", displayed.attempt}};
+        emitItem(displayed.retryError.isEmpty() ? "running" : "retry_wait", resources[displayIndex].kind, displayed.retryError, progress);
     }
     void fetchResource(int index) {
         const auto& resource = resources[index];
@@ -211,6 +232,7 @@ private:
         http.url = QUrl(provider_.baseUrl_.toString() + QStringLiteral("/maichart/")
             + QString::fromLatin1(QUrl::toPercentEncoding(ids_[chartIndex_].toString())) + '/' + resource.endpoint);
         http.outputPath = QDir(staging_->path()).filePath(resource.name);
+        if (!preview_) http.firstByteTimeoutMs = kDownloadFirstByteTimeoutMs;
         http.maximumBytes = resource.kind == QLatin1String("chart") ? 16LL * 1024 * 1024 : 4LL * 1024 * 1024 * 1024;
         http.allowDeclaredEmptyChart = resource.kind == QLatin1String("chart")
             && request_.parameters.value("emptyChartPolicy").toString("allow_declared_empty") == QLatin1String("allow_declared_empty");
@@ -220,7 +242,7 @@ private:
         transfer.retryError = {};
         transfer.received = 0;
         transfer.total = -1;
-        reportResourceProgress(index);
+        reportResourceProgress();
         if (stopping_ || cancelled_->load()) return;
         ++inFlight_;
         QPointer<NetResourceOperation> self(this);
@@ -231,7 +253,7 @@ private:
             auto& transfer = self->transfers_[index];
             transfer.received = received;
             transfer.total = total;
-            self->reportResourceProgress(index);
+            self->reportResourceProgress();
         });
     }
     void receive(int index, NetHttpResponse response) {
@@ -256,10 +278,12 @@ private:
         }
         if (resource.kind == QLatin1String("video") && response.status == 404) {
             transfer.entry = {{"kind", resource.kind}, {"state", "absent"}};
+            transfer.received = 0;
+            transfer.total = 0;
         } else if (!response.error.isEmpty()) {
             if (transfer.attempt < 3 && (code == QLatin1String("upstream.network") || code == QLatin1String("upstream.timeout") || response.status >= 500)) {
                 transfer.retryError = response.error;
-                reportResourceProgress(index);
+                reportResourceProgress();
                 QTimer::singleShot(800, this, [this, index, chart = chartIndex_] {
                     if (done_ && !stopping_ && !cancelled_->load() && chart == chartIndex_) fetchResource(index);
                 });
@@ -272,14 +296,16 @@ private:
                 {"bytes", QString::number(response.bytes)}, {"contentType", response.contentType.isEmpty()
                     ? QStringLiteral("application/octet-stream") : QString::fromLatin1(response.contentType)},
                 {"acceptedDeclaredEmpty", response.declaredEmpty}};
+            transfer.received = response.bytes;
+            transfer.total = response.bytes;
         }
         --activeSlots_;
         if (index == firstUnfinishedResource_) {
             while (firstUnfinishedResource_ < transfers_.size() && !transfers_[firstUnfinishedResource_].entry.isEmpty())
                 ++firstUnfinishedResource_;
             if (firstUnfinishedResource_ == transfers_.size()) { publish(); return; }
-            if (transfers_[firstUnfinishedResource_].attempt > 0) reportResourceProgress(firstUnfinishedResource_);
         }
+        reportResourceProgress();
         fetchAvailable();
     }
     void publish() {
@@ -327,21 +353,35 @@ private:
                 }
             }
             if (cancelled->load()) { result.failure = error("job.cancelled"); return result; }
+            const auto conflictPolicy = parameters.value("conflictPolicy").toString();
+            QString publishedPath = destination;
             QString previous;
-            if (QFileInfo::exists(destination)) {
-                if (parameters.value("conflictPolicy") != QLatin1String("replace")) { result.failure = error("file.conflict"); return result; }
-                previous = destination + '.' + ref("previous_");
-                if (!QDir().rename(destination, previous)) { result.failure = error("file.write_failed"); return result; }
-            }
-            if (!QDir().rename(staging->path(), destination)) {
-                if (!previous.isEmpty()) QDir().rename(previous, destination);
-                result.failure = error("file.write_failed"); return result;
+            if (conflictPolicy == QLatin1String("rename")) {
+                int suffix = 2;
+                for (;;) {
+                    if (cancelled->load()) { result.failure = error("job.cancelled"); return result; }
+                    if (!pathOccupied(publishedPath)) {
+                        if (QDir().rename(staging->path(), publishedPath)) break;
+                        if (!pathOccupied(publishedPath)) { result.failure = error("file.write_failed"); return result; }
+                    }
+                    publishedPath = QStringLiteral("%1 (%2)").arg(destination).arg(suffix++);
+                }
+            } else {
+                if (pathOccupied(destination)) {
+                    if (conflictPolicy != QLatin1String("replace")) { result.failure = error("file.conflict"); return result; }
+                    previous = destination + '.' + ref("previous_");
+                    if (!QDir().rename(destination, previous)) { result.failure = error("file.write_failed"); return result; }
+                }
+                if (!QDir().rename(staging->path(), destination)) {
+                    if (!previous.isEmpty()) QDir().rename(previous, destination);
+                    result.failure = error("file.write_failed"); return result;
+                }
             }
             staging->setAutoRemove(false);
             if (!previous.isEmpty()) QDir(previous).removeRecursively();
-            result.directory = destination;
+            result.directory = publishedPath;
             result.manifest = manifest;
-            if (zip) result.zip = QDir(destination).filePath("download.zip");
+            if (zip) result.zip = QDir(publishedPath).filePath("download.zip");
             return result;
         }));
         connect(&worker_, &QFutureWatcher<Publication>::finished, this, [this] {

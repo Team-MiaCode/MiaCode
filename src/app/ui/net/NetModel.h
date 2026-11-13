@@ -96,8 +96,8 @@ private:
     double progress_ = 0;
     bool paused_ = false;
     bool downloadCreatesZip_ = false;
-    QElapsedTimer resourceTimer_;
-    QString progressResource_;
+    QElapsedTimer downloadItemTimer_;
+    QString progressItemId_;
     const QString principal_ = QStringLiteral("desktop");
 
 signals:
