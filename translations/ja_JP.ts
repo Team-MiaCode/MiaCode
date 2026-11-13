@@ -4943,6 +4943,12 @@ Error: %1</source>
         <source>Custom candidates</source>
         <translation>候補のカスタマイズ</translation>
     </message>
+    <message id="preferences.completion.help">
+        <source>"Duration" sets the completion list shown when typing [.
+"Beat subdivision" sets the completion list shown when typing {.</source>
+        <translation>「長さ」は、[ を入力したときの補完候補を設定します。
+「拍の分割」は、{ を入力したときの補完候補を設定します。</translation>
+    </message>
     <message id="preferences.completion.expand">
         <source>Expand custom candidates</source>
         <translation>カスタム候補を展開</translation>
