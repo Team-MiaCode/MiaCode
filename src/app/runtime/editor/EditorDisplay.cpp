@@ -79,9 +79,7 @@ void miacode::runtime::EditorHost::loadPortableState()
     state_.editorOverwriteModeEnabled_ = ui.value("editor_overwrite_mode").toBool(false);
     // PreferenceDocument owns legacy migration and canonical defaults.
     state_.editorAutoCompletionEnabled_ = ui.value("editor_auto_completion").toBool(true);
-    const auto completionConfig = miacode::readEditorCompletionCandidates(ui);
-    state_.editorCompletionDurationCandidates_ = completionConfig.durations;
-    state_.editorCompletionDivisionCandidates_ = completionConfig.divisions;
+    state_.editorCompletionConfig_ = miacode::readEditorCompletionCandidates(ui);
     QSettings legacySettings;
     const bool hasLegacyBottomPanelHeight =
         legacySettings.contains(QStringLiteral("ui/bottomPanelHeight"));
@@ -525,8 +523,7 @@ void miacode::runtime::EditorHost::savePortableState() const
     ui.insert("editor_half_width_input", state_.editorHalfWidthInputEnabled_);
     ui.insert("editor_overwrite_mode", state_.editorOverwriteModeEnabled_);
     ui.insert("editor_auto_completion", state_.editorAutoCompletionEnabled_);
-    miacode::writeEditorCompletionCandidates(ui, {state_.editorCompletionDurationCandidates_,
-                                                state_.editorCompletionDivisionCandidates_});
+    miacode::writeEditorCompletionCandidates(ui, state_.editorCompletionConfig_);
     // Bottom-tabs (timeline/validation/muri) divider height, persisted as a
     // content-scale ratio rather than pixels (see loadPortableState()).
     ui.insert("bottom_tabs_content_scale", state_.bottomTabsContentScale_);
@@ -684,8 +681,7 @@ void miacode::runtime::EditorHost::persistEditorTextFontPreference() const
     ui.insert("editor_half_width_input", state_.editorHalfWidthInputEnabled_);
     ui.insert("editor_overwrite_mode", state_.editorOverwriteModeEnabled_);
     ui.insert("editor_auto_completion", state_.editorAutoCompletionEnabled_);
-    miacode::writeEditorCompletionCandidates(ui, {state_.editorCompletionDurationCandidates_,
-                                                state_.editorCompletionDivisionCandidates_});
+    miacode::writeEditorCompletionCandidates(ui, state_.editorCompletionConfig_);
     ui.insert("editor_ime_input_disabled", state_.editorImeInputDisabled_);
     root.insert("ui", ui);
     PreferenceDocument::savePreferencesObject(root);
@@ -733,29 +729,21 @@ void miacode::runtime::EditorHost::applyEditorAutoCompletionEnabled(bool enabled
 }
 
 void miacode::runtime::EditorHost::applyEditorCompletionCandidates(
-    const QStringList& durations, const QStringList& divisions, bool persistPreference)
+    const editor::SimaiCompletionConfig& config, bool persistPreference)
 {
-    state_.editorCompletionDurationCandidates_ = miacode::editor::normalizeCompletionValues(
-        miacode::editor::CompletionCandidateGroup::Duration, durations);
-    state_.editorCompletionDivisionCandidates_ = miacode::editor::normalizeCompletionValues(
-        miacode::editor::CompletionCandidateGroup::Division, divisions);
+    state_.editorCompletionConfig_ = miacode::editor::normalizeCompletionConfig(config);
     if (persistPreference) persistEditorTextFontPreference();
 }
 
-QStringList miacode::runtime::SettingsHost::editorCompletionDurationCandidates() const
+const miacode::editor::SimaiCompletionConfig& miacode::runtime::SettingsHost::editorCompletionConfig() const
 {
-    return state_.editorCompletionDurationCandidates_;
-}
-
-QStringList miacode::runtime::SettingsHost::editorCompletionDivisionCandidates() const
-{
-    return state_.editorCompletionDivisionCandidates_;
+    return state_.editorCompletionConfig_;
 }
 
 void miacode::runtime::SettingsHost::applyEditorCompletionCandidates(
-    const QStringList& durations, const QStringList& divisions, bool persist)
+    const editor::SimaiCompletionConfig& config, bool persist)
 {
-    session_.editor_->applyEditorCompletionCandidates(durations, divisions, persist);
+    session_.editor_->applyEditorCompletionCandidates(config, persist);
     if (persist) emit session_.editorPreferencesChanged();
 }
 

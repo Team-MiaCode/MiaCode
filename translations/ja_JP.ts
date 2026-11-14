@@ -1861,6 +1861,10 @@ Restore the backup from %1?</source>
         <source>Failed to send export snapshot to worker.</source>
         <translation>出力スナップショットをワーカーへ送信できませんでした。</translation>
     </message>
+    <message id="dialog.video_export.estimated_size">
+        <source>Estimated size: %1</source>
+        <translation>推定サイズ：%1</translation>
+    </message>
     <message id="dialog.video_export.error.disk_full_temp">
         <source>%1 is out of space. Export writes the video to the system temp folder (%2) first.</source>
         <translation>%1の空き容量が不足しています。出力時はまずシステムの一時フォルダー（%2）に動画を作成します。</translation>
@@ -1884,6 +1888,10 @@ Restore the backup from %1?</source>
     <message id="dialog.video_export.error.render_failed">
         <source>Rendering the export frames failed.</source>
         <translation>出力映像のレンダリングに失敗しました。</translation>
+    </message>
+    <message id="dialog.video_export.error.size_limit_too_small">
+        <source>The size limit cannot hold this export&apos;s audio. Raise the limit or lower the audio bitrate.</source>
+        <translation>サイズ上限ではこのエクスポートの音声が収まりません。上限を上げるか、音声ビットレートを下げてください。</translation>
     </message>
     <message id="dialog.video_export.error.audio_failed">
         <source>Could not generate the export audio track.</source>
@@ -1961,18 +1969,6 @@ Restore the backup from %1?</source>
         <source>Show bottom-left timestamp</source>
         <translation>左下に時刻を表示</translation>
     </message>
-    <message id="dialog.video_export.preset">
-        <source>Export Quality</source>
-        <translation>出力品質</translation>
-    </message>
-    <message id="dialog.video_export.preset.fast">
-        <source>Fast</source>
-        <translation>高速</translation>
-    </message>
-    <message id="dialog.video_export.preset.high_quality">
-        <source>High Quality</source>
-        <translation>高品質</translation>
-    </message>
     <message id="preview.stop">
         <source>Stop</source>
         <translation>停止</translation>
@@ -2049,6 +2045,22 @@ Restore the backup from %1?</source>
         <source>Worker ready...</source>
         <translation>裏側の処理を準備済み...</translation>
     </message>
+    <message id="dialog.video_export.quality_level">
+        <source>Quality</source>
+        <translation>画質</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.high">
+        <source>High</source>
+        <translation>高</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.small">
+        <source>Compact</source>
+        <translation>軽量</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.standard">
+        <source>Standard</source>
+        <translation>標準</translation>
+    </message>
     <message id="dialog.video_export.range.end">
         <source>End</source>
         <translation>終了</translation>
@@ -2057,33 +2069,37 @@ Restore the backup from %1?</source>
         <source>Start</source>
         <translation>開始</translation>
     </message>
+    <message id="dialog.video_export.rate_mode">
+        <source>Export strategy</source>
+        <translation>エクスポート方針</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.bitrate">
+        <source>Bitrate</source>
+        <translation>ビットレート指定</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.file_size">
+        <source>Size limit</source>
+        <translation>サイズ上限</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.quality">
+        <source>Quality first</source>
+        <translation>画質優先</translation>
+    </message>
     <message id="dialog.video_export.resolution">
         <source>Resolution</source>
         <translation>解像度</translation>
     </message>
-    <message id="dialog.video_export.size_preset">
-        <source>File size</source>
-        <translation>ファイルサイズ</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.compact">
-        <source>Smaller</source>
-        <translation>小さめ</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.standard">
-        <source>Standard</source>
-        <translation>標準</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.ultra_compact">
-        <source>Smallest (No PV)</source>
-        <translation>最小（PVなし）</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.ultra_compact_with_pv">
-        <source>Smallest (With PV)</source>
-        <translation>最小（PVあり）</translation>
+    <message id="dialog.video_export.size_limit">
+        <source>Size limit</source>
+        <translation>サイズ上限</translation>
     </message>
     <message id="dialog.video_export.title">
         <source>Export Video</source>
         <translation>動画出力</translation>
+    </message>
+    <message id="dialog.video_export.video_bitrate">
+        <source>Video bitrate</source>
+        <translation>映像ビットレート</translation>
     </message>
     <message id="document.all_difficulties_share_this_designer">
         <source>All difficulties share this designer</source>
@@ -2583,7 +2599,7 @@ File: </source>
     </message>
     <message id="media_tools.black_screen">
         <source>black screen</source>
-        <translation>黒画面</translation>
+        <translation>余白画面</translation>
     </message>
     <message id="media_tools.canceled">
         <source>Canceled.</source>
@@ -2731,15 +2747,15 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="media_tools.prepend_pv_black_screen">
         <source>Add Intro Black Screen</source>
-        <translation>冒頭に黒画面を追加</translation>
+        <translation>冒頭に余白画面を追加</translation>
     </message>
     <message id="media_tools.analyzing_audio_alignment">
         <source>Analyzing audio alignment...</source>
         <translation>音声の同期を分析中...</translation>
     </message>
     <message id="media_tools.video_audio_missing">
-        <source>The background video has no audio stream to align.</source>
-        <translation>背景動画に同期可能な音声トラックがありません。</translation>
+        <source>The background video has no audio stream and cannot be automatically aligned; no files were changed.</source>
+        <translation>背景動画に音声トラックがないため、自動同期できません。ファイルは変更されていません。</translation>
     </message>
     <message id="media_tools.video_alignment_cancelled">
         <source>Audio alignment canceled.</source>
@@ -3008,6 +3024,22 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="net.packaging_zip">
         <source>Packaging ZIP...</source>
         <translation>Packaging ZIP...</translation>
+    </message>
+    <message id="net.cancelling_download">
+        <source>Cancelling download…</source>
+        <translation>ダウンロードをキャンセル中…</translation>
+    </message>
+    <message id="net.waiting_for_download_1">
+        <source>Waiting for server response: %1</source>
+        <translation>サーバーの応答待ち：%1</translation>
+    </message>
+    <message id="net.preparing_download">
+        <source>Preparing download…</source>
+        <translation>ダウンロードを準備中…</translation>
+    </message>
+    <message id="net.saving_download">
+        <source>Saving downloaded files…</source>
+        <translation>ダウンロードしたファイルを保存中…</translation>
     </message>
     <message id="net.paused">
         <source>Paused</source>
@@ -3579,7 +3611,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="qml.insert_2_beats_of_black_screen_bpm_3_about_4_seconds_at_the_begi">
         <source>Insert %2 beats of black screen (BPM %3, about %4 seconds) at the beginning of %1. The original file is backed up.</source>
-        <translation>%1 の先頭に %2 拍（BPM %3、約 %4 秒）の黒画面を挿入します。元ファイルは自動でバックアップされます。</translation>
+        <translation>%1 の先頭に %2 拍（BPM %3、約 %4 秒）の余白画面を挿入します。元ファイルは自動でバックアップされます。</translation>
     </message>
     <message id="qml.insert_2_beats_of_silence_bpm_3_about_4_seconds_at_the_beginning">
         <source>Insert %2 beats of silence (BPM %3, about %4 seconds) at the beginning of %1. The original file is backed up.</source>
@@ -3587,7 +3619,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="qml.insert_a_black_screen_of_the_specified_duration_at_the_beginning">
         <source>Insert a black screen of the specified duration at the beginning of the background video and automatically back up the original file.</source>
-        <translation>背景動画の先頭に指定した長さの黒画面を挿入し、元のファイルを自動的にバックアップします。</translation>
+        <translation>背景動画の先頭に指定した長さの余白画面を挿入し、元のファイルを自動的にバックアップします。</translation>
     </message>
     <message id="qml.insert_blank_audio_of_the_specified_duration_at_the_beginning_of">
         <source>Insert blank audio of the specified duration at the beginning of track.mp3 and automatically back up the original file.</source>
@@ -3759,7 +3791,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="qml.prepend_black_screen">
         <source>Prepend black screen</source>
-        <translation>動画の先頭に黒画面を追加</translation>
+        <translation>動画の先頭に余白画面を追加</translation>
     </message>
     <message id="qml.prepend_blank_audio">
         <source>Prepend blank audio</source>
@@ -3840,6 +3872,18 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="qml.set_as_local_default">
         <source>Set as local default</source>
         <translation>ローカル既定値に設定</translation>
+    </message>
+    <message id="qml.shortcut_moved">
+        <source>Moved shortcut %1 from %2 to %3.</source>
+        <translation>ショートカット「%1」を「%2」から「%3」に移しました。</translation>
+    </message>
+    <message id="qml.shortcut_reserved">
+        <source>Shortcut %1 is used by %2 and can't be assigned to %3.</source>
+        <translation>ショートカット「%1」は「%2」で使用されているため、「%3」に割り当てできません。</translation>
+    </message>
+    <message id="qml.shortcut_unassigned">
+        <source>Not set</source>
+        <translation>未設定</translation>
     </message>
     <message id="qml.show_all_open_editors">
         <source>Show all open editors</source>
@@ -4004,6 +4048,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="shortcut.preview.play_pause_global">
         <source>Play/Pause Preview</source>
         <translation>プレビューを再生/一時停止</translation>
+    </message>
+    <message id="shortcut.preview.play_pause_non_text">
+        <source>Play/Pause Preview (Outside Editor)</source>
+        <translation>プレビューを再生/一時停止（エディタ外）</translation>
     </message>
     <message id="shortcut.preview.speed_down">
         <source>Playback Speed -</source>
@@ -4911,6 +4959,12 @@ Error: %1</source>
         <source>Custom candidates</source>
         <translation>候補のカスタマイズ</translation>
     </message>
+    <message id="preferences.completion.help">
+        <source>"Duration" sets the completion list shown when typing [.
+"Beat subdivision" sets the completion list shown when typing {.</source>
+        <translation>「長さ」は、[ を入力したときの補完候補を設定します。
+「拍の分割」は、{ を入力したときの補完候補を設定します。</translation>
+    </message>
     <message id="preferences.completion.expand">
         <source>Expand custom candidates</source>
         <translation>カスタム候補を展開</translation>
@@ -4934,6 +4988,18 @@ Error: %1</source>
     <message id="preferences.completion.division_hint">
         <source>Enter subdivision</source>
         <translation>拍の分割を入力</translation>
+    </message>
+    <message id="preferences.completion.duration_suffix">
+        <source>Custom continuation</source>
+        <translation>カスタム後続候補</translation>
+    </message>
+    <message id="preferences.completion.duration_suffix_hint">
+        <source>Enter a suffix</source>
+        <translation>後続候補を入力</translation>
+    </message>
+    <message id="preferences.completion.invalid_duration_suffix">
+        <source>Enter a valid duration suffix</source>
+        <translation>有効な長さの後続候補を入力してください</translation>
     </message>
     <message id="preferences.completion.reorder">
         <source>Drag to reorder; use Up or Down when focused</source>
@@ -4993,11 +5059,11 @@ Error: %1</source>
     </message>
     <message id="media_tools.prepend_pv_geometry_mismatch">
         <source>PV dimensions or duration failed validation after prepending black frames.</source>
-        <translation>黒画面を追加した PV の解像度または長さの検証に失敗しました。</translation>
+        <translation>余白画面を追加した PV の解像度または長さの検証に失敗しました。</translation>
     </message>
     <message id="media_tools.prepend_pv_size_limit_failed">
         <source>The prepended PV exceeds its size budget or the 20 MB limit.</source>
-        <translation>黒画面を追加した PV がサイズ予算または 20 MB の上限を超えています。</translation>
+        <translation>余白画面を追加した PV がサイズ予算または 20 MB の上限を超えています。</translation>
     </message>
     <message id="file_picker.native_failed">
         <source>Could not open the system folder picker.</source>
@@ -5053,6 +5119,42 @@ Error: %1</source>
     <message id="dialog.preferences.theme.dracula"><source>Dracula</source><translation>ドラキュラ</translation></message>
     <message id="dialog.preferences.theme.tokyo_night"><source>Tokyo Night</source><translation>東京の夜</translation></message>
     <message id="dialog.preferences.theme.noah"><source>Noa</source><translation>ノア</translation></message>
+    <message id="cover.text_stroke">
+        <source>Text outline</source>
+        <translation>文字の縁取り</translation>
+    </message>
+    <message id="cover.text_stroke_color">
+        <source>Outline color</source>
+        <translation>縁取りの色</translation>
+    </message>
+    <message id="cover.text_stroke_width">
+        <source>Outline width</source>
+        <translation>縁取りの幅</translation>
+    </message>
+    <message id="cover.text_shadow">
+        <source>Text shadow</source>
+        <translation>文字の影</translation>
+    </message>
+    <message id="cover.text_shadow_color">
+        <source>Shadow color</source>
+        <translation>影の色</translation>
+    </message>
+    <message id="cover.text_shadow_opacity">
+        <source>Shadow opacity</source>
+        <translation>影の不透明度</translation>
+    </message>
+    <message id="cover.text_shadow_blur">
+        <source>Shadow blur</source>
+        <translation>影のぼかし</translation>
+    </message>
+    <message id="cover.text_shadow_x">
+        <source>Shadow X offset</source>
+        <translation>影の横方向オフセット</translation>
+    </message>
+    <message id="cover.text_shadow_y">
+        <source>Shadow Y offset</source>
+        <translation>影の縦方向オフセット</translation>
+    </message>
 </context>
 <context>
     <!-- Qt loads qtbase texts for the system locale; this context keeps the

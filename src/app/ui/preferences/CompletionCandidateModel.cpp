@@ -9,8 +9,7 @@ namespace miacode::ui {
 CompletionCandidateModel::CompletionCandidateModel(editor::CompletionCandidateGroup group, QObject* parent)
     : QAbstractListModel(parent), group_(group)
 {
-    const auto defaults = editor::defaultCompletionConfig();
-    replaceValues(group == editor::CompletionCandidateGroup::Duration ? defaults.durations : defaults.divisions);
+    replaceValues(editor::defaultCompletionValues(group));
 }
 
 int CompletionCandidateModel::rowCount(const QModelIndex& parent) const
@@ -31,7 +30,7 @@ QVariant CompletionCandidateModel::data(const QModelIndex& index, int role) cons
     const Row& row = rows_.at(index.row());
     switch (role) {
     case KeyRole: return row.key;
-    case DraftRole: return row.draft;
+    case DraftRole: return editableValue(row.draft);
     case PlaceholderRole: return row.placeholder;
     case CanRemoveRole: return !row.placeholder && (row.saved.isEmpty() || savedCount() > 1);
     case ErrorRole: return errorMessage(row.error);
@@ -58,15 +57,28 @@ QStringList CompletionCandidateModel::savedValues() const
     return values;
 }
 
+QString CompletionCandidateModel::editableValue(const QString& value) const
+{
+    if (group_ == editor::CompletionCandidateGroup::DurationSuffix && value.startsWith(QLatin1Char(':')))
+        return value.mid(1);
+    return value;
+}
+
 QString CompletionCandidateModel::normalizeDraftInput(const QString& text) const
 {
     const QString normalized = halfWidthInputEnabled_ ? editor::normalizeSimaiInput(text) : text;
-    return editor::sanitizeCompletionInput(normalized);
+    QString value = editor::sanitizeCompletionInput(normalized);
+    if (group_ == editor::CompletionCandidateGroup::DurationSuffix) {
+        // Preserve the stored suffix syntax while editing only its value.
+        value = editableValue(value);
+        if (!value.isEmpty()) value.prepend(QLatin1Char(':'));
+    }
+    return value;
 }
 
 QString CompletionCandidateModel::normalizeInput(const QString& text) const
 {
-    return normalizeDraftInput(text);
+    return editableValue(normalizeDraftInput(text));
 }
 
 void CompletionCandidateModel::setHalfWidthInputEnabled(bool enabled)
@@ -140,9 +152,16 @@ void CompletionCandidateModel::setDraft(const QString& key, const QString& text)
 QString CompletionCandidateModel::errorMessage(Error error) const
 {
     if (error == Error::Duplicate) return qtTrId("preferences.completion.duplicate");
-    if (error == Error::Invalid)
-        return qtTrId(group_ == editor::CompletionCandidateGroup::Duration
-            ? "preferences.completion.invalid_duration" : "preferences.completion.invalid_division");
+    if (error == Error::Invalid) {
+        switch (group_) {
+        case editor::CompletionCandidateGroup::Duration:
+            return qtTrId("preferences.completion.invalid_duration");
+        case editor::CompletionCandidateGroup::Division:
+            return qtTrId("preferences.completion.invalid_division");
+        case editor::CompletionCandidateGroup::DurationSuffix:
+            return qtTrId("preferences.completion.invalid_duration_suffix");
+        }
+    }
     return {};
 }
 

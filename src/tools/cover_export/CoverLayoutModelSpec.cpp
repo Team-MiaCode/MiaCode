@@ -502,6 +502,17 @@ bool testImageAndTextLayers(QTextStream& err)
     text->setFontPath(QStringLiteral("/nonexistent/font.ttf"));
     text->setTextColor(QStringLiteral("#FF8800"));
     text->setTextBold(true);
+    if (!require(!text->textStrokeEnabled() && !text->textShadowEnabled(),
+                 QStringLiteral("legacy/new text has no effects until enabled"), err)) return false;
+    text->setTextStrokeEnabled(true);
+    text->setTextStrokeColor(QStringLiteral("#123456"));
+    text->setTextStrokeWidth(7.5);
+    text->setTextShadowEnabled(true);
+    text->setTextShadowColor(QStringLiteral("#654321"));
+    text->setTextShadowOpacity(0.42);
+    text->setTextShadowBlur(17);
+    text->setTextShadowOffsetX(-13);
+    text->setTextShadowOffsetY(21);
     text->setContentAspect(3.5);
 
     CoverLayoutModel restored;
@@ -522,11 +533,37 @@ bool testImageAndTextLayers(QTextStream& err)
     if (!require(rt->textBold(), QStringLiteral("round-trip keeps text bold"), err)) return false;
     if (!require(qAbs(rt->contentAspect() - 3.5) < 0.001, QStringLiteral("round-trip keeps text aspect"), err)) return false;
 
+    const auto sameEffects = [text](const CoverLayer* other) {
+        return other && other->textStrokeEnabled() == text->textStrokeEnabled()
+            && other->textStrokeColor() == text->textStrokeColor()
+            && other->textStrokeWidth() == text->textStrokeWidth()
+            && other->textShadowEnabled() == text->textShadowEnabled()
+            && other->textShadowColor() == text->textShadowColor()
+            && other->textShadowOpacity() == text->textShadowOpacity()
+            && other->textShadowBlur() == text->textShadowBlur()
+            && other->textShadowOffsetX() == text->textShadowOffsetX()
+            && other->textShadowOffsetY() == text->textShadowOffsetY();
+    };
+    if (!require(sameEffects(rt), QStringLiteral("all text effects round-trip"), err)) return false;
     CoverLayer* dup = model.duplicateLayer(text->key());
     if (!require(dup != nullptr && dup->text() == QStringLiteral("Hello") && dup->textBold()
                      && dup->textColor() == QStringLiteral("#FF8800"),
                  QStringLiteral("duplicate copies text-layer fields"), err)) return false;
-    return true;
+    if (!require(sameEffects(dup), QStringLiteral("duplicate copies all text effects"), err)) return false;
+    auto old = model.toJson();
+    auto oldLayers = old.value(QStringLiteral("layers")).toArray();
+    for (qsizetype i = 0; i < oldLayers.size(); ++i) {
+        auto item = oldLayers[i].toObject();
+        for (const char* key : {"textStrokeEnabled", "textStrokeColor", "textStrokeWidth", "textShadowEnabled",
+             "textShadowColor", "textShadowOpacity", "textShadowBlur", "textShadowOffsetX", "textShadowOffsetY"})
+            item.remove(QString::fromLatin1(key));
+        oldLayers[i] = item;
+    }
+    old.insert(QStringLiteral("layers"), oldLayers);
+    restored.fromJson(old);
+    rt = restored.layer(text->key());
+    return require(!rt->textStrokeEnabled() && !rt->textShadowEnabled(),
+                   QStringLiteral("loading an old layout resets previously enabled effects"), err);
 }
 
 bool testExportPlanPreservesFrameTimes(QTextStream& err)

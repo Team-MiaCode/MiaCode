@@ -33,8 +33,6 @@ PreferencesModel::PreferencesModel(miacode::PreferencesStore*& storeSlot,
     , storeSlot_(&storeSlot)
     , settings_(&settings)
 {
-    completionDurations_.setHalfWidthInputEnabled(editorHalfWidthInput());
-    completionDivisions_.setHalfWidthInputEnabled(editorHalfWidthInput());
     reloadCompletionCandidates();
     connect(&settings, &WorkbenchSettings::editorSettingsChanged,
             this, &PreferencesModel::reloadCompletionCandidates);
@@ -319,8 +317,9 @@ void PreferencesModel::reloadCompletionCandidates()
 void PreferencesModel::persistCompletionCandidates()
 {
     if (store() == nullptr) return;
-    store()->applyEditorCompletionCandidates(completionDurations_.savedValues(),
-                                            completionDivisions_.savedValues(), true);
+    store()->applyEditorCompletionCandidates(
+        {completionDurations_.savedValues(), completionDivisions_.savedValues(),
+         editor::defaultCompletionConfig().durationSuffixes}, true);
 }
 
 void PreferencesModel::finishCompletionEditing()

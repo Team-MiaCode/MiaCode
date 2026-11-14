@@ -18,38 +18,8 @@ bool require(bool condition, const QString& message, QTextStream& err)
 
 bool verifyPolicy(QTextStream& err)
 {
-    using miacode::video_export::effectiveVideoExportAudioBitrateKbps;
-    using miacode::video_export::effectiveVideoExportX264Crf;
-    using miacode::video_export::VideoExportSizePreset;
     using miacode::video_export::shouldRequestOffscreenPboReadback;
     using miacode::video_export::shouldRetryVideoExportWorkerAfterCrash;
-    using miacode::video_export::videoExportSizePolicy;
-    using miacode::video_export::videoExportSizePresetToken;
-
-    const auto standard = videoExportSizePolicy(VideoExportSizePreset::Standard);
-    const auto compact = videoExportSizePolicy(VideoExportSizePreset::Compact);
-    const auto ultraWithPv = videoExportSizePolicy(VideoExportSizePreset::UltraCompactWithPv);
-    const auto ultra = videoExportSizePolicy(VideoExportSizePreset::UltraCompact);
-    if (!require(standard.gopSeconds > 0 && compact.gopSeconds > 0
-                     && ultra.gopSeconds > 0 && ultra.minBitrateKbps > 0
-                     && compact.minBitrateKbps <= compact.maxBitrateKbps
-                     && ultra.minBitrateKbps <= ultra.maxBitrateKbps
-                     && ultraWithPv.minBitrateKbps <= ultraWithPv.maxBitrateKbps
-                     && ultra.disableVideoBackground && !ultraWithPv.disableVideoBackground
-                     && videoExportSizePresetToken(VideoExportSizePreset::UltraCompactWithPv)
-                         != videoExportSizePresetToken(VideoExportSizePreset::UltraCompact),
-                 QStringLiteral("size presets expose valid budgets and distinct PV behavior"), err)) {
-        return false;
-    }
-
-    for (const auto preset : {VideoExportSizePreset::Standard, VideoExportSizePreset::Compact,
-                              VideoExportSizePreset::UltraCompactWithPv, VideoExportSizePreset::UltraCompact}) {
-        const auto policy = videoExportSizePolicy(preset);
-        if (!require(effectiveVideoExportX264Crf(preset, 22) == 22 + policy.x264CrfAdjustment
-                         && effectiveVideoExportAudioBitrateKbps(preset, 320)
-                             == qMin(320, policy.maxAudioBitrateKbps),
-                     QStringLiteral("encoder settings apply the selected size policy"), err)) return false;
-    }
 
     if (!require(
             shouldRequestOffscreenPboReadback(std::nullopt, std::nullopt),

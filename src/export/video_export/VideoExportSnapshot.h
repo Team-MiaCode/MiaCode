@@ -10,9 +10,12 @@
 // IntroBannerSpec is defined in VideoExportController.h (so VideoExportTask can
 // carry it too); VideoExportSnapshot just serializes one.
 
+// Snapshots only travel from the app to a worker of the same build.
+inline constexpr auto kVideoExportSnapshotSchema = "miacode_export_snapshot_v2";
+
 struct VideoExportSnapshot {
     miacode::preview::scene::PreviewHudFontSettings hudFontSettings;
-    QString schema = QStringLiteral("miacode_export_snapshot_v1");
+    QString schema = QString::fromLatin1(kVideoExportSnapshotSchema);
     QString jobId;
     QString createdAtUtc;
     QString chartTextUtf8;
@@ -48,8 +51,7 @@ struct VideoExportSnapshot {
     int outputHeight = 1080;
     int fps = 60;
     int audioBitrateKbps = 192;
-    VideoExportPreset preset = VideoExportPreset::HighQuality;
-    VideoExportSizePreset sizePreset = VideoExportSizePreset::Standard;
+    miacode::video_export::VideoEncodingSettings encoding;
     bool fullRangeExport = true;
     QString outputPath;
     VideoExportOutputMode outputMode = VideoExportOutputMode::Mp4;

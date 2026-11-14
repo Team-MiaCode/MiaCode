@@ -48,6 +48,12 @@ Default filenames:
 - preview profile: `miacode_preview_profile_summary.txt`
 - PV memory: `miacode_pv_memory_debug.log`
 
+Net download events use the `net/download` scope in the runtime log in debug mode. They record
+the chart ID, batch position, resource, attempt, whether the request uses a fresh connection pool,
+HTTP status, HTTP/2 usage, bytes received, request duration, and the start and finish of saving each chart.
+Transfer progress is logged on the first data
+and then at most once every five seconds per request.
+
 Crash breadcrumb path note:
 
 - `miacode_startup_beacon_<pid>.txt` and `miacode_op_chain_<pid>.log` are resolved at process startup from `MIACODE_OPLOG_SHADOW_PATH`, then `MIACODE_LOG_DIR`, then `%TEMP%`.
@@ -175,9 +181,6 @@ Encoder selection/tuning:
 - `MIACODE_EXPORT_FORCE_ENCODER`
 - `MIACODE_EXPORT_ENCODER_THREADS`
 - `MIACODE_EXPORT_FILTER_THREADS`
-- `MIACODE_EXPORT_X264_PRESET`
-- `MIACODE_EXPORT_X264_CRF`
-- `MIACODE_EXPORT_X264_BFRAMES`
 
 FFmpeg binary + extra readback toggle:
 

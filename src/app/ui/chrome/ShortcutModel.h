@@ -37,14 +37,26 @@ public:
     // unknown and no fallback is given, which leaves the Shortcut inert rather
     // than binding something arbitrary.
     Q_INVOKABLE QString sequence(const QString& id, const QString& fallback = QString()) const;
+    // Unlike sequence(), this preserves wheel gestures for non-keyboard consumers.
+    Q_INVOKABLE QString gestureText(const QString& id, const QString& fallback = QString()) const;
+    // True when another editable command starts with, or is a prefix of, this binding.
+    // Qt would treat both as ambiguous and run neither.
+    Q_INVOKABLE bool overlapsOtherShortcut(const QString& id) const;
+    // Label key of the fixed file/edit command (MainMenu, WindowTitleBar) whose binding
+    // overlaps this one, or empty. Editable commands may not take these bindings.
+    Q_INVOKABLE QString reservedShortcutOwner(const QString& shortcutText) const;
     // Platform spelling for menu rows and tooltips.
     Q_INVOKABLE QString displayText(const QString& id, const QString& fallback = QString()) const;
+    // Preferences spelling of a portable binding, such as a key just recorded:
+    // the platform text, with "+" after each macOS modifier symbol ("⌘+C").
+    Q_INVOKABLE QString nativeText(const QString& shortcutText) const;
     // Menu rows whose binding is a Qt standard key (Open/Save/Undo/...) rather
     // than a registry id still need the platform spelling to display.
     Q_INVOKABLE QString standardDisplayText(int standardKey) const;
     Q_INVOKABLE void reload();
 
-    // Shortcut editing. editableShortcuts() returns one row per command.
+    // Shortcut editing. editableShortcuts() returns one row per command. Assigning or
+    // resetting a binding unbinds every other command that overlaps it.
     Q_INVOKABLE QVariantList editableShortcuts() const;
     Q_INVOKABLE bool setShortcutText(const QString& id, const QString& shortcutText);
     Q_INVOKABLE void resetShortcut(const QString& id);
@@ -58,6 +70,7 @@ signals:
 
 private:
     void publishRevision();
+    void releaseOverlaps(const QString& id);
     ShortcutRegistry& registry_;
     qulonglong revision_ = 1;
     bool captureActive_ = false;

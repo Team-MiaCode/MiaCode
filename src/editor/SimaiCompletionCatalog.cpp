@@ -42,8 +42,27 @@ SimaiCompletionConfig defaultCompletionConfig()
 {
     static const SimaiCompletionConfig defaults{
         {QStringLiteral("8:1"), QStringLiteral("4:1"), QStringLiteral("16:3"), QStringLiteral("384:1")},
-        {QStringLiteral("16"), QStringLiteral("24"), QStringLiteral("32")}};
+        {QStringLiteral("16"), QStringLiteral("24"), QStringLiteral("32")},
+        {QStringLiteral(":1")}};
     return defaults;
+}
+
+QStringList defaultCompletionValues(CompletionCandidateGroup group)
+{
+    const auto defaults = defaultCompletionConfig();
+    switch (group) {
+    case CompletionCandidateGroup::Duration: return defaults.durations;
+    case CompletionCandidateGroup::Division: return defaults.divisions;
+    case CompletionCandidateGroup::DurationSuffix: return defaults.durationSuffixes;
+    }
+    return {};
+}
+
+SimaiCompletionConfig normalizeCompletionConfig(const SimaiCompletionConfig& config)
+{
+    return {normalizeCompletionValues(CompletionCandidateGroup::Duration, config.durations),
+            normalizeCompletionValues(CompletionCandidateGroup::Division, config.divisions),
+            defaultCompletionValues(CompletionCandidateGroup::DurationSuffix)};
 }
 
 bool isValidCompletionValue(CompletionCandidateGroup group, const QString& value)
@@ -54,6 +73,9 @@ bool isValidCompletionValue(CompletionCandidateGroup group, const QString& value
     }
     if (group == CompletionCandidateGroup::Duration)
         return SimaiParser::isValidHoldDurationSignature(value);
+    if (group == CompletionCandidateGroup::DurationSuffix)
+        return value.startsWith(QLatin1Char(':'))
+            && SimaiParser::isValidHoldDurationSignature(QLatin1String("4") + value);
     bool ok = false;
     const int division = value.toInt(&ok);
     return ok && division > 0;
@@ -80,8 +102,37 @@ QStringList normalizeCompletionValues(CompletionCandidateGroup group, const QStr
         normalized.append(value);
     }
     if (!normalized.isEmpty()) return normalized;
-    const auto defaults = defaultCompletionConfig();
-    return group == CompletionCandidateGroup::Duration ? defaults.durations : defaults.divisions;
+    return defaultCompletionValues(group);
+}
+
+CompletionCandidateMatch matchCompletionCandidates(const QStringList& openingCandidates,
+                                                   const QString& prefix,
+                                                   const SimaiCompletionConfig& config,
+                                                   bool insideSquareBrackets)
+{
+    CompletionCandidateMatch match;
+    // Match complete presets before completing the typed denominator.
+    for (const QString& candidate : openingCandidates) {
+        if (candidate.startsWith(prefix)) match.candidates.append(candidate);
+    }
+    if (!match.candidates.isEmpty()) return match;
+
+    int denominatorLength = 0;
+    if (insideSquareBrackets) {
+        while (denominatorLength < prefix.size()) {
+            const QChar ch = prefix.at(denominatorLength);
+            if (ch < QLatin1Char('0') || ch > QLatin1Char('9')) break;
+            ++denominatorLength;
+        }
+    }
+    if (denominatorLength > 0) {
+        const QString denominator = prefix.left(denominatorLength);
+        for (const QString& value : config.durationSuffixes) {
+            const QString candidate = denominator + value + QLatin1Char(']');
+            if (candidate.startsWith(prefix)) match.candidates.append(candidate);
+        }
+    }
+    return match;
 }
 
 QStringList squareDurationCandidates(const SimaiCompletionConfig& config)

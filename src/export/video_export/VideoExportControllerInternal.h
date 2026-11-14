@@ -91,52 +91,20 @@ using miacode::video_export::raw_pipe::chooseRawVideoPipePlan;
 // ---- helper structs / enums (verbatim) ----
 struct VideoEncoderConfig {
     QString codec;
-    QStringList extraArgs;
     bool isHardware = false;
-    int explicitBframes = -1;
     bool needsVaapiHwUpload = false;
     QString vaapiDevicePath;
+    // Empty when frames reach the encoder through the VAAPI upload filter.
+    QString pixelFormat;
+    VideoRateControl rateControl = VideoRateControl::ConstantQuality;
+    // Encoder options placed after `-c:v`: fixed tuning plus the rate control.
+    QStringList codecArgs;
 };
 
 struct SystemMemoryInfo {
     bool valid = false;
     quint64 totalPhysicalBytes = 0;
     quint64 availablePhysicalBytes = 0;
-};
-
-struct VideoBitratePlan {
-    qint64 bitrateKbps = 0;
-    qint64 maxRateKbps = 0;
-    qint64 bufSizeKbps = 0;
-
-    QStringList toArgs() const
-    {
-        return QStringList{
-            QStringLiteral("-b:v"), QString::number(bitrateKbps) + QLatin1String("k"),
-            QStringLiteral("-maxrate"), QString::number(maxRateKbps) + QLatin1String("k"),
-            QStringLiteral("-bufsize"), QString::number(bufSizeKbps) + QLatin1String("k")
-        };
-    }
-};
-
-struct X264TuningPlan {
-    QString preset = QStringLiteral("fast");
-    int crf = 22;
-    int bframes = 0;
-    QString tune;
-
-    QStringList toArgs() const
-    {
-        QStringList args{
-            QStringLiteral("-preset"), preset,
-            QStringLiteral("-crf"), QString::number(crf),
-            QStringLiteral("-bf"), QString::number(bframes)
-        };
-        if (!tune.isEmpty()) {
-            args << QStringLiteral("-tune") << tune;
-        }
-        return args;
-    }
 };
 
 struct ExportRenderBackendOptions {
@@ -167,9 +135,6 @@ struct ExportRuntimeConfig {
     bool skipEncoderRuntimeProbe = false;
     int encoderThreadsOverride = -1;
     int filterThreadsOverride = -1;
-    QString x264PresetOverride;
-    int x264CrfOverride = -1;
-    int x264BframesOverride = -1;
     ExportRenderBackendOptions renderBackend;
     ExportDiagOptions diag;
 };
@@ -369,26 +334,7 @@ struct DiagTapApproachSample {
 qint64 bytesToMiB(quint64 bytes);
 SystemMemoryInfo querySystemMemoryInfo();
 QString memoryInfoToLog(const SystemMemoryInfo& info);
-QString fasterX264Preset(const QString& preset);
-QString videoExportPresetToken(VideoExportPreset preset);
 ExportRuntimeConfig loadExportRuntimeConfig();
-VideoBitratePlan chooseVideoBitratePlan(
-    VideoExportPreset preset,
-    VideoExportSizePreset sizePreset,
-    int outputWidth,
-    int outputHeight,
-    int fps
-);
-X264TuningPlan chooseX264TuningPlan(
-    VideoExportPreset preset,
-    VideoExportSizePreset sizePreset,
-    const ExportRuntimeConfig& exportConfig,
-    const SystemMemoryInfo& memoryInfo,
-    int outputWidth,
-    int outputHeight,
-    int fps,
-    int idealThreadCount
-);
 bool fileIsExecutable(const QString& path);
 QString resolveFfmpegExecutable();
 QString resolveFfprobeExecutable(const QString& ffmpegPath);
@@ -401,8 +347,12 @@ bool probeHardwareEncoderRuntime(
     int fps,
     QString* detail
 );
+// Picks the first available encoder that can carry the plan, probing hardware
+// candidates with their final options. Quality plans fall back to the plan's
+// reference bitrate on an encoder whose constant-quality mode fails.
 VideoEncoderConfig chooseVideoEncoder(
     const QString& ffmpegPath,
+    const VideoRatePlan& plan,
     int outputWidth,
     int outputHeight,
     int fps,
@@ -410,15 +360,12 @@ VideoEncoderConfig chooseVideoEncoder(
     QString* probeLog
 );
 
-void applyVideoEncodingParameters(
-    VideoEncoderConfig* encoder,
-    VideoExportPreset preset,
-    VideoExportSizePreset sizePreset,
-    int outputWidth,
-    int outputHeight,
-    int fps,
-    const SystemMemoryInfo& memoryInfo,
-    const ExportRuntimeConfig& exportConfig);
+// VideoExportEncoderProfiles.cpp
+// Encoder options for one rate control, or nullopt when this encoder cannot honour it.
+std::optional<VideoEncoderConfig> configureVideoEncoder(
+    const QString& codec,
+    VideoRateControl control,
+    const VideoRatePlan& plan);
 
 // VideoExportFrameRender.cpp
 void appendRenderBackendFallbackDetail(QString* detail, const QString& entry);

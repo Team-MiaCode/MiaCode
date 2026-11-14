@@ -1861,6 +1861,10 @@ Restore the backup from %1?</source>
         <source>Failed to send export snapshot to worker.</source>
         <translation>无法将导出快照发送给导出子进程。</translation>
     </message>
+    <message id="dialog.video_export.estimated_size">
+        <source>Estimated size: %1</source>
+        <translation>预计体积：%1</translation>
+    </message>
     <message id="dialog.video_export.error.disk_full_temp">
         <source>%1 is out of space. Export writes the video to the system temp folder (%2) first.</source>
         <translation>%1空间不足。导出会先在系统临时目录（%2）生成视频。</translation>
@@ -1884,6 +1888,10 @@ Restore the backup from %1?</source>
     <message id="dialog.video_export.error.render_failed">
         <source>Rendering the export frames failed.</source>
         <translation>导出画面渲染失败。</translation>
+    </message>
+    <message id="dialog.video_export.error.size_limit_too_small">
+        <source>The size limit cannot hold this export&apos;s audio. Raise the limit or lower the audio bitrate.</source>
+        <translation>体积上限装不下本次导出的音频，请调高上限或降低音频码率。</translation>
     </message>
     <message id="dialog.video_export.error.audio_failed">
         <source>Could not generate the export audio track.</source>
@@ -1961,18 +1969,6 @@ Restore the backup from %1?</source>
         <source>Show bottom-left timestamp</source>
         <translation>显示左下角时间戳</translation>
     </message>
-    <message id="dialog.video_export.preset">
-        <source>Export Quality</source>
-        <translation>导出质量</translation>
-    </message>
-    <message id="dialog.video_export.preset.fast">
-        <source>Fast</source>
-        <translation>快速</translation>
-    </message>
-    <message id="dialog.video_export.preset.high_quality">
-        <source>High Quality</source>
-        <translation>高质量</translation>
-    </message>
     <message id="preview.stop">
         <source>Stop</source>
         <translation>停止</translation>
@@ -2049,6 +2045,22 @@ Restore the backup from %1?</source>
         <source>Worker ready...</source>
         <translation>后台已就绪...</translation>
     </message>
+    <message id="dialog.video_export.quality_level">
+        <source>Quality</source>
+        <translation>画质</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.high">
+        <source>High</source>
+        <translation>高</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.small">
+        <source>Compact</source>
+        <translation>精简</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.standard">
+        <source>Standard</source>
+        <translation>标准</translation>
+    </message>
     <message id="dialog.video_export.range.end">
         <source>End</source>
         <translation>结束</translation>
@@ -2057,33 +2069,37 @@ Restore the backup from %1?</source>
         <source>Start</source>
         <translation>开始</translation>
     </message>
+    <message id="dialog.video_export.rate_mode">
+        <source>Export strategy</source>
+        <translation>导出策略</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.bitrate">
+        <source>Bitrate</source>
+        <translation>指定码率</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.file_size">
+        <source>Size limit</source>
+        <translation>限制体积</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.quality">
+        <source>Quality first</source>
+        <translation>画质优先</translation>
+    </message>
     <message id="dialog.video_export.resolution">
         <source>Resolution</source>
         <translation>分辨率</translation>
     </message>
-    <message id="dialog.video_export.size_preset">
-        <source>File size</source>
-        <translation>文件体积</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.compact">
-        <source>Smaller</source>
-        <translation>较小</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.standard">
-        <source>Standard</source>
-        <translation>标准</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.ultra_compact">
-        <source>Smallest (No PV)</source>
-        <translation>极小（无 PV）</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.ultra_compact_with_pv">
-        <source>Smallest (With PV)</source>
-        <translation>极小（带 PV）</translation>
+    <message id="dialog.video_export.size_limit">
+        <source>Size limit</source>
+        <translation>体积上限</translation>
     </message>
     <message id="dialog.video_export.title">
         <source>Export Video</source>
         <translation>导出视频</translation>
+    </message>
+    <message id="dialog.video_export.video_bitrate">
+        <source>Video bitrate</source>
+        <translation>视频码率</translation>
     </message>
     <message id="document.all_difficulties_share_this_designer">
         <source>All difficulties share this designer</source>
@@ -2463,7 +2479,7 @@ File: </source>
     </message>
     <message id="media_tools.align_pv_to_audio">
         <source>Auto-align Video to Track Audio</source>
-        <translation>自动对齐曲目音频</translation>
+        <translation>自动对齐音频</translation>
     </message>
     <message id="media_tools.background_mp4_video">
         <source>background .mp4 video</source>
@@ -2583,7 +2599,7 @@ File: </source>
     </message>
     <message id="media_tools.black_screen">
         <source>black screen</source>
-        <translation>黑幕</translation>
+        <translation>空白画面</translation>
     </message>
     <message id="media_tools.canceled">
         <source>Canceled.</source>
@@ -2731,15 +2747,15 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="media_tools.prepend_pv_black_screen">
         <source>Add Intro Black Screen</source>
-        <translation>添加片头黑幕</translation>
+        <translation>添加片头空白</translation>
     </message>
     <message id="media_tools.analyzing_audio_alignment">
         <source>Analyzing audio alignment...</source>
         <translation>正在分析音频对齐...</translation>
     </message>
     <message id="media_tools.video_audio_missing">
-        <source>The background video has no audio stream to align.</source>
-        <translation>背景视频没有可用于对齐的音轨。</translation>
+        <source>The background video has no audio stream and cannot be automatically aligned; no files were changed.</source>
+        <translation>背景视频没有音轨，无法自动对齐；未修改文件。</translation>
     </message>
     <message id="media_tools.video_alignment_cancelled">
         <source>Audio alignment canceled.</source>
@@ -3008,6 +3024,22 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="net.packaging_zip">
         <source>Packaging ZIP...</source>
         <translation>正在打包 ZIP...</translation>
+    </message>
+    <message id="net.cancelling_download">
+        <source>Cancelling download…</source>
+        <translation>正在取消下载…</translation>
+    </message>
+    <message id="net.waiting_for_download_1">
+        <source>Waiting for server response: %1</source>
+        <translation>等待服务器响应：%1</translation>
+    </message>
+    <message id="net.preparing_download">
+        <source>Preparing download…</source>
+        <translation>正在准备下载…</translation>
+    </message>
+    <message id="net.saving_download">
+        <source>Saving downloaded files…</source>
+        <translation>正在保存下载文件…</translation>
     </message>
     <message id="net.paused">
         <source>Paused</source>
@@ -3587,7 +3619,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="qml.insert_a_black_screen_of_the_specified_duration_at_the_beginning">
         <source>Insert a black screen of the specified duration at the beginning of the background video and automatically back up the original file.</source>
-        <translation>在背景视频开头插入指定时长的黑幕，并自动备份原文件。</translation>
+        <translation>在背景视频开头插入指定时长的空白，并自动备份原文件。</translation>
     </message>
     <message id="qml.insert_blank_audio_of_the_specified_duration_at_the_beginning_of">
         <source>Insert blank audio of the specified duration at the beginning of track.mp3 and automatically back up the original file.</source>
@@ -3759,7 +3791,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="qml.prepend_black_screen">
         <source>Prepend black screen</source>
-        <translation>视频前置黑幕</translation>
+        <translation>视频前置空白</translation>
     </message>
     <message id="qml.prepend_blank_audio">
         <source>Prepend blank audio</source>
@@ -3840,6 +3872,18 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="qml.set_as_local_default">
         <source>Set as local default</source>
         <translation>设为本地默认</translation>
+    </message>
+    <message id="qml.shortcut_moved">
+        <source>Moved shortcut %1 from %2 to %3.</source>
+        <translation>组合键“%1”已从“%2”转移到“%3”。</translation>
+    </message>
+    <message id="qml.shortcut_reserved">
+        <source>Shortcut %1 is used by %2 and can't be assigned to %3.</source>
+        <translation>组合键“%1”已用于“%2”，不能分配给“%3”。</translation>
+    </message>
+    <message id="qml.shortcut_unassigned">
+        <source>Not set</source>
+        <translation>未设置</translation>
     </message>
     <message id="qml.show_all_open_editors">
         <source>Show all open editors</source>
@@ -4004,6 +4048,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="shortcut.preview.play_pause_global">
         <source>Play/Pause Preview</source>
         <translation>播放/暂停预览</translation>
+    </message>
+    <message id="shortcut.preview.play_pause_non_text">
+        <source>Play/Pause Preview (Outside Editor)</source>
+        <translation>播放/暂停预览（编辑器外）</translation>
     </message>
     <message id="shortcut.preview.speed_down">
         <source>Playback Speed -</source>
@@ -4911,6 +4959,12 @@ Error: %1</source>
         <source>Custom candidates</source>
         <translation>自定义候选</translation>
     </message>
+    <message id="preferences.completion.help">
+        <source>"Duration" sets the completion list shown when typing [.
+"Beat subdivision" sets the completion list shown when typing {.</source>
+        <translation>“时值”为设置输入[时的自动补全列表。
+“节拍”为设置输入{时的自动补全列表。</translation>
+    </message>
     <message id="preferences.completion.expand">
         <source>Expand custom candidates</source>
         <translation>展开自定义候选</translation>
@@ -4925,7 +4979,7 @@ Error: %1</source>
     </message>
     <message id="preferences.completion.division">
         <source>Beat subdivision</source>
-        <translation>节拍细分</translation>
+        <translation>节拍</translation>
     </message>
     <message id="preferences.completion.duration_hint">
         <source>Enter duration</source>
@@ -4934,6 +4988,18 @@ Error: %1</source>
     <message id="preferences.completion.division_hint">
         <source>Enter subdivision</source>
         <translation>输入节拍细分</translation>
+    </message>
+    <message id="preferences.completion.duration_suffix">
+        <source>Custom continuation</source>
+        <translation>自定义后续</translation>
+    </message>
+    <message id="preferences.completion.duration_suffix_hint">
+        <source>Enter a suffix</source>
+        <translation>输入后续</translation>
+    </message>
+    <message id="preferences.completion.invalid_duration_suffix">
+        <source>Enter a valid duration suffix</source>
+        <translation>请输入有效的时值后续</translation>
     </message>
     <message id="preferences.completion.reorder">
         <source>Drag to reorder; use Up or Down when focused</source>
@@ -5053,6 +5119,42 @@ Error: %1</source>
     <message id="dialog.preferences.theme.dracula"><source>Dracula</source><translation>德古拉</translation></message>
     <message id="dialog.preferences.theme.tokyo_night"><source>Tokyo Night</source><translation>东京之夜</translation></message>
     <message id="dialog.preferences.theme.noah"><source>Noa</source><translation>诺亚</translation></message>
+    <message id="cover.text_stroke">
+        <source>Text outline</source>
+        <translation>文字描边</translation>
+    </message>
+    <message id="cover.text_stroke_color">
+        <source>Outline color</source>
+        <translation>描边颜色</translation>
+    </message>
+    <message id="cover.text_stroke_width">
+        <source>Outline width</source>
+        <translation>描边宽度</translation>
+    </message>
+    <message id="cover.text_shadow">
+        <source>Text shadow</source>
+        <translation>文字阴影</translation>
+    </message>
+    <message id="cover.text_shadow_color">
+        <source>Shadow color</source>
+        <translation>阴影颜色</translation>
+    </message>
+    <message id="cover.text_shadow_opacity">
+        <source>Shadow opacity</source>
+        <translation>阴影不透明度</translation>
+    </message>
+    <message id="cover.text_shadow_blur">
+        <source>Shadow blur</source>
+        <translation>阴影模糊</translation>
+    </message>
+    <message id="cover.text_shadow_x">
+        <source>Shadow X offset</source>
+        <translation>阴影水平偏移</translation>
+    </message>
+    <message id="cover.text_shadow_y">
+        <source>Shadow Y offset</source>
+        <translation>阴影垂直偏移</translation>
+    </message>
 </context>
 <context>
     <!-- Qt loads qtbase texts for the system locale; this context keeps the

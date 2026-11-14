@@ -1848,7 +1848,7 @@ void TimelineQuickItem::wheelEvent(QWheelEvent* event)
         return;
     }
 
-    forceActiveFocus(Qt::MouseFocusReason);
+    // Scrolling leaves keyboard focus where it is, usually the chart editor.
     const int delta = angle != 0 ? angle : pixel;
     appendTimelineQuickInteractionLog(
         QStringLiteral("wheel_scroll"),

@@ -5,6 +5,12 @@ import MiaCode.UI
 ApplicationWindow {
     id: window
 
+    readonly property var inputContext: mainView.inputContext
+    readonly property bool workbenchCommandsAllowed: inputContext && inputContext.workbenchCommandsAllowed
+        && !window.applicationContext.shortcuts.captureActive
+    readonly property bool windowCommandsEnabled: !mainView.beginnerGuideActive
+        && inputContext && inputContext.editingCommandsAllowed
+        && !window.applicationContext.shortcuts.captureActive
     property bool sourceEditorFocused: false
     property bool sourceEditorOverlayHeld: false
     readonly property bool playbackCommandsEnabled: mainView.chartEditorActive
@@ -32,8 +38,9 @@ ApplicationWindow {
         saveEnabled: mainView.editorActive
         wholeDocumentSaveEnabled: mainView.documentSession.hasDocument
         documentAvailable: mainView.documentSession.hasDocument
-        editorCommandsEnabled: mainView.editorCommandsAvailable
-        chartCommandsEnabled: mainView.chartEditorActive
+        editorCommandsEnabled: mainView.editMenuEnabled
+        chartCommandsEnabled: mainView.chartEditorActive && window.workbenchCommandsAllowed
+        playbackCommandsEnabled: window.playbackCommandsEnabled && window.workbenchCommandsAllowed
         toolCommandsEnabled: mainView.documentSession.hasDocument
     }
 
@@ -211,8 +218,10 @@ ApplicationWindow {
         shortcuts: window.applicationContext.shortcuts
         commands: window.applicationContext.commands
         previewSession: window.applicationContext.preview
-        commandsEnabled: !mainView.beginnerGuideActive
-        chartCommandsEnabled: mainView.chartEditorActive
+        timelineStateBridge: window.applicationContext.timeline.stateBridge
+        inputContext: window.inputContext
+        commandsEnabled: window.windowCommandsEnabled && window.workbenchCommandsAllowed
+        chartCommandsEnabled: mainView.chartEditorActive && window.workbenchCommandsAllowed
         playbackCommandsEnabled: window.playbackCommandsEnabled
         menuOwnsChartTransformShortcuts: window.platform.nativeMenuBar
         menuOwnsPreviewRateShortcuts: window.platform.nativeMenuBar
@@ -222,7 +231,7 @@ ApplicationWindow {
     UiScaleShortcuts {
         shortcuts: window.applicationContext.shortcuts
         preferencesModel: window.applicationContext.preferencesModel
-        commandsEnabled: !mainView.beginnerGuideActive
+        commandsEnabled: window.windowCommandsEnabled
     }
 
     Loader {

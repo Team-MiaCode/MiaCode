@@ -66,7 +66,9 @@ Item {
         contentItem: RowLayout {
             spacing: Theme.settingsRowSpacing
             Text {
-                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                Layout.maximumWidth: Math.max(0, heading.availableWidth
+                    - Theme.compactControlHeight - 16 - 3 * Theme.settingsRowSpacing)
                 text: heading.text
                 color: heading.hovered || heading.visualFocus
                     ? Theme.colors.text.active : Theme.colors.text.secondary
@@ -74,6 +76,27 @@ Item {
                 elide: Text.ElideRight
                 verticalAlignment: Text.AlignVCenter
             }
+            IconButton {
+                id: completionHelp
+                objectName: "completionCustomizeHelp"
+                Layout.minimumWidth: Theme.compactControlHeight
+                Layout.preferredWidth: Theme.compactControlHeight
+                Layout.preferredHeight: Theme.compactControlHeight
+                z: 1
+                compact: true
+                iconWidth: 16
+                iconHeight: 16
+                iconSource: Qt.resolvedUrl("icons/question-circle.svg")
+                focusPolicy: Qt.TabFocus
+                Accessible.name: qsTrId("preferences.completion.customize")
+                Accessible.description: qsTrId("preferences.completion.help")
+                Tooltip {
+                    visible: completionHelp.hovered || completionHelp.activeFocus
+                    text: qsTrId("preferences.completion.help")
+                    timeout: -1
+                }
+            }
+            Item { Layout.fillWidth: true }
             ControlsImpl.IconImage {
                 Layout.preferredWidth: 16
                 Layout.preferredHeight: 16

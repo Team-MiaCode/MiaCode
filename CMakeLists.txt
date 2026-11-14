@@ -671,6 +671,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/components/ChoiceDialog.qml
     src/app/ui/components/EditableValue.qml
     src/app/ui/components/LabeledCombo.qml
+    src/app/ui/components/LabeledFocusSlider.qml
     src/app/ui/components/LabeledSlider.qml
     src/app/ui/components/SettingsSection.qml
     src/app/ui/components/JobProgressOverlay.qml
@@ -682,6 +683,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/chrome/MainMenu.qml
     src/app/ui/chrome/NativeMenuBar.qml
     src/app/ui/chrome/ShortcutBindings.qml
+    src/app/ui/chrome/PreviewShortcuts.qml
     src/app/ui/chrome/MainMenuCommands.qml
     src/app/ui/chrome/MainToolBar.qml
     src/app/ui/chrome/StatusBar.qml
@@ -804,6 +806,7 @@ set(MIACODE_UI_ICON_FILES
     src/app/ui/resources/icons/chevron-left.svg
     src/app/ui/resources/icons/chevron-right.svg
     src/app/ui/resources/icons/settings.svg
+    src/app/ui/resources/icons/question-circle.svg
     src/app/ui/resources/icons/chart.svg
     src/app/ui/resources/icons/export.svg
     src/app/ui/resources/icons/tools.svg
@@ -890,6 +893,8 @@ qt_add_qml_module(MiaCode
         src/app/ui/editor/ScintillaDslStyler.h
         src/app/ui/chrome/ShortcutModel.cpp
         src/app/ui/chrome/ShortcutModel.h
+        src/app/ui/chrome/EditorInputContext.cpp
+        src/app/ui/chrome/EditorInputContext.h
         src/app/ui/export/ExportSession.cpp
         src/app/ui/export/ExportSession.h
         src/app/ui/export/CoverExportSession.cpp
@@ -964,6 +969,7 @@ target_include_directories(MiaCode PRIVATE
     src
     # qmltyperegistrar includes QML_ELEMENT headers by file name only; project
     # code includes them by their src-rooted path.
+    src/app/ui/chrome
     src/app/ui/editor
     src/app/ui/pet
     src/app/ui/timeline

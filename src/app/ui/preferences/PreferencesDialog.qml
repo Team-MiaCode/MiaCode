@@ -104,6 +104,7 @@ AppDialog {
         value: root.visible && root.capturingId.length > 0
     }
     property var shortcutRows: []
+    property string shortcutNotice: ""
     // The map is built in C++ with qtTrId, so QML retranslation cannot see its
     // dependencies. Read languageToken first to rebuild it after a switch.
     readonly property var aboutInfo: {
@@ -164,6 +165,23 @@ AppDialog {
             Object.assign({group: root.shortcutGroup(row.id)}, row))
         shortcutList.contentY = Math.max(
             0, Math.min(keepY, Math.max(0, shortcutList.contentHeight - shortcutList.height)))
+    }
+
+    function shortcutLabel(row) {
+        return qsTrId(row.labelKey) || row.labelFallback
+    }
+
+    // Assigning a binding takes it from other commands; name where it moved from and to.
+    function applyShortcutChange(id, change) {
+        const before = root.shortcutRows
+        change()
+        root.refreshShortcuts()
+        const released = root.shortcutRows.filter(row => row.shortcutText.length === 0
+            && before.some(old => old.id === row.id && old.shortcutText.length > 0))
+        const target = root.shortcutRows.find(row => row.id === id)
+        root.shortcutNotice = released.length === 0 || !target ? ""
+            : qsTrId("qml.shortcut_moved").arg(target.shortcutText)
+                .arg(released.map(root.shortcutLabel).join(" / ")).arg(root.shortcutLabel(target))
     }
 
     component PreferenceGroup: SettingsSection {
@@ -941,12 +959,17 @@ AppDialog {
                         }
                         ScrollBar.vertical: AppScrollBar {}
 
+                        Keys.onShortcutOverride: function(event) {
+                            if (root.capturingId.length > 0)
+                                event.accepted = true
+                        }
                         Keys.onPressed: function(event) {
                             if (root.capturingId.length === 0)
                                 return
                             event.accepted = true
                             if (event.key === Qt.Key_Escape) {
                                 root.capturingId = ""
+                                root.shortcutNotice = ""
                                 return
                             }
                             if (event.key === Qt.Key_Control || event.key === Qt.Key_Shift
@@ -955,9 +978,18 @@ AppDialog {
                             const text = root.shortcuts.shortcutTextForKeyEvent(event.key, event.modifiers)
                             if (text.length === 0)
                                 return
-                            root.shortcuts.setShortcutText(root.capturingId, text)
+                            // File/edit keys stay with their menu commands; keep recording.
+                            const owner = root.shortcuts.reservedShortcutOwner(text)
+                            if (owner.length > 0) {
+                                const target = root.shortcutRows.find(row => row.id === root.capturingId)
+                                root.shortcutNotice = qsTrId("qml.shortcut_reserved")
+                                    .arg(root.shortcuts.nativeText(text)).arg(qsTrId(owner))
+                                    .arg(target ? root.shortcutLabel(target) : "")
+                                return
+                            }
+                            const id = root.capturingId
                             root.capturingId = ""
-                            root.refreshShortcuts()
+                            root.applyShortcutChange(id, () => root.shortcuts.setShortcutText(id, text))
                         }
 
                         // The row is NOT one big button: the reset button sits beside
@@ -976,6 +1008,7 @@ AppDialog {
                                 selected: root.capturingId === shortcutRow.modelData.id
                                 onClicked: {
                                     root.capturingId = shortcutRow.modelData.id
+                                    root.shortcutNotice = ""
                                     shortcutList.forceActiveFocus()
                                 }
                                 contentItem: RowLayout {
@@ -996,6 +1029,7 @@ AppDialog {
                                         text: root.capturingId === shortcutRow.modelData.id
                                               ? qsTrId("qml.recording")
                                               : shortcutRow.modelData.shortcutText
+                                                || qsTrId("qml.shortcut_unassigned")
                                         color: shortcutRow.modelData.isDefault
                                                ? Theme.colors.text.secondary
                                                : Theme.colors.accent.primary
@@ -1008,21 +1042,34 @@ AppDialog {
                             AppButton {
                                 text: qsTrId("qml.restore_defaults")
                                 enabled: !shortcutRow.modelData.isDefault
-                                onClicked: {
-                                    root.shortcuts.resetShortcut(shortcutRow.modelData.id)
-                                    root.refreshShortcuts()
-                                }
+                                onClicked: root.applyShortcutChange(shortcutRow.modelData.id,
+                                    () => root.shortcuts.resetShortcut(shortcutRow.modelData.id))
                             }
                         }
                     }
 
-                    AppButton {
-                        objectName: "preferencesResetShortcutsButton"
-                        Layout.alignment: Qt.AlignRight
-                        text: qsTrId("qml.restore_all_defaults")
-                        onClicked: {
-                            root.shortcuts.resetAllShortcuts()
-                            root.refreshShortcuts()
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 12
+
+                        Text {
+                            objectName: "preferencesShortcutNotice"
+                            Layout.fillWidth: true
+                            text: root.shortcutNotice
+                            wrapMode: Text.Wrap
+                            color: Theme.colors.text.secondary
+                            font.family: Theme.uiFont
+                            font.pixelSize: Theme.secondaryFontSize
+                        }
+
+                        AppButton {
+                            objectName: "preferencesResetShortcutsButton"
+                            text: qsTrId("qml.restore_all_defaults")
+                            onClicked: {
+                                root.shortcutNotice = ""
+                                root.shortcuts.resetAllShortcuts()
+                                root.refreshShortcuts()
+                            }
                         }
                     }
                 }

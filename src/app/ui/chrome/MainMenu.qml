@@ -23,6 +23,7 @@ Item {
     property bool documentAvailable: true
     property bool editorCommandsEnabled: true
     property bool chartCommandsEnabled: true
+    property bool playbackCommandsEnabled: true
     property bool toolCommandsEnabled: true
     property bool nativeMenuMode: false
     // Re-read each time the menu opens rather than kept live: the list only
@@ -458,7 +459,7 @@ Item {
                 text: qsTrId("metadata.find")
                 shortcut: StandardKey.Find
                 shortcutText: root.shortcuts.standardDisplayText(StandardKey.Find)
-                enabled: root.commandsEnabled && root.editorCommandsEnabled
+                enabled: root.commandsEnabled && root.commands.canFind
                 onTriggered: root.commands.findRequested()
             }
             AppMenuAction {
@@ -470,7 +471,7 @@ Item {
             }
             AppMenuAction {
                 text: qsTrId("qml.select_current_line")
-                enabled: root.commandsEnabled && root.editorCommandsEnabled
+                enabled: root.commandsEnabled && root.commands.canFind
                 onTriggered: root.commands.selectCurrentLineRequested()
             }
             AppMenuSeparator {}
@@ -625,7 +626,7 @@ Item {
                     ? root.shortcuts.sequence("preview.speed_down", "Ctrl+O")
                     : ""
                 shortcutText: root.shortcuts.displayText("preview.speed_down", "Ctrl+O")
-                enabled: root.commandsEnabled && root.chartCommandsEnabled
+                enabled: root.commandsEnabled && root.playbackCommandsEnabled
                 onTriggered: root.commands.previewRateStepRequested(-1)
             }
             AppMenuAction {
@@ -634,7 +635,7 @@ Item {
                     ? root.shortcuts.sequence("preview.speed_up", "Ctrl+P")
                     : ""
                 shortcutText: root.shortcuts.displayText("preview.speed_up", "Ctrl+P")
-                enabled: root.commandsEnabled && root.chartCommandsEnabled
+                enabled: root.commandsEnabled && root.playbackCommandsEnabled
                 onTriggered: root.commands.previewRateStepRequested(1)
             }
             AppMenuSeparator {}

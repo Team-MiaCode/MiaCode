@@ -5,6 +5,7 @@
 #include "export/video_export/VideoExportAudioRenderPlan.h"
 #include "export/video_export/VideoExportQuickRenderBackend.h"
 #include "export/video_export/VideoExportRuntimePolicy.h"
+#include "export/video_export/VideoExportSettings.h"
 #include "core/video/AssetPaths.h"
 #include "core/chart/ChartAssetPaths.h"
 #include "core/chart/IntroConfig.h"
@@ -228,6 +229,102 @@ QStringList buildExportAudioFilterParts(
     return filterParts;
 }
 
+struct AudioRenderStage {
+    QString progressText;
+    int preparePercent = 0;
+    int waitPercent = 0;
+    QString startFailure;
+    QString exitFailure;
+};
+
+// Mixes the opening SFX over the export audio and writes it with `outputArgs`.
+bool renderFinalAudioTrack(
+    const QString& ffmpegPath,
+    const QString& mixedAudioWavPath,
+    const QString& introSfxPath,
+    double totalSeconds,
+    double introSoundVolume,
+    const QStringList& outputArgs,
+    const QString& stagedOutputPath,
+    const AudioRenderStage& stage,
+    const std::function<bool(int, const QString&)>& setProgressPercent,
+    VideoExportResult* result,
+    qint64* elapsedMs)
+{
+    if (result == nullptr || stagedOutputPath.isEmpty()) {
+        return false;
+    }
+    if (setProgressPercent(stage.preparePercent, stage.progressText)) {
+        result->message = QStringLiteral("canceled");
+        result->details = withExportLogPath(result->details);
+        appendVideoExportLog(QStringLiteral("canceled"), QStringLiteral("stage=audio_render_prepare"));
+        return false;
+    }
+
+    QElapsedTimer timer;
+    timer.start();
+    QFile::remove(stagedOutputPath);
+    QStringList args{
+        QStringLiteral("-y"),
+        QStringLiteral("-hide_banner"),
+        QStringLiteral("-loglevel"),
+        QStringLiteral("error"),
+        QStringLiteral("-i"),
+        mixedAudioWavPath,
+    };
+    if (!introSfxPath.isEmpty()) {
+        args << QStringLiteral("-i") << introSfxPath;
+    }
+    const QStringList filterParts = buildExportAudioFilterParts(
+        0, introSfxPath.isEmpty() ? -1 : 1, totalSeconds, introSoundVolume);
+    args << QStringLiteral("-filter_complex")
+         << filterParts.join(QLatin1Char(';'))
+         << QStringLiteral("-map")
+         << QStringLiteral("[aout]")
+         << outputArgs
+         << stagedOutputPath;
+    appendVideoExportLog(
+        QStringLiteral("ffmpeg_audio_args"),
+        truncateForLog(ffmpegBaseArgsLog(ffmpegPath, args), 8000));
+
+    QProcess process;
+    process.setProcessChannelMode(QProcess::MergedChannels);
+    process.start(ffmpegPath, args, QIODevice::ReadOnly);
+    if (!process.waitForStarted(5000)) {
+        result->message = stage.startFailure;
+        result->details = withExportLogPath(process.errorString());
+        appendVideoExportLog(QStringLiteral("fail_audio_render_start"), process.errorString());
+        return false;
+    }
+    if (!waitForProcessWithProgress(
+            process,
+            QStringLiteral("ffmpeg_audio_wait_begin"),
+            QStringLiteral("ffmpeg_audio_wait_done"),
+            stage.progressText,
+            stage.waitPercent,
+            setProgressPercent,
+            QStringLiteral("stage=audio_render_wait"),
+            result)) {
+        QFile::remove(stagedOutputPath);
+        return false;
+    }
+    const QString processOutput = processOutputAndErrorForLog(process, 2000);
+    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+        result->message = stage.exitFailure;
+        result->details = withExportLogPath(processOutput);
+        appendVideoExportLog(
+            QStringLiteral("fail_audio_render_exit"),
+            QStringLiteral("%1 output=%2")
+                .arg(describeProcessForLog(process), truncateForLog(processOutput, 1000)));
+        QFile::remove(stagedOutputPath);
+        return false;
+    }
+    if (elapsedMs != nullptr) {
+        *elapsedMs = timer.elapsed();
+    }
+    return true;
+}
+
 bool prepareMixedAudioWavOutput(
     const QString& ffmpegPath,
     const QString& mixedAudioWavPath,
@@ -244,92 +341,43 @@ bool prepareMixedAudioWavOutput(
     if (result == nullptr || stagedOutputPath.isEmpty()) {
         return false;
     }
+    if (!introSfxPath.isEmpty()) {
+        return renderFinalAudioTrack(
+            ffmpegPath,
+            mixedAudioWavPath,
+            introSfxPath,
+            totalSeconds,
+            introSoundVolume,
+            {QStringLiteral("-c:a"), QStringLiteral("pcm_s16le"),
+             QStringLiteral("-ar"), QString::number(kMixSampleRate),
+             QStringLiteral("-ac"), QString::number(kMixChannels),
+             QStringLiteral("-f"), QStringLiteral("wav")},
+            stagedOutputPath,
+            {QStringLiteral("Finalizing WAV audio..."), prepareProgressPercent, waitProgressPercent,
+             QStringLiteral("Failed to start WAV finalization."), QStringLiteral("WAV finalization failed.")},
+            setProgressPercent,
+            result,
+            elapsedMs);
+    }
+    // Without an opening SFX the mixed track already is the WAV output.
     if (setProgressPercent(prepareProgressPercent, QStringLiteral("Finalizing WAV audio..."))) {
         result->message = QStringLiteral("canceled");
         result->details = withExportLogPath(result->details);
         appendVideoExportLog(QStringLiteral("canceled"), QStringLiteral("stage=wav_prepare"));
         return false;
     }
-
     QElapsedTimer timer;
     timer.start();
     QFile::remove(stagedOutputPath);
-    if (introSfxPath.isEmpty()) {
-        if (!QFile::copy(mixedAudioWavPath, stagedOutputPath)) {
-            result->message = QStringLiteral("Failed to stage WAV output file.");
-            result->details = withExportLogPath(
-                QStringLiteral("Source: %1\nStaged file: %2")
-                    .arg(mixedAudioWavPath, stagedOutputPath));
-            appendVideoExportLog(
-                QStringLiteral("fail_wav_stage_copy"),
-                QStringLiteral("source=%1 staged=%2")
-                    .arg(mixedAudioWavPath, stagedOutputPath));
-            return false;
-        }
-        if (elapsedMs != nullptr) {
-            *elapsedMs = timer.elapsed();
-        }
-        return true;
-    }
-
-    QStringList args{
-        QStringLiteral("-y"),
-        QStringLiteral("-hide_banner"),
-        QStringLiteral("-loglevel"),
-        QStringLiteral("error"),
-        QStringLiteral("-i"),
-        mixedAudioWavPath,
-    };
-    args << QStringLiteral("-i") << introSfxPath;
-    const QStringList filterParts = buildExportAudioFilterParts(
-        0, 1, totalSeconds, introSoundVolume);
-    args << QStringLiteral("-filter_complex")
-         << filterParts.join(QLatin1Char(';'))
-         << QStringLiteral("-map")
-         << QStringLiteral("[aout]")
-         << QStringLiteral("-c:a")
-         << QStringLiteral("pcm_s16le")
-         << QStringLiteral("-ar")
-         << QString::number(kMixSampleRate)
-         << QStringLiteral("-ac")
-         << QString::number(kMixChannels)
-         << QStringLiteral("-f")
-         << QStringLiteral("wav")
-         << stagedOutputPath;
-    appendVideoExportLog(
-        QStringLiteral("ffmpeg_wav_args"),
-        truncateForLog(ffmpegBaseArgsLog(ffmpegPath, args), 8000));
-
-    QProcess process;
-    process.setProcessChannelMode(QProcess::MergedChannels);
-    process.start(ffmpegPath, args, QIODevice::ReadOnly);
-    if (!process.waitForStarted(5000)) {
-        result->message = QStringLiteral("Failed to start WAV finalization.");
-        result->details = withExportLogPath(process.errorString());
-        appendVideoExportLog(QStringLiteral("fail_wav_start"), process.errorString());
-        return false;
-    }
-    if (!waitForProcessWithProgress(
-            process,
-            QStringLiteral("ffmpeg_wav_wait_begin"),
-            QStringLiteral("ffmpeg_wav_wait_done"),
-            QStringLiteral("Finalizing WAV audio..."),
-            waitProgressPercent,
-            setProgressPercent,
-            QStringLiteral("stage=wav_finalize_wait"),
-            result)) {
-        QFile::remove(stagedOutputPath);
-        return false;
-    }
-    const QString processOutput = processOutputAndErrorForLog(process, 2000);
-    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
-        result->message = QStringLiteral("WAV finalization failed.");
-        result->details = withExportLogPath(processOutput);
+    if (!QFile::copy(mixedAudioWavPath, stagedOutputPath)) {
+        result->message = QStringLiteral("Failed to stage WAV output file.");
+        result->details = withExportLogPath(
+            QStringLiteral("Source: %1\nStaged file: %2")
+                .arg(mixedAudioWavPath, stagedOutputPath));
         appendVideoExportLog(
-            QStringLiteral("fail_wav_exit"),
-            QStringLiteral("%1 output=%2")
-                .arg(describeProcessForLog(process), truncateForLog(processOutput, 1000)));
-        QFile::remove(stagedOutputPath);
+            QStringLiteral("fail_wav_stage_copy"),
+            QStringLiteral("source=%1 staged=%2")
+                .arg(mixedAudioWavPath, stagedOutputPath));
         return false;
     }
     if (elapsedMs != nullptr) {
@@ -357,7 +405,7 @@ VideoExportResult VideoExportController::exportPreparedTask(
     exportTimer.start();
     appendVideoExportLog(
         QStringLiteral("export_begin"),
-        QStringLiteral("output=%1 chart=%2 media=%3 track=%4 skin=%5 notes=%6 start=%7 duration=%8 size=%9x%10 fps=%11 preset=%12 sizePreset=%13 audioKbps=%14")
+        QStringLiteral("output=%1 chart=%2 media=%3 track=%4 skin=%5 notes=%6 start=%7 duration=%8 size=%9x%10 fps=%11 rateMode=%12 quality=%13 sizeLimitMb=%14 videoKbps=%15 audioKbps=%16")
             .arg(task.outputPath, task.chartPath, task.backgroundMediaPath, task.trackPath, task.skinDirectory)
             .arg(task.noteMarkers.size())
             .arg(task.exportStartSeconds, 0, 'f', 6)
@@ -365,10 +413,11 @@ VideoExportResult VideoExportController::exportPreparedTask(
             .arg(task.outputWidth)
             .arg(task.outputHeight)
             .arg(task.fps)
-            .arg(videoExportPresetToken(task.preset))
-            .arg(miacode::video_export::videoExportSizePresetToken(task.sizePreset))
-            .arg(miacode::video_export::effectiveVideoExportAudioBitrateKbps(
-                task.sizePreset, task.audioBitrateKbps))
+            .arg(miacode::video_export::videoRateModeToken(task.encoding.mode))
+            .arg(miacode::video_export::videoQualityLevelToken(task.encoding.quality))
+            .arg(task.encoding.sizeLimitMb)
+            .arg(task.encoding.videoBitrateKbps)
+            .arg(task.audioBitrateKbps)
     );
     if (task.skinDirectory.trimmed().isEmpty()) {
         result.message = QStringLiteral("Skin directory is empty.");
@@ -429,14 +478,12 @@ VideoExportResult VideoExportController::exportPreparedTask(
         return result;
     }
 
-    const int fullFrameCount = audioRenderPlan.frameCount;
     // Dev preview cap: render only the leading frames (intro preview) when
     // task.previewMaxOutputSeconds > 0, leaving the audio/intro plan untouched so
     // timing matches a real export. -shortest (added below) trims the mux.
+    const miacode::video_export::VideoExportTiming timing = miacode::video_export::videoExportTiming(task);
     const bool previewCapped = task.previewMaxOutputSeconds > 0.0;
-    const int frameCount = previewCapped
-        ? qBound(1, qRound(task.previewMaxOutputSeconds * qMax(1, task.fps)), fullFrameCount)
-        : fullFrameCount;
+    const int frameCount = timing.outputFrameCount;
     const double alignedTotalSeconds = audioRenderPlan.alignedTotalSeconds;
     const double timelineOriginSecond = audioRenderPlan.timelineOriginSecond;
     const bool partialRangeExport = !task.fullRangeExport;
@@ -444,8 +491,6 @@ VideoExportResult VideoExportController::exportPreparedTask(
     const int frameHeight = qMax(1, task.outputHeight);
     const QSize frameSize(frameWidth, frameHeight);
     const QString explicitMediaPath = normalizePath(task.backgroundMediaPath);
-    const miacode::video_export::VideoExportSizePolicy sizePolicy =
-        miacode::video_export::videoExportSizePolicy(task.sizePreset);
     // Phase 4c — `task.backgroundMediaPath` is filled by the snapshot
     // builder using `resolveChartVideoPath` (`&video=` override first,
     // then sibling fallback). Trust that as the final choice when it
@@ -453,15 +498,12 @@ VideoExportResult VideoExportController::exportPreparedTask(
     // path inverts the priority (sibling first), which would silently
     // override the chart-author's explicit `&video=` choice.
     QString mediaPath;
-    const bool includeVideoBackground = !sizePolicy.disableVideoBackground;
-    if (miacode::chart_assets::isSupportedBackgroundMediaPath(
-            explicitMediaPath, includeVideoBackground)) {
+    if (miacode::chart_assets::isSupportedBackgroundMediaPath(explicitMediaPath)) {
         mediaPath = explicitMediaPath;
     } else {
         mediaPath = miacode::chart_assets::resolvePreferredBackgroundMediaPath(
             task.chartPath,
-            explicitMediaPath,
-            includeVideoBackground);
+            explicitMediaPath);
     }
     const bool hasMedia = !mediaPath.isEmpty();
     const bool mediaIsImage = hasMedia && isImageMediaPath(mediaPath);
@@ -478,11 +520,10 @@ VideoExportResult VideoExportController::exportPreparedTask(
               task.staticTapOnSlideThresholdSeconds);
     appendVideoExportLog(
         QStringLiteral("input_probe"),
-        QStringLiteral("media=%1 hasMedia=%2 mediaIsImage=%3 videoBackgroundEnabled=%4 track=%5 hasTrack=%6 segmentStart=%7 segmentEnd=%8 leadIn=%9 timelineOrigin=%10 fullRange=%11 markerFilter=marker.second within simulatedWindow frameWindow=%12..%13 visibleWindow=%14..%15 totalSeconds=%16 alignedSeconds=%17 frameCount=%18 size=%19x%20")
+        QStringLiteral("media=%1 hasMedia=%2 mediaIsImage=%3 track=%4 hasTrack=%5 segmentStart=%6 segmentEnd=%7 leadIn=%8 timelineOrigin=%9 fullRange=%10 markerFilter=marker.second within simulatedWindow frameWindow=%11..%12 visibleWindow=%13..%14 totalSeconds=%15 alignedSeconds=%16 frameCount=%17 size=%18x%19")
             .arg(mediaPath)
             .arg(hasMedia ? 1 : 0)
             .arg(mediaIsImage ? 1 : 0)
-            .arg(includeVideoBackground ? 1 : 0)
             .arg(trackPath)
             .arg(hasTrack ? 1 : 0)
             .arg(audioRenderPlan.segmentStartSecond, 0, 'f', 6)
@@ -536,6 +577,28 @@ VideoExportResult VideoExportController::exportPreparedTask(
     const QString encodedTempPath = QDir(tempDir.path()).filePath(QStringLiteral("encoded_raw.mp4"));
     const bool producesMp4 = videoExportProducesMp4(task.outputMode);
     const bool producesWav = videoExportProducesWav(task.outputMode);
+    miacode::video_export::VideoRateInputs rateInputs;
+    rateInputs.width = frameWidth;
+    rateInputs.height = frameHeight;
+    rateInputs.fps = task.fps;
+    rateInputs.videoFrameCount = frameCount;
+    rateInputs.seconds = timing.outputSeconds;
+    rateInputs.audioKbps = miacode::video_export::normalizedVideoExportAudioBitrateKbps(task.audioBitrateKbps);
+    rateInputs.encoder = miacode::video_export::plannedVideoEncoder();
+    miacode::video_export::VideoRatePlan ratePlan =
+        miacode::video_export::planVideoRate(task.encoding, rateInputs);
+    const auto failSizeBudget = [&]() {
+        result.message = QString::fromLatin1(miacode::video_export::kVideoExportSizeBudgetTooSmallMessage);
+        result.details = withExportLogPath(QStringLiteral("sizeLimitMb=%1 seconds=%2 audioKbps=%3")
+            .arg(task.encoding.sizeLimitMb)
+            .arg(rateInputs.seconds, 0, 'f', 3)
+            .arg(rateInputs.audioKbps));
+        appendVideoExportLog(QStringLiteral("fail_size_budget"), result.details);
+        return result;
+    };
+    if (producesMp4 && !ratePlan.valid) {
+        return failSizeBudget();
+    }
     const QString videoOutputPath = videoExportPathWithSuffix(task.outputPath, QStringLiteral("mp4"));
     const QString wavOutputPath = videoExportPathWithSuffix(task.outputPath, QStringLiteral("wav"));
     const QString remuxStagePath = producesMp4
@@ -671,6 +734,48 @@ VideoExportResult VideoExportController::exportPreparedTask(
         return result;
     }
 
+    // The final audio is encoded on its own first: a size limit budgets the video
+    // from the exact audio bytes, and the video pass only muxes the track.
+    const QString encodedAudioPath = QDir(tempDir.path()).filePath(QStringLiteral("export_audio.m4a"));
+    qint64 audioEncodeElapsedMs = 0;
+    if (!renderFinalAudioTrack(
+            ffmpegPath,
+            mixedAudioWavPath,
+            introSfxTempPath,
+            alignedTotalSeconds,
+            previewSfxVolumeForKind(task.audioSettings, QStringLiteral("track_start")),
+            {QStringLiteral("-c:a"), QStringLiteral("aac"),
+             QStringLiteral("-b:a"), QStringLiteral("%1k").arg(rateInputs.audioKbps)},
+            encodedAudioPath,
+            {QStringLiteral("Preparing SFX track..."), 4, 4,
+             QStringLiteral("Failed to start audio encoding."), QStringLiteral("Audio encoding failed.")},
+            setProgressPercent,
+            &result,
+            &audioEncodeElapsedMs)) {
+        return result;
+    }
+    rateInputs.audioBytes = QFileInfo(encodedAudioPath).size();
+    ratePlan = miacode::video_export::planVideoRate(task.encoding, rateInputs);
+    if (!ratePlan.valid) {
+        return failSizeBudget();
+    }
+    appendVideoExportLog(
+        QStringLiteral("rate_plan"),
+        QStringLiteral("mode=%1 quality=%2 control=%3 videoKbps=%4 maxRateKbps=%5 bufSizeKbps=%6 audioKbps=%7 audioBytes=%8 sizeLimitBytes=%9 estimatedBytes=%10 seconds=%11 frames=%12 plannedEncoder=%13")
+            .arg(miacode::video_export::videoRateModeToken(ratePlan.mode))
+            .arg(miacode::video_export::videoQualityLevelToken(ratePlan.quality))
+            .arg(miacode::video_export::videoRateControlToken(ratePlan.control))
+            .arg(ratePlan.videoKbps)
+            .arg(ratePlan.maxRateKbps)
+            .arg(ratePlan.bufSizeKbps)
+            .arg(ratePlan.audioKbps)
+            .arg(rateInputs.audioBytes)
+            .arg(ratePlan.sizeLimitBytes)
+            .arg(ratePlan.estimatedBytes)
+            .arg(rateInputs.seconds, 0, 'f', 3)
+            .arg(frameCount)
+            .arg(rateInputs.encoder));
+
     if (setProgressPercent(5, QStringLiteral("Starting ffmpeg..."))) {
         result.message = QStringLiteral("canceled");
         result.details = withExportLogPath(result.details);
@@ -724,26 +829,18 @@ VideoExportResult VideoExportController::exportPreparedTask(
          << QStringLiteral("-i")
          << rawVideoPipePump.pipe.inputPath;
 
-    // The GPU supplies complete opaque frames, including stage media and intro PV.
-    int audioInputIndex = 1;
-    args << QStringLiteral("-i") << mixedAudioWavPath;
-    int introAudioInputIndex = -1;
-    if (!introSfxTempPath.isEmpty()) {
-        introAudioInputIndex = 2;
-        args << QStringLiteral("-i") << introSfxTempPath;
-    }
+    // The GPU supplies complete opaque frames, including stage media and intro PV;
+    // the audio track is already encoded and is only muxed.
+    args << QStringLiteral("-i") << encodedAudioPath;
     const bool introPvUnderlay = introAudioEnabled && task.intro.pvPreview && hasMedia && !mediaIsImage;
     QStringList filterParts;
     filterParts << QStringLiteral("[0:v]null[vout]");
-    filterParts += buildExportAudioFilterParts(
-        audioInputIndex, introAudioInputIndex, alignedTotalSeconds,
-        previewSfxVolumeForKind(task.audioSettings, QStringLiteral("track_start")));
 
     const SystemMemoryInfo memoryInfo = querySystemMemoryInfo();
     appendVideoExportLog(QStringLiteral("memory_snapshot"), memoryInfoToLog(memoryInfo));
     QString encoderProbeLog;
-    VideoEncoderConfig encoderConfig = chooseVideoEncoder(
-        ffmpegPath, frameWidth, frameHeight, task.fps, exportConfig, &encoderProbeLog);
+    const VideoEncoderConfig encoderConfig = chooseVideoEncoder(
+        ffmpegPath, ratePlan, frameWidth, frameHeight, task.fps, exportConfig, &encoderProbeLog);
     appendVideoExportLog(QStringLiteral("encoder_select"), encoderProbeLog);
     if (encoderConfig.codec.isEmpty()) {
         result.message = QStringLiteral("Unable to select video encoder.");
@@ -751,14 +848,12 @@ VideoExportResult VideoExportController::exportPreparedTask(
         appendVideoExportLog(QStringLiteral("fail_video_encoder_select"), encoderProbeLog);
         return result;
     }
-    applyVideoEncodingParameters(&encoderConfig, task.preset, task.sizePreset,
-        frameWidth, frameHeight, task.fps, memoryInfo, exportConfig);
     appendVideoExportLog(QStringLiteral("encoding_parameters"),
-        QStringLiteral("preset=%1 sizePreset=%2 codec=%3 args=%4")
-            .arg(videoExportPresetToken(task.preset))
-            .arg(miacode::video_export::videoExportSizePresetToken(task.sizePreset))
+        QStringLiteral("codec=%1 rate=%2 pixelFormat=%3 args=%4")
             .arg(encoderConfig.codec)
-            .arg(encoderConfig.extraArgs.join(QLatin1Char(' '))));
+            .arg(miacode::video_export::videoRateControlToken(encoderConfig.rateControl))
+            .arg(encoderConfig.needsVaapiHwUpload ? QStringLiteral("vaapi_upload") : encoderConfig.pixelFormat)
+            .arg(encoderConfig.codecArgs.join(QLatin1Char(' '))));
     if (encoderConfig.needsVaapiHwUpload) {
         if (encoderConfig.vaapiDevicePath.isEmpty()) {
             result.message = QStringLiteral("VAAPI encoder selected but no DRM render node was found.");
@@ -796,7 +891,7 @@ VideoExportResult VideoExportController::exportPreparedTask(
     const int effectiveEncoderThreads = encoderThreads;
     appendVideoExportLog(
         QStringLiteral("thread_plan"),
-        QStringLiteral("ideal=%1 encoderThreads=%2 effectiveEncoderThreads=%3 filterThreads=%4 encoder=%5 hw=%6 availMiB=%7 preset=%8")
+        QStringLiteral("ideal=%1 encoderThreads=%2 effectiveEncoderThreads=%3 filterThreads=%4 encoder=%5 hw=%6 availMiB=%7 rate=%8")
             .arg(idealThreadCount)
             .arg(encoderThreads)
             .arg(effectiveEncoderThreads)
@@ -804,7 +899,7 @@ VideoExportResult VideoExportController::exportPreparedTask(
             .arg(encoderConfig.codec)
             .arg(encoderConfig.isHardware ? 1 : 0)
             .arg(memoryInfo.valid ? QString::number(availMiB) : QStringLiteral("na"))
-            .arg(videoExportPresetToken(task.preset))
+            .arg(miacode::video_export::videoRateControlToken(encoderConfig.rateControl))
     );
 
     VideoExportQuickRenderBackend exportCanvas;
@@ -1019,43 +1114,30 @@ VideoExportResult VideoExportController::exportPreparedTask(
     args << QStringLiteral("-map")
          << mappedVideoPad
          << QStringLiteral("-map")
-         << QStringLiteral("[aout]")
-         << QStringLiteral("-fps_mode")
-         << QStringLiteral("cfr")
+         << QStringLiteral("1:a:0")
+         // Output -r already enforces CFR; -fps_mode is unavailable in FFmpeg 5.0.
          << QStringLiteral("-r")
          << QString::number(task.fps)
-         << QStringLiteral("-frames:v")
-         << QString::number(frameCount)
+         // The pipe carries exactly frameCount frames (see frame_conservation). A
+         // -frames:v limit here made ffmpeg drop the last copied AAC packet behind
+         // a hardware encoder's output delay.
          << QStringLiteral("-g")
-         << QString::number(qMax(1, task.fps * sizePolicy.gopSeconds))
+         << QString::number(qMax(1, task.fps * miacode::video_export::kVideoGopSeconds))
          << QStringLiteral("-c:v")
          << encoderConfig.codec;
     if (!encoderConfig.needsVaapiHwUpload) {
-        args << QStringLiteral("-pix_fmt") << QStringLiteral("yuv420p");
+        args << QStringLiteral("-pix_fmt") << encoderConfig.pixelFormat;
     }
-    args << QStringLiteral("-c:a")
-         << QStringLiteral("aac")
-         << QStringLiteral("-b:a")
-         // Clamp into the dropdown's accepted range so any out-of-band
-         // value (e.g. an old preferences file with a stale int) still
-         // produces a valid AAC encoder argument. 320k is the AAC LC
-         // ceiling for stereo at 44.1/48 kHz; below 96k AAC quality
-         // collapses, so 96k is our floor.
-         << QStringLiteral("%1k")
-                .arg(miacode::video_export::effectiveVideoExportAudioBitrateKbps(
-                    task.sizePreset, task.audioBitrateKbps));
+    args << QStringLiteral("-c:a") << QStringLiteral("copy");
     if (previewCapped) {
-        // -frames:v already stops the video at the capped count; -shortest trims the
-        // (still full-length) audio so the preview output ends with the video.
+        // Only the capped frame count is rendered; -shortest trims the (still
+        // full-length) audio so the preview output ends with the video.
         args << QStringLiteral("-shortest");
-    }
-    if (encoderConfig.explicitBframes >= 0) {
-        args << QStringLiteral("-bf") << QString::number(encoderConfig.explicitBframes);
     }
     if (!encoderConfig.isHardware) {
         args << QStringLiteral("-threads") << QString::number(effectiveEncoderThreads);
     }
-    args << encoderConfig.extraArgs;
+    args << encoderConfig.codecArgs;
     args << encodedTempPath;
     appendVideoExportLog(
         QStringLiteral("ffmpeg_encode_args"),
@@ -2292,6 +2374,17 @@ VideoExportResult VideoExportController::exportPreparedTask(
         return result;
     }
     const qint64 remuxElapsedMs = remuxTimer.elapsed();
+    const qint64 videoOutputBytes = QFileInfo(remuxStagePath).size();
+    if (ratePlan.sizeLimitBytes > 0 && videoOutputBytes > ratePlan.sizeLimitBytes) {
+        // The file is still delivered. The encoder ignored its VBV bound, so its
+        // profile in VideoExportEncoderProfiles.cpp needs correcting.
+        appendVideoExportLog(
+            QStringLiteral("size_cap_exceeded"),
+            QStringLiteral("codec=%1 limitBytes=%2 actualBytes=%3")
+                .arg(encoderConfig.codec)
+                .arg(ratePlan.sizeLimitBytes)
+                .arg(videoOutputBytes));
+    }
 
     qint64 wavFinalizeElapsedMs = 0;
     if (producesWav) {
@@ -2355,14 +2448,28 @@ VideoExportResult VideoExportController::exportPreparedTask(
     setProgressPercent(100, QStringLiteral("Export completed."));
     result.success = true;
     result.message = QStringLiteral("ok");
+    // What the page promised against what was written.
+    appendVideoExportLog(
+        QStringLiteral("encoding_report"),
+        QStringLiteral("codec=%1 rate=%2 videoKbps=%3 audioKbps=%4 frames=%5 limitBytes=%6 estimatedBytes=%7 actualBytes=%8")
+            .arg(encoderConfig.codec)
+            .arg(miacode::video_export::videoRateControlToken(encoderConfig.rateControl))
+            .arg(encoderConfig.rateControl == miacode::video_export::VideoRateControl::ConstantQuality
+                     ? 0 : ratePlan.videoKbps)
+            .arg(ratePlan.audioKbps)
+            .arg(frameCount)
+            .arg(ratePlan.sizeLimitBytes)
+            .arg(ratePlan.estimatedBytes)
+            .arg(videoOutputBytes));
     appendVideoExportLog(
         QStringLiteral("stage_timing_summary"),
-        QStringLiteral("audioMixMs=%1 frameProductionMs=%2 encodePipelineMs=%3 remuxMs=%4 wavFinalizeMs=%5")
+        QStringLiteral("audioMixMs=%1 audioEncodeMs=%6 frameProductionMs=%2 encodePipelineMs=%3 remuxMs=%4 wavFinalizeMs=%5")
             .arg(audioMixElapsedMs)
             .arg(frameProductionElapsedMs)
             .arg(encodePipelineElapsedMs)
             .arg(remuxElapsedMs)
-            .arg(wavFinalizeElapsedMs));
+            .arg(wavFinalizeElapsedMs)
+            .arg(audioEncodeElapsedMs));
     const qint64 exportElapsedMs = exportTimer.elapsed();
     const double realtimeFactor = exportElapsedMs > 0
         ? alignedTotalSeconds * 1000.0 / static_cast<double>(exportElapsedMs)

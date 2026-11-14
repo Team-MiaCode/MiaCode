@@ -1,3 +1,20 @@
+miacode_add_dev_tool(playback_shortcut_scope_spec TEST
+    SOURCES
+        src/tools/ui/PlaybackShortcutScopeSpec.cpp
+        src/app/ui/chrome/EditorInputContext.cpp
+        src/app/ui/chrome/EditorInputContext.h
+        src/app/services/ShortcutRegistry.cpp
+        src/app/ui/chrome/ShortcutModel.cpp
+    LIBS miacode_base Qt6::Quick Qt6::Qml Qt6::Test
+    INCLUDES src
+)
+qt_add_resources(playback_shortcut_scope_spec "playback_shortcut_scope"
+    PREFIX "/" BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+    FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/shortcuts.json")
+set_tests_properties(playback_shortcut_scope_spec PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+target_compile_definitions(playback_shortcut_scope_spec PRIVATE
+    "MIACODE_SOURCE_ROOT=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
+
 miacode_add_dev_tool(appearance_translations_spec TEST
     SOURCES
         src/tools/ui/AppearanceTranslationsSpec.cpp
@@ -145,6 +162,8 @@ miacode_add_dev_tool(qml_analysis_model_spec TEST
 miacode_add_dev_tool(qml_shortcut_binding_spec TEST
     SOURCES
         src/tools/ui/QmlShortcutBindingSpec.cpp
+        src/app/ui/chrome/EditorInputContext.cpp
+        src/app/ui/chrome/EditorInputContext.h
         src/app/ui/chrome/ShortcutModel.cpp
         src/app/ui/chrome/ShortcutModel.h
         src/app/ui/chrome/ShortcutCommands.h
@@ -193,15 +212,20 @@ miacode_add_dev_tool(cover_export_session_spec TEST
         src/app/ui/export/CoverExportSession.h
         src/app/ui/preferences/LocaleService.cpp
         src/app/ui/preferences/LocaleService.h
+        src/app/ui/preferences/ApplicationMenuTranslation.cpp
         src/app/services/PreferenceDocument.cpp
         src/app/services/ProjectPreferences.cpp
         src/app/services/UiRequestService.cpp
         src/app/services/UiRequestService.h
-    LIBS miacode_export Qt6::Quick
+    LIBS miacode_export miacode_preview_quickplugin Qt6::Quick
     INCLUDES src
 )
 target_compile_definitions(cover_export_session_spec PRIVATE
     "MIACODE_SOURCE_ROOT=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
+if(APPLE)
+    target_sources(cover_export_session_spec PRIVATE src/app/ui/preferences/ApplicationMenuTranslationMac.mm)
+    target_link_libraries(cover_export_session_spec PRIVATE "-framework AppKit")
+endif()
 
 miacode_add_dev_tool(qml_export_video_page_spec TEST
     SOURCES

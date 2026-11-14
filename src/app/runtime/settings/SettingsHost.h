@@ -15,15 +15,14 @@ public:
     bool editorHalfWidthInputEnabled() const override;
     bool editorAutoCompletionEnabled() const override;
     bool editorImeInputDisabled() const override;
-    QStringList editorCompletionDurationCandidates() const override;
-    QStringList editorCompletionDivisionCandidates() const override;
+    const editor::SimaiCompletionConfig& editorCompletionConfig() const override;
     void applyEditorTextFontSize(int pointSize, bool persist) override;
     void applyEditorLineSpacingFactor(double factor, bool persist) override;
     void applyEditorHalfWidthInputEnabled(bool enabled, bool persist) override;
     void applyEditorAutoCompletionEnabled(bool enabled, bool persist) override;
     void applyEditorImeInputDisabled(bool disabled, bool persist) override;
-    void applyEditorCompletionCandidates(const QStringList& durations,
-                                        const QStringList& divisions, bool persist) override;
+    void applyEditorCompletionCandidates(const editor::SimaiCompletionConfig& config,
+                                        bool persist) override;
     PreviewCanvasFrameRateMode previewCanvasFrameRateMode() const override;
     PreviewCanvasFrameRateMode previewStageMediaFrameRateMode() const override;
     PreviewCanvasFrameRateMode timelineFrameRateMode() const override;

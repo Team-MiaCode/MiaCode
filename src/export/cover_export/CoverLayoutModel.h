@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QImage>
+#include <QFont>
 #include <QJsonObject>
 #include <QList>
 #include <QObject>
@@ -62,6 +63,15 @@ class CoverLayer : public QObject
     // Absolute path to a custom font; empty == the bundled default (Heavy).
     Q_PROPERTY(QString fontPath READ fontPath WRITE setFontPath NOTIFY fontPathChanged)
     Q_PROPERTY(QString textColor READ textColor WRITE setTextColor NOTIFY textColorChanged)
+    Q_PROPERTY(bool textStrokeEnabled READ textStrokeEnabled WRITE setTextStrokeEnabled NOTIFY textStrokeEnabledChanged)
+    Q_PROPERTY(QString textStrokeColor READ textStrokeColor WRITE setTextStrokeColor NOTIFY textStrokeColorChanged)
+    Q_PROPERTY(qreal textStrokeWidth READ textStrokeWidth WRITE setTextStrokeWidth NOTIFY textStrokeWidthChanged)
+    Q_PROPERTY(bool textShadowEnabled READ textShadowEnabled WRITE setTextShadowEnabled NOTIFY textShadowEnabledChanged)
+    Q_PROPERTY(QString textShadowColor READ textShadowColor WRITE setTextShadowColor NOTIFY textShadowColorChanged)
+    Q_PROPERTY(qreal textShadowOpacity READ textShadowOpacity WRITE setTextShadowOpacity NOTIFY textShadowOpacityChanged)
+    Q_PROPERTY(qreal textShadowBlur READ textShadowBlur WRITE setTextShadowBlur NOTIFY textShadowBlurChanged)
+    Q_PROPERTY(qreal textShadowOffsetX READ textShadowOffsetX WRITE setTextShadowOffsetX NOTIFY textShadowOffsetXChanged)
+    Q_PROPERTY(qreal textShadowOffsetY READ textShadowOffsetY WRITE setTextShadowOffsetY NOTIFY textShadowOffsetYChanged)
     Q_PROPERTY(bool textBold READ textBold WRITE setTextBold NOTIFY textBoldChanged)
     // Content width / height. For images it is the intrinsic aspect (read from the
     // file in C++). For text it is written back from QML once the glyphs are laid
@@ -100,6 +110,15 @@ public:
     QString text() const { return text_; }
     QString fontPath() const { return fontPath_; }
     QString textColor() const { return textColor_; }
+    bool textStrokeEnabled() const { return textStrokeEnabled_; }
+    QString textStrokeColor() const { return textStrokeColor_; }
+    qreal textStrokeWidth() const { return textStrokeWidth_; }
+    bool textShadowEnabled() const { return textShadowEnabled_; }
+    QString textShadowColor() const { return textShadowColor_; }
+    qreal textShadowOpacity() const { return textShadowOpacity_; }
+    qreal textShadowBlur() const { return textShadowBlur_; }
+    qreal textShadowOffsetX() const { return textShadowOffsetX_; }
+    qreal textShadowOffsetY() const { return textShadowOffsetY_; }
     bool textBold() const { return textBold_; }
     qreal contentAspect() const { return contentAspect_; }
 
@@ -122,6 +141,15 @@ public:
     void setText(const QString& v);
     void setFontPath(const QString& v);
     void setTextColor(const QString& v);
+    void setTextStrokeEnabled(bool v);
+    void setTextStrokeColor(const QString& v);
+    void setTextStrokeWidth(qreal v);
+    void setTextShadowEnabled(bool v);
+    void setTextShadowColor(const QString& v);
+    void setTextShadowOpacity(qreal v);
+    void setTextShadowBlur(qreal v);
+    void setTextShadowOffsetX(qreal v);
+    void setTextShadowOffsetY(qreal v);
     void setTextBold(bool v);
     void setContentAspect(qreal v);
 
@@ -145,6 +173,15 @@ signals:
     void textChanged();
     void fontPathChanged();
     void textColorChanged();
+    void textStrokeEnabledChanged();
+    void textStrokeColorChanged();
+    void textStrokeWidthChanged();
+    void textShadowEnabledChanged();
+    void textShadowColorChanged();
+    void textShadowOpacityChanged();
+    void textShadowBlurChanged();
+    void textShadowOffsetXChanged();
+    void textShadowOffsetYChanged();
     void textBoldChanged();
     void contentAspectChanged();
 
@@ -174,6 +211,15 @@ private:
     QString text_;
     QString fontPath_;
     QString textColor_ = QStringLiteral("#FFFFFF");
+    bool textStrokeEnabled_ = false;
+    QString textStrokeColor_ = QStringLiteral("#000000");
+    qreal textStrokeWidth_ = 2.0;
+    bool textShadowEnabled_ = false;
+    QString textShadowColor_ = QStringLiteral("#000000");
+    qreal textShadowOpacity_ = 0.65;
+    qreal textShadowBlur_ = 8.0;
+    qreal textShadowOffsetX_ = 3.0;
+    qreal textShadowOffsetY_ = 3.0;
     bool textBold_ = false;
     qreal contentAspect_ = 1.0;
 };
@@ -201,6 +247,8 @@ public:
     int indexOfKey(const QString& key) const;
     static QString cardKey();
     static QString legacyChartFrameKey();
+    // Exact glyph path bound used by PathText's top normalization.
+    Q_INVOKABLE qreal textPathTop(const QString& text, const QFont& font, int resolvedPixelSize) const;
 
     // Legacy single-frame compatibility API. When enabled and no legacy frame
     // exists, this creates a chart-frame layer; when disabled it hides that layer.

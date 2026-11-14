@@ -37,6 +37,35 @@ HANDLE rawVideoPipeHandle(const RawVideoPipe& pipe)
 }
 #endif
 
+void closeRawVideoPipe(RawVideoPipe* pipe, bool discardUnreadData)
+{
+    if (pipe == nullptr) {
+        return;
+    }
+#ifdef Q_OS_WIN
+    HANDLE handle = rawVideoPipeHandle(*pipe);
+    if (handle != INVALID_HANDLE_VALUE) {
+        if (discardUnreadData) {
+            DisconnectNamedPipe(handle);
+        }
+        // This pipe instance has one client. Closing just the server handle
+        // leaves buffered bytes readable by that client before it receives EOF.
+        CloseHandle(handle);
+        pipe->nativeHandle = -1;
+    }
+#else
+    Q_UNUSED(discardUnreadData);
+    if (pipe->fd >= 0) {
+        ::close(pipe->fd);
+        pipe->fd = -1;
+    }
+    if (!pipe->fifoPath.isEmpty()) {
+        QFile::remove(pipe->fifoPath);
+        pipe->fifoPath.clear();
+    }
+#endif
+}
+
 bool connectRawVideoPipe(
     RawVideoPipe* pipe,
     const RawVideoPipePlan& plan,
@@ -301,7 +330,8 @@ void rawVideoPipeWriterMain(RawVideoPipePump* pump)
         }
     }
 
-    shutdownRawVideoPipe(&pump->pipe);
+    const bool discardUnreadData = pump->abortRequested.load() || !failureDetail.isEmpty();
+    closeRawVideoPipe(&pump->pipe, discardUnreadData);
     {
         std::lock_guard<std::mutex> lock(pump->mutex);
         pump->writerFinished = true;
@@ -574,26 +604,7 @@ bool enqueueRawVideoFrame(
 
 void shutdownRawVideoPipe(RawVideoPipe* pipe)
 {
-    if (pipe == nullptr) {
-        return;
-    }
-#ifdef Q_OS_WIN
-    HANDLE handle = rawVideoPipeHandle(*pipe);
-    if (handle != INVALID_HANDLE_VALUE) {
-        DisconnectNamedPipe(handle);
-        CloseHandle(handle);
-        pipe->nativeHandle = -1;
-    }
-#else
-    if (pipe->fd >= 0) {
-        ::close(pipe->fd);
-        pipe->fd = -1;
-    }
-    if (!pipe->fifoPath.isEmpty()) {
-        QFile::remove(pipe->fifoPath);
-        pipe->fifoPath.clear();
-    }
-#endif
+    closeRawVideoPipe(pipe, true);
 }
 
 void shutdownRawVideoPipePump(RawVideoPipePump* pump)

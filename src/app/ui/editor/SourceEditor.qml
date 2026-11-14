@@ -55,6 +55,7 @@ Rectangle {
     signal normalizeChartRequested()
     signal completionSettingsRequested(string group)
     function focusEditor() { sourceArea.forceActiveFocus() }
+    readonly property Item inputItem: sourceArea
     readonly property var bookmarks: sourceArea.bookmarks
     readonly property bool canUndo: sourceArea.canUndo
     readonly property bool canRedo: sourceArea.canRedo
@@ -414,6 +415,7 @@ Rectangle {
     ScintillaEditor {
         id: sourceArea
         objectName: "sourceArea"
+        property bool chartEditorInput: true
         property bool reservesPlainSpace: true
         anchors.left: parent.left
         anchors.right: verticalBar.left

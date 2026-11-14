@@ -469,46 +469,61 @@ Rectangle {
                             }
                         }
 
-                        RowLayout {
+                        LabeledCombo {
                             Layout.fillWidth: true
-                            spacing: 12
-
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Layout.preferredWidth: 0
-                                spacing: Theme.settingsLabelSpacing
-                                Text {
-                                    text: qsTrId("dialog.video_export.preset")
-                                    color: Theme.colors.text.secondary
-                                    font.family: Theme.uiFont
-                                    font.pixelSize: Theme.uiFontSize
-                                }
-                                AppComboBox {
-                                    Layout.fillWidth: true
-                                    enabled: root.session && root.session.outputModeIndex !== 1
-                                    model: root.session ? root.session.presetOptions : []
-                                    currentIndex: root.session ? root.session.presetIndex : 1
-                                    onActivated: if (root.session) root.session.presetIndex = currentIndex
-                                }
-                            }
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                Layout.preferredWidth: 0
-                                spacing: Theme.settingsLabelSpacing
-                                Text {
-                                    text: qsTrId("dialog.video_export.size_preset")
-                                    color: Theme.colors.text.secondary
-                                    font.family: Theme.uiFont
-                                    font.pixelSize: Theme.uiFontSize
-                                }
-                                AppComboBox {
-                                    Layout.fillWidth: true
-                                    enabled: root.session && root.session.outputModeIndex !== 1
-                                    model: root.session ? root.session.sizePresetOptions : []
-                                    currentIndex: root.session ? root.session.sizePresetIndex : 0
-                                    onActivated: if (root.session) root.session.sizePresetIndex = currentIndex
-                                }
-                            }
+                            label: qsTrId("dialog.video_export.rate_mode")
+                            enabled: !!root.session && root.session.outputModeIndex !== 1
+                            options: root.session ? root.session.rateModeOptions : []
+                            currentValue: root.session ? root.session.rateModeIndex : 0
+                            onPicked: function(value) { if (root.session) root.session.rateModeIndex = value }
+                        }
+                        LabeledCombo {
+                            Layout.fillWidth: true
+                            visible: !!root.session && root.session.rateModeIndex === 0
+                            label: qsTrId("dialog.video_export.quality_level")
+                            enabled: !!root.session && root.session.outputModeIndex !== 1
+                            options: root.session ? root.session.qualityLevelOptions : []
+                            currentValue: root.session ? root.session.qualityLevelIndex : 1
+                            onPicked: function(value) { if (root.session) root.session.qualityLevelIndex = value }
+                        }
+                        LabeledFocusSlider {
+                            Layout.fillWidth: true
+                            visible: !!root.session && root.session.rateModeIndex === 1
+                            label: qsTrId("dialog.video_export.size_limit")
+                            enabled: !!root.session && root.session.outputModeIndex !== 1
+                            from: root.session ? root.session.sizeLimitMinMb : 5
+                            to: root.session ? root.session.sizeLimitMaxMb : 1000
+                            focusFrom: 20
+                            focusTo: 200
+                            value: root.session ? root.session.sizeLimitMb : 100
+                            unit: "MB"
+                            onMoved: function(value) { if (root.session) root.session.sizeLimitMb = Math.round(value) }
+                        }
+                        LabeledFocusSlider {
+                            Layout.fillWidth: true
+                            visible: !!root.session && root.session.rateModeIndex === 2
+                            label: qsTrId("dialog.video_export.video_bitrate")
+                            enabled: !!root.session && root.session.outputModeIndex !== 1
+                            from: root.session ? root.session.videoBitrateMinMbps : 0.1
+                            to: root.session ? root.session.videoBitrateMaxMbps : 100
+                            focusFrom: 1
+                            focusTo: 20
+                            value: root.session ? root.session.videoBitrateMbps : 8
+                            unit: "Mbps"
+                            decimals: -1
+                            onMoved: function(value) { if (root.session) root.session.videoBitrateMbps = value }
+                        }
+                        // One line, the same number the encoder is planned with. Batch
+                        // exports have one size per chart, so they show none.
+                        Text {
+                            readonly property real bytes: root.session ? root.session.estimatedSizeBytes : -1
+                            visible: !!root.session && root.session.activeTab === "export"
+                                     && root.session.outputModeIndex !== 1
+                            text: qsTrId("dialog.video_export.estimated_size")
+                                .arg(bytes >= 0 ? (bytes / 1e6).toFixed(1) + " MB" : "—")
+                            color: bytes >= 0 ? Theme.colors.text.secondary : Theme.colors.danger.primary
+                            font.family: Theme.uiFont
+                            font.pixelSize: Theme.secondaryFontSize
                         }
 
                         SettingsSection {
@@ -936,7 +951,12 @@ Rectangle {
                 Item { Layout.fillWidth: true }
                 AppButton {
                     text: root.session && root.session.exportRunning ? qsTrId("video_export.cancel_export") : qsTrId("video_export.start_export")
-                    enabled: !!root.session && (root.session.exportRunning || root.settingsAvailable)
+                    // A size limit that cannot hold the audio blocks a single MP4 export.
+                    enabled: !!root.session && (root.session.exportRunning
+                             || (root.settingsAvailable
+                                 && (root.session.activeTab === "batch"
+                                     || root.session.outputModeIndex === 1
+                                     || root.session.estimatedSizeBytes >= 0)))
                     emphasized: !(root.session && root.session.exportRunning)
                     onClicked: {
                         if (!root.session) return

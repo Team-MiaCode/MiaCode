@@ -1861,6 +1861,10 @@ Restore the backup from %1?</translation>
         <source>Failed to send export snapshot to worker.</source>
         <translation>Failed to send export snapshot to worker.</translation>
     </message>
+    <message id="dialog.video_export.estimated_size">
+        <source>Estimated size: %1</source>
+        <translation>Estimated size: %1</translation>
+    </message>
     <message id="dialog.video_export.error.disk_full_temp">
         <source>%1 is out of space. Export writes the video to the system temp folder (%2) first.</source>
         <translation>%1 is out of space. Export writes the video to the system temp folder (%2) first.</translation>
@@ -1884,6 +1888,10 @@ Restore the backup from %1?</translation>
     <message id="dialog.video_export.error.render_failed">
         <source>Rendering the export frames failed.</source>
         <translation>Rendering the export frames failed.</translation>
+    </message>
+    <message id="dialog.video_export.error.size_limit_too_small">
+        <source>The size limit cannot hold this export&apos;s audio. Raise the limit or lower the audio bitrate.</source>
+        <translation>The size limit cannot hold this export&apos;s audio. Raise the limit or lower the audio bitrate.</translation>
     </message>
     <message id="dialog.video_export.error.audio_failed">
         <source>Could not generate the export audio track.</source>
@@ -1961,18 +1969,6 @@ Restore the backup from %1?</translation>
         <source>Show bottom-left timestamp</source>
         <translation>Show bottom-left timestamp</translation>
     </message>
-    <message id="dialog.video_export.preset">
-        <source>Export Quality</source>
-        <translation>Export Quality</translation>
-    </message>
-    <message id="dialog.video_export.preset.fast">
-        <source>Fast</source>
-        <translation>Fast</translation>
-    </message>
-    <message id="dialog.video_export.preset.high_quality">
-        <source>High Quality</source>
-        <translation>High Quality</translation>
-    </message>
     <message id="preview.stop">
         <source>Stop</source>
         <translation>Stop</translation>
@@ -2049,6 +2045,22 @@ Restore the backup from %1?</translation>
         <source>Worker ready...</source>
         <translation>Worker ready...</translation>
     </message>
+    <message id="dialog.video_export.quality_level">
+        <source>Quality</source>
+        <translation>Quality</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.high">
+        <source>High</source>
+        <translation>High</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.small">
+        <source>Compact</source>
+        <translation>Compact</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.standard">
+        <source>Standard</source>
+        <translation>Standard</translation>
+    </message>
     <message id="dialog.video_export.range.end">
         <source>End</source>
         <translation>End</translation>
@@ -2057,33 +2069,37 @@ Restore the backup from %1?</translation>
         <source>Start</source>
         <translation>Start</translation>
     </message>
+    <message id="dialog.video_export.rate_mode">
+        <source>Export strategy</source>
+        <translation>Export strategy</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.bitrate">
+        <source>Bitrate</source>
+        <translation>Bitrate</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.file_size">
+        <source>Size limit</source>
+        <translation>Size limit</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.quality">
+        <source>Quality first</source>
+        <translation>Quality first</translation>
+    </message>
     <message id="dialog.video_export.resolution">
         <source>Resolution</source>
         <translation>Resolution</translation>
     </message>
-    <message id="dialog.video_export.size_preset">
-        <source>File size</source>
-        <translation>File size</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.compact">
-        <source>Smaller</source>
-        <translation>Smaller</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.standard">
-        <source>Standard</source>
-        <translation>Standard</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.ultra_compact">
-        <source>Smallest (No PV)</source>
-        <translation>Smallest (No PV)</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.ultra_compact_with_pv">
-        <source>Smallest (With PV)</source>
-        <translation>Smallest (With PV)</translation>
+    <message id="dialog.video_export.size_limit">
+        <source>Size limit</source>
+        <translation>Size limit</translation>
     </message>
     <message id="dialog.video_export.title">
         <source>Export Video</source>
         <translation>Export Video</translation>
+    </message>
+    <message id="dialog.video_export.video_bitrate">
+        <source>Video bitrate</source>
+        <translation>Video bitrate</translation>
     </message>
     <message id="document.all_difficulties_share_this_designer">
         <source>All difficulties share this designer</source>
@@ -2738,8 +2754,8 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>Analyzing audio alignment...</translation>
     </message>
     <message id="media_tools.video_audio_missing">
-        <source>The background video has no audio stream to align.</source>
-        <translation>The background video has no audio stream to align.</translation>
+        <source>The background video has no audio stream and cannot be automatically aligned; no files were changed.</source>
+        <translation>The background video has no audio stream and cannot be automatically aligned; no files were changed.</translation>
     </message>
     <message id="media_tools.video_alignment_cancelled">
         <source>Audio alignment canceled.</source>
@@ -3008,6 +3024,22 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="net.packaging_zip">
         <source>Packaging ZIP...</source>
         <translation>Packaging ZIP...</translation>
+    </message>
+    <message id="net.cancelling_download">
+        <source>Cancelling download…</source>
+        <translation>Cancelling download…</translation>
+    </message>
+    <message id="net.waiting_for_download_1">
+        <source>Waiting for server response: %1</source>
+        <translation>Waiting for server response: %1</translation>
+    </message>
+    <message id="net.preparing_download">
+        <source>Preparing download…</source>
+        <translation>Preparing download…</translation>
+    </message>
+    <message id="net.saving_download">
+        <source>Saving downloaded files…</source>
+        <translation>Saving downloaded files…</translation>
     </message>
     <message id="net.paused">
         <source>Paused</source>
@@ -3841,6 +3873,18 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Set as local default</source>
         <translation>Set as local default</translation>
     </message>
+    <message id="qml.shortcut_moved">
+        <source>Moved shortcut %1 from %2 to %3.</source>
+        <translation>Moved shortcut %1 from %2 to %3.</translation>
+    </message>
+    <message id="qml.shortcut_reserved">
+        <source>Shortcut %1 is used by %2 and can't be assigned to %3.</source>
+        <translation>Shortcut %1 is used by %2 and can't be assigned to %3.</translation>
+    </message>
+    <message id="qml.shortcut_unassigned">
+        <source>Not set</source>
+        <translation>Not set</translation>
+    </message>
     <message id="qml.show_all_open_editors">
         <source>Show all open editors</source>
         <translation>Show all open editors</translation>
@@ -4004,6 +4048,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="shortcut.preview.play_pause_global">
         <source>Play/Pause Preview</source>
         <translation>Play/Pause Preview</translation>
+    </message>
+    <message id="shortcut.preview.play_pause_non_text">
+        <source>Play/Pause Preview (Outside Editor)</source>
+        <translation>Play/Pause Preview (Outside Editor)</translation>
     </message>
     <message id="shortcut.preview.speed_down">
         <source>Playback Speed -</source>
@@ -4911,6 +4959,12 @@ Error: %1</translation>
         <source>Custom candidates</source>
         <translation>Custom candidates</translation>
     </message>
+    <message id="preferences.completion.help">
+        <source>"Duration" sets the completion list shown when typing [.
+"Beat subdivision" sets the completion list shown when typing {.</source>
+        <translation>"Duration" sets the completion list shown when typing [.
+"Beat subdivision" sets the completion list shown when typing {.</translation>
+    </message>
     <message id="preferences.completion.expand">
         <source>Expand custom candidates</source>
         <translation>Expand custom candidates</translation>
@@ -4934,6 +4988,18 @@ Error: %1</translation>
     <message id="preferences.completion.division_hint">
         <source>Enter subdivision</source>
         <translation>Enter subdivision</translation>
+    </message>
+    <message id="preferences.completion.duration_suffix">
+        <source>Custom continuation</source>
+        <translation>Custom continuation</translation>
+    </message>
+    <message id="preferences.completion.duration_suffix_hint">
+        <source>Enter a suffix</source>
+        <translation>Enter a suffix</translation>
+    </message>
+    <message id="preferences.completion.invalid_duration_suffix">
+        <source>Enter a valid duration suffix</source>
+        <translation>Enter a valid duration suffix</translation>
     </message>
     <message id="preferences.completion.reorder">
         <source>Drag to reorder; use Up or Down when focused</source>
@@ -5053,6 +5119,42 @@ Error: %1</translation>
     <message id="dialog.preferences.theme.dracula"><source>Dracula</source><translation>Dracula</translation></message>
     <message id="dialog.preferences.theme.tokyo_night"><source>Tokyo Night</source><translation>Tokyo Night</translation></message>
     <message id="dialog.preferences.theme.noah"><source>Noa</source><translation>Noa</translation></message>
+    <message id="cover.text_stroke">
+        <source>Text outline</source>
+        <translation>Text outline</translation>
+    </message>
+    <message id="cover.text_stroke_color">
+        <source>Outline color</source>
+        <translation>Outline color</translation>
+    </message>
+    <message id="cover.text_stroke_width">
+        <source>Outline width</source>
+        <translation>Outline width</translation>
+    </message>
+    <message id="cover.text_shadow">
+        <source>Text shadow</source>
+        <translation>Text shadow</translation>
+    </message>
+    <message id="cover.text_shadow_color">
+        <source>Shadow color</source>
+        <translation>Shadow color</translation>
+    </message>
+    <message id="cover.text_shadow_opacity">
+        <source>Shadow opacity</source>
+        <translation>Shadow opacity</translation>
+    </message>
+    <message id="cover.text_shadow_blur">
+        <source>Shadow blur</source>
+        <translation>Shadow blur</translation>
+    </message>
+    <message id="cover.text_shadow_x">
+        <source>Shadow X offset</source>
+        <translation>Shadow X offset</translation>
+    </message>
+    <message id="cover.text_shadow_y">
+        <source>Shadow Y offset</source>
+        <translation>Shadow Y offset</translation>
+    </message>
 </context>
 <context>
     <!-- Qt loads qtbase texts for the system locale; this context keeps the

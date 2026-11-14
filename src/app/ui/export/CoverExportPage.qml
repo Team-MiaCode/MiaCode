@@ -742,6 +742,60 @@ Rectangle {
                                                 onClicked: root.session.importActiveLayerFont()
                                             }
                                         }
+                                        AppSwitch {
+                                            text: qsTrId("cover.text_stroke")
+                                            checked: root.activeLayer ? root.activeLayer.textStrokeEnabled : false
+                                            onToggled: root.session.setActiveLayerTextEffect("textStrokeEnabled", checked)
+                                        }
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            FormLabel { text: qsTrId("cover.text_stroke_color") }
+                                            AppTextField {
+                                                Layout.fillWidth: true
+                                                text: root.activeLayer ? root.activeLayer.textStrokeColor : "#000000"
+                                                onEditingFinished: root.session.setActiveLayerTextEffect("textStrokeColor", text)
+                                            }
+                                        }
+                                        LabeledSlider {
+                                            Layout.fillWidth: true
+                                            label: qsTrId("cover.text_stroke_width")
+                                            suffix: " px"; decimals: 1
+                                            from: 0; to: 30; stepSize: 0.5
+                                            value: root.activeLayer ? root.activeLayer.textStrokeWidth : 2
+                                            onMoved: root.session.setActiveLayerTextEffect("textStrokeWidth", value)
+                                        }
+                                        AppSwitch {
+                                            text: qsTrId("cover.text_shadow")
+                                            checked: root.activeLayer ? root.activeLayer.textShadowEnabled : false
+                                            onToggled: root.session.setActiveLayerTextEffect("textShadowEnabled", checked)
+                                        }
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            FormLabel { text: qsTrId("cover.text_shadow_color") }
+                                            AppTextField {
+                                                Layout.fillWidth: true
+                                                text: root.activeLayer ? root.activeLayer.textShadowColor : "#000000"
+                                                onEditingFinished: root.session.setActiveLayerTextEffect("textShadowColor", text)
+                                            }
+                                        }
+                                        Repeater {
+                                            model: [
+                                                {key: "textShadowOpacity", label: qsTrId("cover.text_shadow_opacity"), min: 0, max: 1, step: 0.01},
+                                                {key: "textShadowBlur", label: qsTrId("cover.text_shadow_blur"), min: 0, max: 60, step: 1},
+                                                {key: "textShadowOffsetX", label: qsTrId("cover.text_shadow_x"), min: -100, max: 100, step: 1},
+                                                {key: "textShadowOffsetY", label: qsTrId("cover.text_shadow_y"), min: -100, max: 100, step: 1}
+                                            ]
+                                            LabeledSlider {
+                                                required property var modelData
+                                                Layout.fillWidth: true
+                                                label: modelData.label
+                                                suffix: modelData.key === "textShadowOpacity" ? "" : " px"
+                                                decimals: modelData.key === "textShadowOpacity" ? 2 : 0
+                                                from: modelData.min; to: modelData.max; stepSize: modelData.step
+                                                value: root.activeLayer ? root.activeLayer[modelData.key] : 0
+                                                onMoved: root.session.setActiveLayerTextEffect(modelData.key, value)
+                                            }
+                                        }
                                     }
 
                                     // ---- 谱面帧 ----

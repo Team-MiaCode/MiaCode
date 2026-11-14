@@ -43,6 +43,23 @@ struct TouchholdSpanRenderPlan {
     double durationSeconds = 0.0;
 };
 
+// Output timeline of one export: intro pre-roll + lead-in + the selected content,
+// rounded to whole frames. Shared by the audio plan, the encoder and the export
+// page's size estimate so all three agree on the duration.
+struct VideoExportTiming {
+    double leadInSeconds = 0.0;
+    double introLeadSeconds = 0.0;
+    int introFrameCount = 0;
+    double totalSeconds = 0.0;
+    int frameCount = 0;
+    double alignedTotalSeconds = 0.0;
+    // Frames actually encoded; smaller than frameCount only for a capped preview export.
+    int outputFrameCount = 0;
+    double outputSeconds = 0.0;
+};
+
+VideoExportTiming videoExportTiming(const VideoExportTask& task);
+
 struct VideoExportAudioRenderPlan {
     double segmentStartSecond = 0.0;
     double segmentEndSecond = 0.0;

@@ -40,6 +40,8 @@ public:
     // Return whether the input was accepted; persistence failure stays pending
     // while the accepted shortcut takes effect in this session.
     bool setUserShortcutText(const QString& id, const QString& shortcutText);
+    // Leaves the command without a binding; persisted as an empty shortcut.
+    bool unbindUserShortcut(const QString& id);
     bool resetUserShortcut(const QString& id);
     bool resetEditableShortcuts();
     void reload();

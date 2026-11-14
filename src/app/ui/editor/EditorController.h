@@ -73,6 +73,7 @@ private:
     miacode::editor::SimaiCompletionConfig completionConfig_ = miacode::editor::defaultCompletionConfig();
     miacode::editor::SimaiCompletionSession completion_;
     QStringList visibleCandidates_;
+    int completionReplacementOffset_ = 0;
     int completionIndex_ = -1;
     int activeDifficultyId_ = -1;
 };

@@ -1,6 +1,9 @@
 #include "export/cover_export/CoverLayoutModel.h"
 
 #include <QFileInfo>
+#include <QColor>
+#include <QPainterPath>
+#include <cmath>
 #include <QImageReader>
 #include <QJsonArray>
 #include <QSet>
@@ -241,6 +244,81 @@ void CoverLayer::setTextColor(const QString& v)
     emit textColorChanged();
 }
 
+void CoverLayer::setTextStrokeEnabled(bool v)
+{
+    if (textStrokeEnabled_ == v) return;
+    textStrokeEnabled_ = v;
+    emit textStrokeEnabledChanged();
+}
+
+void CoverLayer::setTextStrokeColor(const QString& v)
+{
+    if (!QColor(v).isValid()) return;
+    if (textStrokeColor_ == v) return;
+    textStrokeColor_ = v;
+    emit textStrokeColorChanged();
+}
+
+void CoverLayer::setTextStrokeWidth(qreal v)
+{
+    if (!std::isfinite(v)) return;
+    v = qBound(qreal(0), v, qreal(100));
+    if (textStrokeWidth_ == v) return;
+    textStrokeWidth_ = v;
+    emit textStrokeWidthChanged();
+}
+
+void CoverLayer::setTextShadowEnabled(bool v)
+{
+    if (textShadowEnabled_ == v) return;
+    textShadowEnabled_ = v;
+    emit textShadowEnabledChanged();
+}
+
+void CoverLayer::setTextShadowColor(const QString& v)
+{
+    if (!QColor(v).isValid()) return;
+    if (textShadowColor_ == v) return;
+    textShadowColor_ = v;
+    emit textShadowColorChanged();
+}
+
+void CoverLayer::setTextShadowOpacity(qreal v)
+{
+    if (!std::isfinite(v)) return;
+    v = qBound(qreal(0), v, qreal(1));
+    if (textShadowOpacity_ == v) return;
+    textShadowOpacity_ = v;
+    emit textShadowOpacityChanged();
+}
+
+void CoverLayer::setTextShadowBlur(qreal v)
+{
+    if (!std::isfinite(v)) return;
+    v = qBound(qreal(0), v, qreal(100));
+    if (textShadowBlur_ == v) return;
+    textShadowBlur_ = v;
+    emit textShadowBlurChanged();
+}
+
+void CoverLayer::setTextShadowOffsetX(qreal v)
+{
+    if (!std::isfinite(v)) return;
+    v = qBound(qreal(-200), v, qreal(200));
+    if (textShadowOffsetX_ == v) return;
+    textShadowOffsetX_ = v;
+    emit textShadowOffsetXChanged();
+}
+
+void CoverLayer::setTextShadowOffsetY(qreal v)
+{
+    if (!std::isfinite(v)) return;
+    v = qBound(qreal(-200), v, qreal(200));
+    if (textShadowOffsetY_ == v) return;
+    textShadowOffsetY_ = v;
+    emit textShadowOffsetYChanged();
+}
+
 void CoverLayer::setTextBold(bool v)
 {
     if (textBold_ == v) return;
@@ -260,6 +338,16 @@ void CoverLayer::setContentAspect(qreal v)
 CoverLayoutModel::CoverLayoutModel(QObject* parent) : QObject(parent)
 {
     ensureDefaultLayers();
+}
+
+qreal CoverLayoutModel::textPathTop(const QString& text, const QFont& font, int resolvedPixelSize) const
+{
+    if (text.isEmpty()) return 0.0;
+    QFont fittedFont = font;
+    fittedFont.setPixelSize(qMax(1, resolvedPixelSize));
+    QPainterPath path;
+    path.addText(0.0, 0.0, fittedFont, text);
+    return path.boundingRect().y();
 }
 
 void CoverLayoutModel::ensureDefaultLayers()
@@ -480,6 +568,15 @@ CoverLayer* CoverLayoutModel::duplicateLayer(const QString& key)
     copy->text_ = src->text_;
     copy->fontPath_ = src->fontPath_;
     copy->textColor_ = src->textColor_;
+    copy->textStrokeEnabled_ = src->textStrokeEnabled_;
+    copy->textStrokeColor_ = src->textStrokeColor_;
+    copy->textStrokeWidth_ = src->textStrokeWidth_;
+    copy->textShadowEnabled_ = src->textShadowEnabled_;
+    copy->textShadowColor_ = src->textShadowColor_;
+    copy->textShadowOpacity_ = src->textShadowOpacity_;
+    copy->textShadowBlur_ = src->textShadowBlur_;
+    copy->textShadowOffsetX_ = src->textShadowOffsetX_;
+    copy->textShadowOffsetY_ = src->textShadowOffsetY_;
     copy->textBold_ = src->textBold_;
     copy->contentAspect_ = src->contentAspect_;
     emit layersChanged();
@@ -771,6 +868,15 @@ QJsonObject CoverLayoutModel::toJson() const
             o.insert(QStringLiteral("text"), layer->text_);
             o.insert(QStringLiteral("fontPath"), layer->fontPath_);
             o.insert(QStringLiteral("textColor"), layer->textColor_);
+            o.insert(QStringLiteral("textStrokeEnabled"), layer->textStrokeEnabled_);
+            o.insert(QStringLiteral("textStrokeColor"), layer->textStrokeColor_);
+            o.insert(QStringLiteral("textStrokeWidth"), layer->textStrokeWidth_);
+            o.insert(QStringLiteral("textShadowEnabled"), layer->textShadowEnabled_);
+            o.insert(QStringLiteral("textShadowColor"), layer->textShadowColor_);
+            o.insert(QStringLiteral("textShadowOpacity"), layer->textShadowOpacity_);
+            o.insert(QStringLiteral("textShadowBlur"), layer->textShadowBlur_);
+            o.insert(QStringLiteral("textShadowOffsetX"), layer->textShadowOffsetX_);
+            o.insert(QStringLiteral("textShadowOffsetY"), layer->textShadowOffsetY_);
             o.insert(QStringLiteral("textBold"), layer->textBold_);
             o.insert(QStringLiteral("contentAspect"), layer->contentAspect_);
         }
@@ -837,6 +943,15 @@ void CoverLayoutModel::fromJson(const QJsonObject& obj)
             layer->setText(o.value(QStringLiteral("text")).toString(layer->text_));
             layer->setFontPath(o.value(QStringLiteral("fontPath")).toString(layer->fontPath_));
             layer->setTextColor(o.value(QStringLiteral("textColor")).toString(layer->textColor_));
+            layer->setTextStrokeEnabled(o.value(QStringLiteral("textStrokeEnabled")).toBool(false));
+            layer->setTextStrokeColor(o.value(QStringLiteral("textStrokeColor")).toString(QStringLiteral("#000000")));
+            layer->setTextStrokeWidth(o.value(QStringLiteral("textStrokeWidth")).toDouble(2.0));
+            layer->setTextShadowEnabled(o.value(QStringLiteral("textShadowEnabled")).toBool(false));
+            layer->setTextShadowColor(o.value(QStringLiteral("textShadowColor")).toString(QStringLiteral("#000000")));
+            layer->setTextShadowOpacity(o.value(QStringLiteral("textShadowOpacity")).toDouble(0.65));
+            layer->setTextShadowBlur(o.value(QStringLiteral("textShadowBlur")).toDouble(8.0));
+            layer->setTextShadowOffsetX(o.value(QStringLiteral("textShadowOffsetX")).toDouble(3.0));
+            layer->setTextShadowOffsetY(o.value(QStringLiteral("textShadowOffsetY")).toDouble(3.0));
             layer->setTextBold(o.value(QStringLiteral("textBold")).toBool(layer->textBold_));
             layer->setContentAspect(o.value(QStringLiteral("contentAspect")).toDouble(layer->contentAspect_));
         }

@@ -2,7 +2,7 @@
 #include "app/services/PreferenceJsonFile.h"
 #include "app/ui/chrome/ShortcutModel.h"
 
-#include <QCoreApplication>
+#include <QGuiApplication>
 #include <QJsonArray>
 #include <QSet>
 #include <QTemporaryDir>
@@ -23,7 +23,9 @@ QByteArray bytes(const QString& path)
 
 int main(int argc, char** argv)
 {
-    QCoreApplication app(argc, argv);
+    // ShortcutModel reads the platform's standard key bindings.
+    qputenv("QT_QPA_PLATFORM", "offscreen");
+    QGuiApplication app(argc, argv);
     QTemporaryDir temporary;
     if (!temporary.isValid()) {
         return 1;
@@ -209,6 +211,23 @@ int main(int argc, char** argv)
         expect(guarded.shortcutText(id) == "Ctrl+8" && bytes(futurePath) == originalFuture,
                "unsupported shortcut schema retains pending override after reload");
     }
+    // Bindings are exclusive: assigning or resetting one takes it from every other command.
+    const QString exclusivePath = temporary.filePath(QStringLiteral("exclusive-shortcuts.json"));
+    ShortcutRegistry exclusive(exclusivePath);
+    ShortcutModel exclusiveModel(exclusive);
+    const QString stop = QStringLiteral("preview.stop_or_play");
+    const QString outside = QStringLiteral("preview.play_pause_non_text");
+    const QString mirror = QStringLiteral("transform.mirror_ud");
+    expect(exclusiveModel.setShortcutText(stop, QStringLiteral("Space"))
+               && exclusive.shortcutText(outside).isEmpty()
+               && ShortcutRegistry(exclusivePath).shortcutText(outside).isEmpty(),
+           "taking a key unbinds its previous owner, and the unbinding survives a restart");
+    exclusiveModel.resetShortcut(outside);
+    expect(exclusive.shortcutText(outside) == "Space" && exclusive.shortcutText(stop).isEmpty(),
+           "resetting a command reclaims its default from the current owner");
+    expect(exclusiveModel.setShortcutText(stop, QStringLiteral("Ctrl+K, Ctrl+C"))
+               && exclusive.shortcutText(mirror).isEmpty(),
+           "a chord takes the single key it starts with");
     miacode::debug_log::shutdownAsyncLogWriter();
     const QByteArray log = bytes(miacode::debug_log::runtimeLogPath());
     expect(log.contains("invalid-json") && log.contains("read-"), "silent recovery and IO failures leave log evidence");

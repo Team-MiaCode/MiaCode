@@ -20,8 +20,6 @@
 
 namespace {
 
-constexpr char kReservesPlainSpaceProperty[] = "reservesPlainSpace";
-
 struct PauseDisplayHoldKey {
     int key = Qt::Key_Alt;
     Qt::KeyboardModifiers pressModifiers = Qt::AltModifier;
@@ -52,30 +50,6 @@ PauseDisplayHoldKey pauseDisplayHoldKey()
         break;
     }
     return hold;
-}
-
-bool objectReservesPlainSpace(QObject* object)
-{
-    for (QObject* current = object; current != nullptr; current = current->parent()) {
-        if (current->property(kReservesPlainSpaceProperty).toBool()) {
-            return true;
-        }
-    }
-
-    auto* item = qobject_cast<QQuickItem*>(object);
-    for (QQuickItem* current = item; current != nullptr; current = current->parentItem()) {
-        if (current->property(kReservesPlainSpaceProperty).toBool()) {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool rootWindowReservesPlainSpace(QQuickWindow* window)
-{
-    return window->property("sourceEditorFocused").toBool()
-        || objectReservesPlainSpace(QGuiApplication::focusObject())
-        || objectReservesPlainSpace(window->activeFocusItem());
 }
 
 }  // namespace
@@ -118,31 +92,20 @@ bool Session::eventFilter(QObject*, QEvent* event)
                 || (focusWindow != nullptr && (focusWindow->transientParent() == rootWindow
                     || focusWindow == rootWindow->findChild<QWindow*>(
                         QStringLiteral("detachedPreviewWindow")))));
-        if (focusOnWorkbench
-            && keyEvent->key() == Qt::Key_Space
-            && keyEvent->modifiers() == Qt::NoModifier
-            && rootWindow->property("playbackCommandsEnabled").toBool()
-            && !rootWindowReservesPlainSpace(rootWindow)) {
-            if (event->type() == QEvent::KeyPress
-                && !keyEvent->isAutoRepeat()
-                && playback_ != nullptr) {
-                playback_->togglePlayback();
-            }
-            event->accept();
-            return true;
-        }
-
         // Ctrl (Command on macOS) arms touch-pad authoring on the preview from
         // anywhere in the root window, not only from the focused editor: the
         // click it enables lands on the preview, which does not keep the
         // editor focused. This filter only observes — Ctrl shortcuts still run.
         bool controlArmsTouchAuthoring = false;
+        const bool workbenchAllowed = rootWindow
+            && rootWindow->property("workbenchCommandsAllowed").toBool();
         if (keyEvent->key() == Qt::Key_Control
             && !keyEvent->isAutoRepeat()
             && editorSyncController_ != nullptr) {
             if (event->type() == QEvent::KeyPress) {
                 controlArmsTouchAuthoring = previewTouchPadAuthoringShortcutEnabled_
                     && focusOnWorkbench
+                    && workbenchAllowed
                     && editorAuthoringContextActive();
                 if (controlArmsTouchAuthoring) {
                     editorSyncController_->setTouchPadControlHold(true);
@@ -155,9 +118,11 @@ bool Session::eventFilter(QObject*, QEvent* event)
         const PauseDisplayHoldKey hold = pauseDisplayHoldKey();
         // A Ctrl pause-display hold key yields to touch authoring, which owns
         // Ctrl whenever it can author.
-        if (keyEvent->key() == hold.key && !controlArmsTouchAuthoring) {
+        // An unbound hold key resolves to key 0, which some IME events also carry.
+        if (hold.key != 0 && keyEvent->key() == hold.key && !controlArmsTouchAuthoring) {
             if (event->type() == QEvent::KeyPress
                 && !keyEvent->isAutoRepeat()
+                && focusOnWorkbench && workbenchAllowed
                 && keyEvent->modifiers() == hold.pressModifiers) {
                 setPauseDisplayAltHoldActive(true);
             } else if (event->type() == QEvent::KeyRelease && !keyEvent->isAutoRepeat()) {

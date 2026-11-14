@@ -453,8 +453,7 @@
         // empty-pair backspace, the bracket suggestion popup, and the 'h' hold-
         // duration suggestions. Was three separate toggles before they merged.
         bool editorAutoCompletionEnabled_ = true;
-        QStringList editorCompletionDurationCandidates_;
-        QStringList editorCompletionDivisionCandidates_;
+        miacode::editor::SimaiCompletionConfig editorCompletionConfig_ = miacode::editor::defaultCompletionConfig();
         // beta51+ — "禁止中文輸入法輸入" preference. On by default (user-voted
         // default): the editor is for chart notation, so blocking the IME
         // candidate window avoids accidental CJK composition on first launch.

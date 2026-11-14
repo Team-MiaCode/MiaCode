@@ -26,6 +26,11 @@ Item {
     readonly property var preferencesModel: applicationContext.preferencesModel
     readonly property var latency: applicationContext.latency
     readonly property var shortcutModel: applicationContext.shortcuts
+    readonly property var inputContext: splitView.inputContext
+    readonly property bool editingCommandsAllowed: inputContext && inputContext.editingCommandsAllowed
+        && !shortcutModel.captureActive && !beginnerGuideActive
+    readonly property bool editMenuEnabled: editingCommandsAllowed
+        && (inputContext.textInput !== null || editorCommandsAvailable)
     readonly property var updates: applicationContext.update
     readonly property string documentTitle: {
         if (!documentSession.hasDocument)
@@ -112,20 +117,27 @@ Item {
     MainMenuCommands {
         id: menuCommands
         netUploadEnabled: root.pages.netUploadEnabled
-        commandsEnabled: !root.beginnerGuideActive
-        canUndo: root.editorCommandsAvailable && splitView.canUndo
-        canRedo: root.editorCommandsAvailable && splitView.canRedo
-        canCut: root.editorCommandsAvailable && splitView.canCut
-        canCopy: root.editorCommandsAvailable && splitView.canCopy
-        canPaste: root.editorCommandsAvailable && splitView.canPaste
-        canTransform: root.editorCommandsAvailable && splitView.canTransform
+        commandsEnabled: !root.beginnerGuideActive && root.inputContext
+            && !root.inputContext.modalBlocked && !root.shortcutModel.captureActive
+        canUndo: root.editingCommandsAllowed && (root.inputContext.textInput
+            ? root.inputContext.canUndo : root.editorCommandsAvailable && splitView.canUndo)
+        canRedo: root.editingCommandsAllowed && (root.inputContext.textInput
+            ? root.inputContext.canRedo : root.editorCommandsAvailable && splitView.canRedo)
+        canCut: root.editingCommandsAllowed && (root.inputContext.textInput
+            ? root.inputContext.canCut : root.editorCommandsAvailable && splitView.canCut)
+        canCopy: root.editingCommandsAllowed && (root.inputContext.textInput
+            ? root.inputContext.canCopy : root.editorCommandsAvailable && splitView.canCopy)
+        canPaste: root.editingCommandsAllowed && (root.inputContext.textInput
+            ? root.inputContext.canPaste : root.editorCommandsAvailable && splitView.canPaste)
+        canTransform: root.editorCommandsAvailable && root.hostWindow.workbenchCommandsAllowed && splitView.canTransform
+        canFind: root.editorCommandsAvailable && root.hostWindow.workbenchCommandsAllowed
         renderModeMenuAvailable: splitView.renderModeMenuAvailable
         onExitRequested: root.requestClose()
         onUndoRequested: root.undo()
         onRedoRequested: root.redo()
-        onCutRequested: splitView.cut()
-        onCopyRequested: splitView.copy()
-        onPasteRequested: splitView.paste()
+        onCutRequested: root.editText("cut")
+        onCopyRequested: root.editText("copy")
+        onPasteRequested: root.editText("paste")
         onSelectAllRequested: root.selectAll()
         onFindRequested: splitView.showFindReplace()
         onSelectCurrentLineRequested: splitView.selectCurrentLine()
@@ -233,17 +245,22 @@ Item {
             state.activeSidebarView = "chart"
     }
 
-    function undo() {
-        splitView.undo()
+    function editText(operation) {
+        if (!root.editingCommandsAllowed)
+            return
+        if (root.inputContext.textInput) {
+            root.inputContext.performEdit(operation)
+            return
+        }
+        if (root.editorCommandsAvailable)
+            splitView[operation]()
     }
 
-    function redo() {
-        splitView.redo()
-    }
+    function undo() { editText("undo") }
 
-    function selectAll() {
-        splitView.selectAll()
-    }
+    function redo() { editText("redo") }
+
+    function selectAll() { editText("selectAll") }
 
     function applyChartTransform(opId) {
         if (!root.chartEditorActive)
@@ -347,8 +364,10 @@ Item {
                 saveEnabled: root.currentEditorSaveEnabled
                 wholeDocumentSaveEnabled: root.wholeDocumentSaveEnabled
                 documentAvailable: root.documentSession.hasDocument
-                editorCommandsEnabled: root.editorCommandsAvailable
-                chartCommandsEnabled: root.chartEditorActive
+                editorCommandsEnabled: root.editMenuEnabled
+                chartCommandsEnabled: root.chartEditorActive && root.hostWindow.workbenchCommandsAllowed
+                playbackCommandsEnabled: root.hostWindow.playbackCommandsEnabled
+                    && root.hostWindow.workbenchCommandsAllowed
                 toolCommandsEnabled: root.documentSession.hasDocument
                 leadingInset: root.applicationContext.windowChrome
                     ? root.applicationContext.windowChrome.titleBarLeadingInset / Theme.uiScale

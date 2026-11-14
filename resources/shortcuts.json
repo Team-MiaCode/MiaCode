@@ -10,7 +10,8 @@
     "transform.subdivision_down", "transform.subdivision_half_up", "transform.subdivision_half_down",
     "transform.toggle_break", "transform.toggle_ex", "transform.toggle_firework",
     "transform.random_rotate", "transform.clear_complete_elements", "transform.reset_tap_notes",
-    "preview.stop_or_play", "preview.play_pause_global", "preview.speed_down", "preview.speed_up",
+    "preview.stop_or_play", "preview.play_pause_global", "preview.play_pause_non_text",
+    "preview.speed_down", "preview.speed_up",
     "preview.pause_display_hold", "timeline.zoom_in", "timeline.zoom_out",
     "ui.zoom_out", "ui.zoom_in", "ui.zoom_reset", "editor.overwrite_mode"
   ],
@@ -147,7 +148,7 @@
       "label_en": "Stop or Play Preview",
       "default": "Ctrl+Shift+C",
       "context": "window",
-      "owner": "MainWindow.BootstrapAndMenus"
+      "owner": "QML PreviewShortcuts"
     },
     "preview.play_pause_global": {
       "label_key": "shortcut.preview.play_pause_global",
@@ -155,23 +156,31 @@
       "label_en": "Play/Pause Preview",
       "default": "Ctrl+Shift+X",
       "context": "window",
-      "owner": "MainWindow.BootstrapAndMenus"
+      "owner": "QML PreviewShortcuts"
+    },
+    "preview.play_pause_non_text": {
+      "label_key": "shortcut.preview.play_pause_non_text",
+      "label_zh": "播放/暂停预览（编辑器外）",
+      "label_en": "Play/Pause Preview (Outside Editor)",
+      "default": "Space",
+      "context": "window",
+      "owner": "QML PreviewShortcuts"
     },
     "preview.speed_down": {
       "label_key": "shortcut.preview.speed_down",
       "label_zh": "播放速度降低",
       "label_en": "Playback Speed -",
       "default": "Ctrl+O",
-      "context": "application",
-      "owner": "MainWindow.BootstrapAndMenus"
+      "context": "window",
+      "owner": "QML PreviewShortcuts / native preview menu"
     },
     "preview.speed_up": {
       "label_key": "shortcut.preview.speed_up",
       "label_zh": "播放速度提高",
       "label_en": "Playback Speed +",
       "default": "Ctrl+P",
-      "context": "application",
-      "owner": "MainWindow.BootstrapAndMenus"
+      "context": "window",
+      "owner": "QML PreviewShortcuts / native preview menu"
     },
     "preview.pause_display_hold": {
       "label_key": "shortcut.preview.pause_display_hold",
