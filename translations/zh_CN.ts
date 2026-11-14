@@ -3025,6 +3025,22 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Packaging ZIP...</source>
         <translation>正在打包 ZIP...</translation>
     </message>
+    <message id="net.cancelling_download">
+        <source>Cancelling download…</source>
+        <translation>正在取消下载…</translation>
+    </message>
+    <message id="net.waiting_for_download_1">
+        <source>Waiting for server response: %1</source>
+        <translation>等待服务器响应：%1</translation>
+    </message>
+    <message id="net.preparing_download">
+        <source>Preparing download…</source>
+        <translation>正在准备下载…</translation>
+    </message>
+    <message id="net.saving_download">
+        <source>Saving downloaded files…</source>
+        <translation>正在保存下载文件…</translation>
+    </message>
     <message id="net.paused">
         <source>Paused</source>
         <translation>已暂停</translation>

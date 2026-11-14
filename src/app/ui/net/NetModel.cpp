@@ -11,6 +11,15 @@
 #include <algorithm>
 
 namespace miacode::ui {
+namespace {
+
+QString downloadHttpStatus(const QJsonObject& error)
+{
+    const int status = error.value("upstreamStatus").toInt();
+    return status > 0 ? QStringLiteral(" (HTTP %1)").arg(status) : QString{};
+}
+
+} // namespace
 
 NetModel::NetModel(NetService* service, QObject* parent) : QAbstractListModel(parent), service_(service)
 {
@@ -285,16 +294,20 @@ void NetModel::downloadSelected(bool includeVideo, bool createZip) {
     const auto grant = service_->grantDirectory(principal_, outputDirectory_);
     const auto accepted = call("net.downloads.create", {{"providerId", "majdata"}, {"chartIds", ids},
         {"destination", QJsonObject{{"kind", "directory_grant"}, {"grantRef", grant}}},
-        {"includeVideo", includeVideo}, {"createZip", createZip}});
+        {"includeVideo", includeVideo}, {"createZip", createZip}, {"conflictPolicy", "rename"}});
     errorText_.clear();
     if (!accepted.ok()) errorText_ = qtTrId("net.ui.error").arg(accepted.error.value("code").toString());
     else {
         downloadJobId_ = accepted.result.toObject().value("jobId").toString();
+        downloadCreatesZip_ = createZip;
         progress_ = 0;
         progressText_.clear();
-        progressResource_.clear();
+        progressItemId_.clear();
         paused_ = false;
+        statusText_.clear();
         appendLog(qtTrId("net.start_download_queue_selected_1").arg(ids.size()));
+        updateDownload();
+        return;
     }
     emit changed();
 }
@@ -348,6 +361,7 @@ void NetModel::updateDownload() {
     int completed = 0;
     double fraction = 0;
     bool stateChanged = false;
+    progressText_.clear();
     for (const auto& value : items) {
         const auto item = value.toObject();
         const int order = item.value("inputOrder").toInt();
@@ -359,30 +373,58 @@ void NetModel::updateDownload() {
             : phase == QLatin1String("video") ? QStringLiteral("pv.mp4") : QString{};
         QString text;
         if (state == QLatin1String("succeeded")) { text = qtTrId("net.done_folder"); ++completed; }
-        else if (state == QLatin1String("failed")) { text = qtTrId("net.failed_1").arg(item.value("error").toObject().value("code").toString()); ++completed; }
+        else if (state == QLatin1String("failed")) {
+            const auto error = item.value("error").toObject();
+            text = qtTrId("net.failed_1").arg(error.value("code").toString()) + downloadHttpStatus(error);
+            ++completed;
+        }
         else if (state == QLatin1String("cancelled")) { text = qtTrId("net.download_canceled"); ++completed; }
-        else if (state == QLatin1String("blocked")) text = qtTrId("net.paused");
-        else if (state == QLatin1String("retry_wait")) text = qtTrId("net.retrying_1").arg(resourceName);
+        else if (state == QLatin1String("blocked")) text = qtTrId("net.paused") + downloadHttpStatus(item.value("error").toObject());
+        else if (state == QLatin1String("retry_wait")) {
+            const auto error = item.value("error").toObject();
+            text = qtTrId("net.retrying_1").arg(resourceName) + QStringLiteral(" · ")
+                + error.value("code").toString() + downloadHttpStatus(error);
+            progressText_ = text;
+        }
         else if (state == QLatin1String("running")) {
-            text = resourceName.isEmpty() ? qtTrId("net.packaging_zip") : qtTrId("net.downloading_1_2").arg(resourceName);
+            if (!resourceName.isEmpty()) text = qtTrId("net.downloading_1_2").arg(resourceName);
+            else if (phase == QLatin1String("publish")) {
+                text = downloadCreatesZip_ ? qtTrId("net.packaging_zip") : qtTrId("net.saving_download");
+            } else text = qtTrId("net.preparing_download");
             const auto bytes = item.value("bytesReceived").toString().toLongLong();
             const auto total = item.value("bytesTotal").toString().toLongLong();
-            const QString resourceKey = item.value("itemId").toString() + ':' + phase + ':' + QString::number(item.value("attempt").toInt());
-            if (progressResource_ != resourceKey) { progressResource_ = resourceKey; resourceTimer_.start(); }
-            progressText_ = total > 0 ? QStringLiteral("%1 / %2 MiB").arg(bytes / 1048576.0, 0, 'f', 1).arg(total / 1048576.0, 0, 'f', 1)
-                : QStringLiteral("%1 MiB").arg(bytes / 1048576.0, 0, 'f', 1);
-            const auto elapsed = resourceTimer_.elapsed();
-            if (elapsed > 0 && !resourceName.isEmpty()) progressText_ += QStringLiteral(" · %1 MiB/s").arg(bytes * 1000.0 / elapsed / 1048576.0, 0, 'f', 2);
-            const int resource = QStringList{"track", "image", "chart", "video", "publish"}.indexOf(phase);
-            fraction = (qMax(0, resource) + (total > 0 ? qBound(0.0, double(bytes) / total, 1.0) : 0.0)) / 5.0;
+            const QString itemId = item.value("itemId").toString();
+            if (progressItemId_ != itemId) { progressItemId_ = itemId; downloadItemTimer_.start(); }
+            progressText_ = text;
+            if (!resourceName.isEmpty() && bytes == 0) {
+                progressText_ = qtTrId("net.waiting_for_download_1").arg(resourceName);
+            } else if (!resourceName.isEmpty()) {
+                const auto received = bytes < 1024 * 1024 ? QStringLiteral("%1 KiB").arg(bytes / 1024.0, 0, 'f', 1)
+                    : QStringLiteral("%1 MiB").arg(bytes / 1048576.0, 0, 'f', 1);
+                progressText_ = qtTrId("net.downloading") + QStringLiteral(" · ") + received;
+                if (total > 0) progressText_ += QStringLiteral(" / %1 MiB").arg(total / 1048576.0, 0, 'f', 1);
+                const auto elapsed = downloadItemTimer_.elapsed();
+                if (elapsed > 0) {
+                    const double speed = bytes * 1000.0 / elapsed / 1024.0;
+                    progressText_ += speed < 1024.0 ? QStringLiteral(" · %1 KiB/s").arg(speed, 0, 'f', 1)
+                        : QStringLiteral(" · %1 MiB/s").arg(speed / 1024.0, 0, 'f', 2);
+                }
+            }
+            if (phase == QLatin1String("publish")) fraction = 0.9;
+            else if (total > 0) fraction = 0.9 * qBound(0.0, double(bytes) / total, 1.0);
         } else text = qtTrId("net.pending_download");
         const auto id = downloadChartIds_[order];
         if (chartStates_.value(id) != state) { chartStates_.insert(id, state); stateChanged = true; }
         if (rowStates_.value(id) != text) { rowStates_.insert(id, text); appendLog(id + "  " + text); }
     }
+    if (job.value("state") == QLatin1String("cancelling")) progressText_ = qtTrId("net.cancelling_download");
+    else if (progressText_.isEmpty() && job.value("state") == QLatin1String("queued")) progressText_ = qtTrId("net.pending_download");
     progress_ = items.isEmpty() ? 0 : (completed + fraction) / items.size();
     paused_ = job.value("state") == QLatin1String("blocked");
-    if (paused_) errorText_ = qtTrId("net.ui.error").arg(job.value("error").toObject().value("code").toString());
+    if (paused_) {
+        const auto error = job.value("error").toObject();
+        errorText_ = qtTrId("net.ui.error").arg(error.value("code").toString()) + downloadHttpStatus(error);
+    }
     if (JobRegistry::isTerminal(job.value("state").toString())) {
         const auto counts = job.value("counts").toObject();
         statusText_ = qtTrId("net.download_complete_1_succeeded_2").arg(counts.value("succeeded").toInt()).arg(counts.value("failed").toInt());

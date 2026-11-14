@@ -736,7 +736,8 @@
                     "type": "string",
                     "enum": [
                       "fail",
-                      "replace"
+                      "replace",
+                      "rename"
                     ],
                     "default": "fail"
                   },
@@ -4583,7 +4584,8 @@
             "type": "string",
             "enum": [
               "fail",
-              "replace"
+              "replace",
+              "rename"
             ],
             "default": "fail"
           },
