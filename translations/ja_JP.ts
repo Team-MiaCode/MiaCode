@@ -2713,6 +2713,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
 
 このファイルはプレビュー、メディアプレーヤー、エクスプローラーのプレビューウィンドウ、または別のプログラムで開かれている可能性があります。</translation>
     </message>
+    <message id="media_tools.recovery_files_1">
+        <source>Files preserved for recovery: %1</source>
+        <translation>復元用のファイルを次の場所に保存しました：%1</translation>
+    </message>
     <message id="media_tools.failed_to_stage_original_file">
         <source>Failed to stage original file for replacement: %1
 

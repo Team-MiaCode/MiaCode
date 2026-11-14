@@ -2713,6 +2713,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
 
 文件可能正在被预览、播放器、资源管理器预览窗格或其他程序占用。</translation>
     </message>
+    <message id="media_tools.recovery_files_1">
+        <source>Files preserved for recovery: %1</source>
+        <translation>用于恢复的文件已保留在：%1</translation>
+    </message>
     <message id="media_tools.failed_to_stage_original_file">
         <source>Failed to stage original file for replacement: %1
 

@@ -169,6 +169,8 @@ void miacode::runtime::StageMediaHost::clearPreviewStageMediaRoute()
 
 void miacode::runtime::StageMediaHost::releasePreviewStageMediaDecoderForFileOperation()
 {
+    // A queued warmup result must not reopen the decoder after this release.
+    invalidatedMediaWarmupGeneration_ = state_.previewWarmupGeneration_;
     if (state_.previewStageMediaHost_ != nullptr) {
         state_.previewStageMediaHost_->releaseDecoderForFileReplace();
     }

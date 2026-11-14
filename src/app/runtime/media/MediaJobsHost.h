@@ -6,12 +6,16 @@
 #include "app/services/MediaToolsEngine.h"
 
 #include <functional>
+#include <memory>
 
 namespace miacode::runtime {
 
 class MediaJobsHost final : public miacode::MediaToolsEngine {
 public:
     MediaJobsHost(Session& session, RuntimeContext::Ui& ui, RuntimeContext::State& state);
+    ~MediaJobsHost() override;
+
+    void shutdown();
 
     void onCompressBackgroundVideo();
     void onConvertTrackTo44100Hz();
@@ -63,6 +67,10 @@ private:
         const miacode::LocalizedText& title,
         const miacode::LocalizedText& summary,
         const QString& producedFilePath);
+
+    struct AlignmentJob;
+    std::unique_ptr<AlignmentJob> alignmentJob_;
+    bool shuttingDown_ = false;
 
     Session& session_;
     RuntimeContext::Ui& ui_;
