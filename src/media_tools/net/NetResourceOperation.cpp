@@ -1,5 +1,7 @@
 #include "media_tools/net/NetProvider.h"
 #include "media_tools/net/NetClient.h"
+#include "common/DebugLog.h"
+#include "common/DebugOptions.h"
 
 #include <QCryptographicHash>
 #include <QDir>
@@ -29,6 +31,7 @@ const QList<Resource> resources{{"track", "track", "track.mp3"}, {"image", "imag
     {"chart", "chart", "maidata.txt"}, {"video", "video", "pv.mp4"}};
 constexpr int kDownloadConcurrency = 2;
 constexpr int kDownloadFirstByteTimeoutMs = 15000;
+constexpr int kDownloadIdleTimeoutMs = 10000;
 constexpr std::array kVideoDownloadOrder{Track, Video, Image, Chart};
 struct ResourceTransfer {
     NetTransportPort::Cancel cancel;
@@ -36,6 +39,7 @@ struct ResourceTransfer {
     QJsonObject retryError;
     qint64 received = 0;
     qint64 total = -1;
+    qint64 lastLoggedProgressMs = -1;
     int attempt = 0;
 };
 struct Publication { QJsonObject manifest; QString directory; QString zip; QJsonObject failure; };
@@ -51,7 +55,9 @@ class NetResourceOperation final : public QObject {
 public:
     NetResourceOperation(NetProvider& provider, NetTaskRequest request, NetEnginePort::Event event, NetEnginePort::Done done)
         : QObject(&provider), provider_(provider), request_(std::move(request)), event_(std::move(event)), done_(std::move(done)),
-          cancelled_(std::make_shared<std::atomic_bool>(false)) {}
+          cancelled_(std::make_shared<std::atomic_bool>(false)) {
+        connect(&worker_, &QFutureWatcher<Publication>::finished, this, &NetResourceOperation::publicationFinished);
+    }
     ~NetResourceOperation() override {
         done_ = {};
         cancelled_->store(true);
@@ -97,6 +103,15 @@ public:
         if (!publishing_) stopChart(error("job.cancelled"));
     }
 private:
+    void logDownload(const QString& event, QJsonObject details = {}) const {
+        if (preview_ || !debug_options::runtimeDebugOutputEnabled()) return;
+        details.insert("event", event);
+        details.insert("chartId", ids_.at(chartIndex_));
+        details.insert("item", chartIndex_ + 1);
+        details.insert("total", ids_.size());
+        debug_log::appendLine(debug_log::Channel::Runtime, QStringLiteral("net/download"),
+            QString::fromUtf8(QJsonDocument(details).toJson(QJsonDocument::Compact)));
+    }
     bool cacheComplete(const NetProvider::Preview& preview) const {
         for (const auto& value : preview.handle.value("manifest").toObject().value("resources").toArray()) {
             const auto resource = value.toObject();
@@ -232,18 +247,26 @@ private:
         http.url = QUrl(provider_.baseUrl_.toString() + QStringLiteral("/maichart/")
             + QString::fromLatin1(QUrl::toPercentEncoding(ids_[chartIndex_].toString())) + '/' + resource.endpoint);
         http.outputPath = QDir(staging_->path()).filePath(resource.name);
-        if (!preview_) http.firstByteTimeoutMs = kDownloadFirstByteTimeoutMs;
+        auto& transfer = transfers_[index];
+        if (!preview_) {
+            http.firstByteTimeoutMs = kDownloadFirstByteTimeoutMs;
+            http.timeoutMs = kDownloadIdleTimeoutMs;
+            const auto lastError = transfer.retryError.value("code").toString();
+            http.freshConnection = lastError == QLatin1String("upstream.timeout") || lastError == QLatin1String("upstream.network");
+        }
         http.maximumBytes = resource.kind == QLatin1String("chart") ? 16LL * 1024 * 1024 : 4LL * 1024 * 1024 * 1024;
         http.allowDeclaredEmptyChart = resource.kind == QLatin1String("chart")
             && request_.parameters.value("emptyChartPolicy").toString("allow_declared_empty") == QLatin1String("allow_declared_empty");
         http.headers = {{"Referer", "https://majdata.net/"}};
-        auto& transfer = transfers_[index];
         ++transfer.attempt;
         transfer.retryError = {};
         transfer.received = 0;
         transfer.total = -1;
+        transfer.lastLoggedProgressMs = -1;
         reportResourceProgress();
         if (stopping_ || cancelled_->load()) return;
+        logDownload("request_started", {{"resource", resource.kind}, {"attempt", transfer.attempt},
+            {"freshConnection", http.freshConnection}});
         ++inFlight_;
         QPointer<NetResourceOperation> self(this);
         transfer.cancel = provider_.transport_.request(http, [self, index](NetHttpResponse response) {
@@ -253,6 +276,14 @@ private:
             auto& transfer = self->transfers_[index];
             transfer.received = received;
             transfer.total = total;
+            if (!self->preview_ && debug_options::runtimeDebugOutputEnabled()) {
+                const auto now = self->provider_.clock_.elapsed();
+                if (transfer.lastLoggedProgressMs < 0 || now - transfer.lastLoggedProgressMs >= 5000) {
+                    transfer.lastLoggedProgressMs = now;
+                    self->logDownload("request_progress", {{"resource", resources[index].kind}, {"attempt", transfer.attempt},
+                        {"bytes", received}, {"bytesTotal", total}});
+                }
+            }
             self->reportResourceProgress();
         });
     }
@@ -262,6 +293,9 @@ private:
         --inFlight_;
         const auto& resource = resources[index];
         const auto code = response.error.value("code").toString();
+        logDownload("request_finished", {{"resource", resource.kind}, {"attempt", transfer.attempt},
+            {"status", response.status}, {"error", code}, {"bytes", response.bytes},
+            {"elapsedMs", response.elapsedMs}, {"http2", response.http2}});
         const bool blocked = code == QLatin1String("upstream.blocked") || code == QLatin1String("upstream.rate_limited");
         if (stopping_) {
             if (blocked && blockedResource_.isEmpty()) {
@@ -281,7 +315,9 @@ private:
             transfer.received = 0;
             transfer.total = 0;
         } else if (!response.error.isEmpty()) {
-            if (transfer.attempt < 3 && (code == QLatin1String("upstream.network") || code == QLatin1String("upstream.timeout") || response.status >= 500)) {
+            const bool timedOut = code == QLatin1String("upstream.timeout");
+            const int maxAttempts = !preview_ && timedOut ? 2 : 3;
+            if (transfer.attempt < maxAttempts && (code == QLatin1String("upstream.network") || timedOut || response.status >= 500)) {
                 transfer.retryError = response.error;
                 reportResourceProgress();
                 QTimer::singleShot(800, this, [this, index, chart = chartIndex_] {
@@ -310,6 +346,7 @@ private:
     }
     void publish() {
         publishing_ = true;
+        logDownload("save_started");
         emitItem("running", "publish");
         const auto staging = staging_;
         const auto cancelled = cancelled_;
@@ -384,38 +421,38 @@ private:
             if (zip) result.zip = QDir(publishedPath).filePath("download.zip");
             return result;
         }));
-        connect(&worker_, &QFutureWatcher<Publication>::finished, this, [this] {
-            disconnect(&worker_, nullptr, this, nullptr);
-            publishing_ = false;
-            const auto result = worker_.result();
-            if (result.failure.value("code") == QLatin1String("job.cancelled")) {
-                staging_.reset();
-                finish(result.failure);
-                return;
-            }
-            if (!result.failure.isEmpty()) { chartFailed(result.failure); return; }
-            if (preview_) {
-                const QString previewRef = ref("preview_");
-                QJsonObject handle{{"previewRef", previewRef}, {"manifest", result.manifest}, {"expiresAt", expires()}};
-                provider_.previews_.insert(previewRef, {request_.principal, QDir(result.directory).filePath("maidata.txt"), handle, provider_.clock_.elapsed() + 3600000});
-                provider_.previewCache_.insert(cacheKey_, previewRef);
-                finish({}, handle);
-                return;
-            }
-            QJsonArray artifacts{provider_.registerArtifact(request_.principal, result.directory, true)};
-            directories_.append(artifacts.first());
-            if (!result.zip.isEmpty()) {
-                const auto artifact = provider_.registerArtifact(request_.principal, result.zip, false);
-                artifacts.append(artifact);
-                zips_.append(artifact);
-            }
-            manifests_.append(result.manifest);
-            ++succeeded_;
-            emitItem("succeeded", "complete", {}, {}, artifacts);
+    }
+    void publicationFinished() {
+        publishing_ = false;
+        const auto result = worker_.result();
+        logDownload("save_finished", {{"error", result.failure.value("code")}});
+        if (result.failure.value("code") == QLatin1String("job.cancelled")) {
             staging_.reset();
-            if (cancelled_->load()) finish(error("job.cancelled"));
-            else QTimer::singleShot(250, this, [this] { nextChart(); });
-        });
+            finish(result.failure);
+            return;
+        }
+        if (!result.failure.isEmpty()) { chartFailed(result.failure); return; }
+        if (preview_) {
+            const QString previewRef = ref("preview_");
+            QJsonObject handle{{"previewRef", previewRef}, {"manifest", result.manifest}, {"expiresAt", expires()}};
+            provider_.previews_.insert(previewRef, {request_.principal, QDir(result.directory).filePath("maidata.txt"), handle, provider_.clock_.elapsed() + 3600000});
+            provider_.previewCache_.insert(cacheKey_, previewRef);
+            finish({}, handle);
+            return;
+        }
+        QJsonArray artifacts{provider_.registerArtifact(request_.principal, result.directory, true)};
+        directories_.append(artifacts.first());
+        if (!result.zip.isEmpty()) {
+            const auto artifact = provider_.registerArtifact(request_.principal, result.zip, false);
+            artifacts.append(artifact);
+            zips_.append(artifact);
+        }
+        manifests_.append(result.manifest);
+        ++succeeded_;
+        emitItem("succeeded", "complete", {}, {}, artifacts);
+        staging_.reset();
+        if (cancelled_->load()) finish(error("job.cancelled"));
+        else QTimer::singleShot(250, this, [this] { nextChart(); });
     }
     NetProvider& provider_;
     NetTaskRequest request_;

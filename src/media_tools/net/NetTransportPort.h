@@ -31,6 +31,7 @@ struct NetHttpRequest {
     qint64 maximumBytes = 16 * 1024 * 1024;
     bool allowDeclaredEmptyChart = false;
     bool requireNonEmpty = true;
+    bool freshConnection = false;
 };
 
 struct NetHttpResponse {
@@ -44,6 +45,7 @@ struct NetHttpResponse {
     bool cancelled = false;
     bool sent = false;
     bool declaredEmpty = false;
+    bool http2 = false;
 };
 
 class NetTransportPort {
