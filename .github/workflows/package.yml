@@ -46,7 +46,7 @@ jobs:
             media: third_party/ffmpeg/windows/winarm64
             version: ffmpeg8.1.2
           - platform: macos-arm64
-            runner: macos-14
+            runner: macos-15
             toolchain: apple-clang
             build: build-macos
             qt: .qt/6.11.1
