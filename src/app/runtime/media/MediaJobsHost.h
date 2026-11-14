@@ -49,6 +49,7 @@ private:
     };
     MediaBlankPaths resolveMediaBlankPaths(MediaBlankTarget target) const;
 
+    bool rejectBusyJob() const;
     QString resolveLatencyDetectorTrackPath() const;
     QString resolveCurrentChartDirectory() const;
     void releasePreviewMediaForFileOperation();

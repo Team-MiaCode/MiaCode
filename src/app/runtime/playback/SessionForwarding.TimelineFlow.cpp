@@ -6,6 +6,7 @@
 #include "core/video/PreviewInteractionConfig.h"
 #include "audio/WaveformCache.h"
 #include "app/services/ExportPagePort.h"
+#include "app/runtime/export/VideoExportHost.h"
 
 #include <QtCore>
 
@@ -262,6 +263,18 @@ void Session::requestSelectionRangeExport(int difficultyId, int selectionStart, 
     // applied after that seed rather than a value set here directly.
     qmlExportSession_->requestSelectionRangeExport(startSecond, endSecond);
     emit selectionRangeExportPageRequested();
+}
+
+void Session::requestSelectionRangeGifExport(int difficultyId, int selectionStart, int selectionEnd)
+{
+    if (!hasActiveDifficulty() || difficultyId != activeDifficultyId_) {
+        return;
+    }
+    double startSecond = 0.0;
+    double endSecond = 0.0;
+    if (playback_->resolveExportRangeForSelection(selectionStart, selectionEnd, &startSecond, &endSecond)) {
+        videoExport_->launchSelectionGifExport(difficultyId, startSecond, endSecond);
+    }
 }
 
 bool Session::editorAuthoringContextActive() const

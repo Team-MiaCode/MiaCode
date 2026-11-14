@@ -3,6 +3,38 @@
 <TS version="2.1" language="zh_CN">
 <context>
     <name></name>
+    <message id="job_progress.busy">
+        <source>Please wait for the current task to finish.</source>
+        <translation>请等待当前任务结束。</translation>
+    </message>
+    <message id="export.gif.action">
+        <source>Export selected range as GIF</source>
+        <translation>导出所选区间为 GIF</translation>
+    </message>
+    <message id="export.gif.title">
+        <source>Export GIF</source>
+        <translation>导出 GIF</translation>
+    </message>
+    <message id="export.gif.exporting">
+        <source>Exporting GIF...</source>
+        <translation>正在导出 GIF…</translation>
+    </message>
+    <message id="export.gif.completed">
+        <source>GIF generated and copied to the clipboard.</source>
+        <translation>已生成 GIF 并复制到剪贴板。</translation>
+    </message>
+    <message id="export.gif.clipboard_unavailable">
+        <source>The GIF clipboard cache is unavailable.</source>
+        <translation>GIF 剪贴板缓存无法使用。</translation>
+    </message>
+    <message id="export.gif.clipboard_failed">
+        <source>Could not copy the GIF to the clipboard.</source>
+        <translation>GIF 复制到剪贴板失败。</translation>
+    </message>
+    <message id="export.gif.failed">
+        <source>GIF export failed: %1</source>
+        <translation>GIF 生成失败：%1</translation>
+    </message>
     <message id="toast.operation_failed">
         <source>%1 failed: %2.</source>
         <translation>%1失败，%2。</translation>

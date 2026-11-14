@@ -29,6 +29,7 @@ class PreferencesStore;
 class DocumentBridge;
 class ExportPagePort;
 class NetService;
+class AnimatedImageClipboard;
 
 namespace update {
 class UpdateFetcher;
@@ -191,6 +192,9 @@ public:
     NetService* netService() const { return netService_; }
     void setNetService(NetService* service) { netService_ = service; }
 
+    AnimatedImageClipboard* animatedImageClipboard() const { return animatedImageClipboard_; }
+    void setAnimatedImageClipboard(AnimatedImageClipboard* service) { animatedImageClipboard_ = service; }
+
 private:
     // Declaration order is initialization order: workspace_ first, then
     // everything that binds to it.
@@ -218,6 +222,7 @@ private:
     update::UpdateFetcher* updateFetcher_ = nullptr;
     update::UpdateService* updateService_ = nullptr;
     NetService* netService_ = nullptr;
+    AnimatedImageClipboard* animatedImageClipboard_ = nullptr;
 };
 
 }  // namespace miacode
