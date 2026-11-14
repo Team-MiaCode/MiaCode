@@ -97,7 +97,12 @@ bool AnimatedImageClipboardService::publishGif(const QString& path, QString* err
 #endif
     data->setUrls({QUrl::fromLocalFile(path)});
     clipboard_->setMimeData(data);
-    if (clipboard_->mimeData() != data || !clipboard_->ownsClipboard()) {
+    // Clipboard ownership and QMimeData identity are platform-specific.
+    const QMimeData* published = clipboard_->mimeData();
+    const bool copied = published != nullptr
+        && published->data(kGifMime) == gifBytes
+        && published->urls().contains(QUrl::fromLocalFile(path));
+    if (!copied) {
         if (errorMessage) *errorMessage = qtTrId("export.gif.clipboard_failed");
         return false;
     }
