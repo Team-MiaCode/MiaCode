@@ -7,9 +7,43 @@
 #include <QSize>
 #include <QSizeF>
 #include <QString>
+#include <QStringView>
 #include <QVector>
 
 namespace miacode::timeline {
+
+enum class TimelineLaneOrder {
+    Natural,
+    Rotated,
+    Reversed,
+    RotatedReversed,
+};
+
+inline TimelineLaneOrder timelineLaneOrderForToken(QStringView token)
+{
+    if (token == u"rotated") return TimelineLaneOrder::Rotated;
+    if (token == u"reversed") return TimelineLaneOrder::Reversed;
+    if (token == u"rotated_reversed") return TimelineLaneOrder::RotatedReversed;
+    return TimelineLaneOrder::Natural;
+}
+
+inline int timelineLaneForSlot(TimelineLaneOrder order, int slot)
+{
+    // The permutations are self-inverse and leave the Touch lane in place.
+    if (slot < 1 || slot > 8) return slot;
+    switch (order) {
+    case TimelineLaneOrder::Natural: return slot;
+    case TimelineLaneOrder::Rotated: return (slot + 3) % 8 + 1;
+    case TimelineLaneOrder::Reversed: return 9 - slot;
+    case TimelineLaneOrder::RotatedReversed: return (12 - slot) % 8 + 1;
+    }
+    return slot;
+}
+
+inline int timelineSlotForLane(TimelineLaneOrder order, int lane)
+{
+    return timelineLaneForSlot(order, lane);
+}
 
 struct TimelineSceneLayoutMetrics {
     QSize viewportSize;
@@ -107,6 +141,7 @@ struct TimelineSceneHoldSpan {
 };
 
 struct TimelineSceneState {
+    TimelineLaneOrder laneOrder = TimelineLaneOrder::Natural;
     QSize viewportSize;
     int timelineLeft = 0;
     int timelineTop = 0;

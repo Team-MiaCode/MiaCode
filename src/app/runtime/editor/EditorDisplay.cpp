@@ -158,6 +158,10 @@ void miacode::runtime::EditorHost::loadPortableState()
                 preview.value("timeline_zoom_scale").toDouble(state_.timeline_.timelineQuickStateBridge_->zoomScale())
             );
         }
+        if (preview.value("timeline_lane_order").isString()) {
+            state_.timeline_.timelineQuickStateBridge_->setLaneOrder(
+                preview.value("timeline_lane_order").toString());
+        }
         if (preview.value("timeline_waveform_brightness").isDouble()) {
             state_.timeline_.timelineQuickStateBridge_->setWaveformBrightness(
                 preview.value("timeline_waveform_brightness").toDouble(
@@ -638,6 +642,11 @@ void miacode::runtime::EditorHost::savePortableState() const
         "timeline_zoom_scale",
         state_.timeline_.timelineQuickStateBridge_ != nullptr ? state_.timeline_.timelineQuickStateBridge_->zoomScale() : 0.5
     );
+    preview.insert(
+        "timeline_lane_order",
+        state_.timeline_.timelineQuickStateBridge_ != nullptr
+            ? state_.timeline_.timelineQuickStateBridge_->laneOrder()
+            : QStringLiteral("natural"));
     preview.insert(
         "timeline_waveform_brightness",
         state_.timeline_.timelineQuickStateBridge_ != nullptr

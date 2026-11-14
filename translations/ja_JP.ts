@@ -3937,6 +3937,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Timeline settings</source>
         <translation>タイムライン設定</translation>
     </message>
+    <message id="timeline.layout.lane_order">
+        <source>Lane order</source>
+        <translation>レーンの順序</translation>
+    </message>
     <message id="qml.timeline_frame_rate">
         <source>Timeline frame rate</source>
         <translation>タイムラインのフレームレート</translation>

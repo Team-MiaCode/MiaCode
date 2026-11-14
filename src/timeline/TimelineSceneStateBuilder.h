@@ -15,6 +15,7 @@
 namespace miacode::timeline {
 
 struct TimelineSceneBuildRequest {
+    TimelineLaneOrder laneOrder = TimelineLaneOrder::Natural;
     TimelineRenderSnapshot snapshot;
     std::shared_ptr<const miacode::waveform::WaveformData> waveformData;
     QHash<quint64, QVector<TimelineMuriMarkerPlacement>> muriMarkersByLocation;

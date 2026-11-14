@@ -376,6 +376,20 @@ void TimelineQuickStateBridge::setHorizontalScrollValue(double value)
     emit renderStateChanged();
 }
 
+void TimelineQuickStateBridge::setLaneOrder(const QString& order)
+{
+    const QString normalized = miacode::timeline::timelineLaneOrderForToken(order)
+            == miacode::timeline::TimelineLaneOrder::Natural
+        ? QStringLiteral("natural") : order;
+    if (laneOrder_ == normalized) {
+        return;
+    }
+    laneOrder_ = normalized;
+    bumpAllRevisions();
+    emit laneOrderChanged();
+    emit renderStateChanged();
+}
+
 double TimelineQuickStateBridge::zoomScale() const
 {
     return zoomPresets_.value(zoomPresetIndex_, 0.5);
