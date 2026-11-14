@@ -898,6 +898,8 @@ qt_add_qml_module(MiaCode
         src/app/ui/chrome/EditorInputContext.h
         src/app/ui/export/ExportSession.cpp
         src/app/ui/export/ExportSession.h
+        src/app/ui/export/AnimatedImageClipboardService.cpp
+        src/app/ui/export/AnimatedImageClipboardService.h
         src/app/ui/export/CoverExportSession.cpp
         src/app/ui/export/CoverExportSession.h
         src/app/ui/export/CoverExportWindow.cpp

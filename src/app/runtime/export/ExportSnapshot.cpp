@@ -452,11 +452,6 @@ bool miacode::runtime::VideoExportHost::buildVideoExportSnapshot(
         return false;
     }
 
-    session_.refreshTimelineMetadata();
-    if (!liveTimelineCoversDifficulty(resolvedDifficultyId)) {
-        parseAndPublishTimelineForDifficulty(resolvedDifficultyId);
-    }
-
     VideoExportSnapshot built;
     built.hudFontSettings = miacode::hud_preferences::load();
     built.jobId = QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -526,16 +521,15 @@ bool miacode::runtime::VideoExportHost::buildVideoExportSnapshot(
     // keeps CLI / batch emitting it). The clock_count VALUE is re-derived worker-side.
     built.clockCountEnabled = requestedTask.clockCountEnabled;
     built.introSoundFileName = requestedTask.introSoundFileName;
-    built.intro = buildIntroBannerSpec(
-        session_.applicationServices_.workspace().document(),
-        resolvedDifficultyId,
-        session_.currentFilePath_,
-        requestedTask.intro.enabled,
-        built.fullRangeExport);
-    // The payload above is rebuilt from the live document; the "片头" tab
-    // styling (DX/SD, backdrop, blur, shadow, lv text) only exists on the
-    // dialog task — carry it over or the export silently reverts to defaults.
-    copyIntroStyling(requestedTask.intro, &built.intro);
+    built.intro = requestedTask.intro;
+    built.intro.enabled = requestedTask.intro.enabled && built.fullRangeExport;
+    if (built.intro.enabled) {
+        built.intro = buildIntroBannerSpec(
+            session_.applicationServices_.workspace().document(),
+            resolvedDifficultyId, session_.currentFilePath_, true, true);
+        // Keep the dialog's styling when refreshing chart-derived banner data.
+        copyIntroStyling(requestedTask.intro, &built.intro);
+    }
 
     if (built.skinDirectory.trimmed().isEmpty()) {
         if (errorMessage != nullptr) {

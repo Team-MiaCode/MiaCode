@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import MiaCode.UI
 
-// The shared dialog blocks interaction while the service runs asynchronously.
+// The service selects a blocking dialog or a persistent progress toast.
 // Cancellation raises the flag consumed by the job at its checkpoints.
 Item {
     id: root
@@ -11,6 +11,7 @@ Item {
     // A miacode::JobProgressService instance.
     property var progress: null
     property var imageResources: null
+    property var progressToastToken: 0
 
     readonly property bool jobActive: !!root.progress && root.progress.active
     readonly property bool chartExportActive: !!root.progress
@@ -29,9 +30,70 @@ Item {
         && root.imageResources.resourceCount > 0
     readonly property int progressBodySpacing: 10
 
+    function syncProgressToast() {
+        if (!root.progress) {
+            root.progressToastToken = 0
+            progressToast.dismiss()
+            return
+        }
+        if (!root.progress.active)
+            return
+        if (!root.progress.toastPresentation) {
+            root.progressToastToken = 0
+            progressToast.dismiss()
+            return
+        }
+        root.progressToastToken = root.progress.token
+        progressToast.progressPercent = root.progress.percent
+        progressToast.progressIndeterminate = root.progress.indeterminate
+        progressToast.actionText = root.progress.cancellable
+            ? (root.progress.cancelRequested ? qsTrId("qml.cancelling") : qsTrId("action.cancel"))
+            : ""
+        progressToast.actionEnabled = !root.progress.cancelRequested
+        progressToast.present("information", root.progress.label, true)
+    }
+
+    onProgressChanged: {
+        root.progressToastToken = 0
+        progressToast.dismiss()
+        root.syncProgressToast()
+    }
+    Component.onCompleted: root.syncProgressToast()
+
+    Connections {
+        target: root.progress
+        function onChanged() { root.syncProgressToast() }
+        function onFinished(token, completionMessage) {
+            if (token !== root.progressToastToken)
+                return
+            root.progressToastToken = 0
+            progressToast.actionText = ""
+            if (completionMessage.length === 0) {
+                progressToast.dismiss()
+                return
+            }
+            progressToast.progressPercent = 100
+            progressToast.progressIndeterminate = false
+            progressToast.present("information", completionMessage)
+        }
+    }
+
+    AppToast {
+        id: progressToast
+        objectName: "jobProgressToast"
+        parent: root.Overlay.overlay
+        progressVisible: true
+        holdDuration: Theme.progressToastHoldDuration
+        onActionTriggered: {
+            if (root.progress && root.progress.active
+                    && root.progress.token === root.progressToastToken)
+                root.progress.requestCancel()
+        }
+    }
+
     AppDialog {
         objectName: "jobProgressCard"
-        visible: root.jobActive
+        visible: root.jobActive && !root.progress.toastPresentation
         preferredWidth: root.chartExportActive && root.hasImageResources ? 520 : 420
         preferredHeight: root.chartExportActive && root.hasImageResources
             ? 499 : Theme.dialogCompactHeight

@@ -1,4 +1,5 @@
 #include "export/video_export/VideoExportController.h"
+#include "export/video_export/VideoExportGif.h"
 
 #include "export/video_export/BassExportAudioBackend.h"
 #include "export/video_export/RawVideoPipeTransport.h"
@@ -184,23 +185,24 @@ private:
     QMutex mutex_;
 };
 
-class ScopedExportTempDirTracker
+QString exportTemporaryDirectoryPattern(const QString& prefix)
 {
-public:
-    explicit ScopedExportTempDirTracker(const QString& path)
-        : path_(QDir::cleanPath(path))
-    {
-        ExportTempDirRegistry::instance().track(path_);
-    }
+    auto& registry = ExportTempDirRegistry::instance();
+    return registry.initialize()
+        ? QDir(registry.rootPath()).filePath(prefix + QStringLiteral("-XXXXXX"))
+        : QString();
+}
 
-    ~ScopedExportTempDirTracker()
-    {
-        ExportTempDirRegistry::instance().untrack(path_);
-    }
+ScopedExportTempDirTracker::ScopedExportTempDirTracker(const QString& path)
+    : path_(QDir::cleanPath(path))
+{
+    ExportTempDirRegistry::instance().track(path_);
+}
 
-private:
-    QString path_;
-};
+ScopedExportTempDirTracker::~ScopedExportTempDirTracker()
+{
+    ExportTempDirRegistry::instance().untrack(path_);
+}
 
 QStringList buildExportAudioFilterParts(
     int mainAudioInputIndex,
@@ -393,6 +395,9 @@ VideoExportResult VideoExportController::exportPreparedTask(
     const VideoExportProgressCallback& progressCallback
 )
 {
+    if (task.outputMode == VideoExportOutputMode::Gif) {
+        return miacode::video_export::exportGifTask(task, progressCallback);
+    }
     MC_OP("VideoExportController::exportPreparedTask");
     _mc_op_.note(QStringLiteral("output=%1 chart=%2 size=%3x%4 fps=%5")
                      .arg(task.outputPath, task.chartPath)
@@ -939,61 +944,8 @@ VideoExportResult VideoExportController::exportPreparedTask(
     QOpenGLContext* shareContext = nullptr;
     QString offscreenInitError;
 
-    // P5.3 — offscreen render-session backend selection. Hidden env switch
-    // (MIACODE_EXPORT_RENDER_BACKEND, default d3d11_qrhi); main.cpp already
-    // put the default export process on the Direct3D11 graphics API. A failed
-    // D3D11 init falls back to OpenGL in process: tear the D3D11 attempt down,
-    // flip the process graphics API back (no scene graph exists yet on the
-    // failed window), re-init.
-    const miacode::debug_options::ExportRenderBackendRequest exportBackendRequest =
-        miacode::debug_options::exportRenderBackendRequest();
-    bool d3d11Eligible =
-        exportBackendRequest != miacode::debug_options::ExportRenderBackendRequest::OpenGl;
-    QString d3d11IneligibleReason;
-#if defined(Q_OS_WIN)
-    if (d3d11Eligible && QQuickWindow::graphicsApi() != QSGRendererInterface::Direct3D11) {
-        d3d11Eligible = false;
-        d3d11IneligibleReason = QStringLiteral("process_graphics_api_not_d3d11");
-    }
-#else
-    if (d3d11Eligible) {
-        d3d11Eligible = false;
-        d3d11IneligibleReason = QStringLiteral("non_windows");
-    }
-#endif
-    if (!d3d11IneligibleReason.isEmpty()) {
-        appendVideoExportLog(
-            QStringLiteral("render_backend_fallback"),
-            QStringLiteral("fallback_from=d3d11_qrhi fallback_to=opengl reason=%1")
-                .arg(d3d11IneligibleReason));
-    }
-    bool useOffscreenGpu = false;
-    if (d3d11Eligible) {
-        exportCanvas.setRenderSessionBackend(ExportQuickRenderSessionBackend::D3D11Qrhi);
-        useOffscreenGpu = exportCanvas.initializeOffscreenRenderer(
-            requestedFormat,
-            shareContext,
-            &offscreenInitError
-        );
-        if (!useOffscreenGpu) {
-            appendVideoExportLog(
-                QStringLiteral("render_backend_fallback"),
-                QStringLiteral("fallback_from=d3d11_qrhi fallback_to=opengl reason=%1")
-                    .arg(offscreenInitError.isEmpty() ? QStringLiteral("init_failed")
-                                                      : offscreenInitError));
-            exportCanvas.shutdownOffscreenRenderer();
-            exportCanvas.setRenderSessionBackend(ExportQuickRenderSessionBackend::OpenGl);
-            QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
-            offscreenInitError.clear();
-        }
-    }
-    if (!useOffscreenGpu) {
-        useOffscreenGpu = exportCanvas.initializeOffscreenRenderer(
-            requestedFormat,
-            shareContext,
-            &offscreenInitError
-        );
-    }
+    bool useOffscreenGpu = exportCanvas.initializeExportRenderer(
+        requestedFormat, shareContext, &offscreenInitError);
     const bool d3d11SessionActive =
         exportCanvas.renderSessionBackend() == ExportQuickRenderSessionBackend::D3D11Qrhi;
     if (!useOffscreenGpu) {

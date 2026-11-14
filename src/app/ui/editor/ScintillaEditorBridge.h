@@ -119,6 +119,7 @@ public:
     Q_INVOKABLE void dropDocument(const QString& key);
     Q_INVOKABLE void configureSearch(const QString& query, const QString& replacement, bool matchCase, bool wholeWord);
     Q_INVOKABLE void exportSelectionRange();
+    Q_INVOKABLE void exportSelectionGif();
     Q_INVOKABLE bool applyNormalization(const QVariantMap& options);
     Q_INVOKABLE bool applyChartTransform(const QString& operation);
     Q_INVOKABLE bool createBookmarkAtLine(int line, const QString& title);

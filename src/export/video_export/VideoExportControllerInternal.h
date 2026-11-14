@@ -501,4 +501,14 @@ bool replaceOutputFileAtomicallyBestEffort(
     QString* errorMessage
 );
 
+QString exportTemporaryDirectoryPattern(const QString& prefix);
+class ScopedExportTempDirTracker
+{
+public:
+    explicit ScopedExportTempDirTracker(const QString& path);
+    ~ScopedExportTempDirTracker();
+private:
+    QString path_;
+};
+
 }  // namespace miacode::video_export::detail

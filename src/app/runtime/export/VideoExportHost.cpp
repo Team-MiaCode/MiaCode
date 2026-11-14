@@ -11,6 +11,11 @@ miacode::runtime::VideoExportHost::VideoExportHost(Session& session, RuntimeCont
     , state_(state)
 {}
 
+miacode::runtime::VideoExportHost::~VideoExportHost()
+{
+    clearVideoExportWorkerState();
+}
+
 // ---- miacode::ExportEngine ----
 //
 // Thin forwarders. The existing widget-side names stay because ~20 call sites

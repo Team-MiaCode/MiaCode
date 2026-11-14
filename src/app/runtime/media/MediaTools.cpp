@@ -337,6 +337,10 @@ bool runFfmpegBlocking(
     }
     const bool determinate = totalDurationSeconds > 0.0;
     const bool ownsJob = existingJobToken == 0;
+    if (ownsJob && jobProgress->active()) {
+        if (error != nullptr) *error = miacode::localizedText("job_progress.busy");
+        return false;
+    }
     const quint64 jobToken = ownsJob
         ? jobProgress->begin(title, label, /*cancellable=*/true)
         : existingJobToken;
@@ -962,9 +966,21 @@ void miacode::runtime::MediaJobsHost::shutdown()
     }
 }
 
+bool miacode::runtime::MediaJobsHost::rejectBusyJob() const
+{
+    const auto* progress = session_.jobProgressService();
+    if (progress == nullptr || !progress->active()) return false;
+    if (auto* requests = session_.uiRequestService()) {
+        requests->postToast(miacode::NoticeSeverity::Information,
+            miacode::localizedText("job_progress.busy"));
+    }
+    return true;
+}
+
 void miacode::runtime::MediaJobsHost::onCompressBackgroundVideo()
 {
     MC_OP("miacode::runtime::MediaJobsHost::onCompressBackgroundVideo");
+    if (rejectBusyJob()) return;
     miacode::UiRequestService* const requests = session_.uiRequestService();
     if (requests == nullptr) {
         return;
@@ -1017,6 +1033,7 @@ void miacode::runtime::MediaJobsHost::onCompressBackgroundVideo()
 void miacode::runtime::MediaJobsHost::onAlignBackgroundVideoToTrack()
 {
     MC_OP("miacode::runtime::MediaJobsHost::onAlignBackgroundVideoToTrack");
+    if (rejectBusyJob()) return;
     miacode::UiRequestService* const requests = session_.uiRequestService();
     miacode::JobProgressService* const jobProgress = session_.jobProgressService();
     if (shuttingDown_ || requests == nullptr || jobProgress == nullptr || jobProgress->active()
@@ -1229,6 +1246,7 @@ void miacode::runtime::MediaJobsHost::runCompressBackgroundVideo(
     const miacode::LocalizedText& title, const QString& videoPath, const QString& backupName)
 {
     MC_OP("miacode::runtime::MediaJobsHost::runCompressBackgroundVideo");
+    if (rejectBusyJob()) return;
     miacode::UiRequestService* const requests = session_.uiRequestService();
     if (requests == nullptr) {
         return;
@@ -1271,6 +1289,7 @@ void miacode::runtime::MediaJobsHost::runCompressBackgroundVideo(
 void miacode::runtime::MediaJobsHost::onConvertTrackTo44100Hz()
 {
     MC_OP("miacode::runtime::MediaJobsHost::onConvertTrackTo44100Hz");
+    if (rejectBusyJob()) return;
     miacode::UiRequestService* const requests = session_.uiRequestService();
     if (requests == nullptr) {
         return;
@@ -1307,6 +1326,7 @@ void miacode::runtime::MediaJobsHost::runConvertTrackTo44100Hz(
     const miacode::LocalizedText& title, const QString& trackPath)
 {
     MC_OP("miacode::runtime::MediaJobsHost::runConvertTrackTo44100Hz");
+    if (rejectBusyJob()) return;
     miacode::UiRequestService* const requests = session_.uiRequestService();
     if (requests == nullptr) {
         return;
@@ -1440,6 +1460,7 @@ QVariantMap miacode::runtime::MediaJobsHost::detectMediaBlankTiming(MediaBlankTa
 void miacode::runtime::MediaJobsHost::restoreMediaBlankBackup(MediaBlankTarget target)
 {
     MC_OP("miacode::runtime::MediaJobsHost::restoreMediaBlankBackup");
+    if (rejectBusyJob()) return;
     miacode::UiRequestService* const requests = session_.uiRequestService();
     if (requests == nullptr) {
         return;
@@ -1460,6 +1481,7 @@ void miacode::runtime::MediaJobsHost::restoreMediaBlankBackup(MediaBlankTarget t
 void miacode::runtime::MediaJobsHost::applyMediaBlank(MediaBlankTarget target, double beats, double bpm)
 {
     MC_OP("miacode::runtime::MediaJobsHost::applyMediaBlank");
+    if (rejectBusyJob()) return;
     miacode::UiRequestService* const requests = session_.uiRequestService();
     if (requests == nullptr || !(bpm > 0.0) || !(beats > 0.0)) {
         return;
