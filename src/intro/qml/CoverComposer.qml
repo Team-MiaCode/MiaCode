@@ -53,7 +53,7 @@ Item {
     property real activeChartFrameSeconds: 0
     // §4 — which layer wears the selection chrome (any kind, incl. the card). Driven
     // two-way: C++ pushes it (list / inspector selection → blue box moves), and a
-    // canvas tap / drag pushes it back via selectionBinder.selectLayerKey. The
+    // canvas press pushes it back via selectionBinder.selectLayerKey. The
     // editor's selectedIndex is DERIVED from this (key-based → reorder/add/remove safe).
     property string selectedKey: ""
     property int layerPreviewRevision: 0
@@ -182,6 +182,31 @@ Item {
             return layerContentH(l) * (l.contentAspect > 0 ? l.contentAspect : 1.0)
         return layerContentH(l)
     }
+    // Rotation is clockwise degrees about the layer centre (CoverLayer.rotation).
+    function layerRotation(l) { return (l && l.rotation !== undefined) ? l.rotation : 0 }
+    // Canvas point -> offset from the layer centre along the layer's own axes.
+    function layerLocalOffset(l, px, py) {
+        var dx = px - l.nx * canvas.width
+        var dy = py - l.ny * canvas.height
+        var a = layerRotation(l) * Math.PI / 180
+        return Qt.point(dx * Math.cos(a) + dy * Math.sin(a),
+                        dy * Math.cos(a) - dx * Math.sin(a))
+    }
+    // Offset along the layer's own axes -> canvas point.
+    function layerCanvasPoint(l, ox, oy) {
+        var a = layerRotation(l) * Math.PI / 180
+        return Qt.point(l.nx * canvas.width + ox * Math.cos(a) - oy * Math.sin(a),
+                        l.ny * canvas.height + ox * Math.sin(a) + oy * Math.cos(a))
+    }
+    // Axis-aligned extent of the rotated box, for edge snapping and clamping.
+    function layerBoundsW(l) {
+        var a = layerRotation(l) * Math.PI / 180
+        return Math.abs(layerContentW(l) * Math.cos(a)) + Math.abs(layerContentH(l) * Math.sin(a))
+    }
+    function layerBoundsH(l) {
+        var a = layerRotation(l) * Math.PI / 180
+        return Math.abs(layerContentW(l) * Math.sin(a)) + Math.abs(layerContentH(l) * Math.cos(a))
+    }
 
     // Absolute filesystem path → file URL (custom image / text-layer font). Empty
     // stays empty; an already-schemed value is used verbatim.
@@ -228,26 +253,51 @@ Item {
     function pointInLayer(l, px, py) {
         if (!l || !l.visible)
             return false
+        var p = layerLocalOffset(l, px, py)
         var w = layerContentW(l)
         var h = layerContentH(l)
-        var left = l.nx * canvas.width - w / 2
-        var top = l.ny * canvas.height - h / 2
-        return px >= left && px <= left + w && py >= top && py <= top + h
+        // A chart frame's box is a square around the round playfield. Its empty
+        // corners must not swallow presses meant for the layers showing through.
+        if (l.kind === "chartFrame")
+            return p.x * p.x + p.y * p.y <= w * w / 4
+        return Math.abs(p.x) <= w / 2 && Math.abs(p.y) <= h / 2
     }
     function scaleHandleSize() { return Math.max(44, canvas.height * 0.04) }
-    function pointInSelectionScaleHandle(px, py) {
+    function scaleHandleCentre(l) {
+        return layerCanvasPoint(l, layerContentW(l) / 2, layerContentH(l) / 2)
+    }
+    function rotateHandleSize() { return 32 }
+    function rotateHandleReach() { return 30 }
+    // The rotate handle floats beyond the top edge; a layer touching the canvas
+    // border has no room there, so the handle then sits just inside that edge.
+    function rotateHandleOutside(l) {
+        var p = layerCanvasPoint(l, 0, -layerContentH(l) / 2 - rotateHandleReach())
+        return p.x >= 0 && p.x <= canvas.width && p.y >= 0 && p.y <= canvas.height
+    }
+    function rotateHandleCentre(l) {
+        var reach = rotateHandleOutside(l) ? rotateHandleReach() : -rotateHandleReach()
+        return layerCanvasPoint(l, 0, -layerContentH(l) / 2 - reach)
+    }
+    function pointInSelectionHandle(px, py) {
         var l = selectedLayer
         if (!editable || !l || !l.visible || l.locked)
             return false
-        var s = scaleHandleSize()
-        var left = l.nx * canvas.width + layerContentW(l) / 2 - s / 2
-        var top = l.ny * canvas.height + layerContentH(l) / 2 - s / 2
-        return px >= left && px <= left + s && py >= top && py <= top + s
+        var scale = scaleHandleCentre(l)
+        var rotate = rotateHandleCentre(l)
+        return (Math.abs(px - scale.x) <= scaleHandleSize() / 2
+                && Math.abs(py - scale.y) <= scaleHandleSize() / 2)
+            || (Math.abs(px - rotate.x) <= rotateHandleSize() / 2
+                && Math.abs(py - rotate.y) <= rotateHandleSize() / 2)
+    }
+    // Snap a dragged angle to the nearest 45 degree step when it comes close.
+    function snapRotation(degrees) {
+        var nearest = Math.round(degrees / 45) * 45
+        return Math.abs(degrees - nearest) <= 3 ? nearest : degrees
     }
     function topHitLayerAt(px, py) {
         if (!coverLayout)
             return null
-        if (pointInSelectionScaleHandle(px, py))
+        if (pointInSelectionHandle(px, py))
             return selectedLayer
         var layers = coverLayout.layers
         var best = null
@@ -261,16 +311,12 @@ Item {
         return best
     }
     function dragLayerAt(px, py) {
-        if (pointInSelectionScaleHandle(px, py))
+        if (pointInSelectionHandle(px, py))
             return null
         var layer = topHitLayerAt(px, py)
         // A locked top layer still owns the hit. It may be selected, but a
         // drag must not tunnel through it to a visually lower layer.
         return layer && !layer.locked ? layer : null
-    }
-    function hitKeyAt(px, py) {
-        var l = topHitLayerAt(px, py)
-        return l ? l.key : ""
     }
     readonly property var selectedLayer:
         (coverLayout && selectedIndex >= 0 && selectedIndex < coverLayout.layers.length)
@@ -312,17 +358,29 @@ Item {
     // and pushes selectedKey on load, so no QML-side auto-select is needed. The
     // export path (editable=false) never receives a selectedKey → no chrome baked in.
 
+    // Selection happens on PRESS, at canvas level, by visual z-order. A
+    // release-time tap is dropped by a slow click and by any slip past the
+    // drag threshold, which left such presses without a visible response.
     TapHandler {
         enabled: canvas.editable
         gesturePolicy: TapHandler.WithinBounds
-        onTapped: {
-            canvas.selectLayerKey(canvas.hitKeyAt(point.position.x, point.position.y))
+        onPressedChanged: {
+            if (!pressed)
+                return
+            var px = point.position.x
+            var py = point.position.y
+            // Resolve both hits before selecting: the handle zones follow the
+            // selection, so they move as soon as it changes.
+            var hit = canvas.topHitLayerAt(px, py)
+            moveDrag.pressLayer = canvas.dragLayerAt(px, py)
+            if (hit)
+                canvas.selectLayerKey(hit.key)
         }
     }
 
     // Canvas-level move drag. This must live above the layer delegates because a
     // lower selected layer's own handler does not receive pointer events through an
-    // overlapping upper layer. Taps still use visual z-order; drags use dragLayerAt().
+    // overlapping upper layer. It moves the layer the press landed on.
     DragHandler {
         id: moveDrag
         target: null
@@ -330,6 +388,10 @@ Item {
         grabPermissions: PointerHandler.CanTakeOverFromAnything
                          | PointerHandler.ApprovesTakeOverByAnything
                          | PointerHandler.ApprovesCancellation
+        // Layer under the press that started this gesture (null: none, locked,
+        // or a selection handle). Hit-testing at activation instead would miss
+        // it whenever the cursor had already left the layer by then.
+        property var pressLayer: null
         property var dragLayer: null
         property real startNx: 0.5
         property real startNy: 0.5
@@ -338,14 +400,11 @@ Item {
         property real grabSceneY: 0
         onActiveChanged: {
             if (active) {
-                dragLayer = canvas.dragLayerAt(
-                        centroid.position.x,
-                        centroid.position.y)
+                dragLayer = pressLayer
                 if (!dragLayer) {
                     dragLayer = null
                     return
                 }
-                canvas.selectLayerKey(dragLayer.key)
                 startNx = dragLayer.nx
                 startNy = dragLayer.ny
                 // Reference the delta from the centroid AT ACTIVATION, not the
@@ -365,8 +424,8 @@ Item {
             if (!active || !dragLayer) return
             var dx = centroid.position.x - grabSceneX
             var dy = centroid.position.y - grabSceneY
-            var w = canvas.layerContentW(dragLayer)
-            var h = canvas.layerContentH(dragLayer)
+            var w = canvas.layerBoundsW(dragLayer)
+            var h = canvas.layerBoundsH(dragLayer)
             var cx = startNx * canvas.width + dx
             var cy = startNy * canvas.height + dy
             var snapped = canvas.applySnap(cx, cy, w, h)
@@ -486,6 +545,7 @@ Item {
             x: (ld ? ld.nx : 0.5) * canvas.width - width / 2
             y: (ld ? ld.ny : 0.5) * canvas.height - height / 2
             z: ld ? ld.z : 0
+            rotation: canvas.layerRotation(ld)
             visible: ld ? ld.visible : true
             opacity: layerItem.isChartFrame ? 1.0 : (ld && ld.opacity !== undefined ? ld.opacity : 1.0)
 
@@ -723,6 +783,8 @@ Item {
                     cache: false
                     smooth: true
                     mipmap: true
+                    // A rotated picture's straight edges would otherwise stair-step.
+                    antialiasing: layerItem.rotation !== 0
                 }
 
                 // Custom text layer. A hidden probe measures the glyphs' true aspect
@@ -820,17 +882,6 @@ Item {
                     }
                 }
             }
-
-            TapHandler {
-                enabled: canvas.editable
-                onTapped: {
-                    if (canvas.selectionBinder || canvas.chartSceneBinder) {
-                        var p = layerItem.mapToItem(canvas, point.position.x, point.position.y)
-                        canvas.selectLayerKey(canvas.hitKeyAt(p.x, p.y))
-                    }
-                }
-            }
-
         }
     }
 
@@ -884,6 +935,7 @@ Item {
         y: l ? (l.ny * canvas.height - canvas.layerContentH(l) / 2) : 0
         width: l ? canvas.layerContentW(l) : 0
         height: l ? canvas.layerContentH(l) : 0
+        rotation: canvas.layerRotation(l)
         color: "transparent"
         border.color: "#3DA9FC"
         border.width: 2
@@ -891,17 +943,18 @@ Item {
         z: 9000
     }
     // Scale handle — visual indicator + its own DragHandler for the full hit zone.
-    // The handle is a canvas-level hit target, and hitKeyAt() also treats it as the
-    // selected layer so overlapping layers cannot become active during resize.
+    // The handle is a canvas-level hit target, and topHitLayerAt() also treats it
+    // as the selected layer so overlapping layers cannot become active during resize.
     Item {
         id: scaleHandle
         readonly property var l: canvas.selectedLayer
+        readonly property point centre: l ? canvas.scaleHandleCentre(l) : Qt.point(-100, -100)
         visible: canvas.editable && l !== null && l.visible && !l.locked
         width: canvas.scaleHandleSize()
         height: width
         z: 9001
-        x: l ? (l.nx * canvas.width + canvas.layerContentW(l) / 2 - width / 2) : -100
-        y: l ? (l.ny * canvas.height + canvas.layerContentH(l) / 2 - height / 2) : -100
+        x: centre.x - width / 2
+        y: centre.y - height / 2
         // Visual indicator (same 18×18 blue square, centred inside the larger hit zone)
         Rectangle {
             anchors.centerIn: parent
@@ -922,11 +975,16 @@ Item {
             // grab, not an absolute |cursor − centre|. This avoids the activation
             // jump (drag threshold + wherever on the handle you grabbed) and the
             // old Math.abs flip (growing again when dragged past the centre).
-            property real grabSceneY: 0
+            property point grabPoint: Qt.point(0, 0)
             property real startHeightPx: 0
+            // The handle moves with the layer it resizes, so the cursor is read
+            // in canvas coordinates; the handle's own would chase themselves.
+            function cursorOnCanvas() {
+                return scaleHandle.mapToItem(canvas, centroid.position.x, centroid.position.y)
+            }
             onActiveChanged: {
                 if (active && scaleHandle.l) {
-                    grabSceneY = centroid.position.y
+                    grabPoint = cursorOnCanvas()
                     startHeightPx = scaleHandle.l.sizeFraction * canvas.height
                 } else {
                     canvas.clearGuides()
@@ -937,10 +995,79 @@ Item {
             onCentroidChanged: {
                 if (!active || !scaleHandle.l) return
                 // The layer scales about its centre, so the bottom handle tracks the
-                // cursor 1:1 while the height changes by 2× the cursor's vertical delta.
-                var dy = centroid.position.y - grabSceneY
+                // cursor 1:1 along the layer's own vertical axis while the height
+                // changes by 2× that delta.
+                var cursor = cursorOnCanvas()
+                var a = canvas.layerRotation(scaleHandle.l) * Math.PI / 180
+                var dy = (cursor.y - grabPoint.y) * Math.cos(a) - (cursor.x - grabPoint.x) * Math.sin(a)
                 var newH = Math.max(canvas.height * 0.05, startHeightPx + 2 * dy)
                 scaleHandle.l.sizeFraction = newH / canvas.height
+            }
+        }
+    }
+    // Rotate handle — a knob on a stem above the top edge. Dragging it turns the
+    // layer about its centre by the angle the cursor sweeps from the grab.
+    Rectangle {
+        readonly property var l: canvas.selectedLayer
+        readonly property point edge: l ? canvas.layerCanvasPoint(l, 0, -canvas.layerContentH(l) / 2)
+                                        : Qt.point(-100, -100)
+        visible: l !== null && rotateHandle.visible && canvas.rotateHandleOutside(l)
+        width: 2
+        height: canvas.rotateHandleReach()
+        x: edge.x - width / 2
+        y: edge.y - height
+        transformOrigin: Item.Bottom
+        rotation: canvas.layerRotation(l)
+        color: "#3DA9FC"
+        antialiasing: true
+        z: 9000
+    }
+    Item {
+        id: rotateHandle
+        readonly property var l: canvas.selectedLayer
+        readonly property point centre: l ? canvas.rotateHandleCentre(l) : Qt.point(-100, -100)
+        visible: canvas.editable && l !== null && l.visible && !l.locked
+        width: canvas.rotateHandleSize()
+        height: width
+        z: 9001
+        x: centre.x - width / 2
+        y: centre.y - height / 2
+        Rectangle {
+            anchors.centerIn: parent
+            width: 16
+            height: 16
+            radius: 8
+            color: "#3DA9FC"
+            border.color: "#FFFFFF"
+            border.width: 2
+            antialiasing: true
+        }
+        DragHandler {
+            id: rotateDrag
+            target: null
+            enabled: rotateHandle.visible
+            grabPermissions: PointerHandler.CanTakeOverFromAnything
+                             | PointerHandler.ApprovesCancellation
+            property real grabAngle: 0
+            property real startRotation: 0
+            // Cursor bearing from the layer centre, clockwise degrees. Read in
+            // canvas coordinates because the handle orbits with the layer.
+            function cursorAngle() {
+                var cursor = rotateHandle.mapToItem(canvas, centroid.position.x, centroid.position.y)
+                return Math.atan2(cursor.y - rotateHandle.l.ny * canvas.height,
+                                  cursor.x - rotateHandle.l.nx * canvas.width) * 180 / Math.PI
+            }
+            onActiveChanged: {
+                if (active && rotateHandle.l) {
+                    grabAngle = cursorAngle()
+                    startRotation = canvas.layerRotation(rotateHandle.l)
+                } else if (!active) {
+                    canvas.commitGeometry()
+                }
+            }
+            onCentroidChanged: {
+                if (!active || !rotateHandle.l) return
+                rotateHandle.l.rotation = canvas.snapRotation(startRotation + cursorAngle() - grabAngle)
             }
         }
     }

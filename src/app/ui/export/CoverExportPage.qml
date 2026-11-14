@@ -470,21 +470,28 @@ Rectangle {
                 SplitView.maximumWidth: 460
                 color: Theme.colors.background.panel
                 clip: true
+                readonly property int padding: 10
 
+                // The right padding belongs to the Flickable, so its clip edge is the
+                // pane edge and the scroll bar sits in that gutter instead of over
+                // swatches and switches that end on the content edge.
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 10
+                    anchors.margins: inspectorPane.padding
+                    anchors.rightMargin: 0
                     spacing: 8
 
                     AppTabBar {
                         id: inspectorTabs
                         Layout.fillWidth: true
+                        Layout.rightMargin: inspectorPane.padding
                         tabs: [{ id: "canvas", label: qsTrId("cover.canvas") },
                                { id: "layer", label: qsTrId("cover.layer"), objectName: "coverLayerTab" }]
                     }
 
                     Rectangle {
                         Layout.fillWidth: true
+                        Layout.rightMargin: inspectorPane.padding
                         Layout.preferredHeight: 1 / Screen.devicePixelRatio
                         color: Theme.separatorColor
                     }
@@ -500,7 +507,7 @@ Rectangle {
 
                         AppTabPages {
                             id: inspector
-                            width: parent.width
+                            width: parent.width - inspectorPane.padding
                             currentIndex: inspectorTabs.currentIndex
 
                             // ---- 画板 ----
@@ -678,6 +685,16 @@ Rectangle {
                                         value: (root.activeLayer ? root.activeLayer.sizeFraction : 0.85) * 100
                                         onMoved: function(value) { if (root.session) root.session.setActiveLayerSizeFraction(value / 100) }
                                     }
+                                    LabeledSlider {
+                                        objectName: "coverLayerRotationSlider"
+                                        label: qsTrId("cover.rotation")
+                                        labelWidth: root.labelWidth
+                                        from: -180
+                                        to: 180
+                                        suffix: "°"
+                                        value: root.activeLayer ? root.activeLayer.rotation : 0
+                                        onMoved: function(value) { if (root.session) root.session.setActiveLayerRotation(value) }
+                                    }
 
                                     // ---- 图片 ----
                                     SettingsSection {
@@ -714,19 +731,9 @@ Rectangle {
                                         RowLayout {
                                             Layout.fillWidth: true
                                             FormLabel { text: qsTrId("cover.text_color") }
-                                            AppTextField {
-                                                Layout.fillWidth: true
-                                                text: root.activeLayer ? root.activeLayer.textColor : "#FFFFFF"
-                                                onEditingFinished: if (root.session) root.session.setActiveLayerTextColor(text)
-                                            }
-                                            // 色值是文本输入，一个小色板比读十六进制快。
-                                            Rectangle {
-                                                implicitWidth: 22
-                                                implicitHeight: 22
-                                                radius: Theme.controlRadius
+                                            AppColorField {
                                                 color: root.activeLayer ? root.activeLayer.textColor : "#FFFFFF"
-                                                border.width: Theme.controlBorderWidth
-                                                border.color: Theme.colors.border.control
+                                                onEdited: function(color) { if (root.session) root.session.setActiveLayerTextColor(color) }
                                             }
                                         }
                                         RowLayout {
@@ -750,10 +757,9 @@ Rectangle {
                                         RowLayout {
                                             Layout.fillWidth: true
                                             FormLabel { text: qsTrId("cover.text_stroke_color") }
-                                            AppTextField {
-                                                Layout.fillWidth: true
-                                                text: root.activeLayer ? root.activeLayer.textStrokeColor : "#000000"
-                                                onEditingFinished: root.session.setActiveLayerTextEffect("textStrokeColor", text)
+                                            AppColorField {
+                                                color: root.activeLayer ? root.activeLayer.textStrokeColor : "#000000"
+                                                onEdited: function(color) { root.session.setActiveLayerTextEffect("textStrokeColor", color) }
                                             }
                                         }
                                         LabeledSlider {
@@ -772,10 +778,9 @@ Rectangle {
                                         RowLayout {
                                             Layout.fillWidth: true
                                             FormLabel { text: qsTrId("cover.text_shadow_color") }
-                                            AppTextField {
-                                                Layout.fillWidth: true
-                                                text: root.activeLayer ? root.activeLayer.textShadowColor : "#000000"
-                                                onEditingFinished: root.session.setActiveLayerTextEffect("textShadowColor", text)
+                                            AppColorField {
+                                                color: root.activeLayer ? root.activeLayer.textShadowColor : "#000000"
+                                                onEdited: function(color) { root.session.setActiveLayerTextEffect("textShadowColor", color) }
                                             }
                                         }
                                         Repeater {

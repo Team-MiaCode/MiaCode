@@ -123,6 +123,18 @@ void CoverLayer::setSizeFraction(qreal v)
     emit sizeFractionChanged();
 }
 
+void CoverLayer::setRotation(qreal v)
+{
+    if (!std::isfinite(v)) return;
+    // Wrap into (-180, 180] so a handle dragged round and round stays bounded.
+    v = std::fmod(v, 360.0);
+    if (v > 180.0) v -= 360.0;
+    if (v <= -180.0) v += 360.0;
+    if (qAbs(rotation_ - v) < 1e-6) return;
+    rotation_ = v;
+    emit rotationChanged();
+}
+
 void CoverLayer::setZ(int v)
 {
     if (z_ == v) return;
@@ -390,6 +402,7 @@ CoverLayer* CoverLayoutModel::addLayerFromJson(const QJsonObject& obj)
 void CoverLayoutModel::applyDefaults(CoverLayer* layer) const
 {
     if (layer == nullptr) return;
+    layer->rotation_ = 0.0;
     if (layer->kind_ == QString::fromLatin1(kCardKey)) {
         layer->nx_ = kCardDefaultNx;
         layer->ny_ = kCardDefaultNy;
@@ -550,6 +563,7 @@ CoverLayer* CoverLayoutModel::duplicateLayer(const QString& key)
     copy->nx_ = src->nx_;
     copy->ny_ = src->ny_;
     copy->sizeFraction_ = src->sizeFraction_;
+    copy->rotation_ = src->rotation_;
     copy->z_ = maxZ() + 1;
     copy->visible_ = src->visible_;
     copy->locked_ = src->locked_;
@@ -695,11 +709,15 @@ void CoverLayoutModel::moveByViewRows(int fromRow, int toRow)
     if (dest > n) {
         dest = n;   // drop past the end → send to back
     }
-    CoverLayer* moving = view.takeAt(fromRow);
     if (dest > fromRow) {
-        dest -= 1;   // removing fromRow shifted everything after it left by one
+        dest -= 1;   // removing fromRow shifts everything after it left by one
     }
-    view.insert(qBound(0, dest, view.size()), moving);
+    dest = qBound(0, dest, n - 1);
+    if (dest == fromRow) {
+        return;   // dropped where it started: keep z and the delegates as they are
+    }
+    CoverLayer* moving = view.takeAt(fromRow);
+    view.insert(dest, moving);
     // Reassign z so the new view order holds: view row 0 = highest z (front).
     for (int i = 0; i < view.size(); ++i) {
         view.at(i)->setZ(view.size() - 1 - i);
@@ -826,6 +844,7 @@ void CoverLayoutModel::resetLayout()
         emit layer->nxChanged();
         emit layer->nyChanged();
         emit layer->sizeFractionChanged();
+        emit layer->rotationChanged();
         emit layer->zChanged();
         emit layer->visibleChanged();
         emit layer->lockedChanged();
@@ -849,6 +868,7 @@ QJsonObject CoverLayoutModel::toJson() const
         o.insert(QStringLiteral("nx"), layer->nx_);
         o.insert(QStringLiteral("ny"), layer->ny_);
         o.insert(QStringLiteral("sizeFraction"), layer->sizeFraction_);
+        o.insert(QStringLiteral("rotation"), layer->rotation_);
         o.insert(QStringLiteral("z"), layer->z_);
         o.insert(QStringLiteral("visible"), layer->visible_);
         o.insert(QStringLiteral("locked"), layer->locked_);
@@ -915,6 +935,8 @@ void CoverLayoutModel::fromJson(const QJsonObject& obj)
         layer->setNx(o.value(QStringLiteral("nx")).toDouble(layer->nx_));
         layer->setNy(o.value(QStringLiteral("ny")).toDouble(layer->ny_));
         layer->setSizeFraction(o.value(QStringLiteral("sizeFraction")).toDouble(layer->sizeFraction_));
+        // Layouts saved before rotation existed describe upright layers.
+        layer->setRotation(o.value(QStringLiteral("rotation")).toDouble(0.0));
         layer->setZ(o.value(QStringLiteral("z")).toInt(layer->z_));
         layer->setVisible(o.value(QStringLiteral("visible")).toBool(layer->visible_));
         layer->setLocked(o.value(QStringLiteral("locked")).toBool(layer->locked_));

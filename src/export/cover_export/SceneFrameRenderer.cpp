@@ -234,12 +234,16 @@ QImage SceneFrameRenderer::renderAt(double seconds, int sidePx, QString* errorMe
     }
     // A resize of the shown window reaches the surface the grab renders into
     // only on a later event-loop turn, while QWindow::size() already reports the
-    // new size. A scene larger than that surface comes back cropped to its
-    // top-left and would be stretched up below, so lay the scene out on the
-    // surface actually grabbed and grab again; the scale below restores `side`.
+    // new size. The scene always sits at the surface's top-left, so the grab is
+    // reduced to the square the scene covers before the scale below restores
+    // `side`.
     const qreal grabDpr = image.devicePixelRatio() > 0 ? image.devicePixelRatio() : 1.0;
+    const int scenePixelSide = qRound(side * grabDpr);
     const int surfaceSide = qMin(image.width(), image.height());
-    if (surfaceSide + 1 < qRound(side * grabDpr)) {
+    int capturedSide = scenePixelSide;
+    if (surfaceSide + 1 < scenePixelSide) {
+        // Surface not grown yet: the scene would come back cropped, so lay it
+        // out on the surface actually grabbed and grab again.
         sceneRoot_->setSize(QSizeF(surfaceSide / grabDpr, surfaceSide / grabDpr));
         image = window_->grabWindow();
         sceneRoot_->setSize(QSizeF(side, side));
@@ -249,7 +253,13 @@ QImage SceneFrameRenderer::renderAt(double seconds, int sidePx, QString* errorMe
             }
             return QImage();
         }
-        image = image.copy(0, 0, surfaceSide, surfaceSide);
+        capturedSide = surfaceSide;
+    }
+    // Surface not shrunk yet: scaling the whole grab would squeeze the scene
+    // into its top-left corner, so keep only the scene's square.
+    capturedSide = qMin(capturedSide, qMin(image.width(), image.height()));
+    if (image.width() > capturedSide + 1 || image.height() > capturedSide + 1) {
+        image = image.copy(0, 0, capturedSide, capturedSide);
     }
     image.setDevicePixelRatio(1.0);
     if (image.width() != side || image.height() != side) {

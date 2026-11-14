@@ -915,6 +915,10 @@ Classic mode: All functions are on one page, similar to the layout in earlier ve
         <source>Reset to default…</source>
         <translation>Reset to default…</translation>
     </message>
+    <message id="cover.rotation">
+        <source>Rotation</source>
+        <translation>Rotation</translation>
+    </message>
     <message id="cover.save_cover_layout">
         <source>Save cover layout</source>
         <translation>Save cover layout</translation>
@@ -5126,6 +5130,10 @@ Error: %1</translation>
     <message id="cover.text_stroke_color">
         <source>Outline color</source>
         <translation>Outline color</translation>
+    </message>
+    <message id="color_picker.open">
+        <source>Pick color</source>
+        <translation>Pick color</translation>
     </message>
     <message id="cover.text_stroke_width">
         <source>Outline width</source>

@@ -19,6 +19,7 @@ namespace miacode::cover_export {
 //                     keeps its shape across any output aspect ratio.
 //   • z             — paint order (higher = on top). Drives QQuickItem.z, not
 //                     list position, so reordering never rebuilds delegates.
+//   • rotation      — clockwise degrees about the layer centre, in (-180, 180].
 //
 // A `kind=="chartFrame"` layer additionally carries a rendered chart still
 // (`frameImage`, set from C++ via CoverLayoutModel::setLayerImage). QML can't
@@ -38,6 +39,7 @@ class CoverLayer : public QObject
     Q_PROPERTY(qreal nx READ nx WRITE setNx NOTIFY nxChanged)
     Q_PROPERTY(qreal ny READ ny WRITE setNy NOTIFY nyChanged)
     Q_PROPERTY(qreal sizeFraction READ sizeFraction WRITE setSizeFraction NOTIFY sizeFractionChanged)
+    Q_PROPERTY(qreal rotation READ rotation WRITE setRotation NOTIFY rotationChanged)
     Q_PROPERTY(int z READ z WRITE setZ NOTIFY zChanged)
     Q_PROPERTY(bool visible READ visible WRITE setVisible NOTIFY visibleChanged)
     Q_PROPERTY(bool locked READ locked WRITE setLocked NOTIFY lockedChanged)
@@ -88,6 +90,7 @@ public:
     qreal nx() const { return nx_; }
     qreal ny() const { return ny_; }
     qreal sizeFraction() const { return sizeFraction_; }
+    qreal rotation() const { return rotation_; }
     int z() const { return z_; }
     bool visible() const { return visible_; }
     bool locked() const { return locked_; }
@@ -125,6 +128,7 @@ public:
     void setNx(qreal v);
     void setNy(qreal v);
     void setSizeFraction(qreal v);
+    void setRotation(qreal v);
     void setZ(int v);
     void setVisible(bool v);
     void setLocked(bool v);
@@ -157,6 +161,7 @@ signals:
     void nxChanged();
     void nyChanged();
     void sizeFractionChanged();
+    void rotationChanged();
     void zChanged();
     void visibleChanged();
     void lockedChanged();
@@ -193,6 +198,7 @@ private:
     qreal nx_ = 0.5;
     qreal ny_ = 0.5;
     qreal sizeFraction_ = 0.85;
+    qreal rotation_ = 0.0;
     int z_ = 0;
     bool visible_ = true;
     bool locked_ = false;
