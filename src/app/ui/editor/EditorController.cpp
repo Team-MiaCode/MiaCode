@@ -63,8 +63,7 @@ void EditorController::setImeInputDisabled(bool disabled)
 QString EditorController::completionGroup() const
 {
     if (!completion_.active) return {};
-    if (completion_.opening == QLatin1Char('['))
-        return completionReplacementOffset_ > 0 ? QStringLiteral("duration_suffix") : QStringLiteral("duration");
+    if (completion_.opening == QLatin1Char('[')) return QStringLiteral("duration");
     if (completion_.opening == QLatin1Char('{')) return QStringLiteral("division");
     return {};
 }

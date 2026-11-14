@@ -59,7 +59,6 @@ public:
 
     Q_PROPERTY(QAbstractItemModel* completionDurations READ completionDurations CONSTANT)
     Q_PROPERTY(QAbstractItemModel* completionDivisions READ completionDivisions CONSTANT)
-    Q_PROPERTY(QAbstractItemModel* completionDurationSuffixes READ completionDurationSuffixes CONSTANT)
 
     // Performance
     Q_PROPERTY(bool videoDecodePrefersSoftware READ videoDecodePrefersSoftware WRITE setVideoDecodePrefersSoftware NOTIFY performanceChanged)
@@ -115,7 +114,6 @@ public:
     void setEditorLineSpacing(double factor);
     QAbstractItemModel* completionDurations() { return &completionDurations_; }
     QAbstractItemModel* completionDivisions() { return &completionDivisions_; }
-    QAbstractItemModel* completionDurationSuffixes() { return &completionDurationSuffixes_; }
     Q_INVOKABLE void finishCompletionEditing();
     Q_INVOKABLE void resetCompletionCandidates();
 
@@ -172,7 +170,6 @@ private:
     WorkbenchSettings* settings_ = nullptr;
     CompletionCandidateModel completionDurations_{editor::CompletionCandidateGroup::Duration};
     CompletionCandidateModel completionDivisions_{editor::CompletionCandidateGroup::Division};
-    CompletionCandidateModel completionDurationSuffixes_{editor::CompletionCandidateGroup::DurationSuffix};
     bool restartRequired_ = false;
 };
 

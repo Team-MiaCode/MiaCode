@@ -19,15 +19,17 @@ QStringList readValues(const QJsonValue& json, editor::CompletionCandidateGroup 
 
 editor::SimaiCompletionConfig readEditorCompletionCandidates(const QJsonObject& ui)
 {
+    // Duration continuation is built in; older suffix presets use the current default.
     return {readValues(ui.value(QLatin1String(kDurations)), editor::CompletionCandidateGroup::Duration),
             readValues(ui.value(QLatin1String(kDivisions)), editor::CompletionCandidateGroup::Division),
-            readValues(ui.value(QLatin1String(kDurationSuffixes)), editor::CompletionCandidateGroup::DurationSuffix)};
+            editor::defaultCompletionValues(editor::CompletionCandidateGroup::DurationSuffix)};
 }
 
 void writeEditorCompletionCandidates(QJsonObject& ui, const editor::SimaiCompletionConfig& config)
 {
     ui.insert(QLatin1String(kDurations), QJsonArray::fromStringList(config.durations));
     ui.insert(QLatin1String(kDivisions), QJsonArray::fromStringList(config.divisions));
-    ui.insert(QLatin1String(kDurationSuffixes), QJsonArray::fromStringList(config.durationSuffixes));
+    ui.insert(QLatin1String(kDurationSuffixes), QJsonArray::fromStringList(
+        editor::defaultCompletionValues(editor::CompletionCandidateGroup::DurationSuffix)));
 }
 } // namespace miacode

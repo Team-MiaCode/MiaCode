@@ -30,27 +30,23 @@ Item {
     function ensureContentLayout() {
         durations.ensureContentLayout()
         divisions.ensureContentLayout()
-        durationSuffixes.ensureContentLayout()
         groups.ensurePolished()
         contentColumn.ensurePolished()
     }
     function releaseInputFocusOutside(origin, position) {
         durations.releaseInputFocusOutside(origin, position)
         divisions.releaseInputFocusOutside(origin, position)
-        durationSuffixes.releaseInputFocusOutside(origin, position)
     }
     function releaseInputFocus() {
         durations.releaseInputFocus()
         divisions.releaseInputFocus()
-        durationSuffixes.releaseInputFocus()
     }
     function openGroup(group) {
         root.expanded = true
         Qt.callLater(function() {
             if (root.visible && root.expanded) {
                 root.ensureContentLayout()
-                const groupItems = { duration: durations, division: divisions, duration_suffix: durationSuffixes }
-                root.ensureVisibleRequested(groupItems[group] || durations, "top")
+                root.ensureVisibleRequested(group === "division" ? divisions : durations, "top")
             }
         })
     }
@@ -70,7 +66,9 @@ Item {
         contentItem: RowLayout {
             spacing: Theme.settingsRowSpacing
             Text {
-                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                Layout.maximumWidth: Math.max(0, heading.availableWidth
+                    - Theme.compactControlHeight - 16 - 3 * Theme.settingsRowSpacing)
                 text: heading.text
                 color: heading.hovered || heading.visualFocus
                     ? Theme.colors.text.active : Theme.colors.text.secondary
@@ -78,6 +76,27 @@ Item {
                 elide: Text.ElideRight
                 verticalAlignment: Text.AlignVCenter
             }
+            IconButton {
+                id: completionHelp
+                objectName: "completionCustomizeHelp"
+                Layout.minimumWidth: Theme.compactControlHeight
+                Layout.preferredWidth: Theme.compactControlHeight
+                Layout.preferredHeight: Theme.compactControlHeight
+                z: 1
+                compact: true
+                iconWidth: 16
+                iconHeight: 16
+                iconSource: Qt.resolvedUrl("icons/question-circle.svg")
+                focusPolicy: Qt.TabFocus
+                Accessible.name: qsTrId("preferences.completion.customize")
+                Accessible.description: qsTrId("preferences.completion.help")
+                Tooltip {
+                    visible: completionHelp.hovered || completionHelp.activeFocus
+                    text: qsTrId("preferences.completion.help")
+                    timeout: -1
+                }
+            }
+            Item { Layout.fillWidth: true }
             ControlsImpl.IconImage {
                 Layout.preferredWidth: 16
                 Layout.preferredHeight: 16
@@ -115,13 +134,10 @@ Item {
             width: Math.max(0, parent.width - 24)
             spacing: 12
 
-            GridLayout {
+            RowLayout {
                 id: groups
                 Layout.fillWidth: true
-                columns: Math.max(1, Math.min(3, Math.floor(
-                    (width + columnSpacing) / (5 * Theme.controlMinHeight + columnSpacing))))
-                columnSpacing: 20
-                rowSpacing: 20
+                spacing: 20
                 CompletionCandidateList {
                     id: durations
                     Layout.fillWidth: true
@@ -144,19 +160,6 @@ Item {
                     candidateModel: root.preferencesModel.completionDivisions
                     title: qsTrId("preferences.completion.division")
                     inputHint: qsTrId("preferences.completion.division_hint")
-                    scrollViewport: root.scrollViewport
-                    onEnsureVisibleRequested: function(item) { root.ensureVisibleRequested(item, "contain") }
-                    onScrollRequested: function(distance) { root.scrollRequested(distance) }
-                }
-                CompletionCandidateList {
-                    id: durationSuffixes
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 1
-                    Layout.minimumWidth: 0
-                    Layout.alignment: Qt.AlignTop
-                    candidateModel: root.preferencesModel.completionDurationSuffixes
-                    title: qsTrId("preferences.completion.duration_suffix")
-                    inputHint: qsTrId("preferences.completion.duration_suffix_hint")
                     scrollViewport: root.scrollViewport
                     onEnsureVisibleRequested: function(item) { root.ensureVisibleRequested(item, "contain") }
                     onScrollRequested: function(distance) { root.scrollRequested(distance) }

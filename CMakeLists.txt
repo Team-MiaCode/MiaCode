@@ -807,6 +807,7 @@ set(MIACODE_UI_ICON_FILES
     src/app/ui/resources/icons/chevron-left.svg
     src/app/ui/resources/icons/chevron-right.svg
     src/app/ui/resources/icons/settings.svg
+    src/app/ui/resources/icons/question-circle.svg
     src/app/ui/resources/icons/chart.svg
     src/app/ui/resources/icons/export.svg
     src/app/ui/resources/icons/tools.svg

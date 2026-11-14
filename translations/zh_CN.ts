@@ -3029,6 +3029,14 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Packaging ZIP...</source>
         <translation>正在打包 ZIP...</translation>
     </message>
+    <message id="net.cancelling_download">
+        <source>Cancelling download…</source>
+        <translation>正在取消下载…</translation>
+    </message>
+    <message id="net.waiting_for_download_1">
+        <source>Waiting for server response: %1</source>
+        <translation>等待服务器响应：%1</translation>
+    </message>
     <message id="net.preparing_download">
         <source>Preparing download…</source>
         <translation>正在准备下载…</translation>
@@ -4955,6 +4963,12 @@ Error: %1</source>
         <source>Custom candidates</source>
         <translation>自定义候选</translation>
     </message>
+    <message id="preferences.completion.help">
+        <source>"Duration" sets the completion list shown when typing [.
+"Beat subdivision" sets the completion list shown when typing {.</source>
+        <translation>“时值”为设置输入[时的自动补全列表。
+“节拍”为设置输入{时的自动补全列表。</translation>
+    </message>
     <message id="preferences.completion.expand">
         <source>Expand custom candidates</source>
         <translation>展开自定义候选</translation>
@@ -4969,7 +4983,7 @@ Error: %1</source>
     </message>
     <message id="preferences.completion.division">
         <source>Beat subdivision</source>
-        <translation>节拍细分</translation>
+        <translation>节拍</translation>
     </message>
     <message id="preferences.completion.duration_hint">
         <source>Enter duration</source>

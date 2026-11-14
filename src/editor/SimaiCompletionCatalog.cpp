@@ -43,7 +43,7 @@ SimaiCompletionConfig defaultCompletionConfig()
     static const SimaiCompletionConfig defaults{
         {QStringLiteral("8:1"), QStringLiteral("4:1"), QStringLiteral("16:3"), QStringLiteral("384:1")},
         {QStringLiteral("16"), QStringLiteral("24"), QStringLiteral("32")},
-        {QStringLiteral(":1"), QStringLiteral(":3")}};
+        {QStringLiteral(":1")}};
     return defaults;
 }
 
@@ -62,7 +62,7 @@ SimaiCompletionConfig normalizeCompletionConfig(const SimaiCompletionConfig& con
 {
     return {normalizeCompletionValues(CompletionCandidateGroup::Duration, config.durations),
             normalizeCompletionValues(CompletionCandidateGroup::Division, config.divisions),
-            normalizeCompletionValues(CompletionCandidateGroup::DurationSuffix, config.durationSuffixes)};
+            defaultCompletionValues(CompletionCandidateGroup::DurationSuffix)};
 }
 
 bool isValidCompletionValue(CompletionCandidateGroup group, const QString& value)
@@ -111,24 +111,25 @@ CompletionCandidateMatch matchCompletionCandidates(const QStringList& openingCan
                                                    bool insideSquareBrackets)
 {
     CompletionCandidateMatch match;
-    // Match complete presets before offering a suffix for the typed denominator.
+    // Match complete presets before completing the typed denominator.
     for (const QString& candidate : openingCandidates) {
         if (candidate.startsWith(prefix)) match.candidates.append(candidate);
     }
     if (!match.candidates.isEmpty()) return match;
 
+    int denominatorLength = 0;
     if (insideSquareBrackets) {
-        while (match.replacementOffset < prefix.size()) {
-            const QChar ch = prefix.at(match.replacementOffset);
+        while (denominatorLength < prefix.size()) {
+            const QChar ch = prefix.at(denominatorLength);
             if (ch < QLatin1Char('0') || ch > QLatin1Char('9')) break;
-            ++match.replacementOffset;
+            ++denominatorLength;
         }
     }
-    if (match.replacementOffset > 0) {
-        const QString suffixPrefix = prefix.mid(match.replacementOffset);
+    if (denominatorLength > 0) {
+        const QString denominator = prefix.left(denominatorLength);
         for (const QString& value : config.durationSuffixes) {
-            const QString candidate = value + QLatin1Char(']');
-            if (candidate.startsWith(suffixPrefix)) match.candidates.append(candidate);
+            const QString candidate = denominator + value + QLatin1Char(']');
+            if (candidate.startsWith(prefix)) match.candidates.append(candidate);
         }
     }
     return match;

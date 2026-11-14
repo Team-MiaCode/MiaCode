@@ -3029,6 +3029,14 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Packaging ZIP...</source>
         <translation>Packaging ZIP...</translation>
     </message>
+    <message id="net.cancelling_download">
+        <source>Cancelling download…</source>
+        <translation>ダウンロードをキャンセル中…</translation>
+    </message>
+    <message id="net.waiting_for_download_1">
+        <source>Waiting for server response: %1</source>
+        <translation>サーバーの応答待ち：%1</translation>
+    </message>
     <message id="net.preparing_download">
         <source>Preparing download…</source>
         <translation>ダウンロードを準備中…</translation>
@@ -4954,6 +4962,12 @@ Error: %1</source>
     <message id="preferences.completion.customize">
         <source>Custom candidates</source>
         <translation>候補のカスタマイズ</translation>
+    </message>
+    <message id="preferences.completion.help">
+        <source>"Duration" sets the completion list shown when typing [.
+"Beat subdivision" sets the completion list shown when typing {.</source>
+        <translation>「長さ」は、[ を入力したときの補完候補を設定します。
+「拍の分割」は、{ を入力したときの補完候補を設定します。</translation>
     </message>
     <message id="preferences.completion.expand">
         <source>Expand custom candidates</source>
