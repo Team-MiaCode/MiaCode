@@ -915,6 +915,10 @@ Classic mode: All functions are on one page, similar to the layout in earlier ve
         <source>Reset to default…</source>
         <translation>重置为默认布局…</translation>
     </message>
+    <message id="cover.rotation">
+        <source>Rotation</source>
+        <translation>旋转</translation>
+    </message>
     <message id="cover.save_cover_layout">
         <source>Save cover layout</source>
         <translation>保存封面布局</translation>
@@ -5126,6 +5130,10 @@ Error: %1</source>
     <message id="cover.text_stroke_color">
         <source>Outline color</source>
         <translation>描边颜色</translation>
+    </message>
+    <message id="color_picker.open">
+        <source>Pick color</source>
+        <translation>选择颜色</translation>
     </message>
     <message id="cover.text_stroke_width">
         <source>Outline width</source>
