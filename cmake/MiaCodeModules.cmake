@@ -634,6 +634,8 @@ miacode_add_module(miacode_media_tools
         src/media_tools/media/MediaPrependPolicy.h
         src/media_tools/media/PvCompressionPolicy.cpp
         src/media_tools/media/PvCompressionPolicy.h
+        src/media_tools/media/VideoAudioAlignment.cpp
+        src/media_tools/media/VideoAudioAlignment.h
         src/media_tools/net/NetBatchDownloadWorker.cpp
         src/media_tools/net/NetBatchDownloadWorker.h
         src/media_tools/net/NetBatchUploadScanner.cpp

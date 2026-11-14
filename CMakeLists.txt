@@ -956,6 +956,7 @@ target_link_libraries(MiaCode PRIVATE
     miacode_export
     miacode_media_tools
     Qt6::Core
+    Qt6::Concurrent
     Qt6::Gui
     Qt6::Network
     Qt6::Qml
