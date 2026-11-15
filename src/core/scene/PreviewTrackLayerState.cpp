@@ -44,17 +44,27 @@ QString markerAnalysisBaseKeyFromStateKey(const QString& key)
 }
 
 const MarkerMuriState* findMarkerMuriState(
-    const MarkerMuriStateLookup& exactStateByKey,
-    const MarkerMuriStateLookup& slideFallbackStateByBaseKey,
+    const QHash<QString, MarkerMuriState>& states,
+    MarkerMuriStateLookup& slideFallbackStateByBaseKey,
+    bool& fallbackReady,
     const TimelineNoteMarker& marker
 )
 {
+    if (states.isEmpty()) return nullptr;
     const QString exactKey = makeMarkerAnalysisKey(marker);
-    if (const auto it = exactStateByKey.constFind(exactKey); it != exactStateByKey.constEnd()) {
-        return it.value();
+    if (const auto it = states.constFind(exactKey); it != states.constEnd()) {
+        return &it.value();
     }
 
     if (marker.type == QLatin1String("slide") || marker.type == QLatin1String("wifi")) {
+        if (!fallbackReady) {
+            fallbackReady = true;
+            for (auto it = states.constBegin(); it != states.constEnd(); ++it) {
+                if (it.value().markerType != QLatin1String("slide") && it.value().markerType != QLatin1String("wifi")) continue;
+                const QString key = markerAnalysisBaseKeyFromStateKey(it.key());
+                if (!slideFallbackStateByBaseKey.contains(key)) slideFallbackStateByBaseKey.insert(key, &it.value());
+            }
+        }
         const QString baseKey = markerAnalysisBaseKey(marker);
         if (const auto it = slideFallbackStateByBaseKey.constFind(baseKey); it != slideFallbackStateByBaseKey.constEnd()) {
             return it.value();
@@ -112,25 +122,13 @@ PreviewTrackLayerState buildPreviewTrackLayerState(
         return previewSlideTrackTimingForEffectiveFlowSpeed(
             static_cast<qreal>(state.render.tapFlowSpeed * hsMultiplier));
     };
-    MarkerMuriStateLookup exactStateByKey;
     MarkerMuriStateLookup slideFallbackStateByBaseKey;
-    if (state.muriRenderOptions.renderMode == RenderMode::MaimuriDxStyle) {
-        exactStateByKey.reserve(state.muriAnalysisReport.markerStates.size());
-        slideFallbackStateByBaseKey.reserve(state.muriAnalysisReport.markerStates.size());
-        for (auto stateIt = state.muriAnalysisReport.markerStates.constBegin();
-             stateIt != state.muriAnalysisReport.markerStates.constEnd();
-             ++stateIt) {
-            exactStateByKey.insert(stateIt.key(), &stateIt.value());
-            if (stateIt.value().markerType != QLatin1String("slide")
-                && stateIt.value().markerType != QLatin1String("wifi")) {
-                continue;
-            }
-            const QString baseKey = markerAnalysisBaseKeyFromStateKey(stateIt.key());
-            if (!slideFallbackStateByBaseKey.contains(baseKey)) {
-                slideFallbackStateByBaseKey.insert(baseKey, &stateIt.value());
-            }
-        }
-    }
+    bool fallbackReady = false;
+    const auto markerMuriState = [&](const TimelineNoteMarker& marker) -> const MarkerMuriState* {
+        if (state.muriRenderOptions.renderMode != RenderMode::MaimuriDxStyle) return nullptr;
+        return findMarkerMuriState(state.muriAnalysisReport.markerStates,
+                                  slideFallbackStateByBaseKey, fallbackReady, marker);
+    };
 
     const auto appendSprite = [&layerState, &playfieldRect, canvasScale](
                                   const QImage* image,
@@ -270,7 +268,7 @@ PreviewTrackLayerState buildPreviewTrackLayerState(
             const bool cacheable = true;
 
             if (state.muriRenderOptions.renderMode == RenderMode::MaimuriDxStyle) {
-                const MarkerMuriState* muriState = findMarkerMuriState(exactStateByKey, slideFallbackStateByBaseKey, marker);
+                const MarkerMuriState* muriState = markerMuriState(marker);
                 if (muriState != nullptr && !muriState->slideSegments.isEmpty()) {
                     qreal opacity = 1.0;
                     if (state.playheadSeconds < marker.slideTraceSecond) {
@@ -529,11 +527,7 @@ PreviewTrackLayerState buildPreviewTrackLayerState(
         int startAreaIndex = 0;
         qreal startProportion = 0.0;
         int removedArrowCount = 0;
-                const MarkerMuriState* muriState = findMarkerMuriState(
-                    exactStateByKey,
-                    slideFallbackStateByBaseKey,
-                    marker
-                );
+        const MarkerMuriState* muriState = markerMuriState(marker);
         if (state.playheadSeconds < marker.slideTraceSecond) {
             opacity = sampleSlideTrackPreTraceOpacity(
                 static_cast<qreal>(marker.second),
