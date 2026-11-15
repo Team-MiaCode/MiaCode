@@ -114,19 +114,21 @@ PreviewTrackLayerState buildPreviewTrackLayerState(
     };
     MarkerMuriStateLookup exactStateByKey;
     MarkerMuriStateLookup slideFallbackStateByBaseKey;
-    exactStateByKey.reserve(state.muriAnalysisReport.markerStates.size());
-    slideFallbackStateByBaseKey.reserve(state.muriAnalysisReport.markerStates.size());
-    for (auto stateIt = state.muriAnalysisReport.markerStates.constBegin();
-         stateIt != state.muriAnalysisReport.markerStates.constEnd();
-         ++stateIt) {
-        exactStateByKey.insert(stateIt.key(), &stateIt.value());
-        if (stateIt.value().markerType != QLatin1String("slide")
-            && stateIt.value().markerType != QLatin1String("wifi")) {
-            continue;
-        }
-        const QString baseKey = markerAnalysisBaseKeyFromStateKey(stateIt.key());
-        if (!slideFallbackStateByBaseKey.contains(baseKey)) {
-            slideFallbackStateByBaseKey.insert(baseKey, &stateIt.value());
+    if (state.muriRenderOptions.renderMode == RenderMode::MaimuriDxStyle) {
+        exactStateByKey.reserve(state.muriAnalysisReport.markerStates.size());
+        slideFallbackStateByBaseKey.reserve(state.muriAnalysisReport.markerStates.size());
+        for (auto stateIt = state.muriAnalysisReport.markerStates.constBegin();
+             stateIt != state.muriAnalysisReport.markerStates.constEnd();
+             ++stateIt) {
+            exactStateByKey.insert(stateIt.key(), &stateIt.value());
+            if (stateIt.value().markerType != QLatin1String("slide")
+                && stateIt.value().markerType != QLatin1String("wifi")) {
+                continue;
+            }
+            const QString baseKey = markerAnalysisBaseKeyFromStateKey(stateIt.key());
+            if (!slideFallbackStateByBaseKey.contains(baseKey)) {
+                slideFallbackStateByBaseKey.insert(baseKey, &stateIt.value());
+            }
         }
     }
 

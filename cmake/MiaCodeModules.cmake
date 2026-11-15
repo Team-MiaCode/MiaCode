@@ -465,6 +465,8 @@ qt_add_shaders(miacode_preview_quick "preview_sprite_shaders"
     FILES
         src/preview/quick_scene/shaders/PreviewSpriteMaterial.vert
         src/preview/quick_scene/shaders/PreviewSpriteMaterial.frag
+        src/preview/quick_scene/shaders/PreviewSpriteRepeatMaterial.vert
+        src/preview/quick_scene/shaders/PreviewSpriteRepeatMaterial.frag
         src/preview/quick_scene/shaders/PreviewStageDimMaterial.vert
         src/preview/quick_scene/shaders/PreviewStageDimMaterial.frag
         src/preview/quick_scene/shaders/PreviewModernFireworkMaterial.vert

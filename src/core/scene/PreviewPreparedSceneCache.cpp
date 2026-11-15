@@ -367,7 +367,8 @@ void PreviewPreparedSceneCache::rebuild(const PreviewFrameState& state)
                     &guideLayer_,
                     markerIndex,
                     marker.second - tapTiming.lifecycleDurationSeconds,
-                    marker.second
+                    marker.second,
+                    headRepresentativeMarkerIndex
                 );
                 appendPreparedMarkerEntry(
                     &headLayer_,
