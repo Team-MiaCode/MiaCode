@@ -217,30 +217,6 @@ inline void syncPreviewLayerWindowCursor(
     }
 
     const double kEpsilon = 1e-6;
-    const auto addActive = [&cursor](int preparedIndex) {
-        if (preparedIndex >= 0 && preparedIndex < cursor->activePreparedMembership.size()) {
-            cursor->activePreparedMembership.setBit(preparedIndex, true);
-        }
-        auto insertPos = std::lower_bound(
-            cursor->activePreparedIndices.begin(),
-            cursor->activePreparedIndices.end(),
-            preparedIndex);
-        if (insertPos == cursor->activePreparedIndices.end() || *insertPos != preparedIndex) {
-            cursor->activePreparedIndices.insert(insertPos, preparedIndex);
-        }
-    };
-    const auto removeActive = [&cursor](int preparedIndex) {
-        if (preparedIndex >= 0 && preparedIndex < cursor->activePreparedMembership.size()) {
-            cursor->activePreparedMembership.setBit(preparedIndex, false);
-        }
-        auto it = std::lower_bound(
-            cursor->activePreparedIndices.begin(),
-            cursor->activePreparedIndices.end(),
-            preparedIndex);
-        if (it != cursor->activePreparedIndices.end() && *it == preparedIndex) {
-            cursor->activePreparedIndices.erase(it);
-        }
-    };
     const auto resetForTime = [&layer, &cursor, playheadSeconds]() {
         cursor->activePreparedIndices.clear();
         cursor->activePreparedMembership.fill(false, layer.entries.size());
@@ -285,23 +261,37 @@ inline void syncPreviewLayerWindowCursor(
         return;
     }
 
+    bool removed = false;
+    while (cursor->nextDeactivationIndex < layer.deactivationOrder.size()) {
+        const int preparedIndex = layer.deactivationOrder[cursor->nextDeactivationIndex];
+        if (layer.entries[preparedIndex].activeEnd >= playheadSeconds - kEpsilon) break;
+        removed |= cursor->activePreparedMembership.testBit(preparedIndex);
+        cursor->activePreparedMembership.setBit(preparedIndex, false);
+        ++cursor->nextDeactivationIndex;
+    }
+    // Retiring a dense group compacts storage once instead of shifting it per note.
+    if (removed) {
+        auto& active = cursor->activePreparedIndices;
+        active.erase(std::remove_if(active.begin(), active.end(), [&cursor](int index) {
+            return !cursor->activePreparedMembership.testBit(index);
+        }), active.end());
+    }
+    const int existingCount = cursor->activePreparedIndices.size();
     while (cursor->nextActivationIndex < layer.activationOrder.size()) {
         const int preparedIndex = layer.activationOrder[cursor->nextActivationIndex];
         if (layer.entries[preparedIndex].activeStart > playheadSeconds + kEpsilon) {
             break;
         }
         if (layer.entries[preparedIndex].activeEnd + kEpsilon >= playheadSeconds) {
-            addActive(preparedIndex);
+            cursor->activePreparedMembership.setBit(preparedIndex, true);
+            cursor->activePreparedIndices.append(preparedIndex);
         }
         ++cursor->nextActivationIndex;
     }
-    while (cursor->nextDeactivationIndex < layer.deactivationOrder.size()) {
-        const int preparedIndex = layer.deactivationOrder[cursor->nextDeactivationIndex];
-        if (layer.entries[preparedIndex].activeEnd >= playheadSeconds - kEpsilon) {
-            break;
-        }
-        removeActive(preparedIndex);
-        ++cursor->nextDeactivationIndex;
+    if (cursor->activePreparedIndices.size() > existingCount) {
+        auto& active = cursor->activePreparedIndices;
+        std::sort(active.begin() + existingCount, active.end());
+        std::inplace_merge(active.begin(), active.begin() + existingCount, active.end());
     }
     cursor->valid = true;
     cursor->lastPlayhead = playheadSeconds;

@@ -44,8 +44,10 @@ ScintillaEditorBridge::ScintillaEditorBridge(QQuickItem* parent)
                      quint32(scintillaquick::rgb_from_color(fill)) | (quint32(fill.alpha()) << 24));
             } else send(SCI_RESETELEMENTCOLOUR, SC_ELEMENT_CARET_LINE_BACK);
         }
+        // Playback indicators also emit CONTENT. Text edits, diagnostics and
+        // display-layout changes own the overview marker projection.
         if (flags & SC_UPDATE_CONTENT)
-            scheduleOverviewProjectionRefresh(OverviewMarkersDirty | OverviewCurrentLineDirty);
+            scheduleOverviewProjectionRefresh(OverviewCurrentLineDirty);
         else if (flags & SC_UPDATE_V_SCROLL)
             scheduleOverviewProjectionRefresh(OverviewCurrentLineDirty);
     });

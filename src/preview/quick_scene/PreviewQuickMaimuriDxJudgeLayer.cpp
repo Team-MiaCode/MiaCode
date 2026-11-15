@@ -18,11 +18,13 @@ QSGNode* PreviewQuickMaimuriDxJudgeLayer::updateNode(
 ) const
 {
     QVector<MuriJudgeSpriteEvent> activeEvents = state.muriAnalysisReport.judgeSpriteEvents;
+    QVector<int> markerIndices;
     if (preparedCache != nullptr && cursor != nullptr) {
-        QVector<int> markerIndices;
         preparedCache->collectMaimuriDxJudgeData(cursor->activePreparedIndices, &activeEvents, &markerIndices);
     }
-    const miacode::preview::scene::PreviewActiveMarkerView activeMarkers(state.noteMarkers);
+    const miacode::preview::scene::PreviewActiveMarkerView activeMarkers = preparedCache != nullptr && cursor != nullptr
+        ? miacode::preview::scene::PreviewActiveMarkerView(state.noteMarkers, markerIndices)
+        : miacode::preview::scene::PreviewActiveMarkerView(state.noteMarkers);
     return buildPreviewSpriteNodeTree(
         oldNode,
         miacode::preview::scene::buildPreviewMaimuriDxJudgeLayerSprites(
