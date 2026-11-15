@@ -149,13 +149,20 @@ PreviewSpriteDescriptors buildPreviewGuideLayerSprites(
             if (slideHeadStar && !marker.hasHeadStar) {
                 continue;
             }
+            if (slideHeadStar && markers.usesPreparedLayer()) {
+                const auto* entry = markers.preparedEntry(markers.activePreparedIndices().at(markerIndex));
+                if (entry != nullptr && entry->headRepresentativeMarkerIndex >= 0
+                    && entry->headRepresentativeMarkerIndex != markers.sourceIndexAt(markerIndex)) {
+                    continue;
+                }
+            }
             const qreal deltaSeconds = static_cast<qreal>(state.playheadSeconds - marker.second);
             const PreviewTapTiming tapTiming = markerTapTiming(marker.hsMultiplier);
             const TapApproachSample approach = tapApproachWith(tapTiming, deltaSeconds);
             if (state.playheadSeconds > marker.second || approach.scale <= 0.0) {
                 continue;
             }
-            if (slideHeadStar) {
+            if (slideHeadStar && !markers.usesPreparedLayer()) {
                 const QString headKey = slideHeadEventKey(marker);
                 if (seenSlideHeadKeys.contains(headKey)) {
                     continue;

@@ -1,10 +1,12 @@
 #include "preview/quick_scene/PreviewQuickSpriteNodes.h"
 
 #include "preview/quick_scene/PreviewQuickSpriteBatchPolicy.h"
+#include "preview/quick_scene/PreviewQuickSpriteSequence.h"
 #include "preview/quick_scene/PreviewTextureRepository.h"
 #include "core/scene/PreviewAnimatedSpriteHelpers.h"
 
 #include <QHash>
+#include <QPainter>
 #include <QQuickWindow>
 #include <QSGGeometry>
 #include <QSGGeometryNode>
@@ -16,6 +18,9 @@
 #include <QtMath>
 
 #include <cstring>
+#include <algorithm>
+#include <array>
+#include <memory>
 
 namespace {
 
@@ -37,11 +42,23 @@ struct OrderedRunScratch {
     QSGTexture* texture = nullptr;
     QVector<PreviewQuickSpriteVertex> vertices;
     int spriteCount = 0;
+    struct RepeatedLayer {
+        std::array<float, 4> rect;
+        std::array<float, 4> uv;
+        std::array<float, 4> transform;
+        std::array<float, 4> clamp;
+    };
+    struct Repetition {
+        std::array<float, 4> counts{};
+        std::array<RepeatedLayer, miacode::preview::quick_scene::kPreviewRepeatedSpriteLayerLimit> layers{};
+    };
+    std::shared_ptr<Repetition> repetition;
+    bool repetitionUpper = false;
 };
 
 constexpr int kPreviewQuickSpriteUniformBufferSize = 80;
 
-const QSGGeometry::AttributeSet& previewQuickSpriteVertexAttributes()
+const QSGGeometry::AttributeSet& previewQuickSpriteVertexAttributes(bool repeated = false)
 {
     static QSGGeometry::Attribute attributes[] = {
         QSGGeometry::Attribute::createWithAttributeType(0, 2, QSGGeometry::FloatType, QSGGeometry::PositionAttribute),
@@ -54,7 +71,10 @@ const QSGGeometry::AttributeSet& previewQuickSpriteVertexAttributes()
         static_cast<int>(sizeof(PreviewQuickSpriteVertex)),
         attributes
     };
-    return attributeSet;
+    static QSGGeometry::AttributeSet repeatedAttributeSet = {
+        1, static_cast<int>(sizeof(PreviewQuickSpriteVertex)), attributes
+    };
+    return repeated ? repeatedAttributeSet : attributeSet;
 }
 
 QRectF normalizedSourceRect(
@@ -130,6 +150,77 @@ public:
     QVector<OrderedRunScratch> runs;
     QHash<SpriteFamilyKey, int> familyVertexReserveHint;
     QVector<QSGNode*> scratchChildren;
+    QImage atlasImage;
+    QHash<qint64, QRect> atlasRects;
+
+    void prepareAtlas(const miacode::preview::scene::PreviewSpriteDescriptors& sprites)
+    {
+        // Keep painter order while sharing one texture across alternating WiFi rows.
+        // Thousands of separate overlapping QSG nodes otherwise cause quadratic
+        // batch invalidation while the GUI thread waits for scene synchronization.
+        if (sprites.size() < 512) return;
+        QHash<qint64, const QImage*> images;
+        bool covered = !atlasImage.isNull();
+        int transitions = 0;
+        qint64 previousKey = 0;
+        for (const auto& sprite : sprites) {
+            if (!sprite.cacheable || sprite.image == nullptr || sprite.image->isNull()) continue;
+            const qint64 key = sprite.image->cacheKey();
+            if (key != previousKey) ++transitions;
+            previousKey = key;
+            if (!atlasRects.contains(key)) covered = false;
+            images.insert(key, sprite.image);
+            if (images.size() > 64) return;
+        }
+        if (covered || transitions < 256 || images.size() < 2) return;
+
+        constexpr int side = 2048;
+        constexpr int padding = 8;
+        auto orderedImages = images.values();
+        std::sort(orderedImages.begin(), orderedImages.end(), [](const QImage* a, const QImage* b) {
+            return a->height() > b->height();
+        });
+        QHash<qint64, QRect> rects;
+        int x = 0;
+        int y = 0;
+        int rowHeight = 0;
+        for (const QImage* image : orderedImages) {
+            const int width = image->width() + padding * 2;
+            const int height = image->height() + padding * 2;
+            if (width > side || height > side) return;
+            if (x + width > side) {
+                x = 0;
+                y += rowHeight;
+                rowHeight = 0;
+            }
+            if (y + height > side) return;
+            rects.insert(image->cacheKey(), QRect(x + padding, y + padding, image->width(), image->height()));
+            x += width;
+            rowHeight = qMax(rowHeight, height);
+        }
+        QImage atlas(side, y + rowHeight, QImage::Format_ARGB32_Premultiplied);
+        atlas.fill(Qt::transparent);
+        QPainter painter(&atlas);
+        painter.setCompositionMode(QPainter::CompositionMode_Source);
+        for (const QImage* image : orderedImages) {
+            const QRect rect = rects.value(image->cacheKey());
+            painter.drawImage(rect.topLeft(), *image);
+            // Replicate the image boundary for bilinear and footprint sampling.
+            for (int border = 1; border <= padding; ++border) {
+                painter.drawImage(QRect(rect.left() - border, rect.top(), 1, rect.height()), *image,
+                                  QRect(0, 0, 1, image->height()));
+                painter.drawImage(QRect(rect.right() + border, rect.top(), 1, rect.height()), *image,
+                                  QRect(image->width() - 1, 0, 1, image->height()));
+            }
+            painter.drawImage(QRect(rect.left() - padding, rect.top() - padding, rect.width() + padding * 2, padding),
+                              atlas, QRect(rect.left() - padding, rect.top(), rect.width() + padding * 2, 1));
+            painter.drawImage(QRect(rect.left() - padding, rect.bottom() + 1, rect.width() + padding * 2, padding),
+                              atlas, QRect(rect.left() - padding, rect.bottom(), rect.width() + padding * 2, 1));
+        }
+        painter.end();
+        atlasImage = std::move(atlas);
+        atlasRects = std::move(rects);
+    }
 };
 
 PreviewQuickSpriteBatchRootNode* ensurePreviewQuickSpriteRoot(QSGNode* oldNode)
@@ -141,6 +232,62 @@ PreviewQuickSpriteBatchRootNode* ensurePreviewQuickSpriteRoot(QSGNode* oldNode)
     return new PreviewQuickSpriteBatchRootNode();
 }
 
+bool buildRepeatedRun(
+    const miacode::preview::scene::PreviewSpriteDescriptors& sprites,
+    int first,
+    const miacode::preview::quick_scene::PreviewSpriteRepetition& repetition,
+    const PreviewQuickSpriteBatchRootNode& root,
+    QSGTexture* atlasTexture,
+    PreviewTextureRepository* textures,
+    OrderedRunScratch* run)
+{
+    auto data = std::make_shared<OrderedRunScratch::Repetition>();
+    data->counts = {static_cast<float>(repetition.period), static_cast<float>(repetition.count), 0, 0};
+    QSGTexture* sharedTexture = nullptr;
+    QRectF bounds;
+    for (int index = 0; index < repetition.period; ++index) {
+        const auto& sprite = sprites[first + index];
+        if (sprite.image == nullptr || sprite.image->isNull() || sprite.width <= 0 || sprite.height <= 0
+            || sprite.opacity <= 0 || !sprite.cacheable) return false;
+        const auto atlasIt = root.atlasRects.constFind(sprite.image->cacheKey());
+        const bool usesAtlas = atlasTexture != nullptr && atlasIt != root.atlasRects.constEnd();
+        QSGTexture* texture = usesAtlas ? atlasTexture : textures->textureForImage(*sprite.image);
+        if (texture == nullptr || (sharedTexture != nullptr && sharedTexture != texture)) return false;
+        sharedTexture = texture;
+        const QRectF source = sprite.sourceRect.isValid() && !sprite.sourceRect.isEmpty()
+            ? sprite.sourceRect : QRectF(QPointF(), sprite.image->size());
+        const QPointF offset = usesAtlas ? atlasIt->topLeft() : QPointF();
+        const QRectF uv = texture->convertToNormalizedSourceRect(source.translated(offset));
+        const QRectF clamp = texture->convertToNormalizedSourceRect(
+            QRectF(offset + QPointF(0.5, 0.5), QSizeF(sprite.image->width() - 1, sprite.image->height() - 1)));
+        auto& layer = data->layers[index];
+        layer.rect = {static_cast<float>(sprite.center.x()), static_cast<float>(sprite.center.y()),
+                      static_cast<float>(1.0 / sprite.width), static_cast<float>(1.0 / sprite.height)};
+        layer.uv = {static_cast<float>(uv.x()), static_cast<float>(uv.y()),
+                    static_cast<float>(uv.width()), static_cast<float>(uv.height())};
+        const qreal radians = qDegreesToRadians(sprite.rotationDegrees);
+        layer.transform = {static_cast<float>(qCos(radians)), static_cast<float>(qSin(radians)),
+                           static_cast<float>(sprite.opacity), static_cast<float>(sprite.effect)};
+        layer.clamp = {static_cast<float>(clamp.left()), static_cast<float>(clamp.top()),
+                       static_cast<float>(clamp.right()), static_cast<float>(clamp.bottom())};
+        const qreal halfWidth = (qAbs(qCos(radians)) * sprite.width + qAbs(qSin(radians)) * sprite.height) / 2;
+        const qreal halfHeight = (qAbs(qSin(radians)) * sprite.width + qAbs(qCos(radians)) * sprite.height) / 2;
+        bounds = bounds.united(QRectF(sprite.center - QPointF(halfWidth, halfHeight), QSizeF(halfWidth * 2, halfHeight * 2)));
+    }
+    run->familyKey = reinterpret_cast<quintptr>(sharedTexture);
+    run->texture = sharedTexture;
+    sharedTexture->setFiltering(QSGTexture::Linear);
+    run->repetition = std::move(data);
+    run->spriteCount = repetition.period * repetition.count;
+    run->vertices.resize(6);
+    PreviewSpriteDescriptor quad;
+    quad.center = bounds.center();
+    quad.width = bounds.width();
+    quad.height = bounds.height();
+    writeSpriteVertices(run->vertices.data(), 0, quad, QRectF(0, 0, 1, 1));
+    return true;
+}
+
 struct PreviewQuickSpriteBatchNodeUpdateProfile {
     int requiredVertexCount = 0;
     int allocatedVertexCapacity = 0;
@@ -150,20 +297,35 @@ struct PreviewQuickSpriteBatchNodeUpdateProfile {
 class PreviewQuickSpriteMaterialShader final : public QSGMaterialShader
 {
 public:
-    PreviewQuickSpriteMaterialShader()
+    explicit PreviewQuickSpriteMaterialShader(bool repeated, bool upper) : repeated_(repeated), upper_(upper)
     {
-        setShaderFileName(VertexStage, QStringLiteral(":/src/preview/quick_scene/shaders/PreviewSpriteMaterial.vert.qsb"));
-        setShaderFileName(FragmentStage, QStringLiteral(":/src/preview/quick_scene/shaders/PreviewSpriteMaterial.frag.qsb"));
+        const QString name = repeated ? QStringLiteral("PreviewSpriteRepeatMaterial") : QStringLiteral("PreviewSpriteMaterial");
+        setShaderFileName(VertexStage, QStringLiteral(":/src/preview/quick_scene/shaders/%1.vert.qsb").arg(name));
+        setShaderFileName(FragmentStage, QStringLiteral(":/src/preview/quick_scene/shaders/%1.frag.qsb").arg(name));
+        if (repeated) setFlag(UpdatesGraphicsPipelineState);
     }
 
     bool updateUniformData(RenderState& state, QSGMaterial* newMaterial, QSGMaterial* oldMaterial) override;
     void updateSampledImage(RenderState& state, int binding, QSGTexture** texture, QSGMaterial* newMaterial, QSGMaterial* oldMaterial) override;
+    bool updateGraphicsPipelineState(RenderState&, GraphicsPipelineState* state, QSGMaterial*, QSGMaterial*) override
+    {
+        if (!repeated_) return false;
+        state->blendEnable = true;
+        state->separateBlendFactors = true;
+        state->srcColor = state->dstColor = state->srcAlpha = state->dstAlpha = GraphicsPipelineState::One;
+        state->opColor = state->opAlpha = upper_ ? GraphicsPipelineState::BlendOp::Min : GraphicsPipelineState::BlendOp::Max;
+        return true;
+    }
+
+private:
+    bool repeated_ = false;
+    bool upper_ = false;
 };
 
 class PreviewQuickSpriteMaterial final : public QSGMaterial
 {
 public:
-    PreviewQuickSpriteMaterial()
+    explicit PreviewQuickSpriteMaterial(bool repeated, bool upper) : repeated_(repeated), upper_(upper)
     {
         setFlag(Blending, true);
         setFlag(RequiresFullMatrix, true);
@@ -173,12 +335,14 @@ public:
     QSGMaterialType* type() const override
     {
         static QSGMaterialType materialType;
-        return &materialType;
+        static QSGMaterialType repeatedMaterialType;
+        static QSGMaterialType upperMaterialType;
+        return repeated_ ? (upper_ ? &upperMaterialType : &repeatedMaterialType) : &materialType;
     }
 
     QSGMaterialShader* createShader(QSGRendererInterface::RenderMode) const override
     {
-        return new PreviewQuickSpriteMaterialShader();
+        return new PreviewQuickSpriteMaterialShader(repeated_, upper_);
     }
 
     int compare(const QSGMaterial* other) const override
@@ -212,10 +376,15 @@ public:
         return absWave_;
     }
 
+    std::shared_ptr<OrderedRunScratch::Repetition> repetition;
+    bool repetitionUpper() const { return upper_; }
+
 private:
     QSGTexture* texture_ = nullptr;
     qreal wave_ = 0.0;
     qreal absWave_ = 0.0;
+    bool repeated_ = false;
+    bool upper_ = false;
 };
 
 bool PreviewQuickSpriteMaterialShader::updateUniformData(
@@ -249,6 +418,14 @@ bool PreviewQuickSpriteMaterialShader::updateUniformData(
     std::memcpy(uniformData->data() + 68, &wave, sizeof(float));
     std::memcpy(uniformData->data() + 72, &absWave, sizeof(float));
     std::memcpy(uniformData->data() + 76, &effect, sizeof(float));
+    if (material->repetition != nullptr) {
+        static_assert(sizeof(OrderedRunScratch::Repetition) == 16 + 64 * 32);
+        if (uniformData->size() < kPreviewQuickSpriteUniformBufferSize + sizeof(OrderedRunScratch::Repetition)) return false;
+        std::memcpy(uniformData->data() + kPreviewQuickSpriteUniformBufferSize,
+                    material->repetition.get(), sizeof(OrderedRunScratch::Repetition));
+        const float upper = material->repetitionUpper() ? 1.0f : 0.0f;
+        std::memcpy(uniformData->data() + 88, &upper, sizeof(float));
+    }
     return true;
 }
 
@@ -277,18 +454,21 @@ void PreviewQuickSpriteMaterialShader::updateSampledImage(
 class PreviewQuickSpriteBatchNode final : public QSGGeometryNode
 {
 public:
-    PreviewQuickSpriteBatchNode()
+    explicit PreviewQuickSpriteBatchNode(bool repeated, bool upper) : repeated_(repeated), upper_(upper)
     {
-        geometry_ = new QSGGeometry(previewQuickSpriteVertexAttributes(), 0);
+        geometry_ = new QSGGeometry(previewQuickSpriteVertexAttributes(repeated), 0);
         geometry_->setDrawingMode(QSGGeometry::DrawTriangles);
         geometry_->setVertexDataPattern(QSGGeometry::DynamicPattern);
         setGeometry(geometry_);
         setFlag(QSGNode::OwnsGeometry, true);
 
-        material_ = new PreviewQuickSpriteMaterial();
+        material_ = new PreviewQuickSpriteMaterial(repeated, upper);
         setMaterial(material_);
         setFlag(QSGNode::OwnsMaterial, true);
     }
+
+    bool isRepeated() const { return repeated_; }
+    bool isUpper() const { return upper_; }
 
     PreviewQuickSpriteBatchNodeUpdateProfile updateBatch(const OrderedRunScratch& run, qreal wave, qreal absWave)
     {
@@ -342,6 +522,7 @@ public:
 
         const bool textureChanged = lastTexture_ != run.texture;
         material_->setBatchState(run.texture, wave, absWave);
+        material_->repetition = run.repetition;
         // Only flag DirtyMaterial when the texture binding actually changed. Per-frame
         // wave/absWave uniform updates are picked up by updateUniformData() regardless of
         // this flag, and adjacent batches always have distinct textures so Qt's batcher
@@ -363,6 +544,8 @@ private:
     int allocatedVertexCapacity_ = 0;
     int underuseFrameCount_ = 0;
     QSGTexture* lastTexture_ = nullptr;
+    bool repeated_ = false;
+    bool upper_ = false;
 };
 
 }  // namespace
@@ -394,12 +577,17 @@ QSGNode* buildPreviewSpriteNodeTree(
     }
 
     auto* root = ensurePreviewQuickSpriteRoot(oldNode);
+    root->prepareAtlas(sprites);
     QVector<OrderedRunScratch>& runs = root->runs;
+    QSGTexture* atlasTexture = root->atlasImage.isNull()
+        ? nullptr : textures->textureForImage(root->atlasImage);
 
     int visibleSpriteCount = 0;
     int runCount = 0;
+    int nextRepetitionSearchIndex = 0;
     qint64 scratchReserveGrowCount = 0;
-    for (const PreviewSpriteDescriptor& sprite : sprites) {
+    for (int spriteIndex = 0; spriteIndex < sprites.size(); ++spriteIndex) {
+        const PreviewSpriteDescriptor& sprite = sprites[spriteIndex];
         if (sprite.image == nullptr
             || sprite.image->isNull()
             || sprite.opacity <= 0.0
@@ -408,7 +596,29 @@ QSGNode* buildPreviewSpriteNodeTree(
             continue;
         }
 
-        QSGTexture* texture = textures->textureForImage(*sprite.image, sprite.cacheable);
+        const auto repetition = spriteIndex >= nextRepetitionSearchIndex
+            ? miacode::preview::quick_scene::previewSpriteRepetitionAt(sprites, spriteIndex)
+            : miacode::preview::quick_scene::PreviewSpriteRepetition();
+        if (repetition.count > 0) {
+            if (runCount >= runs.size()) runs.append(OrderedRunScratch());
+            if (buildRepeatedRun(sprites, spriteIndex, repetition, *root, atlasTexture, textures, &runs[runCount])) {
+                visibleSpriteCount += runs[runCount].spriteCount;
+                spriteIndex += runs[runCount].spriteCount - 1;
+                runs[runCount].repetitionUpper = false;
+                if (runCount + 1 >= runs.size()) runs.append(OrderedRunScratch());
+                runs[runCount + 1] = runs[runCount];
+                runs[runCount + 1].spriteCount = 0;
+                runs[runCount + 1].repetitionUpper = true;
+                runCount += 2;
+                continue;
+            }
+            nextRepetitionSearchIndex = spriteIndex + repetition.period * repetition.count;
+        }
+
+        const auto atlasIt = sprite.cacheable ? root->atlasRects.constFind(sprite.image->cacheKey()) : root->atlasRects.constEnd();
+        const bool usesAtlas = atlasTexture != nullptr && atlasIt != root->atlasRects.constEnd();
+        QSGTexture* texture = usesAtlas
+            ? atlasTexture : textures->textureForImage(*sprite.image, sprite.cacheable);
         if (texture == nullptr) {
             continue;
         }
@@ -420,7 +630,7 @@ QSGNode* buildPreviewSpriteNodeTree(
         // one familyKey here. Using image.cacheKey() instead would split such sprites into
         // separate runs even though they bind the same texture, defeating the dedup work.
         const SpriteFamilyKey familyKey = static_cast<SpriteFamilyKey>(reinterpret_cast<quintptr>(texture));
-        if (runCount == 0 || runs.at(runCount - 1).familyKey != familyKey) {
+        if (runCount == 0 || runs.at(runCount - 1).repetition != nullptr || runs.at(runCount - 1).familyKey != familyKey) {
             if (runCount >= runs.size()) {
                 runs.append(OrderedRunScratch());
             }
@@ -429,6 +639,8 @@ QSGNode* buildPreviewSpriteNodeTree(
             run.texture = texture;
             run.vertices.clear();
             run.spriteCount = 0;
+            run.repetition.reset();
+            run.repetitionUpper = false;
             const int initialReserveHint =
                 miacode::preview::quick_scene::previewQuickSpriteInitialReserveHint(
                     root->familyVertexReserveHint,
@@ -451,11 +663,19 @@ QSGNode* buildPreviewSpriteNodeTree(
         if (run.vertices.size() < requiredVertexCount) {
             run.vertices.resize(requiredVertexCount);
         }
+        QRectF uvRect;
+        if (usesAtlas) {
+            const QRectF source = sprite.sourceRect.isValid() && !sprite.sourceRect.isEmpty()
+                ? sprite.sourceRect : QRectF(QPointF(), sprite.image->size());
+            uvRect = texture->convertToNormalizedSourceRect(source.translated(atlasIt->topLeft()));
+        } else {
+            uvRect = normalizedSourceRect(texture, sprite);
+        }
         writeSpriteVertices(
             run.vertices.data(),
             baseVertexIndex,
             sprite,
-            normalizedSourceRect(texture, sprite));
+            uvRect);
         run.spriteCount += 1;
         visibleSpriteCount += 1;
     }
@@ -464,7 +684,7 @@ QSGNode* buildPreviewSpriteNodeTree(
     frameProfile.spriteCount = visibleSpriteCount;
     frameProfile.batchCount = runCount;
     frameProfile.runCount = runCount;
-    frameProfile.verticesRequired = static_cast<qint64>(visibleSpriteCount) * 6;
+    for (int index = 0; index < runCount; ++index) frameProfile.verticesRequired += runs[index].vertices.size();
     frameProfile.scratchReserveGrowCount = scratchReserveGrowCount;
     if (runCount == 0) {
         textures->noteSpriteBatchStats(profileLayerName, frameProfile);
@@ -486,8 +706,9 @@ QSGNode* buildPreviewSpriteNodeTree(
         OrderedRunScratch& run = runs[runIndex];
         QSGNode* existing = nodeIndex < existingChildren.size() ? existingChildren.at(nodeIndex) : nullptr;
         auto* batchNode = dynamic_cast<PreviewQuickSpriteBatchNode*>(existing);
-        if (batchNode == nullptr) {
-            auto* newNode = new PreviewQuickSpriteBatchNode();
+        if (batchNode == nullptr || batchNode->isRepeated() != (run.repetition != nullptr)
+            || batchNode->isUpper() != run.repetitionUpper) {
+            auto* newNode = new PreviewQuickSpriteBatchNode(run.repetition != nullptr, run.repetitionUpper);
             if (existing != nullptr) {
                 root->insertChildNodeBefore(newNode, existing);
                 root->removeChildNode(existing);
