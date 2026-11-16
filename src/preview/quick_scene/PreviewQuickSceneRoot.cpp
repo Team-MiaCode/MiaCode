@@ -28,6 +28,7 @@
 #include <QQuickWindow>
 #include <QSGSimpleTextureNode>
 #include <QSGNode>
+#include <rhi/qrhi.h>
 
 #include <memory>
 #include <utility>
@@ -40,6 +41,16 @@ constexpr qint64 kNoteLayersEmptyAnomalyLogIntervalMs = 2000;
 class PreviewQuickRootNode final : public QSGNode
 {
 public:
+    struct FrameKey {
+        std::shared_ptr<const miacode::preview::scene::PreviewFrameState> snapshot;
+        QSize size;
+        QColor background;
+        miacode::preview::scene::PreviewRenderLayerFlags layers;
+        qreal devicePixelRatio = 1.0;
+        bool operator==(const FrameKey&) const = default;
+    };
+    std::optional<FrameKey> renderedFrame;
+
     explicit PreviewQuickRootNode(QQuickWindow* window)
         : window_(window)
     {
@@ -67,6 +78,7 @@ public:
         }
         destroyAllChildren();
         createLayerSlots();
+        renderedFrame.reset();
     }
 
     void clearLayerContentsFrom(int firstSlotIndex)
@@ -85,6 +97,7 @@ public:
 
     void resetTextureGeneration()
     {
+        renderedFrame.reset();
         clearLayerContentsFrom(0);
         textures_.clear();
         textures_.setWindow(window_);
@@ -908,7 +921,6 @@ QSGNode* PreviewQuickSceneRoot::updatePaintNode(QSGNode* oldNode, UpdatePaintNod
                 .arg(statsBeforeReset.transientTextureCount)
                 .arg(statsBeforeReset.retainedTextureCount));
     }
-    textures->beginFrame();
     const bool layerProfilingEnabled =
         miacode::debug_options::previewProfileOutputEnabled() || renderDiagEnabled;
     layerProfileStats_.clear();
@@ -917,7 +929,7 @@ QSGNode* PreviewQuickSceneRoot::updatePaintNode(QSGNode* oldNode, UpdatePaintNod
     const miacode::preview::scene::PreviewFrameState* state = nullptr;
     std::shared_ptr<const miacode::preview::scene::PreviewFrameState> runtimeStateSnapshot;
     if (runtime_ != nullptr) {
-        runtimeStateSnapshot = runtime_->frameStateSnapshot();
+        runtimeStateSnapshot = runtime_->sceneFrameStateSnapshot();
         state = runtimeStateSnapshot.get();
     } else {
         state = frameState_;
@@ -959,9 +971,23 @@ QSGNode* PreviewQuickSceneRoot::updatePaintNode(QSGNode* oldNode, UpdatePaintNod
         return root;
     }
 
+    const PreviewQuickRootNode::FrameKey frameKey{
+        runtimeStateSnapshot, renderSize, backgroundColor_, layerFlags_, window()->effectiveDevicePixelRatio()};
+    // A present used to pace playback can carry the same immutable snapshot.
+    // Keep its geometry and transient textures alive until the snapshot changes.
+    if (runtimeStateSnapshot != nullptr && root->renderedFrame == frameKey) {
+        if (miacode::debug_options::previewProfileOutputEnabled()) {
+            enqueueTextureStatsForPresentation(mergedTextureStats(*textures, layerProfileStats_));
+        }
+        if (renderDiagEnabled) renderPhaseUpdatePaintEndNs_ = renderPhaseTimer_.nsecsElapsed();
+        return root;
+    }
+    textures->beginFrame();
+
     const bool releaseStorage = preparedCache_.key().storageGeneration != state->sceneStorageGeneration;
     const bool cacheRebuilt = preparedCache_.sync(*state);
     if (cacheRebuilt) {
+        cachedNoteMarkerSpan_.reset();
         muriPadCursor_.reset(releaseStorage);
         muriActionCursor_.reset(releaseStorage);
         muriPadIndices_ = {};
@@ -980,6 +1006,7 @@ QSGNode* PreviewQuickSceneRoot::updatePaintNode(QSGNode* oldNode, UpdatePaintNod
     }
 
     const double playheadSeconds = state->playheadSeconds;
+    renderPhasePlayheadSeconds_ = playheadSeconds;
     miacode::preview::scene::syncPreviewLayerWindowCursor(preparedCache_.muriPadLayer(), playheadSeconds, &muriPadCursor_);
     miacode::preview::scene::syncPreviewLayerWindowCursor(preparedCache_.muriActionLayer(), playheadSeconds, &muriActionCursor_);
     preparedCache_.collectMuriPadIndices(*state, muriPadCursor_.activePreparedIndices, &muriPadIndices_);
@@ -1318,6 +1345,7 @@ QSGNode* PreviewQuickSceneRoot::updatePaintNode(QSGNode* oldNode, UpdatePaintNod
         preparedCache_.maimuriDxJudgeLayer().entries.size(),
         maimuriDxJudgeCursor_.activePreparedIndices.size()
     );
+    root->renderedFrame = frameKey;
     if (miacode::debug_options::previewProfileOutputEnabled()) {
         enqueueTextureStatsForPresentation(mergedTextureStats(*textures, layerProfileStats_));
     }
@@ -1367,7 +1395,10 @@ void PreviewQuickSceneRoot::logNoteLayersEmptyAnomaly(const miacode::preview::sc
     if (state.noteMarkers.isEmpty() || headActive > 0 || trackActive > 0 || touchActive > 0) {
         return;
     }
-    const auto span = miacode::preview::scene::previewNoteMarkerSpan(state.noteMarkers);
+    if (!cachedNoteMarkerSpan_.has_value()) {
+        cachedNoteMarkerSpan_ = miacode::preview::scene::previewNoteMarkerSpan(state.noteMarkers);
+    }
+    const auto& span = *cachedNoteMarkerSpan_;
     if (!miacode::preview::scene::previewNoteLayersEmptyAnomaly(
             span, state.playheadSeconds, headActive, trackActive, touchActive)) {
         return;
@@ -1448,7 +1479,28 @@ void PreviewQuickSceneRoot::recordRenderPhaseProfile()
     const double syncMs = deltaMs(syncEnd, syncStart);
     const double renderSubmitMs = deltaMs(renderEnd, renderStart);
     const double swapGpuMs = deltaMs(swapNs, renderEnd);
-    const double totalMs = deltaMs(swapNs, paintStart);
+    const bool freshPaint = paintStart > renderPhaseLastSwapNs_;
+    const double presentMs = deltaMs(swapNs, renderPhaseLastSwapNs_);
+    renderPhaseLastSwapNs_ = swapNs;
+    const double totalMs = freshPaint ? deltaMs(swapNs, paintStart) : -1.0;
+    const bool contentChanged = freshPaint
+        && (!std::isfinite(renderPhaseLastContentPlayheadSeconds_)
+            || qAbs(renderPhasePlayheadSeconds_ - renderPhaseLastContentPlayheadSeconds_) > 0.000001);
+    const double playheadStep = std::isfinite(renderPhaseLastContentPlayheadSeconds_)
+        ? renderPhasePlayheadSeconds_ - renderPhaseLastContentPlayheadSeconds_ : 0.0;
+    const double contentPresentMs = contentChanged ? deltaMs(swapNs, renderPhaseLastContentSwapNs_) : -1.0;
+    if (contentChanged) {
+        renderPhaseLastContentSwapNs_ = swapNs;
+        renderPhaseLastContentPlayheadSeconds_ = renderPhasePlayheadSeconds_;
+    }
+    double completedGpuMs = -1.0;
+    if (boundWindow_ != nullptr) {
+        auto* swapchain = static_cast<QRhiSwapChain*>(boundWindow_->rendererInterface()->getResource(
+            boundWindow_, QSGRendererInterface::RhiSwapchainResource));
+        if (swapchain != nullptr && swapchain->currentFrameCommandBuffer() != nullptr) {
+            completedGpuMs = swapchain->currentFrameCommandBuffer()->lastCompletedGpuTime() * 1000.0;
+        }
+    }
     // render_submit_ms decomposition (audit §5.1). Without this the one-second
     // first-play block is a single opaque number; with it the log says whether the
     // wait is QRhi resource work, first-use pipeline creation inside the render
@@ -1485,10 +1537,12 @@ void PreviewQuickSceneRoot::recordRenderPhaseProfile()
     // "Slow" = total frame pipeline > ~2 target intervals. Use 30ms as a fixed floor since the
     // render-thread code has no direct access to target interval and vsync is typically 16.67ms.
     constexpr double kSlowFrameMs = 30.0;
-    const bool slowFrame = totalMs >= kSlowFrameMs;
+    const bool slowFrame = freshPaint
+        && (totalMs >= kSlowFrameMs || presentMs >= kSlowFrameMs || contentPresentMs >= kSlowFrameMs);
     const bool sampleReady =
         renderPhaseLastLogMs_ < 0 || (nowMs - renderPhaseLastLogMs_) >= sampleMs;
-    if (!slowFrame && !sampleReady) {
+    // Retain each content frame to locate stalls within a dense chart section.
+    if (!freshPaint && !sampleReady) {
         return;
     }
     renderPhaseLastLogMs_ = nowMs;
@@ -1500,7 +1554,9 @@ void PreviewQuickSceneRoot::recordRenderPhaseProfile()
         QStringLiteral("render_frame_profile"),
         QString("total_ms=%1 paint_ms=%2 sync_ms=%3 pre_render_wait_ms=%4 render_submit_ms=%5 "
                 "resource_prep_ms=%6 pass_record_ms=%7 submit_tail_ms=%8 "
-                "swap_gpu_ms=%9 layer_sum_ms=%10 top_layer=%11 top_layer_ms=%12 layer_count=%13 slow=%14")
+                "swap_gpu_ms=%9 layer_sum_ms=%10 top_layer=%11 top_layer_ms=%12 layer_count=%13 slow=%14 "
+                "playhead_s=%15 present_ms=%16 fresh_paint=%17 head_active=%18 guide_active=%19 touch_active=%20 "
+                "gpu_completed_ms=%21 content_changed=%22 content_present_ms=%23 playhead_step_s=%24")
             .arg(msOrNa(totalMs))
             .arg(msOrNa(paintMs))
             .arg(msOrNa(syncMs))
@@ -1515,6 +1571,16 @@ void PreviewQuickSceneRoot::recordRenderPhaseProfile()
             .arg(QString::number(topLayerBuildMs, 'f', 3))
             .arg(layerProfileStats_.size())
             .arg(slowFrame ? 1 : 0)
+            .arg(renderPhasePlayheadSeconds_, 0, 'f', 6)
+            .arg(msOrNa(presentMs))
+            .arg(freshPaint ? 1 : 0)
+            .arg(headCursor_.activePreparedIndices.size())
+            .arg(guideCursor_.activePreparedIndices.size())
+            .arg(touchCursor_.activePreparedIndices.size())
+            .arg(msOrNa(completedGpuMs))
+            .arg(contentChanged ? 1 : 0)
+            .arg(msOrNa(contentPresentMs))
+            .arg(playheadStep, 0, 'f', 6)
     );
 
     // First frame in the process whose submit crosses the "this is the reported stall,

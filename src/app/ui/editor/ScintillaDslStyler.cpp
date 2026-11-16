@@ -220,7 +220,10 @@ void ScintillaDslStyler::follow(bool active, int start, int end)
     if (active == followActive_ && (!active || (start == followStart_ && end == followEnd_))) return;
     editor_.send(SCI_SETINDICATORCURRENT, followIndicator);
     if (followActive_) {
-        editor_.send(SCI_INDICATORCLEARRANGE, 0, editor_.send(SCI_GETLENGTH));
+        // Edits invalidate the stored range; ordinary playback clears its previous span.
+        const int first = followStart_ >= 0 ? document_.bytePosition(followStart_) : 0;
+        const int last = followStart_ >= 0 ? document_.bytePosition(followEnd_) : editor_.send(SCI_GETLENGTH);
+        editor_.send(SCI_INDICATORCLEARRANGE, first, last - first);
     }
     if (active) fill(followIndicator, start, end);
     followActive_ = active;

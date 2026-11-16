@@ -262,8 +262,8 @@ void TimelineQuickFlatColorBatchBuilder::flush()
 // quad). On a texture transition, finishes the current batch as a node
 // and starts a new accumulator.
 
-TimelineQuickSpriteBatchBuilder::TimelineQuickSpriteBatchBuilder(QSGNode* parent)
-    : parent_(parent)
+TimelineQuickSpriteBatchBuilder::TimelineQuickSpriteBatchBuilder(QSGNode* parent, bool smooth)
+    : parent_(parent), smooth_(smooth)
 {
     // Reserve a generous starting capacity so the typical chart's hot
     // batch (e.g. all track-segment sprites of one type) never re-
@@ -342,7 +342,7 @@ void TimelineQuickSpriteBatchBuilder::flush()
     // along the border are partial alpha.
     auto* material = new QSGTextureMaterial();
     material->setTexture(currentTexture_);
-    material->setFiltering(QSGTexture::Linear);
+    material->setFiltering(smooth_ ? QSGTexture::Linear : QSGTexture::Nearest);
     material->setMipmapFiltering(QSGTexture::None);
     material->setHorizontalWrapMode(QSGTexture::ClampToEdge);
     material->setVerticalWrapMode(QSGTexture::ClampToEdge);

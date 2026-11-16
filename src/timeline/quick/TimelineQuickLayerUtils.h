@@ -83,7 +83,7 @@ private:
 class TimelineQuickSpriteBatchBuilder
 {
 public:
-    explicit TimelineQuickSpriteBatchBuilder(QSGNode* parent);
+    explicit TimelineQuickSpriteBatchBuilder(QSGNode* parent, bool smooth = true);
 
     // Append one textured quad. `rect` is in logical coordinates (QSG
     // applies the DPR projection). Texture must be valid; null-texture
@@ -91,9 +91,7 @@ public:
     // appendTextureNode behaviour).
     void appendQuad(QSGTexture* texture, const QRectF& rect);
 
-    // Optionally pin a custom UV rect (defaults to (0,0)-(1,1)). Used
-    // by hold body-slice sprites that may need a non-1:1 UV if/when
-    // future sub-rect texturing arrives. Currently always 0..1.
+    // Supply normalized atlas coordinates for a texture sub-region.
     void appendQuad(QSGTexture* texture,
                     const QRectF& rect,
                     const QRectF& uvRect);
@@ -113,6 +111,7 @@ private:
 
     QSGNode* parent_ = nullptr;
     QSGTexture* currentTexture_ = nullptr;
+    bool smooth_ = true;
     QVector<QSGGeometry::TexturedPoint2D> pendingVertices_;
     int totalBatches_ = 0;
     int totalQuads_ = 0;

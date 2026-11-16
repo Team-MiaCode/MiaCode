@@ -696,7 +696,9 @@ void ScintillaEditorBridge::revealPosition(int utf16, bool center)
     if (!center && rect.top() >= 0 && rect.bottom() <= height()) return;
     const int first = send(SCI_GETFIRSTVISIBLELINE);
     const qreal displacement = rect.center().y() - height() / 2;
-    scrollVertical(first + qRound(displacement / qMax(1.0, rect.height())));
+    const int target = qBound(0, first + qRound(displacement / qMax(1.0, rect.height())), vertical_scroll_max());
+    // ScintillaQuick rebuilds its render snapshot for an explicit scroll request.
+    if (target != first) scrollVertical(target);
 }
 void ScintillaEditorBridge::applyFollow(bool reveal)
 {
