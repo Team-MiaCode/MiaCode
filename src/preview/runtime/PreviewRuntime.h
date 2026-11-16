@@ -100,6 +100,7 @@ public:
     QQuickWindow* visibleHostWindow() const;
     void requestActivate();
     void update();
+    void requestFramePresentation();
 
     void setStageMediaAvailable(bool hasMedia);
     void setStageMediaPresentationMode(
@@ -258,9 +259,10 @@ public:
     bool hasCoreSkinAssetsLoadedForDebug() const;
 
     void setFrameSize(const QSize& size);
+    // HUD snapshots include presentation counters; scene snapshots retain content identity.
     std::shared_ptr<const miacode::preview::scene::PreviewFrameState> frameStateSnapshot() const;
-    // GUI-thread builder state. QSG consumers must use
-    // frameStateSnapshot() so a frame never observes partially-mutated state.
+    std::shared_ptr<const miacode::preview::scene::PreviewFrameState> sceneFrameStateSnapshot() const;
+    // GUI-thread builder state. QSG consumers use the immutable snapshots above.
     const miacode::preview::scene::PreviewFrameState& frameState() const { return frameState_; }
     // Detailed render-side resource snapshot for the leak gauge ("key=val …"): scene content
     // revision (rebuild count), current cached/transient texture count + GPU bytes, cumulative
@@ -276,7 +278,8 @@ signals:
     void touchPadAuthoringClicked(const QString& pad, QChar separator);
 
 private:
-    void publishFrameStateSnapshot();
+    void requestFrameUpdate(bool sceneFrameChanged);
+    void publishFrameStateSnapshot(bool sceneFrameChanged = true);
     void handlePresentedFrame();
     void refreshAssetStateFromRepository();
     void updatePresentedFrameStats();
@@ -295,6 +298,7 @@ private:
     QSize frameSize_;
     miacode::preview::scene::PreviewFrameState frameState_;
     std::shared_ptr<const miacode::preview::scene::PreviewFrameState> publishedFrameState_;
+    std::shared_ptr<const miacode::preview::scene::PreviewFrameState> publishedSceneFrameState_;
     bool introOverlayActive_ = false;
     int introOverlayFrame_ = 0;
     bool introHidesChart_ = false;

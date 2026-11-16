@@ -27,6 +27,7 @@ inline PreviewSpriteRepetition previewSpriteRepetitionAt(
     const int maxPeriod = qMin(kPreviewRepeatedSpriteLayerLimit, remaining / minimumRepeats);
     for (int period = 1; period <= maxPeriod; ++period) {
         if (!previewSpritesMatch(sprites[first], sprites[first + period])) continue;
+        if (!previewSpritesMatch(sprites[first], sprites[first + period * (minimumRepeats - 1)])) continue;
         int end = first + period;
         while (end < sprites.size()
                && previewSpritesMatch(sprites[first + (end - first) % period], sprites[end])) ++end;

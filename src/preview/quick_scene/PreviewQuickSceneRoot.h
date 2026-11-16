@@ -2,6 +2,7 @@
 
 #include "preview/quick_scene/PreviewQuickHudLayer.h"
 #include <optional>
+#include <limits>
 
 #include <QElapsedTimer>
 #include <QColor>
@@ -35,6 +36,7 @@
 #include "preview/quick_scene/PreviewQuickTouchLayer.h"
 #include "preview/quick_scene/PreviewTextureRepository.h"
 #include "core/scene/PreviewPreparedSceneCache.h"
+#include "core/scene/PreviewNoteLayerAnomaly.h"
 #include "core/scene/PreviewLayerOrder.h"
 
 class PreviewRuntime;
@@ -146,6 +148,7 @@ private:
     PreviewQuickChartReviewLayer chartReviewShapeLayer_;
     PreviewQuickMaimuriDxJudgeLayer maimuriDxJudgeShapeLayer_;
     miacode::preview::scene::PreviewPreparedSceneCache preparedCache_;
+    std::optional<miacode::preview::scene::PreviewNoteMarkerSpan> cachedNoteMarkerSpan_;
     miacode::preview::scene::PreviewLayerWindowCursor muriPadCursor_;
     miacode::preview::scene::PreviewLayerWindowCursor muriActionCursor_;
     QVector<int> muriPadIndices_;
@@ -193,6 +196,10 @@ private:
     qint64 renderPhasePassEndNs_ = -1;
     qint64 renderPhaseRenderEndNs_ = -1;
     qint64 renderPhaseLastLogMs_ = -1;
+    qint64 renderPhaseLastSwapNs_ = -1;
+    double renderPhasePlayheadSeconds_ = 0.0;
+    qint64 renderPhaseLastContentSwapNs_ = -1;
+    double renderPhaseLastContentPlayheadSeconds_ = std::numeric_limits<double>::quiet_NaN();
     // One-shot: the first frame whose render_submit crosses the stall threshold emits a
     // GPU/driver context line (adapter, UMD version, VRAM budget) next to the profile so
     // the field report carries the variables §5.6 asks for. Render-thread only.

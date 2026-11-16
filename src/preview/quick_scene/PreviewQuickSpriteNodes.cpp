@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <limits>
 
 namespace {
 
@@ -29,12 +30,12 @@ using miacode::preview::scene::PreviewSpriteDescriptor;
 using miacode::preview::quick_scene::SpriteFamilyKey;
 
 struct PreviewQuickSpriteVertex {
-    float x = 0.0f;
-    float y = 0.0f;
-    float u = 0.0f;
-    float v = 0.0f;
-    float opacity = 1.0f;
-    float effect = 0.0f;
+    float x;
+    float y;
+    float u;
+    float v;
+    float opacity;
+    float effect;
 };
 
 struct OrderedRunScratch {
@@ -152,6 +153,75 @@ public:
     QVector<QSGNode*> scratchChildren;
     QImage atlasImage;
     QHash<qint64, QRect> atlasRects;
+    QHash<QPair<qint64, int>, QVector<QPointF>> guideCoverageMeshes;
+
+    const QVector<QPointF>& guideCoverage(const QImage& image, int padding)
+    {
+        const QPair<qint64, int> key(image.cacheKey(), padding);
+        if (const auto cached = guideCoverageMeshes.constFind(key); cached != guideCoverageMeshes.constEnd()) {
+            return cached.value();
+        }
+        QVector<QPointF> mesh{QPointF(0, 0), QPointF(1, 0), QPointF(0, 1),
+                              QPointF(0, 1), QPointF(1, 0), QPointF(1, 1)};
+        if (!image.hasAlphaChannel()) {
+            return guideCoverageMeshes.insert(key, std::move(mesh)).value();
+        }
+        constexpr int segments = 32;
+        std::array<qreal, segments> inner;
+        std::array<qreal, segments> outer{};
+        inner.fill(std::numeric_limits<qreal>::max());
+        qreal minimumRadiusSquared = std::numeric_limits<qreal>::max();
+        qreal maximumRadiusSquared = 0.0;
+        const QImage pixels = image.convertToFormat(QImage::Format_ARGB32);
+        const QPointF center(image.width() * 0.5, image.height() * 0.5);
+        for (int y = 0; y < pixels.height(); ++y) {
+            const auto* row = reinterpret_cast<const QRgb*>(pixels.constScanLine(y));
+            for (int x = 0; x < pixels.width(); ++x) {
+                if (qAlpha(row[x]) == 0) continue;
+                const qreal dx = x + 0.5 - center.x(), dy = y + 0.5 - center.y();
+                const qreal radiusSquared = dx * dx + dy * dy;
+                const int sector = qMin(segments - 1, int((qAtan2(dy, dx) + M_PI) * segments / (2.0 * M_PI)));
+                inner[sector] = qMin(inner[sector], radiusSquared);
+                outer[sector] = qMax(outer[sector], radiusSquared);
+                minimumRadiusSquared = qMin(minimumRadiusSquared, radiusSquared);
+                maximumRadiusSquared = qMax(maximumRadiusSquared, radiusSquared);
+            }
+        }
+        if (minimumRadiusSquared == std::numeric_limits<qreal>::max()) {
+            mesh.clear();
+            return guideCoverageMeshes.insert(key, std::move(mesh)).value();
+        }
+        const qreal minimumRadius = qSqrt(minimumRadiusSquared);
+        const qreal maximumRadius = qSqrt(maximumRadiusSquared);
+        const qreal cosine = qCos(M_PI / segments);
+        if (minimumRadius <= padding * 4.0 || (maximumRadius + padding) / cosine >= qMin(center.x(), center.y())) {
+            return guideCoverageMeshes.insert(key, std::move(mesh)).value();
+        }
+        // Include the bilinear and four-sample footprints at this physical scale.
+        const int neighbors = qCeil(qAsin(qMin<qreal>(1.0, (padding + 1.0) / minimumRadius)) * segments / (2.0 * M_PI)) + 1;
+        const auto point = [&](int sector, qreal radius) {
+            const qreal angle = sector * 2.0 * M_PI / segments - M_PI;
+            return QPointF((center.x() + qCos(angle) * radius) / image.width(),
+                           (center.y() + qSin(angle) * radius) / image.height());
+        };
+        mesh.clear();
+        mesh.reserve(segments * 6);
+        for (int sector = 0; sector < segments; ++sector) {
+            qreal minimum = std::numeric_limits<qreal>::max(), maximum = 0.0;
+            for (int offset = -neighbors; offset <= neighbors; ++offset) {
+                const int neighbor = (sector + offset + segments) % segments;
+                minimum = qMin(minimum, inner[neighbor]);
+                maximum = qMax(maximum, outer[neighbor]);
+            }
+            if (minimum == std::numeric_limits<qreal>::max()) continue;
+            const qreal innerRadius = qMax<qreal>(0.0, qSqrt(minimum) - padding);
+            const qreal outerRadius = (qSqrt(maximum) + padding) / cosine;
+            const QPointF inner0 = point(sector, innerRadius), inner1 = point(sector + 1, innerRadius);
+            const QPointF outer0 = point(sector, outerRadius), outer1 = point(sector + 1, outerRadius);
+            mesh << inner0 << outer0 << inner1 << inner1 << outer0 << outer1;
+        }
+        return guideCoverageMeshes.insert(key, std::move(mesh)).value();
+    }
 
     void prepareAtlas(const miacode::preview::scene::PreviewSpriteDescriptors& sprites)
     {
@@ -476,8 +546,12 @@ public:
         profile.requiredVertexCount = run.vertices.size();
 
         if (profile.requiredVertexCount > allocatedVertexCapacity_) {
+            // Dense approach windows add sprites in small groups across adjacent frames.
+            // Retain growth room while submitting only the active vertex count.
+            const int growthCapacity = allocatedVertexCapacity_ + allocatedVertexCapacity_ / 2;
             allocatedVertexCapacity_ =
-                miacode::preview::quick_scene::previewQuickSpriteAlignedVertexCapacity(profile.requiredVertexCount);
+                miacode::preview::quick_scene::previewQuickSpriteAlignedVertexCapacity(
+                    qMax(profile.requiredVertexCount, growthCapacity));
             geometry_->allocate(allocatedVertexCapacity_);
             underuseFrameCount_ = 0;
             profile.geometryReallocated = true;
@@ -505,19 +579,8 @@ public:
                 run.vertices.constData(),
                 static_cast<size_t>(profile.requiredVertexCount) * sizeof(PreviewQuickSpriteVertex)
             );
-
-            if (profile.requiredVertexCount < allocatedVertexCapacity_) {
-                PreviewQuickSpriteVertex filler = run.vertices.constLast();
-                filler.opacity = 0.0f;
-                filler.effect = 0.0f;
-                miacode::preview::quick_scene::fillPreviewQuickDegenerateVertexTail(
-                    geometryVertices,
-                    profile.requiredVertexCount,
-                    allocatedVertexCapacity_,
-                    filler
-                );
-            }
         }
+        geometry_->setVertexCount(profile.requiredVertexCount);
         geometry_->markVertexDataDirty();
 
         const bool textureChanged = lastTexture_ != run.texture;
@@ -585,6 +648,8 @@ QSGNode* buildPreviewSpriteNodeTree(
     int visibleSpriteCount = 0;
     int runCount = 0;
     int nextRepetitionSearchIndex = 0;
+    const bool useGuideCoverage = profileLayerName != nullptr && std::strcmp(profileLayerName, "guide") == 0;
+    const qreal dpr = qMax<qreal>(1.0, window->effectiveDevicePixelRatio());
     qint64 scratchReserveGrowCount = 0;
     for (int spriteIndex = 0; spriteIndex < sprites.size(); ++spriteIndex) {
         const PreviewSpriteDescriptor& sprite = sprites[spriteIndex];
@@ -653,15 +718,36 @@ QSGNode* buildPreviewSpriteNodeTree(
         }
 
         OrderedRunScratch& run = runs[runCount - 1];
-        const int baseVertexIndex = run.spriteCount * 6;
-        const int requiredVertexCount = baseVertexIndex + 6;
+        const qreal physicalScale = qMin(sprite.width / sprite.image->width(), sprite.height / sprite.image->height()) * dpr;
+        const bool sparseGuide = useGuideCoverage && sprite.cacheable && physicalScale >= 0.25
+            && (!sprite.sourceRect.isValid() || sprite.sourceRect.isEmpty());
+        // A nonzero texel contributes across a bilinear pixel footprint in
+        // both axes. Rotation adds the four-sample footprint in source pixels.
+        const int coveragePadding = qCeil(qSqrt(2.0) + 0.5 / qMax<qreal>(0.25, physicalScale));
+        const QVector<QPointF>* mesh = sparseGuide
+            ? &root->guideCoverage(*sprite.image, coveragePadding) : nullptr;
+        const int baseVertexIndex = run.vertices.size();
+        const int requiredVertexCount = baseVertexIndex + (mesh != nullptr ? mesh->size() : 6);
         if (requiredVertexCount > run.vertices.capacity()) {
             run.vertices.reserve(
-                miacode::preview::quick_scene::previewQuickSpriteAlignedVertexCapacity(requiredVertexCount));
+                miacode::preview::quick_scene::previewQuickSpriteAlignedVertexCapacity(
+                    qMax(requiredVertexCount, int(run.vertices.capacity()) * 2)));
             ++scratchReserveGrowCount;
         }
         if (run.vertices.size() < requiredVertexCount) {
-            run.vertices.resize(requiredVertexCount);
+            // Every component is written below; skip initializing the scratch buffer.
+            run.vertices.resizeForOverwrite(requiredVertexCount);
+        }
+        const int spriteVertexCount = requiredVertexCount - baseVertexIndex;
+        if (run.spriteCount > 0 && spriteIndex > 0
+            && miacode::preview::quick_scene::previewSpritesMatch(sprite, sprites[spriteIndex - 1])) {
+            // Coincident notes retain their draw order and reuse the preceding transform.
+            auto* vertices = run.vertices.data();
+            std::memcpy(vertices + baseVertexIndex, vertices + baseVertexIndex - spriteVertexCount,
+                        static_cast<size_t>(spriteVertexCount) * sizeof(PreviewQuickSpriteVertex));
+            ++run.spriteCount;
+            ++visibleSpriteCount;
+            continue;
         }
         QRectF uvRect;
         if (usesAtlas) {
@@ -671,11 +757,22 @@ QSGNode* buildPreviewSpriteNodeTree(
         } else {
             uvRect = normalizedSourceRect(texture, sprite);
         }
-        writeSpriteVertices(
-            run.vertices.data(),
-            baseVertexIndex,
-            sprite,
-            uvRect);
+        if (mesh != nullptr) {
+            const qreal angle = qDegreesToRadians(sprite.rotationDegrees);
+            const qreal cosine = qCos(angle), sine = qSin(angle);
+            auto* vertices = run.vertices.data();
+            int index = baseVertexIndex;
+            for (const QPointF& point : *mesh) {
+                const qreal x = (point.x() - 0.5) * sprite.width, y = (point.y() - 0.5) * sprite.height;
+                vertices[index++] = {float(sprite.center.x() + cosine * x - sine * y),
+                                     float(sprite.center.y() + sine * x + cosine * y),
+                                     float(uvRect.x() + point.x() * uvRect.width()),
+                                     float(uvRect.y() + point.y() * uvRect.height()),
+                                     float(sprite.opacity), float(sprite.effect)};
+            }
+        } else {
+            writeSpriteVertices(run.vertices.data(), baseVertexIndex, sprite, uvRect);
+        }
         run.spriteCount += 1;
         visibleSpriteCount += 1;
     }
