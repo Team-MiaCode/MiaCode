@@ -460,29 +460,25 @@ QString renderMapWaveformPayload(
         return payload;
     }
 
-    const double phaseCompensationSeconds = qMax(0.0, state.waveformPhaseCompensationSeconds);
     const QPair<int, int> visibleColumns =
         miacode::waveform::visibleWaveformColumnRange(
             *level,
-            qMax(0.0, state.visibleStartSecond + phaseCompensationSeconds),
-            qMax(0.0, state.visibleEndSecond + phaseCompensationSeconds));
+            qMax(0.0, state.visibleStartSecond),
+            qMax(0.0, state.visibleEndSecond));
     const double firstColumnSecond =
         level->secondsPerColumn * static_cast<double>(visibleColumns.first);
-    const double firstColumnRenderedSecond = firstColumnSecond - phaseCompensationSeconds;
-    const qreal firstColumnWorldX = renderMapSecondToSceneXExact(state, firstColumnRenderedSecond);
+    const qreal firstColumnWorldX = renderMapSecondToSceneXExact(state, firstColumnSecond);
     payload += QStringLiteral(
                    " wave_level=1 wave_spc_ms=%1 wave_cols=%2 "
                    "wave_visible_col_begin=%3 wave_visible_col_end=%4 "
-                   "wave_phase_comp_ms=%5 wave_visible_first_sec=%6 "
-                   "wave_visible_first_render_sec=%7 wave_visible_first_world_x=%8 "
-                   "wave_visible_first_view_x=%9")
+                   "wave_visible_first_sec=%5 wave_visible_first_render_sec=%6 "
+                   "wave_visible_first_world_x=%7 wave_visible_first_view_x=%8")
         .arg(level->secondsPerColumn * 1000.0, 0, 'f', 3)
         .arg(level->columns.size())
         .arg(visibleColumns.first)
         .arg(visibleColumns.second)
-        .arg(phaseCompensationSeconds * 1000.0, 0, 'f', 3)
         .arg(firstColumnSecond, 0, 'f', 6)
-        .arg(firstColumnRenderedSecond, 0, 'f', 6)
+        .arg(firstColumnSecond, 0, 'f', 6)
         .arg(firstColumnWorldX, 0, 'f', 3)
         .arg(firstColumnWorldX - state.horizontalScrollValue, 0, 'f', 3);
 
@@ -504,21 +500,15 @@ QString renderMapWaveformPayload(
     const double playheadColumnEndSecond = playheadColumnStartSecond + level->secondsPerColumn;
     const double playheadColumnCenterSecond =
         playheadColumnStartSecond + (level->secondsPerColumn * 0.5);
-    const double playheadColumnStartRenderedSecond =
-        playheadColumnStartSecond - phaseCompensationSeconds;
-    const double playheadColumnCenterRenderedSecond =
-        playheadColumnCenterSecond - phaseCompensationSeconds;
-    const double playheadColumnEndRenderedSecond =
-        playheadColumnEndSecond - phaseCompensationSeconds;
     const qreal playheadViewX =
         renderMapSecondToSceneXExact(state, playheadSecond)
         - state.horizontalScrollValue;
     const qreal playheadColumnStartWorldX =
-        renderMapSecondToSceneXExact(state, playheadColumnStartRenderedSecond);
+        renderMapSecondToSceneXExact(state, playheadColumnStartSecond);
     const qreal playheadColumnCenterWorldX =
-        renderMapSecondToSceneXExact(state, playheadColumnCenterRenderedSecond);
+        renderMapSecondToSceneXExact(state, playheadColumnCenterSecond);
     const qreal playheadColumnEndWorldX =
-        renderMapSecondToSceneXExact(state, playheadColumnEndRenderedSecond);
+        renderMapSecondToSceneXExact(state, playheadColumnEndSecond);
     const qreal playheadColumnCenterViewX =
         playheadColumnCenterWorldX - state.horizontalScrollValue;
     const miacode::waveform::WaveformColumn& playheadWaveColumn =
@@ -565,9 +555,9 @@ QString renderMapWaveformPayload(
         .arg(playheadColumnStartSecond, 0, 'f', 6)
         .arg(playheadColumnCenterSecond, 0, 'f', 6)
         .arg(playheadColumnEndSecond, 0, 'f', 6)
-        .arg(playheadColumnStartRenderedSecond, 0, 'f', 6)
-        .arg(playheadColumnCenterRenderedSecond, 0, 'f', 6)
-        .arg(playheadColumnEndRenderedSecond, 0, 'f', 6)
+        .arg(playheadColumnStartSecond, 0, 'f', 6)
+        .arg(playheadColumnCenterSecond, 0, 'f', 6)
+        .arg(playheadColumnEndSecond, 0, 'f', 6)
         .arg(playheadColumnStartWorldX, 0, 'f', 3)
         .arg(playheadColumnCenterWorldX, 0, 'f', 3)
         .arg(playheadColumnEndWorldX, 0, 'f', 3)
@@ -583,8 +573,7 @@ QString renderMapWaveformPayload(
     if (peakColumn >= 0) {
         const double peakCenterSecond =
             (static_cast<double>(peakColumn) + 0.5) * level->secondsPerColumn;
-        const double peakCenterRenderedSecond = peakCenterSecond - phaseCompensationSeconds;
-        const qreal peakCenterWorldX = renderMapSecondToSceneXExact(state, peakCenterRenderedSecond);
+        const qreal peakCenterWorldX = renderMapSecondToSceneXExact(state, peakCenterSecond);
         const qreal peakCenterViewX =
             peakCenterWorldX - state.horizontalScrollValue;
         payload += QStringLiteral(
@@ -595,7 +584,7 @@ QString renderMapWaveformPayload(
             .arg(kPeakSearchHalfWindowSeconds * 2000.0, 0, 'f', 0)
             .arg(peakColumn)
             .arg(peakCenterSecond, 0, 'f', 6)
-            .arg(peakCenterRenderedSecond, 0, 'f', 6)
+            .arg(peakCenterSecond, 0, 'f', 6)
             .arg(peakCenterViewX, 0, 'f', 3)
             .arg(peakCenterViewX - playheadViewX, 0, 'f', 3)
             .arg((peakCenterSecond - playheadSecond) * 1000.0, 0, 'f', 3)
@@ -1260,7 +1249,6 @@ miacode::timeline::TimelineSceneState TimelineQuickItem::currentSceneState() con
         request.fitViewportHeight = true;
         request.waveformBrightness = stateBridge_->waveformBrightness();
         request.measureLineBrightness = stateBridge_->measureLineBrightness();
-        request.waveformPhaseCompensationSeconds = stateBridge_->waveformPhaseCompensationSeconds();
         request.playbackEntrySeconds = stateBridge_->playbackEntrySeconds();
         request.playheadSeconds = stateBridge_->playheadSeconds();
         request.cursorSeconds = stateBridge_->cursorSeconds();

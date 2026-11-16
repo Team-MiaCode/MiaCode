@@ -194,16 +194,6 @@ qint64 miacode::runtime::PlaybackCoordinator::timelineTargetFrameIntervalNs() co
     return qMax<qint64>(1LL, qRound64(1000000000.0 / qMax(1.0, timelineTargetFps)));
 }
 
-void miacode::runtime::PlaybackCoordinator::refreshTimelineWaveformPhaseCompensation()
-{
-    if (state_.timeline_.timelineQuickStateBridge_ == nullptr) {
-        return;
-    }
-    const qint64 frameIntervalNs = qMax<qint64>(1, previewCanvasTargetFrameIntervalNs());
-    state_.timeline_.timelineQuickStateBridge_->setWaveformPhaseCompensationSeconds(
-        static_cast<double>(frameIntervalNs) / 1000000000.0);
-}
-
 void miacode::runtime::PlaybackCoordinator::resetQtPreviewFixedFramePacing()
 {
     state_.qtPreviewNextFixedTickDueNs_ = -1;
@@ -410,7 +400,6 @@ void miacode::runtime::PlaybackCoordinator::refreshPreviewFrameRateTimers()
             currentPreviewCanvasRefreshRate()
         );
     }
-    refreshTimelineWaveformPhaseCompensation();
 }
 
 void miacode::runtime::PlaybackCoordinator::setPreviewCanvasFrameRateMode(PreviewCanvasFrameRateMode mode, bool persistState)
