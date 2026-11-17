@@ -350,6 +350,7 @@ miacode_add_module(miacode_timeline_quick
         src/timeline/quick/TimelineQuickHeaderLayer.h
         src/timeline/quick/TimelineQuickItem.cpp
         src/timeline/quick/TimelineQuickItem.h
+        src/timeline/quick/TimelineFramePresentationClock.h
         src/timeline/quick/TimelineQuickLayerUtils.cpp
         src/timeline/quick/TimelineQuickLayerUtils.h
         src/timeline/quick/TimelineQuickNotesLayer.cpp
@@ -367,6 +368,15 @@ miacode_add_module(miacode_timeline_quick
 )
 # qmltyperegistrar includes QML_ELEMENT headers by file name only.
 target_include_directories(miacode_timeline_quick PRIVATE src/timeline/quick)
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    enable_language(OBJCXX)
+    target_sources(miacode_timeline_quick PRIVATE
+        src/timeline/quick/TimelineNativePresentation.h
+        src/timeline/quick/TimelineNativePresentation.mm)
+    set_target_properties(miacode_timeline_quick PROPERTIES OBJCXX_STANDARD 20 OBJCXX_STANDARD_REQUIRED ON)
+    set_source_files_properties(src/timeline/quick/TimelineNativePresentation.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+    target_link_libraries(miacode_timeline_quick PRIVATE "-framework Cocoa" "-framework Metal" "-framework QuartzCore")
+endif()
 if (WIN32)
     target_link_libraries(miacode_timeline_quick PRIVATE
         d3d11

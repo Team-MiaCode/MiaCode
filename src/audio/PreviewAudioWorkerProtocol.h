@@ -157,6 +157,7 @@ struct PreviewAudioSnapshot {
     double preparedSecond = 0.0;
     double authoritativeSecond = 0.0;
     double backgroundPlaybackSecond = 0.0;
+    qint64 backgroundSampledAtNs = 0;
     RetainedPlaybackMode retainedPlaybackMode = RetainedPlaybackMode::None;
     RetainedBgmState retainedBgmState = RetainedBgmState::NoneLoaded;
     bool lastSuccess = true;

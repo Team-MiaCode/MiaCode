@@ -310,6 +310,7 @@ Preview diagnostics now split these timing sources instead of reporting a single
     `ui/app_background action=set_settings_unchanged` emits once per settings signature/lifecycle.
   - `timeline/cursor_map` profiles `timelineSecondForCursor()` so editor cursor-to-second mapping can be separated from redraw cost
   - `timeline/render_map` is emitted only with `MIACODE_PREVIEW_WAVEFORM_ALIGNMENT_DIAG=1` and samples final Quick scene-state mappings so waveform/playhead complaints can be checked against actual rendered world-X and viewport-X positions
+    `presentation_lead_ms` tracks this window's recent GUI-sample-to-presentation latency. Metal uses drawable presentation callbacks; other renderers use frame submission. The moving playhead projects timestamped audio-source positions to that time at the current speed; waveform and chart coordinates remain in source seconds. Audio snapshots carry playback generation, asset generation and transaction identity; paused playback reports zero lead. `timeline/presentation action=native_drawable_observer` records installation of the Metal observer.
 
 ## Render Path Toggles (diagnostics / A·B only)
 

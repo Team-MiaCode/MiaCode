@@ -332,7 +332,6 @@ void TimelineQuickStateBridge::refreshLayoutMetrics()
     request.fitViewportHeight = true;
     request.waveformBrightness = waveformBrightness_;
     request.measureLineBrightness = measureLineBrightness_;
-    request.waveformPhaseCompensationSeconds = waveformPhaseCompensationSeconds_;
     request.playheadUpperLimitSeconds = playheadUpperLimitSeconds_;
     layoutMetrics_ = miacode::timeline::TimelineSceneStateBuilder::layoutMetrics(request);
     layoutMetricsValid_ = true;
@@ -507,22 +506,6 @@ void TimelineQuickStateBridge::setMeasureLineBrightness(double brightness)
     measureLineBrightness_ = clamped;
     ++gridRevision_;
     emit measureLineBrightnessChanged(measureLineBrightness_);
-    emit renderStateChanged();
-}
-
-double TimelineQuickStateBridge::waveformPhaseCompensationSeconds() const
-{
-    return waveformPhaseCompensationSeconds_;
-}
-
-void TimelineQuickStateBridge::setWaveformPhaseCompensationSeconds(double seconds)
-{
-    const double clamped = qIsFinite(seconds) ? qMax(0.0, seconds) : 0.0;
-    if (qFuzzyCompare(waveformPhaseCompensationSeconds_ + 1.0, clamped + 1.0)) {
-        return;
-    }
-    waveformPhaseCompensationSeconds_ = clamped;
-    ++waveformRevision_;
     emit renderStateChanged();
 }
 
@@ -733,14 +716,21 @@ void TimelineQuickStateBridge::setCursorSeconds(double second, bool centerView)
     emit renderStateChanged();
 }
 
-void TimelineQuickStateBridge::notifyRenderCadenceTick()
+void TimelineQuickStateBridge::notifyRenderCadenceTick(double presentationLeadSeconds)
 {
+    presentationLeadSeconds_ = qIsFinite(presentationLeadSeconds) ? qMax(0.0, presentationLeadSeconds) : 0.0;
     emit renderCadenceTick();
+}
+
+double TimelineQuickStateBridge::presentationLeadSeconds() const
+{
+    return playbackCadenceActive_ ? presentationLeadSeconds_ : 0.0;
 }
 
 void TimelineQuickStateBridge::setPlaybackCadenceActive(bool active)
 {
     playbackCadenceActive_ = active;
+    if (!active) presentationLeadSeconds_ = 0.0;
 }
 
 bool TimelineQuickStateBridge::playbackCadenceActive() const

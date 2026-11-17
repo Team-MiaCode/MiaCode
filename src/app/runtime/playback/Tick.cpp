@@ -141,6 +141,18 @@ void miacode::runtime::PlaybackCoordinator::flushQtPreviewTimelinePosition()
                 playbackFlowState,
                 qMax(0.0, authoritativeAudioClockSecond()));
         const double second = tickDecision.visualSecond;
+        double presentedSecond = second;
+        if (state_.previewSfxRuntime_ != nullptr && !tickDecision.holdsPendingPlayingSeek) {
+            presentedSecond = state_.previewSfxRuntime_->audiblePlaybackSecond(second, state_.previewPlaybackRate_);
+        }
+        if (state_.timeline_.timelineQuickStateBridge_ != nullptr && !tickDecision.holdsPendingPlayingSeek) {
+            // Project the moving playhead to this window's measured presentation time.
+            // Chart geometry, waveform samples and editor follow retain audio seconds.
+            presentedSecond += state_.timeline_.timelineQuickStateBridge_->presentationLeadSeconds()
+                * qMax(0.0, state_.previewPlaybackRate_);
+            const double duration = previewDurationSeconds();
+            if (duration > 0.0) presentedSecond = qMin(presentedSecond, duration);
+        }
         // The timeline item can be hidden while validation or Muri is the
         // foreground bottom tab. Its render state may pause in that state,
         // but code-follow is an editor/playback concern and must continue on
@@ -149,7 +161,7 @@ void miacode::runtime::PlaybackCoordinator::flushQtPreviewTimelinePosition()
         // it.
         if (state_.timeline_.timelineQuickStateBridge_ != nullptr && quickTimelineBridgeReady()) {
             state_.timeline_.timelineQuickStateBridge_->setPlayheadSeconds(
-                second, state_.previewProgressFollowEnabled_);
+                presentedSecond, state_.previewProgressFollowEnabled_);
             state_.timeline_.timelineQuickStateBridge_->focusPlayhead(false);
         }
         state_.qtPreviewLastTimelineSecond_ = second;
