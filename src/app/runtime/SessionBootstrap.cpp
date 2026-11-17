@@ -398,7 +398,6 @@ Session::Session(miacode::ApplicationServices& services, QObject* parent)
         {miacode::ui::ShortcutRegistry::instance().shortcutText(
             QStringLiteral("timeline.zoom_out"),
             QStringLiteral("Ctrl+WheelDown"))});
-    playback_->refreshTimelineWaveformPhaseCompensation();
     connect(state_.timeline_.timelineQuickStateBridge_,
             &TimelineQuickStateBridge::renderCadenceTick,
             this,
