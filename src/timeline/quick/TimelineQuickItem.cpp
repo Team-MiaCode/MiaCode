@@ -1245,6 +1245,7 @@ miacode::timeline::TimelineSceneState TimelineQuickItem::currentSceneState() con
         request.muriMarkersByLocation = stateBridge_->muriMarkersByLocation();
         request.muriMarkerTooltips = stateBridge_->muriMarkerTooltips();
         request.viewportSize = viewportSize;
+        request.laneOrder = miacode::timeline::timelineLaneOrderForToken(stateBridge_->laneOrder());
         request.headerLineNumberFont = stateBridge_->headerLineNumberFont();
         request.skinDirectory = stateBridge_->skinDirectory();
         request.horizontalScrollValue = currentScroll;

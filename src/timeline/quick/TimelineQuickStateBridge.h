@@ -39,6 +39,7 @@ class TimelineQuickStateBridge : public QObject
                WRITE setMeasureLineBrightness NOTIFY measureLineBrightnessChanged)
     Q_PROPERTY(double zoomScale READ zoomScale NOTIFY zoomScaleChanged)
     Q_PROPERTY(QVariantList zoomPresetValues READ zoomPresetValues CONSTANT)
+    Q_PROPERTY(QString laneOrder READ laneOrder WRITE setLaneOrder NOTIFY laneOrderChanged)
 
 public:
     explicit TimelineQuickStateBridge(QObject* parent = nullptr, const QFont& font = QFont());
@@ -63,6 +64,8 @@ public:
     // not a position.
     double horizontalScrollValue() const;
     void setHorizontalScrollValue(double value);
+    const QString& laneOrder() const { return laneOrder_; }
+    void setLaneOrder(const QString& order);
     double zoomScale() const;
     void setZoomScale(double scale);
     QVector<double> zoomPresets() const;
@@ -134,6 +137,7 @@ public:
 signals:
     void renderStateChanged();
     void playheadChanged(double second);
+    void laneOrderChanged();
     void zoomScaleChanged(double scale);
     // Emitted once per timeline frame from TimelineQuickItem's afterAnimating hook, on the
     // GUI thread, immediately before the render thread syncs that frame. Playback samples
@@ -180,6 +184,7 @@ private:
     double waveformBrightness_ = miacode::timeline::kTimelineWaveformBrightnessDefault;
     double measureLineBrightness_ = miacode::timeline::kTimelineMeasureLineBrightnessDefault;
     double waveformPhaseCompensationSeconds_ = 0.0;
+    QString laneOrder_ = QStringLiteral("natural");
     double playbackEntrySeconds_ = 0.0;
     double playheadUpperLimitSeconds_ = -1.0;
     double playheadSeconds_ = 0.0;
