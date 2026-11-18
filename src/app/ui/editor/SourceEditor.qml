@@ -140,6 +140,7 @@ Rectangle {
     function jumpToLine(line) { sourceArea.jumpToLine(line) }
     function openFindReplace() { findReplaceBar.show() }
     function exportSelectionRange() { sourceArea.exportSelectionRange() }
+    function exportSelectionGif() { sourceArea.exportSelectionGif() }
     function applyChartTransform(operation) { return sourceArea.applyChartTransform(operation) }
     function applyNormalization(options) { return sourceArea.applyNormalization(options) }
     function selectionDescription() {
@@ -300,8 +301,10 @@ Rectangle {
             action("qml.find_and_replace", "find")
             if (selected || normalize)
                 separator()
-            if (selected)
+            if (selected) {
                 action("qml.export_selection", "export")
+                action("export.gif.action", "export_gif")
+            }
             if (transform) {
                 separator()
                 for (const section of [0, 2]) {
@@ -331,6 +334,7 @@ Rectangle {
             case "select_all": root.selectAll(); break
             case "find": root.openFindReplace(); break
             case "export": root.exportSelectionRange(); break
+            case "export_gif": root.exportSelectionGif(); break
             case "normalize": root.normalizeChartRequested(); break
             default: root.applyChartTransform(operation); break
             }

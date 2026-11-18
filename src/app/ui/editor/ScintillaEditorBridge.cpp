@@ -861,6 +861,11 @@ void ScintillaEditorBridge::exportSelectionRange()
     if (syncController_ && documentSession_ && selectionStart() != selectionEnd())
         syncController_->requestSelectionRangeExport(documentSession_->currentDifficultyId(), documentSession_->documentRevision(), selectionStart(), selectionEnd());
 }
+void ScintillaEditorBridge::exportSelectionGif()
+{
+    if (syncController_ && documentSession_ && selectionStart() != selectionEnd())
+        syncController_->requestSelectionRangeExport(documentSession_->currentDifficultyId(), documentSession_->documentRevision(), selectionStart(), selectionEnd(), true);
+}
 bool ScintillaEditorBridge::applyNormalization(const QVariantMap& options)
 {
     return documentSession_ && applyEditorTransaction(documentSession_->normalizeChartSelection(document_.text(), selectionStart(), selectionEnd(), options));

@@ -77,6 +77,13 @@ QtObject {
     readonly property int toastHoldDuration: 900
     readonly property int toastFadeDuration: 300
     readonly property real toastSurfaceOpacity: 1.0
+    readonly property int progressToastWidth: 340
+    readonly property int progressToastHeight: 86
+    readonly property int progressToastTopMargin: 84
+    readonly property int progressToastActionHeight: 32
+    readonly property int progressToastActionMinWidth: 52
+    readonly property int progressToastBarHeight: 4
+    readonly property int progressToastHoldDuration: 1400
 
     readonly property real surfaceOpacity: backgroundActive
         ? appBackground.panelAlpha / 255.0

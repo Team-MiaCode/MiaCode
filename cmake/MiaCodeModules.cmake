@@ -591,6 +591,8 @@ miacode_add_module(miacode_export
         src/export/video_export/VideoExportPendingFrameRedraw.h
         src/export/video_export/VideoExportPipeline.cpp
         src/export/video_export/VideoExportPreparedTask.cpp
+        src/export/video_export/VideoExportGif.cpp
+        src/export/video_export/VideoExportGif.h
         src/export/video_export/VideoExportQuickRenderBackend.cpp
         src/export/video_export/VideoExportQuickRenderBackend.h
         src/export/video_export/VideoExportRuntimePolicy.cpp

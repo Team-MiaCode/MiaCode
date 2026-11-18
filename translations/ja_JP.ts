@@ -3,6 +3,38 @@
 <TS version="2.1" language="ja_JP">
 <context>
     <name></name>
+    <message id="job_progress.busy">
+        <source>Please wait for the current task to finish.</source>
+        <translation>現在の処理が完了するまでお待ちください。</translation>
+    </message>
+    <message id="export.gif.action">
+        <source>Export selected range as GIF</source>
+        <translation>選択範囲をGIFとして出力</translation>
+    </message>
+    <message id="export.gif.title">
+        <source>Export GIF</source>
+        <translation>GIF を出力</translation>
+    </message>
+    <message id="export.gif.exporting">
+        <source>Exporting GIF...</source>
+        <translation>GIFを出力中…</translation>
+    </message>
+    <message id="export.gif.completed">
+        <source>GIF generated and copied to the clipboard.</source>
+        <translation>GIFを生成してクリップボードにコピーしました。</translation>
+    </message>
+    <message id="export.gif.clipboard_unavailable">
+        <source>The GIF clipboard cache is unavailable.</source>
+        <translation>GIF用クリップボードキャッシュを使用できません。</translation>
+    </message>
+    <message id="export.gif.clipboard_failed">
+        <source>Could not copy the GIF to the clipboard.</source>
+        <translation>GIFをクリップボードにコピーできませんでした。</translation>
+    </message>
+    <message id="export.gif.failed">
+        <source>GIF export failed: %1</source>
+        <translation>GIF出力に失敗しました：%1</translation>
+    </message>
     <message id="toast.operation_failed">
         <source>%1 failed: %2.</source>
         <translation>%1に失敗しました。%2。</translation>

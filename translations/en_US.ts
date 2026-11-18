@@ -3,6 +3,38 @@
 <TS version="2.1" language="en_US">
 <context>
     <name></name>
+    <message id="job_progress.busy">
+        <source>Please wait for the current task to finish.</source>
+        <translation>Please wait for the current task to finish.</translation>
+    </message>
+    <message id="export.gif.action">
+        <source>Export selected range as GIF</source>
+        <translation>Export selected range as GIF</translation>
+    </message>
+    <message id="export.gif.title">
+        <source>Export GIF</source>
+        <translation>Export GIF</translation>
+    </message>
+    <message id="export.gif.exporting">
+        <source>Exporting GIF...</source>
+        <translation>Exporting GIF...</translation>
+    </message>
+    <message id="export.gif.completed">
+        <source>GIF generated and copied to the clipboard.</source>
+        <translation>GIF generated and copied to the clipboard.</translation>
+    </message>
+    <message id="export.gif.clipboard_unavailable">
+        <source>The GIF clipboard cache is unavailable.</source>
+        <translation>The GIF clipboard cache is unavailable.</translation>
+    </message>
+    <message id="export.gif.clipboard_failed">
+        <source>Could not copy the GIF to the clipboard.</source>
+        <translation>Could not copy the GIF to the clipboard.</translation>
+    </message>
+    <message id="export.gif.failed">
+        <source>GIF export failed: %1</source>
+        <translation>GIF export failed: %1</translation>
+    </message>
     <message id="toast.operation_failed">
         <source>%1 failed: %2.</source>
         <translation>%1 failed: %2.</translation>

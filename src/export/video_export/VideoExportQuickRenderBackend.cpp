@@ -6,11 +6,14 @@
 #include "core/video/PreviewVideoGeometryConfig.h"
 #include "core/scene/PreviewProgressStatsCache.h"
 #include "common/DebugLog.h"
+#include "common/DebugOptions.h"
+#include "export/video_export/VideoExportControllerInternal.h"
 #include "export/video_export/FontLibrary.h"
 
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QQuickWindow>
 #include <QUrl>
 #include <QVariantMap>
 
@@ -137,6 +140,42 @@ bool VideoExportQuickRenderBackend::copyRenderStateFrom(const VideoExportQuickRe
 void VideoExportQuickRenderBackend::setRenderSessionBackend(ExportQuickRenderSessionBackend backend)
 {
     sessionBackend_ = backend;
+}
+
+bool VideoExportQuickRenderBackend::initializeExportRenderer(
+    const QSurfaceFormat& format, QOpenGLContext* shareContext, QString* errorMessage)
+{
+    using namespace miacode::video_export::detail;
+    bool d3d11Eligible = miacode::debug_options::exportRenderBackendRequest()
+        != miacode::debug_options::ExportRenderBackendRequest::OpenGl;
+    QString ineligibleReason;
+#ifdef Q_OS_WIN
+    if (d3d11Eligible && QQuickWindow::graphicsApi() != QSGRendererInterface::Direct3D11) {
+        d3d11Eligible = false;
+        ineligibleReason = QStringLiteral("process_graphics_api_not_d3d11");
+    }
+#else
+    if (d3d11Eligible) {
+        d3d11Eligible = false;
+        ineligibleReason = QStringLiteral("non_windows");
+    }
+#endif
+    if (!ineligibleReason.isEmpty()) {
+        appendVideoExportLog(QStringLiteral("render_backend_fallback"),
+            QStringLiteral("fallback_from=d3d11_qrhi fallback_to=opengl reason=%1").arg(ineligibleReason));
+    }
+    if (d3d11Eligible) {
+        setRenderSessionBackend(ExportQuickRenderSessionBackend::D3D11Qrhi);
+        if (initializeOffscreenRenderer(format, shareContext, errorMessage)) return true;
+        appendVideoExportLog(QStringLiteral("render_backend_fallback"),
+            QStringLiteral("fallback_from=d3d11_qrhi fallback_to=opengl reason=%1")
+                .arg(errorMessage != nullptr ? *errorMessage : QStringLiteral("init_failed")));
+        shutdownOffscreenRenderer();
+        setRenderSessionBackend(ExportQuickRenderSessionBackend::OpenGl);
+        QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
+        if (errorMessage) errorMessage->clear();
+    }
+    return initializeOffscreenRenderer(format, shareContext, errorMessage);
 }
 
 void VideoExportQuickRenderBackend::setStageMediaAvailable(bool hasMedia)
