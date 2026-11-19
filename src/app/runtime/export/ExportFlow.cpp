@@ -760,6 +760,8 @@ void miacode::runtime::VideoExportHost::launchSelectionGifExport(
     }
     session_.playback_->pausePlayback();
     VideoExportTask task = buildVideoExportRenderTask();
+    task.showObjectStatsHud = session_.previewShowObjectStatsHud_;
+    task.showChartInfoHud = session_.previewShowChartInfoHud_;
     miacode::video_export::applyGifExportSettings(task);
     task.outputPath = outputPath;
     task.exportStartSeconds = startSecond;
