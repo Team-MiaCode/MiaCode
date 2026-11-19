@@ -208,6 +208,9 @@ Item {
         if (!root.documentSession.hasDocument)
             return
         switch (toolId) {
+        case "balanceVolume":
+            root.mediaTools.balanceAudioVolume()
+            break
         case "convertTrack":
             root.mediaTools.convertTrackTo44100Hz()
             break

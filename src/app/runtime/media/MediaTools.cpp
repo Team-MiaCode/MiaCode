@@ -1,5 +1,6 @@
 #include "common/LocalizedText.h"
 
+#include "media_tools/media/AudioVolumeBalance.h"
 #include "media_tools/media/PvCompressionPolicy.h"
 #include "media_tools/media/MediaPrependPolicy.h"
 #include "media_tools/media/VideoAudioAlignment.h"
@@ -918,6 +919,14 @@ QString resolveChartMp4Path(const QString& chartPath, const QString& videoFieldV
 
 } // namespace
 
+struct miacode::runtime::MediaJobsHost::VolumeBalanceJob : QObject {
+    using QObject::QObject;
+    QFutureWatcher<miacode::media::AudioVolumeBalanceResult> watcher;
+    std::atomic_bool cancelled = false;
+    QPointer<miacode::JobProgressService> progress;
+    quint64 token = 0;
+};
+
 struct miacode::runtime::MediaJobsHost::AlignmentJob {
     QObject callbackContext;
     QFutureWatcher<miacode::media::VideoAudioAlignmentResult> watcher;
@@ -947,6 +956,17 @@ miacode::runtime::MediaJobsHost::~MediaJobsHost()
 void miacode::runtime::MediaJobsHost::shutdown()
 {
     shuttingDown_ = true;
+    if (volumeBalanceJob_ != nullptr) {
+        auto& job = *volumeBalanceJob_;
+        job.cancelled.store(true);
+        job.watcher.waitForFinished();
+        const auto progress = job.progress;
+        const auto token = job.token;
+        volumeBalanceJob_.reset();
+        if (progress != nullptr && progress->active() && progress->token() == token) {
+            progress->end();
+        }
+    }
     if (alignmentJob_ == nullptr) {
         return;
     }
@@ -975,6 +995,113 @@ bool miacode::runtime::MediaJobsHost::rejectBusyJob() const
             miacode::localizedText("job_progress.busy"));
     }
     return true;
+}
+
+void miacode::runtime::MediaJobsHost::balanceAudioVolume()
+{
+    if (shuttingDown_ || rejectBusyJob()) {
+        return;
+    }
+    auto* const requests = session_.uiRequestService();
+    if (requests == nullptr) {
+        return;
+    }
+    const auto title = miacode::localizedText("media_tools.volume_balance");
+    const auto snapshot = session_.applicationServices_.workspace().snapshot();
+    if (resolveCurrentChartDirectory().isEmpty()) {
+        requests->postNotice(miacode::NoticeSeverity::Warning, title,
+                             miacode::localizedText("media_tools.open_or_save_a_chart"));
+        return;
+    }
+    const auto paths = resolveMediaBlankPaths(MediaBlankTarget::Track);
+    const QString trackPath = paths.inputPath;
+    if (!QFileInfo(trackPath).isFile()) {
+        requests->postNotice(miacode::NoticeSeverity::Warning, title,
+                             miacode::localizedText("media_tools.volume_balance_missing_track"));
+        return;
+    }
+    const QString ffmpegPath = resolveMediaToolFfmpegExecutable();
+    if (ffmpegPath.isEmpty()) {
+        requests->postNotice(miacode::NoticeSeverity::Error, title,
+                             miacode::localizedText("media_tools.ffmpeg_was_not_found_place"));
+        return;
+    }
+    requests->requestConfirmation(
+        title, miacode::localizedText("media_tools.volume_balance_confirm").arg(paths.inputName),
+        miacode::localizedText("action.ok"),
+        [this, snapshot, ffmpegPath, trackPath, backupPath = paths.backupPath](bool accepted) {
+            if (!accepted || shuttingDown_ || rejectBusyJob()) {
+                return;
+            }
+            const auto current = session_.applicationServices_.workspace().snapshot();
+            if (current.documentOpenGeneration == snapshot.documentOpenGeneration
+                && current.filePath == snapshot.filePath) {
+                runAudioVolumeBalance(ffmpegPath, trackPath, backupPath);
+            }
+        });
+}
+
+void miacode::runtime::MediaJobsHost::runAudioVolumeBalance(
+    const QString& ffmpegPath, const QString& trackPath, const QString& backupPath)
+{
+    auto* const progress = session_.jobProgressService();
+    if (progress == nullptr || volumeBalanceJob_ != nullptr) {
+        return;
+    }
+    const auto snapshot = session_.applicationServices_.workspace().snapshot();
+    const auto title = miacode::localizedText("media_tools.volume_balance");
+    volumeBalanceJob_ = std::make_unique<VolumeBalanceJob>(&session_);
+    auto* const job = volumeBalanceJob_.get();
+    job->progress = progress;
+    job->token = progress->begin(title, miacode::localizedText("media_tools.processing_audio"), true);
+    progress->reportIndeterminate(miacode::localizedText("media_tools.processing_audio"));
+
+    QObject::connect(progress, &miacode::JobProgressService::changed, &job->watcher, [job] {
+        if (!job->progress->active() || job->progress->token() != job->token
+            || job->progress->cancelRequested()) {
+            job->cancelled.store(true);
+        }
+    });
+    QObject::connect(&job->watcher, &QFutureWatcherBase::finished, &session_, [this, job, snapshot, title] {
+        const auto result = job->watcher.result();
+        const bool ownsProgress = job->progress != nullptr && job->progress->active()
+            && job->progress->token() == job->token;
+        const auto current = session_.applicationServices_.workspace().snapshot();
+        if (current.documentOpenGeneration == snapshot.documentOpenGeneration
+            && current.filePath == snapshot.filePath) {
+            reloadPreviewMediaAfterFileOperation(true);
+        }
+        if (ownsProgress) {
+            job->progress->end();
+        }
+        volumeBalanceJob_.release()->deleteLater();
+        auto* const requests = session_.uiRequestService();
+        if (shuttingDown_ || !ownsProgress || requests == nullptr) {
+            return;
+        }
+        using miacode::media::AudioVolumeBalanceStatus;
+        switch (result.status) {
+        case AudioVolumeBalanceStatus::Saved:
+            requests->postToast(miacode::NoticeSeverity::Information,
+                                miacode::localizedText("media_tools.volume_balance_saved"));
+            break;
+        case AudioVolumeBalanceStatus::Unchanged:
+            requests->postToast(miacode::NoticeSeverity::Information,
+                                miacode::localizedText("media_tools.volume_balance_unchanged"));
+            break;
+        case AudioVolumeBalanceStatus::Cancelled:
+            requests->postToast(miacode::NoticeSeverity::Information,
+                                miacode::localizedText("media_tools.canceled"));
+            break;
+        case AudioVolumeBalanceStatus::Failed:
+            requests->postNotice(miacode::NoticeSeverity::Error, title, result.message, result.details);
+            break;
+        }
+    });
+    releasePreviewMediaForFileOperation();
+    job->watcher.setFuture(QtConcurrent::run([job, ffmpegPath, trackPath, backupPath] {
+        return miacode::media::runAudioVolumeBalance(ffmpegPath, trackPath, backupPath, job->cancelled);
+    }));
 }
 
 void miacode::runtime::MediaJobsHost::onCompressBackgroundVideo()

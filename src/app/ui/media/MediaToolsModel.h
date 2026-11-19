@@ -45,6 +45,7 @@ public:
     bool batchRunning() const { return batchRunning_; }
 
     // ---- single-file tools ----
+    Q_INVOKABLE void balanceAudioVolume();
     Q_INVOKABLE void convertTrackTo44100Hz();
     Q_INVOKABLE void compressBackgroundVideo();
     Q_INVOKABLE void alignBackgroundVideoToTrack();

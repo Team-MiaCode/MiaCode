@@ -32,6 +32,7 @@ public:
     void restoreMediaBlankBackup(MediaBlankTarget target);
     void applyMediaBlank(MediaBlankTarget target, double beats, double bpm);
 
+    void balanceAudioVolume() override;
     void convertTrackTo44100Hz() override;
     void compressBackgroundVideo() override;
     void alignBackgroundVideoToTrack() override;
@@ -68,6 +69,11 @@ private:
         const miacode::LocalizedText& summary,
         const QString& producedFilePath);
 
+    void runAudioVolumeBalance(const QString& ffmpegPath, const QString& trackPath,
+                               const QString& backupPath);
+
+    struct VolumeBalanceJob;
+    std::unique_ptr<VolumeBalanceJob> volumeBalanceJob_;
     struct AlignmentJob;
     std::unique_ptr<AlignmentJob> alignmentJob_;
     bool shuttingDown_ = false;
