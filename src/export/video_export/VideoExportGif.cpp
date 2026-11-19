@@ -17,16 +17,12 @@ using namespace detail;
 void applyGifExportSettings(VideoExportTask& task)
 {
     task.outputMode = VideoExportOutputMode::Gif;
-    task.outputWidth = 320;
-    task.outputHeight = 320;
+    task.outputWidth = 480;
+    task.outputHeight = 270;
     task.fps = 24;
     task.fullRangeExport = false;
     task.intro.enabled = false;
     task.clockCountEnabled = false;
-    task.showTimestamp = false;
-    task.showObjectStatsHud = false;
-    task.showChartInfoHud = false;
-    task.centerDisplayMode = miacode::preview_gameplay::CenterDisplayMode::Off;
     task.previewMaxOutputSeconds = 0.0;
 }
 
@@ -96,7 +92,7 @@ VideoExportResult exportGifTask(const VideoExportTask& requestedTask,
     if (progress(2, QStringLiteral("Preparing export..."))) return canceled();
     // Prime textures and shaders without adding a frame to the exported timeline.
     const QImage warmupFrame = renderer.renderFrameOffscreen(
-        frameSize, task.exportStartSeconds, false, false);
+        frameSize, task.exportStartSeconds, task.showTimestamp, task.showObjectStatsHud);
     if (warmupFrame.isNull()) return fail(QStringLiteral("Render frame failed."));
 
     QProcess process;
@@ -142,6 +138,9 @@ VideoExportResult exportGifTask(const VideoExportTask& requestedTask,
             QStringLiteral("-threads"), QStringLiteral("4"), videoPath},
             3, QStringLiteral("Starting ffmpeg..."))) return result;
 
+    ExportFrameRenderParams params;
+    params.showTimestamp = task.showTimestamp;
+    params.showObjectStatsHud = task.showObjectStatsHud;
     for (qint64 frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
         const int percent = 5 + static_cast<int>(static_cast<double>(frameIndex) / frameCount * 65.0);
         if (progress(percent, QStringLiteral("Rendering frames and encoding... %1/%2")
@@ -150,7 +149,6 @@ VideoExportResult exportGifTask(const VideoExportTask& requestedTask,
             process.waitForFinished(2000);
             return canceled();
         }
-        ExportFrameRenderParams params;
         params.exportSecond = task.exportStartSeconds + static_cast<double>(frameIndex) / task.fps;
         QImage frame = renderExportFrameSynchronously(&renderer, true, frameSize, params)
             .convertToFormat(QImage::Format_RGBA8888);
