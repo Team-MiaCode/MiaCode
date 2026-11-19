@@ -62,6 +62,7 @@ struct PreviewAudioWorker::BackendSnapshot {
     double preparedSecond = 0.0;
     double authoritativeSecond = 0.0;
     double backgroundSecond = 0.0;
+    qint64 backgroundSampledAtNs = 0;
     RetainedPlaybackMode retainedMode = RetainedPlaybackMode::None;
     RetainedBgmState retainedBgmState = RetainedBgmState::NoneLoaded;
 };
@@ -836,6 +837,7 @@ PreviewAudioWorker::BackendSnapshot PreviewAudioWorker::captureBackendSnapshot(
     state.preparedSecond = backend.preparedStartSecond();
     state.authoritativeSecond = backend.authoritativePlaybackSecond();
     state.backgroundSecond = backend.backgroundPlaybackSecond();
+    state.backgroundSampledAtNs = steadyNowNs();
     state.retainedMode = backend.retainedPlaybackMode();
     state.retainedBgmState = backend.retainedBgmState();
     return state;
@@ -1013,6 +1015,7 @@ void PreviewAudioWorker::publishBackendLifecycle(
         snapshot_.preparedSecond = backendState.preparedSecond;
         snapshot_.authoritativeSecond = backendState.authoritativeSecond;
         snapshot_.backgroundPlaybackSecond = backendState.backgroundSecond;
+        snapshot_.backgroundSampledAtNs = backendState.backgroundSampledAtNs;
         snapshot_.retainedPlaybackMode = backendState.retainedMode;
         snapshot_.retainedBgmState = backendState.retainedBgmState;
         snapshot_.backendId = backendState.backendId;
@@ -1075,6 +1078,7 @@ bool PreviewAudioWorker::publishCompletion(
             snapshot_.preparedSecond = backendState->preparedSecond;
             snapshot_.authoritativeSecond = backendState->authoritativeSecond;
             snapshot_.backgroundPlaybackSecond = backendState->backgroundSecond;
+            snapshot_.backgroundSampledAtNs = backendState->backgroundSampledAtNs;
             snapshot_.retainedPlaybackMode = backendState->retainedMode;
             snapshot_.retainedBgmState = backendState->retainedBgmState;
         }

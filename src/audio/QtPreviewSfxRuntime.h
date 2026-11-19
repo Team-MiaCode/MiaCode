@@ -138,6 +138,7 @@ public:
     void seekBackgroundTrack(double second);
     void pauseBackgroundTrack();
     double backgroundPlaybackSecond() const;
+    double audiblePlaybackSecond(double fallbackSecond, double playbackRate) const;
     bool audition(const QString& kind, double gain = 1.0);
     void stopAll();
 

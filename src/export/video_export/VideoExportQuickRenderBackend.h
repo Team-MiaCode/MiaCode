@@ -63,6 +63,8 @@ public:
     // falling back D3D11→OpenGL, shutdownOffscreenRenderer first, then switch
     // and re-initialize (both sessions carry the same bootstrapped state).
     void setRenderSessionBackend(ExportQuickRenderSessionBackend backend);
+    bool initializeExportRenderer(const QSurfaceFormat& requestedFormat,
+                                  QOpenGLContext* shareContext, QString* errorMessage);
     ExportQuickRenderSessionBackend renderSessionBackend() const { return sessionBackend_; }
     bool initializeOffscreenRenderer(
         const QSurfaceFormat& requestedFormat = QSurfaceFormat(),

@@ -350,6 +350,7 @@ miacode_add_module(miacode_timeline_quick
         src/timeline/quick/TimelineQuickHeaderLayer.h
         src/timeline/quick/TimelineQuickItem.cpp
         src/timeline/quick/TimelineQuickItem.h
+        src/timeline/quick/TimelineFramePresentationClock.h
         src/timeline/quick/TimelineQuickLayerUtils.cpp
         src/timeline/quick/TimelineQuickLayerUtils.h
         src/timeline/quick/TimelineQuickNotesLayer.cpp
@@ -367,6 +368,15 @@ miacode_add_module(miacode_timeline_quick
 )
 # qmltyperegistrar includes QML_ELEMENT headers by file name only.
 target_include_directories(miacode_timeline_quick PRIVATE src/timeline/quick)
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    enable_language(OBJCXX)
+    target_sources(miacode_timeline_quick PRIVATE
+        src/timeline/quick/TimelineNativePresentation.h
+        src/timeline/quick/TimelineNativePresentation.mm)
+    set_target_properties(miacode_timeline_quick PROPERTIES OBJCXX_STANDARD 20 OBJCXX_STANDARD_REQUIRED ON)
+    set_source_files_properties(src/timeline/quick/TimelineNativePresentation.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+    target_link_libraries(miacode_timeline_quick PRIVATE "-framework Cocoa" "-framework Metal" "-framework QuartzCore")
+endif()
 if (WIN32)
     target_link_libraries(miacode_timeline_quick PRIVATE
         d3d11
@@ -465,6 +475,8 @@ qt_add_shaders(miacode_preview_quick "preview_sprite_shaders"
     FILES
         src/preview/quick_scene/shaders/PreviewSpriteMaterial.vert
         src/preview/quick_scene/shaders/PreviewSpriteMaterial.frag
+        src/preview/quick_scene/shaders/PreviewSpriteRepeatMaterial.vert
+        src/preview/quick_scene/shaders/PreviewSpriteRepeatMaterial.frag
         src/preview/quick_scene/shaders/PreviewStageDimMaterial.vert
         src/preview/quick_scene/shaders/PreviewStageDimMaterial.frag
         src/preview/quick_scene/shaders/PreviewModernFireworkMaterial.vert
@@ -591,6 +603,8 @@ miacode_add_module(miacode_export
         src/export/video_export/VideoExportPendingFrameRedraw.h
         src/export/video_export/VideoExportPipeline.cpp
         src/export/video_export/VideoExportPreparedTask.cpp
+        src/export/video_export/VideoExportGif.cpp
+        src/export/video_export/VideoExportGif.h
         src/export/video_export/VideoExportQuickRenderBackend.cpp
         src/export/video_export/VideoExportQuickRenderBackend.h
         src/export/video_export/VideoExportRuntimePolicy.cpp
@@ -634,6 +648,10 @@ miacode_add_module(miacode_media_tools
         src/media_tools/media/MediaPrependPolicy.h
         src/media_tools/media/PvCompressionPolicy.cpp
         src/media_tools/media/PvCompressionPolicy.h
+        src/media_tools/media/VideoAudioAlignment.cpp
+        src/media_tools/media/VideoAudioAlignment.h
+        src/media_tools/media/VideoCompression.cpp
+        src/media_tools/media/VideoCompression.h
         src/media_tools/net/NetBatchDownloadWorker.cpp
         src/media_tools/net/NetBatchDownloadWorker.h
         src/media_tools/net/NetBatchUploadScanner.cpp

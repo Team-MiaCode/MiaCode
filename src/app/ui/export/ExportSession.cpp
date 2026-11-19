@@ -774,6 +774,11 @@ void ExportSession::startExport()
     if (engine() == nullptr) {
         return;
     }
+    if (jobProgress_ != nullptr && jobProgress_->active()) {
+        uiRequests_->postToast(miacode::NoticeSeverity::Information,
+            miacode::localizedText("job_progress.busy"));
+        return;
+    }
     ++pagePrepareGeneration_;
     if (!hasSeededTask_) {
         seedFromDifficulty(selectedDifficultyId_);

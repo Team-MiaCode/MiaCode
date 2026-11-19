@@ -5,7 +5,6 @@
 #include <QSGClipNode>
 #include <QSGNode>
 #include <QSGSimpleRectNode>
-#include <QSGSimpleTextureNode>
 #include <QSGTransformNode>
 
 #include "timeline/quick/TimelineQuickLayerUtils.h"
@@ -215,18 +214,20 @@ QSGNode* TimelineQuickOverlayLayer::updateNode(
         || root->transformedStaticRevision != state.overlayRevision) {
         clearChildren(transformedStaticRoot);
         if (textures != nullptr) {
+            TimelineQuickSpriteBatchBuilder batch(transformedStaticRoot, false);
+            QHash<QString, QSGTexture*> glyphTextures;
             for (const auto& glyph : state.muriDots) {
                 const QString key = QStringLiteral("muri_dot|%1|%2|%3")
                                         .arg(qRound(glyph.rect.width()))
                                         .arg(qRound(glyph.rect.height()))
                                         .arg(glyph.fillColor.name(QColor::HexArgb));
-                if (QSGTexture* texture = textures->textureForKey(key, makeTimelineGlyphImage(glyph)); texture != nullptr) {
-                    auto* node = new QSGSimpleTextureNode();
-                    node->setTexture(texture);
-                    node->setRect(glyph.rect);
-                    transformedStaticRoot->appendChildNode(node);
+                auto texture = glyphTextures.constFind(key);
+                if (texture == glyphTextures.constEnd()) {
+                    texture = glyphTextures.insert(key, textures->textureForKey(key, makeTimelineGlyphImage(glyph)));
                 }
+                batch.appendQuad(texture.value(), glyph.rect);
             }
+            batch.flush();
         }
         root->transformedStaticNotesRevision = state.notesRevision;
         root->transformedStaticRevision = state.overlayRevision;

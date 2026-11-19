@@ -20,6 +20,8 @@
 #include <QtMath>
 
 #include <cstdio>   // G1 Commit 8 followup: std::snprintf for startup-beacon lines
+#include <limits>
+#include <cmath>
 
 #include "bass.h"
 #include "bassmix.h"
@@ -690,5 +692,13 @@ void BassPreviewAudioBackend::pauseBackgroundTrack()
 
 double BassPreviewAudioBackend::backgroundPlaybackSecond() const
 {
-    return authoritativeSecond();
+    if (backgroundTrackSample_ == nullptr || !playbackSession_.backgroundTrackRunning) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    const double sourceSecond = backgroundTrackSample_->currentSec();
+    if (!std::isfinite(sourceSecond) || sourceSecond < 0.0
+        || backgroundTrackSample_->isAtOrPastEnd(sourceSecond)) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    return sourceSecond - playbackSession_.backgroundTrackOffsetSeconds;
 }

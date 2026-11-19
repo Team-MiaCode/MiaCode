@@ -194,16 +194,6 @@ qint64 miacode::runtime::PlaybackCoordinator::timelineTargetFrameIntervalNs() co
     return qMax<qint64>(1LL, qRound64(1000000000.0 / qMax(1.0, timelineTargetFps)));
 }
 
-void miacode::runtime::PlaybackCoordinator::refreshTimelineWaveformPhaseCompensation()
-{
-    if (state_.timeline_.timelineQuickStateBridge_ == nullptr) {
-        return;
-    }
-    const qint64 frameIntervalNs = qMax<qint64>(1, previewCanvasTargetFrameIntervalNs());
-    state_.timeline_.timelineQuickStateBridge_->setWaveformPhaseCompensationSeconds(
-        static_cast<double>(frameIntervalNs) / 1000000000.0);
-}
-
 void miacode::runtime::PlaybackCoordinator::resetQtPreviewFixedFramePacing()
 {
     state_.qtPreviewNextFixedTickDueNs_ = -1;
@@ -273,7 +263,7 @@ void miacode::runtime::PlaybackCoordinator::requestNextDisplayRefreshPreviewFram
             );
         }
     }
-    state_.scene_->update();
+    state_.scene_->requestFramePresentation();
     scheduleNextQtPreviewTick();
 }
 
@@ -291,7 +281,7 @@ void miacode::runtime::PlaybackCoordinator::requestNextFixedIntervalPreviewFrame
     state_.qtPreviewFixedAwaitingFrameSinceMs_ = state_.qtPreviewWatchdogElapsed_.elapsed();
     state_.qtPreviewFixedAwaitingFrameSinceNs_ = state_.qtPreviewWatchdogElapsed_.nsecsElapsed();
     state_.qtPreviewFixedGateFrameRequestSeq_ += 1;
-    state_.scene_->update();
+    state_.scene_->requestFramePresentation();
     scheduleNextQtPreviewTick();
 }
 
@@ -323,7 +313,13 @@ void miacode::runtime::PlaybackCoordinator::advanceFixedIntervalGateAfterPresent
     const bool firstTick = state_.qtPreviewLastVisualTickNs_ < 0;
     const qint64 sinceLastNs =
         firstTick ? targetIntervalNs : qMax<qint64>(0, nowNs - state_.qtPreviewLastVisualTickNs_);
-    const bool gatePassed = firstTick || (sinceLastNs + slopNs) >= targetIntervalNs;
+    bool gatePassed = firstTick || (sinceLastNs + slopNs) >= targetIntervalNs;
+#ifdef Q_OS_MACOS
+    // The display already limits presents at its refresh rate. Applying the
+    // interval gate again can repeat a frame when a present arrives early.
+    const qint64 displayIntervalNs = qRound64(1000000000.0 / currentPreviewCanvasRefreshRate());
+    if (targetIntervalNs <= displayIntervalNs) gatePassed = true;
+#endif
     if (gatePassed) {
         // Record the canonical "tick time" now, BEFORE the tick runs. Using phase-locked
         // advancement (previous + targetInterval) keeps the tick cadence aligned with the
@@ -410,7 +406,6 @@ void miacode::runtime::PlaybackCoordinator::refreshPreviewFrameRateTimers()
             currentPreviewCanvasRefreshRate()
         );
     }
-    refreshTimelineWaveformPhaseCompensation();
 }
 
 void miacode::runtime::PlaybackCoordinator::setPreviewCanvasFrameRateMode(PreviewCanvasFrameRateMode mode, bool persistState)

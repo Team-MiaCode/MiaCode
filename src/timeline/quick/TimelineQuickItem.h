@@ -138,6 +138,9 @@ private:
     // afterAnimating hook on the item's current window — the phase-locked sampling point for
     // playback. Rebound whenever the item moves between windows (ItemSceneChange).
     QMetaObject::Connection renderCadenceConnection_;
+    QMetaObject::Connection renderFrameSampleConnection_;
+    QMetaObject::Connection renderFramePresentConnection_;
+    QMetaObject::Connection nativePresentationConnection_;
     QPointer<QQuickWindow> boundCadenceWindow_;
     int headerLeftLimit_ = 0;
     int headerRightLimit_ = 0;

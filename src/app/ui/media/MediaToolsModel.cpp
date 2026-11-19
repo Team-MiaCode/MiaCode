@@ -197,6 +197,11 @@ void MediaToolsModel::startBatchCompression()
     if (requests == nullptr || jobProgress == nullptr || batchRunning_ || jobs_.isEmpty()) {
         return;
     }
+    if (jobProgress->active()) {
+        requests->postToast(miacode::NoticeSeverity::Information,
+            miacode::localizedText("job_progress.busy"));
+        return;
+    }
     const bool hasCompressibleVideo = std::any_of(
         jobs_.cbegin(), jobs_.cend(), [](const miacode::media::PvCompressionJob& job) {
             return !job.videoPath.isEmpty()

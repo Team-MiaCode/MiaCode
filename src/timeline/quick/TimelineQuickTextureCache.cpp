@@ -1,9 +1,12 @@
 #include "timeline/quick/TimelineQuickTextureCache.h"
 
 #include <QDir>
+#include <QPainter>
 #include <QQuickWindow>
 #include <QSGTexture>
 #include <QStringList>
+
+#include <algorithm>
 
 #include "timeline/quick/TimelineQuickLayerUtils.h"
 #include "timeline/quick/TimelineQuickTextureCachePolicy.h"
@@ -59,6 +62,8 @@ void TimelineQuickTextureCache::clear()
 {
     qDeleteAll(textures_);
     textures_.clear();
+    noteTextureLookup_.clear();
+    holdScaleLookup_.clear();
     textureBytesByKey_.clear();
     textureBytes_ = 0;
     holdTextureParts_.clear();
@@ -228,12 +233,20 @@ QSGTexture* TimelineQuickTextureCache::noteTexture(
     qreal rotationDegrees,
     bool mirrorX)
 {
-    const QString key = noteTextureKey(spriteType, targetSize, rotationDegrees, mirrorX);
-    if (auto it = textures_.constFind(key); it != textures_.constEnd()) {
-        return it.value();
-    }
     if (!targetSize.isValid()) {
         return nullptr;
+    }
+    const TimelineQuickNoteTextureKey lookupKey{
+        spriteType, QSize(qMax(1, targetSize.width()), qMax(1, targetSize.height())),
+        miacode::timeline::transformedPixmapRotationTenths(rotationDegrees),
+        qRound(effectiveDevicePixelRatio() * 100.0), mirrorX};
+    if (const auto found = noteTextureLookup_.constFind(lookupKey); found != noteTextureLookup_.constEnd()) {
+        return found.value();
+    }
+    const QString key = noteTextureKey(spriteType, targetSize, rotationDegrees, mirrorX);
+    if (auto it = textures_.constFind(key); it != textures_.constEnd()) {
+        noteTextureLookup_.insert(lookupKey, it.value());
+        return it.value();
     }
     const qreal dpr = effectiveDevicePixelRatio();
     const QSize pixelSize(
@@ -245,7 +258,9 @@ QSGTexture* TimelineQuickTextureCache::noteTexture(
         return nullptr;
     }
     pixmap.setDevicePixelRatio(dpr);
-    return textureForPixmapKey(key, pixmap);
+    QSGTexture* texture = textureForPixmapKey(key, pixmap);
+    if (texture != nullptr) noteTextureLookup_.insert(lookupKey, texture);
+    return texture;
 }
 
 QSize TimelineQuickTextureCache::noteTargetSize(const QString& spriteType, qreal scale) const
@@ -255,7 +270,13 @@ QSize TimelineQuickTextureCache::noteTargetSize(const QString& spriteType, qreal
 
 qreal TimelineQuickTextureCache::holdScaleForBaseIconScale(const QString& spriteType, qreal baseIconScale) const
 {
-    return miacode::timeline::holdScaleForBaseIconScale(noteAssets_, spriteType, baseIconScale);
+    const QPair<QString, qreal> key(spriteType, baseIconScale);
+    if (const auto found = holdScaleLookup_.constFind(key); found != holdScaleLookup_.constEnd()) {
+        return found.value();
+    }
+    const qreal scale = miacode::timeline::holdScaleForBaseIconScale(noteAssets_, spriteType, baseIconScale);
+    holdScaleLookup_.insert(key, scale);
+    return scale;
 }
 
 TimelineQuickHoldTextureParts TimelineQuickTextureCache::holdTextureParts(
@@ -278,11 +299,39 @@ TimelineQuickHoldTextureParts TimelineQuickTextureCache::holdTextureParts(
         return size.isEmpty() ? QSizeF()
             : QSizeF(static_cast<qreal>(size.width()) / dpr, static_cast<qreal>(size.height()) / dpr);
     };
-    const TimelineQuickHoldTextureParts textures{
-        {textureForPixmapKey(QStringLiteral("hold_left_cap|%1").arg(key), parts.leftCap), logicalSize(parts.leftCap.size())},
-        {textureForPixmapKey(QStringLiteral("hold_right_cap|%1").arg(key), parts.rightCap), logicalSize(parts.rightCap.size())},
-        {textureForKey(QStringLiteral("hold_body|%1").arg(key), parts.bodySlice), logicalSize(parts.bodySlice.size())},
+    const QVector<QImage> images{parts.leftCap.toImage(), parts.rightCap.toImage(), parts.bodySlice};
+    if (std::any_of(images.cbegin(), images.cend(), [](const QImage& image) { return image.isNull(); })) return {};
+    constexpr int padding = 2;
+    const int atlasWidth = images[0].width() + images[1].width() + images[2].width() + padding * 6;
+    const int atlasHeight = qMax(images[0].height(), qMax(images[1].height(), images[2].height())) + padding * 2;
+    QImage atlas(atlasWidth, atlasHeight, QImage::Format_ARGB32_Premultiplied);
+    atlas.fill(Qt::transparent);
+    QPainter painter(&atlas);
+    painter.setCompositionMode(QPainter::CompositionMode_Source);
+    QVector<QRect> rects;
+    int left = padding;
+    for (const QImage& image : images) {
+        const QRect rect(left, padding, image.width(), image.height());
+        painter.drawImage(rect, image, QRect(QPoint(), image.size()));
+        for (int border = 1; border <= padding; ++border) {
+            painter.drawImage(QRect(rect.left() - border, rect.top(), 1, rect.height()), image, QRect(0, 0, 1, image.height()));
+            painter.drawImage(QRect(rect.right() + border, rect.top(), 1, rect.height()), image, QRect(image.width() - 1, 0, 1, image.height()));
+        }
+        painter.drawImage(QRect(rect.left() - padding, 0, rect.width() + padding * 2, padding),
+                          atlas, QRect(rect.left() - padding, rect.top(), rect.width() + padding * 2, 1));
+        painter.drawImage(QRect(rect.left() - padding, rect.bottom() + 1, rect.width() + padding * 2, padding),
+                          atlas, QRect(rect.left() - padding, rect.bottom(), rect.width() + padding * 2, 1));
+        rects.append(rect);
+        left += rect.width() + padding * 2;
+    }
+    painter.end();
+    QSGTexture* texture = textureForKey(QStringLiteral("hold_atlas|%1").arg(key), atlas);
+    if (texture == nullptr) return {};
+    const auto handle = [&](int index) {
+        return TimelineQuickTextureHandle{texture, logicalSize(images[index].size()),
+                                         texture->convertToNormalizedSourceRect(rects[index])};
     };
+    const TimelineQuickHoldTextureParts textures{handle(0), handle(1), handle(2)};
     holdTextureParts_.insert(key, textures);
     return textures;
 }

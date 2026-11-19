@@ -85,6 +85,8 @@ Session::Session(miacode::ApplicationServices& services, QObject* parent)
             this, &Session::seekPreviewToEditorLocation);
     connect(editorSyncController_, &miacode::EditorSyncController::selectionRangeExportRequested,
             this, &Session::requestSelectionRangeExport);
+    connect(editorSyncController_, &miacode::EditorSyncController::selectionRangeGifExportRequested,
+            this, &Session::requestSelectionRangeGifExport);
 
     // The preview appearance values live in the application assembly; this
     // window owns the live surfaces and the settings file, so it is what reacts
@@ -396,7 +398,6 @@ Session::Session(miacode::ApplicationServices& services, QObject* parent)
         {miacode::ui::ShortcutRegistry::instance().shortcutText(
             QStringLiteral("timeline.zoom_out"),
             QStringLiteral("Ctrl+WheelDown"))});
-    playback_->refreshTimelineWaveformPhaseCompensation();
     connect(state_.timeline_.timelineQuickStateBridge_,
             &TimelineQuickStateBridge::renderCadenceTick,
             this,

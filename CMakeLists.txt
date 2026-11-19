@@ -898,6 +898,8 @@ qt_add_qml_module(MiaCode
         src/app/ui/chrome/EditorInputContext.h
         src/app/ui/export/ExportSession.cpp
         src/app/ui/export/ExportSession.h
+        src/app/ui/export/AnimatedImageClipboardService.cpp
+        src/app/ui/export/AnimatedImageClipboardService.h
         src/app/ui/export/CoverExportSession.cpp
         src/app/ui/export/CoverExportSession.h
         src/app/ui/export/CoverExportWindow.cpp
@@ -956,6 +958,7 @@ target_link_libraries(MiaCode PRIVATE
     miacode_export
     miacode_media_tools
     Qt6::Core
+    Qt6::Concurrent
     Qt6::Gui
     Qt6::Network
     Qt6::Qml

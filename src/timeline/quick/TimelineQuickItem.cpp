@@ -1,4 +1,6 @@
 #include "timeline/quick/TimelineQuickItem.h"
+#include "timeline/quick/TimelineFramePresentationClock.h"
+#include "timeline/quick/TimelineNativePresentation.h"
 
 #include <QDateTime>
 #include <QElapsedTimer>
@@ -49,6 +51,17 @@
 #endif
 
 namespace {
+
+std::shared_ptr<TimelineFramePresentationClock> presentationClockForWindow(QQuickWindow* window)
+{
+    // Editor tabs in the same window consume one presentation history.
+    static QHash<QQuickWindow*, std::weak_ptr<TimelineFramePresentationClock>> clocks;
+    if (auto clock = clocks.value(window).lock()) return clock;
+    auto clock = std::make_shared<TimelineFramePresentationClock>();
+    clocks.insert(window, clock);
+    QObject::connect(window, &QObject::destroyed, [window]() { clocks.remove(window); });
+    return clock;
+}
 
 constexpr double kTimelineKeyHoldAccelerationPerSecond = 1.0;
 constexpr int kTimelineKeyHoldTickIntervalMs = 16;
@@ -460,27 +473,26 @@ QString renderMapWaveformPayload(
         return payload;
     }
 
-    const double phaseCompensationSeconds = qMax(0.0, state.waveformPhaseCompensationSeconds);
     const QPair<int, int> visibleColumns =
         miacode::waveform::visibleWaveformColumnRange(
             *level,
-            qMax(0.0, state.visibleStartSecond + phaseCompensationSeconds),
-            qMax(0.0, state.visibleEndSecond + phaseCompensationSeconds));
+            qMax(0.0, state.visibleStartSecond),
+            qMax(0.0, state.visibleEndSecond));
     const double firstColumnSecond =
         level->secondsPerColumn * static_cast<double>(visibleColumns.first);
-    const double firstColumnRenderedSecond = firstColumnSecond - phaseCompensationSeconds;
+    const double firstColumnRenderedSecond = firstColumnSecond;
     const qreal firstColumnWorldX = renderMapSecondToSceneXExact(state, firstColumnRenderedSecond);
     payload += QStringLiteral(
                    " wave_level=1 wave_spc_ms=%1 wave_cols=%2 "
                    "wave_visible_col_begin=%3 wave_visible_col_end=%4 "
-                   "wave_phase_comp_ms=%5 wave_visible_first_sec=%6 "
+                   "presentation_lead_ms=%5 wave_visible_first_sec=%6 "
                    "wave_visible_first_render_sec=%7 wave_visible_first_world_x=%8 "
                    "wave_visible_first_view_x=%9")
         .arg(level->secondsPerColumn * 1000.0, 0, 'f', 3)
         .arg(level->columns.size())
         .arg(visibleColumns.first)
         .arg(visibleColumns.second)
-        .arg(phaseCompensationSeconds * 1000.0, 0, 'f', 3)
+        .arg(stateBridge->presentationLeadSeconds() * 1000.0, 0, 'f', 3)
         .arg(firstColumnSecond, 0, 'f', 6)
         .arg(firstColumnRenderedSecond, 0, 'f', 6)
         .arg(firstColumnWorldX, 0, 'f', 3)
@@ -505,11 +517,11 @@ QString renderMapWaveformPayload(
     const double playheadColumnCenterSecond =
         playheadColumnStartSecond + (level->secondsPerColumn * 0.5);
     const double playheadColumnStartRenderedSecond =
-        playheadColumnStartSecond - phaseCompensationSeconds;
+        playheadColumnStartSecond;
     const double playheadColumnCenterRenderedSecond =
-        playheadColumnCenterSecond - phaseCompensationSeconds;
+        playheadColumnCenterSecond;
     const double playheadColumnEndRenderedSecond =
-        playheadColumnEndSecond - phaseCompensationSeconds;
+        playheadColumnEndSecond;
     const qreal playheadViewX =
         renderMapSecondToSceneXExact(state, playheadSecond)
         - state.horizontalScrollValue;
@@ -583,7 +595,7 @@ QString renderMapWaveformPayload(
     if (peakColumn >= 0) {
         const double peakCenterSecond =
             (static_cast<double>(peakColumn) + 0.5) * level->secondsPerColumn;
-        const double peakCenterRenderedSecond = peakCenterSecond - phaseCompensationSeconds;
+        const double peakCenterRenderedSecond = peakCenterSecond;
         const qreal peakCenterWorldX = renderMapSecondToSceneXExact(state, peakCenterRenderedSecond);
         const qreal peakCenterViewX =
             peakCenterWorldX - state.horizontalScrollValue;
@@ -1260,7 +1272,6 @@ miacode::timeline::TimelineSceneState TimelineQuickItem::currentSceneState() con
         request.fitViewportHeight = true;
         request.waveformBrightness = stateBridge_->waveformBrightness();
         request.measureLineBrightness = stateBridge_->measureLineBrightness();
-        request.waveformPhaseCompensationSeconds = stateBridge_->waveformPhaseCompensationSeconds();
         request.playbackEntrySeconds = stateBridge_->playbackEntrySeconds();
         request.playheadSeconds = stateBridge_->playheadSeconds();
         request.cursorSeconds = stateBridge_->cursorSeconds();
@@ -1660,30 +1671,36 @@ void TimelineQuickItem::bindRenderCadence(QQuickWindow* window)
         QObject::disconnect(renderCadenceConnection_);
         renderCadenceConnection_ = QMetaObject::Connection();
     }
+    QObject::disconnect(renderFrameSampleConnection_);
+    QObject::disconnect(renderFramePresentConnection_);
+    QObject::disconnect(nativePresentationConnection_);
     boundCadenceWindow_ = window;
     if (window == nullptr) {
         return;
     }
-    // afterAnimating is emitted on the GUI thread once per frame, immediately before the
-    // render thread is asked to synchronise that frame's scene graph. Sampling the playback
-    // clock here means the value we write is picked up by the sync that follows in the same
-    // turn, so sample->present latency is a fixed one frame instead of a free-running timer's
-    // random 0..16.7ms. That variance was the timeline judder: the clock is exact and frames
-    // are delivered on time, but each frame was drawn for a moment that had drifted.
-    //
-    // Deliberately NOT frameSwapped: that fires on the render thread and would need a queued
-    // hop back to the GUI thread, reintroducing a variable delay and racing the next sync.
-    //
-    // No lookahead bias is applied here — the timeline keeps trailing the preview's scene
-    // playhead by the preview's own +1 vsync (previewVisualLookaheadVsyncs, default 1.0). That
-    // offset is intentional and now constant rather than jittering.
+    const auto presentationClock = presentationClockForWindow(window);
+#ifdef Q_OS_MACOS
+    nativePresentationConnection_ = QObject::connect(
+        window, &QQuickWindow::beforeRendering, this,
+        [window, presentationClock]() { observeTimelineNativePresentation(window, presentationClock); },
+        Qt::DirectConnection);
+#endif
+    renderFrameSampleConnection_ = QObject::connect(
+        window, &QQuickWindow::beforeSynchronizing, this,
+        [presentationClock]() { presentationClock->beginRenderFrame(); }, Qt::DirectConnection);
+    renderFramePresentConnection_ = QObject::connect(
+        window, &QQuickWindow::frameSwapped, this,
+        [presentationClock]() { presentationClock->framePresented(); }, Qt::DirectConnection);
+    // Sample on the GUI thread for this frame. Completed frames provide the measured
+    // sample-to-present latency used to project its playhead into presentation time.
     renderCadenceConnection_ = QObject::connect(
         window, &QQuickWindow::afterAnimating, this,
-        [this]() {
+        [this, presentationClock]() {
             if (stateBridge_ == nullptr) {
                 return;
             }
-            stateBridge_->notifyRenderCadenceTick();
+            if (isVisible()) presentationClock->beginGuiFrame(stateBridge_->playbackCadenceActive());
+            stateBridge_->notifyRenderCadenceTick(presentationClock->presentationLeadSeconds());
             // Keep the loop spinning for as long as playback owns the cadence. The tick above
             // normally dirties this item (renderStateChanged -> syncSourceState -> update),
             // but whether an update() issued inside afterAnimating also queues the NEXT frame

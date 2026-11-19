@@ -470,7 +470,6 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
         request.headerMarkerRightLimit > 0 ? request.headerMarkerRightLimit : request.viewportSize.width();
     state.visibleStartSecond = xToSecond(state, state.timelineLeft);
     state.visibleEndSecond = xToSecond(state, request.viewportSize.width());
-    state.waveformPhaseCompensationSeconds = qMax(0.0, request.waveformPhaseCompensationSeconds);
     state.appearanceRevision = request.appearanceRevision;
     state.layoutRevision = request.layoutRevision;
     state.gridRevision = request.gridRevision;
@@ -590,7 +589,6 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
                 qMax(0.001, state.visibleEndSecond - state.visibleStartSecond),
                 qMax(1, request.viewportSize.width() - state.timelineLeft));
         if (waveformLevel != nullptr && !waveformLevel->columns.isEmpty()) {
-            const double phaseCompensationSeconds = qMax(0.0, request.waveformPhaseCompensationSeconds);
             // Phase 7 — scroll-bucket culling. When the caller has
             // opted in via request.horizontalCullPaddingPx > 0 and
             // bumps revisions per scroll bucket (TimelineQuickItem
@@ -612,8 +610,8 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
             const QPair<int, int> visibleColumns =
                 miacode::waveform::visibleWaveformColumnRange(
                     *waveformLevel,
-                    qMax(0.0, cullStartSecond + phaseCompensationSeconds),
-                    qMax(0.0, cullEndSecond + phaseCompensationSeconds));
+                    qMax(0.0, cullStartSecond),
+                    qMax(0.0, cullEndSecond));
             const qreal centerY = state.timelineTop + state.timelineHeight / 2.0;
             const qreal maxAmplitude = (qMax<qreal>(8.0, state.timelineHeight / 2.0 - 8.0) * 7.0) / 9.0;
             for (int index = visibleColumns.first; index < visibleColumns.second; ++index) {
@@ -621,9 +619,9 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
                 if (qAbs(column.max - column.min) <= 1e-5f) {
                     continue;
                 }
-                // Shift waveform presentation by the host-provided frame interval; cache times stay in audio seconds.
+                // Waveform columns and chart markers share the audio time origin.
                 const double columnStartSecond =
-                    waveformLevel->secondsPerColumn * static_cast<double>(index) - phaseCompensationSeconds;
+                    waveformLevel->secondsPerColumn * static_cast<double>(index);
                 const double columnEndSecond = columnStartSecond + waveformLevel->secondsPerColumn;
                 const qreal x0 = secondToXExact(state, columnStartSecond);
                 qreal x1 = secondToXExact(state, columnEndSecond);

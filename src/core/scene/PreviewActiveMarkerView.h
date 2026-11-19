@@ -16,6 +16,11 @@ public:
     {
     }
 
+    PreviewActiveMarkerView(const QVector<TimelineNoteMarker>& sourceMarkers, const QVector<int>& sourceIndices)
+        : sourceMarkers_(&sourceMarkers), sourceIndices_(&sourceIndices)
+    {
+    }
+
     PreviewActiveMarkerView(
         const QVector<TimelineNoteMarker>& sourceMarkers,
         const PreviewPreparedLayerWindow<PreviewPreparedMarkerEntry>& layer,
@@ -39,7 +44,7 @@ public:
     int size() const
     {
         if (!usesPreparedLayer()) {
-            return sourceMarkers_ != nullptr ? sourceMarkers_->size() : 0;
+            return sourceIndices_ != nullptr ? sourceIndices_->size() : sourceMarkers_ != nullptr ? sourceMarkers_->size() : 0;
         }
         return cursor_->activePreparedIndices.size();
     }
@@ -53,7 +58,7 @@ public:
     {
         Q_ASSERT(sourceMarkers_ != nullptr);
         if (!usesPreparedLayer()) {
-            return sourceMarkers_->at(index);
+            return sourceMarkers_->at(sourceIndexAt(index));
         }
         return markerForPreparedIndex(cursor_->activePreparedIndices.at(index));
     }
@@ -62,7 +67,7 @@ public:
     {
         Q_ASSERT(sourceMarkers_ != nullptr);
         if (!usesPreparedLayer()) {
-            return index;
+            return sourceIndices_ != nullptr ? sourceIndices_->at(index) : index;
         }
         return sourceIndexForPreparedIndex(cursor_->activePreparedIndices.at(index));
     }
@@ -90,7 +95,7 @@ public:
     bool isPreparedIndexActive(int preparedIndex) const
     {
         if (!usesPreparedLayer()) {
-            return preparedIndex >= 0 && sourceMarkers_ != nullptr && preparedIndex < sourceMarkers_->size();
+            return preparedIndex >= 0 && preparedIndex < size();
         }
         return preparedIndex >= 0
             && preparedIndex < cursor_->activePreparedMembership.size()
@@ -108,7 +113,7 @@ public:
     int sourceIndexForPreparedIndex(int preparedIndex) const
     {
         if (!usesPreparedLayer()) {
-            return preparedIndex;
+            return sourceIndexAt(preparedIndex);
         }
         const PreviewPreparedMarkerEntry* entry = preparedEntry(preparedIndex);
         return entry != nullptr ? entry->markerIndex : -1;
@@ -128,6 +133,7 @@ private:
     }
 
     const QVector<TimelineNoteMarker>* sourceMarkers_ = nullptr;
+    const QVector<int>* sourceIndices_ = nullptr;
     const PreviewPreparedLayerWindow<PreviewPreparedMarkerEntry>* layer_ = nullptr;
     const PreviewLayerWindowCursor* cursor_ = nullptr;
 };

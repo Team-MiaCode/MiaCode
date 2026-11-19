@@ -49,7 +49,6 @@ struct TimelineSceneBuildRequest {
     bool fitViewportHeight = false;
     double waveformBrightness = kTimelineWaveformBrightnessDefault;
     double measureLineBrightness = kTimelineMeasureLineBrightnessDefault;
-    double waveformPhaseCompensationSeconds = 0.0;
     double playbackEntrySeconds = 0.0;
     double playheadSeconds = 0.0;
     double cursorSeconds = 0.0;

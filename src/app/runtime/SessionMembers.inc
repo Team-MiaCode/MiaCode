@@ -83,7 +83,6 @@
         QByteArray videoExportWorkerStdoutBuffer_;
         QByteArray videoExportWorkerStderrBuffer_;
         VideoExportSnapshot videoExportWorkerSnapshot_;
-        QString videoExportWorkerJobId_;
         QString videoExportWorkerOutputPath_;
         QString videoExportWorkerExportLogPath_;
         QString videoExportWorkerFatalLogPath_;
@@ -517,7 +516,6 @@
     QByteArray& videoExportWorkerStdoutBuffer_ = state_.videoExportWorkerStdoutBuffer_;
     QByteArray& videoExportWorkerStderrBuffer_ = state_.videoExportWorkerStderrBuffer_;
     VideoExportSnapshot& videoExportWorkerSnapshot_ = state_.videoExportWorkerSnapshot_;
-    QString& videoExportWorkerJobId_ = state_.videoExportWorkerJobId_;
     QString& videoExportWorkerOutputPath_ = state_.videoExportWorkerOutputPath_;
     QString& videoExportWorkerExportLogPath_ = state_.videoExportWorkerExportLogPath_;
     QString& videoExportWorkerFatalLogPath_ = state_.videoExportWorkerFatalLogPath_;

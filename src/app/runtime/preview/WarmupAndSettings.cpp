@@ -244,7 +244,8 @@ void miacode::runtime::StageMediaHost::applyPreviewMediaWarmupResult(
     const QString& chartPath,
     qint64 workerElapsedMs)
 {
-    if (generation != state_.previewWarmupGeneration_) {
+    if (generation != state_.previewWarmupGeneration_
+        || generation <= invalidatedMediaWarmupGeneration_) {
         return;
     }
     appendStartupTimingStage("mainwindow/preview_media_data_warmup", workerElapsedMs, workerElapsedMs);

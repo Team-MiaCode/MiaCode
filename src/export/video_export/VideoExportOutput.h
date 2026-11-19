@@ -9,11 +9,14 @@ enum class VideoExportOutputMode {
     Mp4,
     Wav,
     Mp4AndWav,
+    Gif,
 };
 
 inline QString videoExportOutputModeToken(VideoExportOutputMode mode)
 {
     switch (mode) {
+    case VideoExportOutputMode::Gif:
+        return QStringLiteral("gif");
     case VideoExportOutputMode::Wav:
         return QStringLiteral("wav");
     case VideoExportOutputMode::Mp4AndWav:
@@ -28,6 +31,9 @@ inline VideoExportOutputMode videoExportOutputModeFromToken(
     const QString& token,
     VideoExportOutputMode fallback = VideoExportOutputMode::Mp4)
 {
+    if (token.compare(QStringLiteral("gif"), Qt::CaseInsensitive) == 0) {
+        return VideoExportOutputMode::Gif;
+    }
     if (token.compare(QStringLiteral("wav"), Qt::CaseInsensitive) == 0) {
         return VideoExportOutputMode::Wav;
     }
@@ -42,12 +48,12 @@ inline VideoExportOutputMode videoExportOutputModeFromToken(
 
 inline bool videoExportProducesMp4(VideoExportOutputMode mode)
 {
-    return mode != VideoExportOutputMode::Wav;
+    return mode == VideoExportOutputMode::Mp4 || mode == VideoExportOutputMode::Mp4AndWav;
 }
 
 inline bool videoExportProducesWav(VideoExportOutputMode mode)
 {
-    return mode != VideoExportOutputMode::Mp4;
+    return mode == VideoExportOutputMode::Wav || mode == VideoExportOutputMode::Mp4AndWav;
 }
 
 inline QString videoExportPathWithSuffix(const QString& path, const QString& suffix)
@@ -57,7 +63,8 @@ inline QString videoExportPathWithSuffix(const QString& path, const QString& suf
     }
     QString cleaned = QDir::cleanPath(QDir::fromNativeSeparators(path.trimmed()));
     if (cleaned.endsWith(QStringLiteral(".mp4"), Qt::CaseInsensitive)
-        || cleaned.endsWith(QStringLiteral(".wav"), Qt::CaseInsensitive)) {
+        || cleaned.endsWith(QStringLiteral(".wav"), Qt::CaseInsensitive)
+        || cleaned.endsWith(QStringLiteral(".gif"), Qt::CaseInsensitive)) {
         cleaned.chop(4);
     }
     return cleaned + QLatin1Char('.') + suffix;
@@ -67,12 +74,16 @@ inline QString videoExportPrimaryOutputPath(const QString& path, VideoExportOutp
 {
     return videoExportPathWithSuffix(
         path,
-        mode == VideoExportOutputMode::Wav ? QStringLiteral("wav") : QStringLiteral("mp4"));
+        mode == VideoExportOutputMode::Gif ? QStringLiteral("gif")
+            : mode == VideoExportOutputMode::Wav ? QStringLiteral("wav") : QStringLiteral("mp4"));
 }
 
 inline QStringList videoExportOutputPaths(const QString& primaryPath, VideoExportOutputMode mode)
 {
     QStringList paths;
+    if (mode == VideoExportOutputMode::Gif) {
+        paths.append(videoExportPathWithSuffix(primaryPath, QStringLiteral("gif")));
+    }
     if (videoExportProducesMp4(mode)) {
         paths.append(videoExportPathWithSuffix(primaryPath, QStringLiteral("mp4")));
     }
@@ -104,9 +115,7 @@ inline QString makeUniqueVideoExportOutputPath(
             ? fileStem
             : QStringLiteral("%1(%2)").arg(fileStem).arg(duplicateIndex);
         const QString candidate = outputDir.filePath(
-            candidateStem + (mode == VideoExportOutputMode::Wav
-                ? QStringLiteral(".wav")
-                : QStringLiteral(".mp4")));
+            candidateStem + QLatin1Char('.') + QFileInfo(normalizedPath).suffix());
         bool available = true;
         for (const QString& path : videoExportOutputPaths(candidate, mode)) {
             if (QFileInfo::exists(path)) {

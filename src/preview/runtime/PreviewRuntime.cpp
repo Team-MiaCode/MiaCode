@@ -244,13 +244,21 @@ std::shared_ptr<const miacode::preview::scene::PreviewFrameState> PreviewRuntime
     return std::atomic_load_explicit(&publishedFrameState_, std::memory_order_acquire);
 }
 
-void PreviewRuntime::publishFrameStateSnapshot()
+std::shared_ptr<const miacode::preview::scene::PreviewFrameState> PreviewRuntime::sceneFrameStateSnapshot() const
+{
+    return std::atomic_load_explicit(&publishedSceneFrameState_, std::memory_order_acquire);
+}
+
+void PreviewRuntime::publishFrameStateSnapshot(bool sceneFrameChanged)
 {
     auto snapshot =
         std::make_shared<miacode::preview::scene::PreviewFrameState>(frameState_);
     miacode::preview::scene::refreshPreviewFrameStateHudStatsSnapshot(*snapshot);
     std::shared_ptr<const miacode::preview::scene::PreviewFrameState> publishedSnapshot =
         std::move(snapshot);
+    if (sceneFrameChanged) {
+        std::atomic_store_explicit(&publishedSceneFrameState_, publishedSnapshot, std::memory_order_release);
+    }
     std::atomic_store_explicit(
         &publishedFrameState_,
         std::move(publishedSnapshot),
@@ -335,6 +343,16 @@ void PreviewRuntime::requestActivate()
 
 void PreviewRuntime::update()
 {
+    requestFrameUpdate(true);
+}
+
+void PreviewRuntime::requestFramePresentation()
+{
+    requestFrameUpdate(false);
+}
+
+void PreviewRuntime::requestFrameUpdate(bool sceneFrameChanged)
+{
     updateRequestCountTotal_ += 1;
     frameState_.updateRequestCount = updateRequestCountTotal_;
     PlaybackScopeAccumulator playbackScope;
@@ -363,7 +381,7 @@ void PreviewRuntime::update()
             updateRequestIntervalsMs_, updateRequestIntervalCount_, thresholdMs);
     }
     pendingPresentedStatsRefresh_ = true;
-    publishFrameStateSnapshot();
+    publishFrameStateSnapshot(sceneFrameChanged);
     emit frameStateChanged();
     if (visibleHostWindow_ != nullptr) {
         visibleHostWindow_->requestUpdate();
@@ -2037,7 +2055,7 @@ void PreviewRuntime::handlePresentedFrame()
                     .arg(warmupPresents));
         }
     }
-    publishFrameStateSnapshot();
+    publishFrameStateSnapshot(false);
     emit framePresented();
 }
 
