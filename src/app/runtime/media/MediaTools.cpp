@@ -3,6 +3,7 @@
 #include "media_tools/media/PvCompressionPolicy.h"
 #include "media_tools/media/MediaPrependPolicy.h"
 #include "media_tools/media/VideoAudioAlignment.h"
+#include "media_tools/media/VideoCompression.h"
 #include "app/services/UiRequestService.h"
 #include "app/services/JobProgressService.h"
 #include "app/services/ChartWorkspace.h"
@@ -519,134 +520,6 @@ bool probeMediaDurationSeconds(const QString& ffmpegPath, const QString& mediaPa
     return true;
 }
 
-bool compressVideoUnder20Mb(
-    const QString& ffmpegPath,
-    const QString& videoPath,
-    miacode::JobProgressService* jobProgress,
-    miacode::LocalizedText* error,
-    bool* cancelled = nullptr,
-    bool* preservedCompressed = nullptr)
-{
-    if (preservedCompressed != nullptr) {
-        *preservedCompressed = false;
-    }
-    const QFileInfo videoInfo(videoPath);
-    const qint64 originalBytes = videoInfo.size();
-    if (originalBytes > 0 && originalBytes < miacode::media::kPvCompressionHardLimitBytes) {
-        if (error != nullptr) {
-            *error = miacode::localizedText("media_tools.the_current_video_is_already");
-        }
-        return false;
-    }
-    const QString backupPath = videoInfo.dir().filePath(
-        QStringLiteral("%1_bak.%2").arg(videoInfo.completeBaseName(), videoInfo.suffix())
-    );
-    const QString tempPath = videoInfo.dir().filePath(QStringLiteral(".miacode_video_compress_tmp.mp4"));
-    QFile::remove(tempPath);
-    if (!copyFileReplacing(videoPath, backupPath, error)) {
-        return false;
-    }
-
-    double durationSeconds = 0.0;
-    if (!probeMediaDurationSeconds(ffmpegPath, backupPath, &durationSeconds, error)) {
-        return false;
-    }
-
-    QTemporaryDir passLogDirectory;
-    if (!passLogDirectory.isValid()) {
-        if (error != nullptr) {
-            *error = miacode::localizedText("media_tools.pass_log_directory_failed");
-        }
-        return false;
-    }
-
-    miacode::media::PvCompressionPlan plan =
-        miacode::media::makePvCompressionPlan(durationSeconds);
-    qint64 compressedBytes = 0;
-    bool encoded = false;
-    for (int attempt = 0; attempt < 2; ++attempt) {
-        QFile::remove(tempPath);
-        const QString passLogPath = QDir(passLogDirectory.path()).filePath(
-            QStringLiteral("x264-attempt-%1").arg(attempt));
-        const QStringList firstPass = miacode::media::makePvCompressionPassArguments(
-            backupPath, tempPath, passLogPath, plan, 1);
-        const QStringList secondPass = miacode::media::makePvCompressionPassArguments(
-            backupPath, tempPath, passLogPath, plan, 2);
-        const bool firstPassOk = runFfmpegBlocking(
-            ffmpegPath,
-            firstPass,
-            jobProgress,
-            miacode::localizedText("media_tools.compressing_video"),
-            miacode::localizedText("media_tools.compressing_video"),
-            durationSeconds,
-            error,
-            cancelled);
-        const bool secondPassOk = firstPassOk && runFfmpegBlocking(
-            ffmpegPath,
-            secondPass,
-            jobProgress,
-            miacode::localizedText("media_tools.compressing_video"),
-            miacode::localizedText("media_tools.compressing_video"),
-            durationSeconds,
-            error,
-            cancelled);
-        if (!firstPassOk || !secondPassOk) {
-            QFile::remove(tempPath);
-            return false;
-        }
-
-        compressedBytes = QFileInfo(tempPath).size();
-        if (miacode::media::isAcceptablePvCompressionOutput(originalBytes, compressedBytes)) {
-            encoded = true;
-            break;
-        }
-        if (attempt == 0 && compressedBytes >= miacode::media::kPvCompressionHardLimitBytes) {
-            plan = miacode::media::adjustedPvCompressionPlan(plan, compressedBytes);
-        } else {
-            break;
-        }
-    }
-
-    if (!encoded) {
-        QFile::remove(tempPath);
-        if (error != nullptr) {
-            *error = compressedBytes >= miacode::media::kPvCompressionHardLimitBytes
-                ? miacode::localizedText("media_tools.compressed_size_exceeded")
-                : miacode::localizedText("media_tools.compressed_size_not_reduced");
-        }
-        return false;
-    }
-    if (replaceFileWithTemp(tempPath, videoPath, error)) {
-        return true;
-    }
-    // Compression itself SUCCEEDED — only the in-place replace could not complete
-    // (the original is still held open). Don't discard the finished clip: move it
-    // beside the original under a clear, user-visible name so the work is kept and
-    // the user can swap it in by hand after freeing the file. The original is left
-    // untouched, and its bytes are also in the <base>_bak backup made up-front, so
-    // nothing is lost. `error` currently holds replaceFileWithTemp's lock
-    // diagnostic; prepend the "saved as …" note so both are shown.
-    const QString preservedPath = videoInfo.dir().filePath(
-        QStringLiteral("%1_compressed.%2").arg(videoInfo.completeBaseName(), videoInfo.suffix()));
-    QFile::remove(preservedPath);
-    if (QFile::rename(tempPath, preservedPath)) {
-        if (preservedCompressed != nullptr) {
-            *preservedCompressed = true;
-        }
-        if (error != nullptr) {
-            const miacode::LocalizedText staged = *error;
-            *error = miacode::localizedText("media_tools.compressed_but_replace_failed")
-                         .arg(QDir::toNativeSeparators(preservedPath));
-            if (!staged.isEmpty()) {
-                *error = *error + QStringLiteral("\n\n") + staged;
-            }
-        }
-    }
-    // If even the rename-out failed, leave the temp in place (still recoverable)
-    // and keep replaceFileWithTemp's error as-is.
-    return false;
-}
-
 bool convertTrackTo44100Hz(
     const QString& ffmpegPath,
     const QString& trackPath,
@@ -916,12 +789,11 @@ QString resolveChartMp4Path(const QString& chartPath, const QString& videoFieldV
     return QString();
 }
 
-} // namespace
-
-struct miacode::runtime::MediaJobsHost::AlignmentJob {
+template<typename Result>
+struct AsyncMediaJob {
     QObject callbackContext;
-    QFutureWatcher<miacode::media::VideoAudioAlignmentResult> watcher;
-    miacode::media::VideoAudioAlignmentCancellation cancellation;
+    QFutureWatcher<Result> watcher;
+    std::shared_ptr<std::atomic_bool> cancellation;
     QMetaObject::Connection finishedConnection;
     QMetaObject::Connection cancellationConnection;
     QMetaObject::Connection ownershipConnection;
@@ -930,7 +802,37 @@ struct miacode::runtime::MediaJobsHost::AlignmentJob {
     quint64 token = 0;
     quint64 sequence = 0;
     bool running = false;
+
+    void disconnectCallbacks()
+    {
+        QObject::disconnect(finishedConnection);
+        QObject::disconnect(cancellationConnection);
+        QObject::disconnect(ownershipConnection);
+        QObject::disconnect(workspaceConnection);
+    }
+
+    void shutdown()
+    {
+        disconnectCallbacks();
+        if (cancellation != nullptr) {
+            cancellation->store(true, std::memory_order_relaxed);
+        }
+        // Workers never wait for a GUI callback, so shutdown can join them safely.
+        watcher.waitForFinished();
+        running = false;
+        if (progress != nullptr && progress->token() == token) {
+            progress->end();
+        }
+    }
 };
+
+} // namespace
+
+struct miacode::runtime::MediaJobsHost::AlignmentJob
+    : AsyncMediaJob<miacode::media::VideoAudioAlignmentResult> {};
+
+struct miacode::runtime::MediaJobsHost::CompressionJob
+    : AsyncMediaJob<miacode::media::VideoCompressionResult> {};
 
 miacode::runtime::MediaJobsHost::MediaJobsHost(
     Session& session, RuntimeContext::Ui& ui, RuntimeContext::State& state)
@@ -947,22 +849,11 @@ miacode::runtime::MediaJobsHost::~MediaJobsHost()
 void miacode::runtime::MediaJobsHost::shutdown()
 {
     shuttingDown_ = true;
-    if (alignmentJob_ == nullptr) {
-        return;
+    if (alignmentJob_ != nullptr) {
+        alignmentJob_->shutdown();
     }
-    AlignmentJob& job = *alignmentJob_;
-    QObject::disconnect(job.finishedConnection);
-    QObject::disconnect(job.cancellationConnection);
-    QObject::disconnect(job.ownershipConnection);
-    QObject::disconnect(job.workspaceConnection);
-    if (job.cancellation != nullptr) {
-        job.cancellation->store(true, std::memory_order_relaxed);
-    }
-    // The worker never waits for a GUI callback, so shutdown can join it safely.
-    job.watcher.waitForFinished();
-    job.running = false;
-    if (job.progress != nullptr && job.progress->token() == job.token) {
-        job.progress->end();
+    if (compressionJob_ != nullptr) {
+        compressionJob_->shutdown();
     }
 }
 
@@ -982,7 +873,10 @@ void miacode::runtime::MediaJobsHost::onCompressBackgroundVideo()
     MC_OP("miacode::runtime::MediaJobsHost::onCompressBackgroundVideo");
     if (rejectBusyJob()) return;
     miacode::UiRequestService* const requests = session_.uiRequestService();
-    if (requests == nullptr) {
+    miacode::JobProgressService* const jobProgress = session_.jobProgressService();
+    if (shuttingDown_ || requests == nullptr || jobProgress == nullptr || jobProgress->active()
+        || (alignmentJob_ != nullptr && alignmentJob_->running)
+        || (compressionJob_ != nullptr && compressionJob_->running)) {
         return;
     }
     const miacode::LocalizedText title = miacode::localizedText("media_tools.compress_video");
@@ -1018,13 +912,19 @@ void miacode::runtime::MediaJobsHost::onCompressBackgroundVideo()
     }
     const QString backupName =
         QStringLiteral("%1_bak.%2").arg(videoInfo.completeBaseName(), videoInfo.suffix());
+    const miacode::ChartWorkspaceSnapshot snapshot =
+        session_.applicationServices_.workspace().snapshot();
     requests->requestConfirmation(
         title,
         miacode::localizedText("media_tools.compress_1_under_20_mib")
             .arg(videoInfo.fileName(), backupName),
         miacode::localizedText("media_tools.compress_video"),
-        [this, title, videoPath, backupName](bool accepted) {
-            if (accepted) {
+        [this, title, videoPath, backupName, snapshot](bool accepted) {
+            const miacode::ChartWorkspaceSnapshot current =
+                session_.applicationServices_.workspace().snapshot();
+            if (accepted && current.revision == snapshot.revision
+                && current.documentOpenGeneration == snapshot.documentOpenGeneration
+                && current.filePath == snapshot.filePath) {
                 runCompressBackgroundVideo(title, videoPath, backupName);
             }
         });
@@ -1037,7 +937,8 @@ void miacode::runtime::MediaJobsHost::onAlignBackgroundVideoToTrack()
     miacode::UiRequestService* const requests = session_.uiRequestService();
     miacode::JobProgressService* const jobProgress = session_.jobProgressService();
     if (shuttingDown_ || requests == nullptr || jobProgress == nullptr || jobProgress->active()
-        || (alignmentJob_ != nullptr && alignmentJob_->running)) {
+        || (alignmentJob_ != nullptr && alignmentJob_->running)
+        || (compressionJob_ != nullptr && compressionJob_->running)) {
         return;
     }
     const miacode::LocalizedText title = miacode::localizedText("media_tools.align_pv_to_audio");
@@ -1127,10 +1028,7 @@ void miacode::runtime::MediaJobsHost::onAlignBackgroundVideoToTrack()
             }
             AlignmentJob& completedJob = *alignmentJob_;
             const miacode::media::VideoAudioAlignmentResult result = completedJob.watcher.result();
-            QObject::disconnect(completedJob.finishedConnection);
-            QObject::disconnect(completedJob.cancellationConnection);
-            QObject::disconnect(completedJob.ownershipConnection);
-            QObject::disconnect(completedJob.workspaceConnection);
+            completedJob.disconnectCallbacks();
             if (result.status == miacode::media::VideoAudioAlignmentStatus::Failed
                 && result.stage == miacode::media::VideoAudioAlignmentStage::Finalize) {
                 // Diagnose before reloading the preview, which would reopen the video.
@@ -1248,7 +1146,10 @@ void miacode::runtime::MediaJobsHost::runCompressBackgroundVideo(
     MC_OP("miacode::runtime::MediaJobsHost::runCompressBackgroundVideo");
     if (rejectBusyJob()) return;
     miacode::UiRequestService* const requests = session_.uiRequestService();
-    if (requests == nullptr) {
+    miacode::JobProgressService* const jobProgress = session_.jobProgressService();
+    if (shuttingDown_ || requests == nullptr || jobProgress == nullptr || jobProgress->active()
+        || (alignmentJob_ != nullptr && alignmentJob_->running)
+        || (compressionJob_ != nullptr && compressionJob_->running)) {
         return;
     }
     const QString ffmpegPath = resolveMediaToolFfmpegExecutable();
@@ -1259,31 +1160,146 @@ void miacode::runtime::MediaJobsHost::runCompressBackgroundVideo(
         return;
     }
 
-    releasePreviewMediaForFileOperation();
-
-    miacode::LocalizedText error;
-    bool cancelled = false;
-    bool preservedCompressed = false;
-    if (!compressVideoUnder20Mb(
-            ffmpegPath, videoPath, session_.jobProgressService(), &error, &cancelled,
-            &preservedCompressed)) {
-        // preservedCompressed means the encode succeeded and only the
-        // auto-replace was blocked by a file lock — a heads-up, not a failure.
-        requests->postNotice(
-            (cancelled || preservedCompressed) ? miacode::NoticeSeverity::Information
-                                               : miacode::NoticeSeverity::Error,
-            title,
-            cancelled ? miacode::localizedText("media_tools.video_compression_canceled")
-                      : error);
-        reloadPreviewMediaAfterFileOperation(false);
-        return;
+    auto& workspace = session_.applicationServices_.workspace();
+    const miacode::ChartWorkspaceSnapshot snapshot = workspace.snapshot();
+    const auto workspaceStillCurrent = [&workspace, snapshot]() {
+        const miacode::ChartWorkspaceSnapshot current = workspace.snapshot();
+        return current.revision == snapshot.revision
+            && current.documentOpenGeneration == snapshot.documentOpenGeneration
+            && current.filePath == snapshot.filePath;
+    };
+    if (compressionJob_ == nullptr) {
+        compressionJob_ = std::make_unique<CompressionJob>();
     }
-    reloadPreviewMediaAfterFileOperation(false);
-    showMediaOperationCompleteDialog(
-        title,
-        miacode::localizedText("media_tools.compressed_1_under_20_mib_2")
-            .arg(QFileInfo(videoPath).fileName(), backupName),
-        videoPath);
+    CompressionJob& job = *compressionJob_;
+    const quint64 sequence = ++job.sequence;
+    const miacode::LocalizedText label = miacode::localizedText("media_tools.compressing_video");
+    const quint64 jobToken = jobProgress->begin(title, label, /*cancellable=*/true);
+    job.running = true;
+    job.token = jobToken;
+    job.progress = jobProgress;
+    job.cancellation = std::make_shared<std::atomic_bool>(false);
+    const auto cancellation = job.cancellation;
+    job.workspaceConnection = QObject::connect(
+        &workspace, &miacode::ChartWorkspace::changed, &job.callbackContext,
+        [jobProgress, jobToken, cancellation, workspaceStillCurrent](quint64) {
+            if (!workspaceStillCurrent()) {
+                cancellation->store(true, std::memory_order_relaxed);
+                if (jobProgress->token() == jobToken) {
+                    jobProgress->requestCancel();
+                }
+            }
+        });
+    job.cancellationConnection = QObject::connect(
+        jobProgress, &miacode::JobProgressService::cancellationRequested, &job.callbackContext,
+        [jobToken, cancellation](quint64 token) {
+            if (token == jobToken) {
+                cancellation->store(true, std::memory_order_relaxed);
+            }
+        });
+    job.ownershipConnection = QObject::connect(
+        jobProgress, &miacode::JobProgressService::changed, &job.callbackContext,
+        [jobProgress, jobToken, cancellation]() {
+            if (!jobProgress->active() || jobProgress->token() != jobToken
+                || jobProgress->cancelRequested()) {
+                cancellation->store(true, std::memory_order_relaxed);
+            }
+        });
+    job.finishedConnection = QObject::connect(
+        &job.watcher, &QFutureWatcher<miacode::media::VideoCompressionResult>::finished,
+        &job.callbackContext,
+        [this, sequence, jobToken, title, videoPath, backupName, snapshot, workspaceStillCurrent]() {
+            if (shuttingDown_ || compressionJob_->sequence != sequence) {
+                return;
+            }
+            CompressionJob& completedJob = *compressionJob_;
+            const miacode::media::VideoCompressionResult result = completedJob.watcher.result();
+            completedJob.disconnectCallbacks();
+            if (result.status == miacode::media::VideoCompressionStatus::Failed
+                || result.status == miacode::media::VideoCompressionStatus::PreservedCompressed) {
+                logFileLockDiag(QStringLiteral("video_compression_failed"), videoPath, /*force=*/true);
+            }
+            const bool ownsProgress = completedJob.progress != nullptr
+                && completedJob.progress->active() && completedJob.progress->token() == jobToken;
+            const miacode::ChartWorkspaceSnapshot current =
+                session_.applicationServices_.workspace().snapshot();
+            if (current.documentOpenGeneration == snapshot.documentOpenGeneration
+                && current.filePath == snapshot.filePath) {
+                reloadPreviewMediaAfterFileOperation(false);
+            }
+            if (ownsProgress && completedJob.progress->token() == jobToken) {
+                if (result.status == miacode::media::VideoCompressionStatus::Compressed) {
+                    completedJob.progress->report(100, miacode::localizedText("media_tools.compressing_video"));
+                }
+                completedJob.progress->end();
+            }
+            completedJob.running = false;
+            if (!ownsProgress || !workspaceStillCurrent()) {
+                return;
+            }
+            miacode::UiRequestService* const requests = session_.uiRequestService();
+            if (requests == nullptr) {
+                return;
+            }
+            switch (result.status) {
+            case miacode::media::VideoCompressionStatus::Cancelled:
+                requests->postNotice(
+                    miacode::NoticeSeverity::Information, title,
+                    miacode::localizedText("media_tools.video_compression_canceled"));
+                break;
+            case miacode::media::VideoCompressionStatus::Failed:
+            case miacode::media::VideoCompressionStatus::PreservedCompressed:
+                requests->postNotice(
+                    result.status == miacode::media::VideoCompressionStatus::PreservedCompressed
+                        ? miacode::NoticeSeverity::Information : miacode::NoticeSeverity::Error,
+                    title, result.error);
+                break;
+            case miacode::media::VideoCompressionStatus::Compressed:
+                showMediaOperationCompleteDialog(
+                    title,
+                    miacode::localizedText("media_tools.compressed_1_under_20_mib_2")
+                        .arg(QFileInfo(videoPath).fileName(), backupName),
+                    videoPath);
+                break;
+            }
+        });
+
+    jobProgress->reportIndeterminate(label);
+    releasePreviewMediaForFileOperation();
+    if (!workspaceStillCurrent()) {
+        cancellation->store(true, std::memory_order_relaxed);
+        jobProgress->requestCancel();
+    }
+    const miacode::media::VideoCompressionRequest request{ffmpegPath, videoPath};
+    QObject* const callbackContext = &job.callbackContext;
+    const miacode::media::VideoCompressionProgress progress =
+        [this, callbackContext, sequence, jobToken, cancellation, workspaceStillCurrent](
+            miacode::media::VideoCompressionStage, int percent) {
+            QMetaObject::invokeMethod(
+                callbackContext,
+                [this, sequence, jobToken, cancellation, workspaceStillCurrent, percent]() {
+                    if (shuttingDown_ || compressionJob_->sequence != sequence
+                        || !compressionJob_->running || cancellation->load(std::memory_order_relaxed)) {
+                        return;
+                    }
+                    miacode::JobProgressService* const progressService = session_.jobProgressService();
+                    if (progressService == nullptr || !progressService->active()
+                        || progressService->token() != jobToken || !workspaceStillCurrent()) {
+                        cancellation->store(true, std::memory_order_relaxed);
+                        return;
+                    }
+                    const miacode::LocalizedText label = miacode::localizedText("media_tools.compressing_video");
+                    if (percent < 0) {
+                        progressService->reportIndeterminate(label);
+                    } else {
+                        progressService->report(qMin(percent, 99), label);
+                    }
+                },
+                Qt::QueuedConnection);
+        };
+    job.watcher.setFuture(QtConcurrent::run([request, cancellation, progress]() {
+        return miacode::media::runVideoCompression(request, cancellation, progress);
+    }));
 }
 
 void miacode::runtime::MediaJobsHost::onConvertTrackTo44100Hz()
