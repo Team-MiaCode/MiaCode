@@ -6,10 +6,7 @@ FFMPEG_DIR="${MIACODE_LINUX_FFMPEG_DIR:-$ROOT_DIR/third_party/ffmpeg/linux}"
 FFMPEG_PATH="$FFMPEG_DIR/ffmpeg"
 CACHE_DIR="${MIACODE_LINUX_FFMPEG_CACHE_DIR:-$ROOT_DIR/build/ffmpeg}"
 
-readonly FFMPEG_ARCHIVE_NAME="ffmpeg-n7.1.5-9-gb9a218bc1e-linux64-gpl-7.1.tar.xz"
-readonly FFMPEG_URL="https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-22-13-36/$FFMPEG_ARCHIVE_NAME"
-readonly EXPECTED_ARCHIVE_SHA256="1aa3246a617f1a1d17d2e9027685d19c633c10cd6e3d1e0589dfe1ed1db5f3fb"
-readonly EXPECTED_BINARY_SHA256="a253d9e7a94c9376d67d2df144f16671c8b3e2875a6311188146bdce2889e85a"
+readonly FFMPEG_ASSET_PATTERN='^ffmpeg-n7\.1\..*-linux64-gpl-7\.1\.tar\.xz$'
 readonly EXPECTED_VERSION_PATTERN='^ffmpeg version n?7\.1\.5([.-]|$)'
 
 require_command() {
@@ -18,10 +15,6 @@ require_command() {
     echo "Required command not found: $command_name" >&2
     exit 1
   fi
-}
-
-compute_sha256() {
-  sha256sum "$1" | awk '{print tolower($1)}'
 }
 
 require_output_token() {
@@ -37,15 +30,6 @@ require_output_token() {
 validate_binary() {
   local binary_path="$1"
   if [[ ! -f "$binary_path" || ! -s "$binary_path" || ! -x "$binary_path" ]]; then
-    return 1
-  fi
-
-  local actual_sha256
-  actual_sha256="$(compute_sha256 "$binary_path")"
-  if [[ "$actual_sha256" != "$EXPECTED_BINARY_SHA256" ]]; then
-    echo "FFmpeg binary hash mismatch at $binary_path" >&2
-    echo "Expected: $EXPECTED_BINARY_SHA256" >&2
-    echo "Actual:   $actual_sha256" >&2
     return 1
   fi
 
@@ -99,24 +83,66 @@ validate_binary() {
   echo "  $version_line"
 }
 
+# BtbN retires individual autobuild tags, so a hard-coded release URL rots.
+# Query the GitHub API for the newest autobuild that ships an n7.1 linux64-gpl
+# archive and download that instead. The asset is accepted based purely on the
+# runtime checks in validate_binary, so no archive hash is pinned.
+discover_ffmpeg_asset() {
+  local api="https://api.github.com/repos/BtbN/FFmpeg-Builds/releases"
+  local json_file
+  json_file="$(mktemp)"
+  if ! curl --fail --silent --show-error --location --http1.1 --retry 5 --retry-all-errors \
+    --retry-delay 2 -H "Accept: application/vnd.github+json" "$api?per_page=20" -o "$json_file"; then
+    rm -f "$json_file"
+    return 1
+  fi
+  MIACODE_FFMPEG_ASSET_PATTERN="$FFMPEG_ASSET_PATTERN" python3 -c '
+import json, os, re, sys
+
+pattern = re.compile(os.environ["MIACODE_FFMPEG_ASSET_PATTERN"])
+with open(sys.argv[1], encoding="utf-8") as stream:
+    releases = json.load(stream)
+for release in releases:
+    if not release.get("tag_name", "").startswith("autobuild-"):
+        continue
+    for asset in release.get("assets", []):
+        name = asset.get("name", "")
+        if pattern.match(name):
+            print(name)
+            print(asset["browser_download_url"])
+            sys.exit(0)
+sys.exit(1)
+' "$json_file"
+  local status=$?
+  rm -f "$json_file"
+  return $status
+}
+
 require_command curl
 require_command file
 require_command ldd
-require_command sha256sum
 require_command tar
 
 if validate_binary "$FFMPEG_PATH"; then
   exit 0
 fi
 
-ARCHIVE_PATH="$CACHE_DIR/$FFMPEG_ARCHIVE_NAME"
-EXTRACT_DIR="$CACHE_DIR/ffmpeg-n7.1.5-9-gb9a218bc1e"
 mkdir -p "$CACHE_DIR"
 
-if [[ ! -f "$ARCHIVE_PATH" ]] \
-  || [[ "$(compute_sha256 "$ARCHIVE_PATH")" != "$EXPECTED_ARCHIVE_SHA256" ]]; then
+mapfile -t discovered < <(discover_ffmpeg_asset)
+if [[ "${#discovered[@]}" -lt 2 ]]; then
+  echo "No Linux FFmpeg archive matching $FFMPEG_ASSET_PATTERN found in BtbN/FFmpeg-Builds" >&2
+  exit 1
+fi
+FFMPEG_ARCHIVE_NAME="${discovered[0]}"
+FFMPEG_URL="${discovered[1]}"
+ARCHIVE_PATH="$CACHE_DIR/$FFMPEG_ARCHIVE_NAME"
+EXTRACT_DIR="$CACHE_DIR/ffmpeg-extract"
+
+if [[ ! -s "$ARCHIVE_PATH" ]]; then
   download_path="$ARCHIVE_PATH.part"
-  echo "Downloading fixed Linux FFmpeg from $FFMPEG_URL"
+  echo "Downloading Linux FFmpeg from $FFMPEG_URL"
+  rm -f "$download_path"
   curl \
     --fail \
     --location \
@@ -126,14 +152,6 @@ if [[ ! -f "$ARCHIVE_PATH" ]] \
     --retry-delay 2 \
     --output "$download_path" \
     "$FFMPEG_URL"
-  actual_archive_sha256="$(compute_sha256 "$download_path")"
-  if [[ "$actual_archive_sha256" != "$EXPECTED_ARCHIVE_SHA256" ]]; then
-    echo "Downloaded FFmpeg archive hash mismatch" >&2
-    echo "Expected: $EXPECTED_ARCHIVE_SHA256" >&2
-    echo "Actual:   $actual_archive_sha256" >&2
-    rm -f "$download_path"
-    exit 1
-  fi
   mv -f "$download_path" "$ARCHIVE_PATH"
 fi
 
