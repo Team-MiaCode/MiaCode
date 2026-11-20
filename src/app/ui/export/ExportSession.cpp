@@ -1336,6 +1336,9 @@ void ExportSession::setClockCountEnabled(bool value)
     task_.clockCountEnabled = value;
     emit videoChanged();
     savePreferences();
+    if (engine() != nullptr && pageSessionActive_) {
+        engine()->setAuditionClockCountEnabled(selectedDifficultyId_, value);
+    }
 }
 
 void ExportSession::setIntroEnabled(bool value)

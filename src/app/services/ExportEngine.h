@@ -48,6 +48,9 @@ public:
     // Keep the export preview mode while presenting an empty difficulty.
     virtual void clearAudition() = 0;
     virtual void stopAudition() = 0;
+    // Turns the clock_count count-in of the running audition on or off without
+    // reinstalling its scene.
+    virtual void setAuditionClockCountEnabled(int difficultyId, bool enabled) = 0;
 
     // Start the single-chart export. Returns false and fills `errorMessage`
     // when the job could not be launched at all; a job that starts and later

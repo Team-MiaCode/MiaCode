@@ -364,14 +364,9 @@ void miacode::runtime::VideoExportHost::installExportPreviewAuditionScene(int di
             session_.previewPlaybackRate_ > 0.0 ? session_.previewPlaybackRate_ : 1.0,
             session_.previewTimingSettings_);
     }
-    // clock_count count-in is opt-in via the export dialog's "Enable clock_count"
-    // checkbox (default OFF), so the audition starts WITHOUT the count-in to match
-    // what will actually be exported (所见即所导). Toggling the checkbox re-seeds
-    // this live — see the clockCountEnabledChanged connection in
-    // createEmbeddedVideoExportPanel. The VALUE / BPM still come from the chart.
-    session_.setExportAuditionClockSchedule(
-        0,
-        miacode::chart_clock::clockBpmForChart(session_.applicationServices_.workspace().document(), difficulty->chart));
+    // The count-in follows the page's clock_count checkbox so the audition matches
+    // the export; the value and BPM come from the chart.
+    applyExportAuditionClockSchedule(difficultyId);
 
     // Set up the negative-time intro region (slider range + default playhead at
     // the intro head) when 添加片头 is on for this difficulty.
