@@ -4381,6 +4381,10 @@ Error: %1</translation>
         <source>Stop</source>
         <translation>Stop</translation>
     </message>
+    <message id="video_export.intro_music_copy_failed">
+        <source>Could not copy the audio into the intro music folder.</source>
+        <translation>Could not copy the audio into the intro music folder.</translation>
+    </message>
     <message id="video_export.intro_music_import">
         <source>Import audio…</source>
         <translation>Import audio…</translation>

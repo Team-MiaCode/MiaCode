@@ -694,10 +694,12 @@ Rectangle {
 
                                     objectName: "introSoundCombo"
                                     Layout.fillWidth: true
-                                    // The trailing entry opens the import picker rather than selecting.
+                                    // The trailing entries run an action rather than selecting.
                                     model: root.session
-                                           ? root.session.introSoundOptions.concat(
-                                                 [{ label: qsTrId("video_export.intro_music_import") }])
+                                           ? root.session.introSoundOptions.concat([
+                                                 { label: qsTrId("video_export.intro_music_import"), action: "import" },
+                                                 { label: qsTrId("action.open_folder"), action: "openFolder" }
+                                             ])
                                            : []
                                     textRole: "label"
                                     currentIndex: selectedIndex()
@@ -705,11 +707,24 @@ Rectangle {
                                     onActivated: function(index) {
                                         if (!root.session)
                                             return
-                                        if (index === count - 1) {
+                                        const action = model[index].action
+                                        if (action) {
                                             currentIndex = Qt.binding(selectedIndex)
-                                            root.session.importIntroSound()
+                                            if (action === "import")
+                                                root.session.importIntroSound()
+                                            else
+                                                root.session.openIntroSoundDirectory()
                                         } else {
                                             root.session.introSoundIndex = index
+                                        }
+                                    }
+
+                                    // The folder can change outside the app; rescan it each time the list opens.
+                                    Connections {
+                                        target: introSoundCombo.popup
+                                        function onAboutToShow() {
+                                            if (root.session)
+                                                root.session.refreshIntroSoundOptions()
                                         }
                                     }
                                 }

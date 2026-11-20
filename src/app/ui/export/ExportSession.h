@@ -214,6 +214,8 @@ public:
     Q_INVOKABLE void browseOutputPath();
     Q_INVOKABLE void browseIntroBackground();
     Q_INVOKABLE void importIntroSound();
+    Q_INVOKABLE void openIntroSoundDirectory();
+    Q_INVOKABLE void refreshIntroSoundOptions();
     Q_INVOKABLE void importIntroFont();
     Q_INVOKABLE void resetIntroFonts();
     Q_INVOKABLE void browseBatchOutputDirectory();
