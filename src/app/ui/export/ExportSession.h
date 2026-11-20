@@ -214,6 +214,8 @@ public:
     Q_INVOKABLE void browseOutputPath();
     Q_INVOKABLE void browseIntroBackground();
     Q_INVOKABLE void importIntroSound();
+    Q_INVOKABLE void openIntroSoundDirectory();
+    Q_INVOKABLE void refreshIntroSoundOptions();
     Q_INVOKABLE void importIntroFont();
     Q_INVOKABLE void resetIntroFonts();
     Q_INVOKABLE void browseBatchOutputDirectory();
@@ -239,6 +241,7 @@ public:
     Q_INVOKABLE QString setExportStartText(const QString& text);
     Q_INVOKABLE QString setIntroPvStartText(const QString& text);
     Q_INVOKABLE void toggleIntroAudition();
+    Q_INVOKABLE void auditionIntroSound();
     // The picker seeked inside its window (click or playhead drag).
     Q_INVOKABLE void noteIntroPvSeek();
     Q_INVOKABLE QString setExportEndText(const QString& text);

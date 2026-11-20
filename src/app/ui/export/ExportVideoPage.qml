@@ -675,6 +675,67 @@ Rectangle {
                                     onActivated: if (root.session) root.session.introPvPreview = currentIndex === 1
                                 }
                             }
+                            // The PV preview plays the song segment instead of an opening music.
+                            RowLayout {
+                                visible: !(root.session && root.session.introPvPreview)
+                                Text {
+                                    font.family: Theme.uiFont
+                                    font.pixelSize: Theme.uiFontSize
+                                    text: root.session ? root.session.introSoundLabel : ""
+                                    color: Theme.colors.text.secondary
+                                    Layout.preferredWidth: 120
+                                }
+                                AppComboBox {
+                                    id: introSoundCombo
+
+                                    function selectedIndex() {
+                                        return root.session ? root.session.introSoundIndex : 0
+                                    }
+
+                                    objectName: "introSoundCombo"
+                                    Layout.fillWidth: true
+                                    // The trailing entries run an action rather than selecting.
+                                    model: root.session
+                                           ? root.session.introSoundOptions.concat([
+                                                 { label: qsTrId("video_export.intro_music_import"), action: "import" },
+                                                 { label: qsTrId("action.open_folder"), action: "openFolder" }
+                                             ])
+                                           : []
+                                    textRole: "label"
+                                    currentIndex: selectedIndex()
+                                    Accessible.name: root.session ? root.session.introSoundLabel : ""
+                                    onActivated: function(index) {
+                                        if (!root.session)
+                                            return
+                                        const action = model[index].action
+                                        if (action) {
+                                            currentIndex = Qt.binding(selectedIndex)
+                                            if (action === "import")
+                                                root.session.importIntroSound()
+                                            else
+                                                root.session.openIntroSoundDirectory()
+                                        } else {
+                                            root.session.introSoundIndex = index
+                                        }
+                                    }
+
+                                    // The folder can change outside the app; rescan it each time the list opens.
+                                    Connections {
+                                        target: introSoundCombo.popup
+                                        function onAboutToShow() {
+                                            if (root.session)
+                                                root.session.refreshIntroSoundOptions()
+                                        }
+                                    }
+                                }
+                                IconButton {
+                                    objectName: "introSoundAuditionButton"
+                                    iconSource: Qt.resolvedUrl("icons/play.svg")
+                                    label: qsTrId("video_export.intro_audition")
+                                    tooltip: label
+                                    onClicked: if (root.session) root.session.auditionIntroSound()
+                                }
+                            }
                             RowLayout {
                                 Text {
                                     font.family: Theme.uiFont

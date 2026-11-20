@@ -93,6 +93,8 @@ public:
     // returns to where it started (repeating while the page loops it).
     virtual void setIntroAuditionPlaying(bool playing) = 0;
     virtual bool introAuditionPlaying() const = 0;
+    // Plays the classic intro's opening music once through the preview SFX bank.
+    virtual void auditionIntroSound() {}
 
 protected:
     ExportEngine() = default;
