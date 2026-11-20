@@ -704,6 +704,7 @@ bool miacode::runtime::VideoExportHost::startQmlExportAudition(int difficultyId,
                / static_cast<double>(visualTask.outputHeight))
             : 1.0;
     session_.setPreviewCanvasAspectRatio(aspectRatio, false);
+    auditionClockCountEnabled_ = visualTask.clockCountEnabled;
     installExportPreviewAuditionScene(difficultyId);
     if (session_.scene_ != nullptr) {
         session_.scene_->setBackgroundBrightnessOuter(visualTask.backgroundBrightnessOuter);
@@ -719,14 +720,6 @@ bool miacode::runtime::VideoExportHost::startQmlExportAudition(int difficultyId,
         session_.scene_->setShowObjectStatsHud(visualTask.showObjectStatsHud);
         session_.scene_->setShowChartInfoHud(visualTask.showChartInfoHud);
     }
-    if (const SimaiDifficultyData* difficulty = session_.applicationServices_.workspace().document().difficulty(difficultyId);
-        difficulty != nullptr) {
-        session_.setExportAuditionClockSchedule(
-            visualTask.clockCountEnabled
-                ? miacode::chart_clock::clockCountFromDocument(session_.applicationServices_.workspace().document())
-                : 0,
-            miacode::chart_clock::clockBpmForChart(session_.applicationServices_.workspace().document(), difficulty->chart));
-    }
     session_.refreshExportIntroState();
     return true;
 }
@@ -734,6 +727,30 @@ bool miacode::runtime::VideoExportHost::startQmlExportAudition(int difficultyId,
 void miacode::runtime::VideoExportHost::stopQmlExportAudition()
 {
     endExportPreviewSession();
+}
+
+void miacode::runtime::VideoExportHost::applyExportAuditionClockSchedule(int difficultyId)
+{
+    const SimaiDocument& document = session_.applicationServices_.workspace().document();
+    const SimaiDifficultyData* difficulty = document.difficulty(difficultyId);
+    if (difficulty == nullptr) {
+        session_.clearExportAuditionClockSchedule();
+        return;
+    }
+    session_.setExportAuditionClockSchedule(
+        auditionClockCountEnabled_ ? miacode::chart_clock::clockCountFromDocument(document) : 0,
+        miacode::chart_clock::clockBpmForChart(document, difficulty->chart));
+}
+
+void miacode::runtime::VideoExportHost::setAuditionClockCountEnabled(int difficultyId, bool enabled)
+{
+    auditionClockCountEnabled_ = enabled;
+    if (!session_.exportPreviewAuditionActive_) {
+        return;
+    }
+    applyExportAuditionClockSchedule(difficultyId);
+    // Skip ticks already behind the playhead so a toggle mid-playback does not replay them.
+    session_.playback_->resetExportAuditionClockCursor(currentAudioClockSecond());
 }
 
 void miacode::runtime::VideoExportHost::launchSelectionGifExport(

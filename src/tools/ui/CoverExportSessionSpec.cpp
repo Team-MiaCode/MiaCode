@@ -29,6 +29,7 @@ public:
     bool startAudition(int, const VideoExportTask&) override { return false; }
     void clearAudition() override {}
     void stopAudition() override {}
+    void setAuditionClockCountEnabled(int, bool) override {}
     bool launchVideoExport(const VideoExportTask&, int, QString*) override { return false; }
     bool launchBatchExport(const VideoExportTask&, const QStringList&, const QList<int>&,
                           const QString&, BatchResult*, const BatchCallbacks&, QString*) override { return false; }
