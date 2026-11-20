@@ -2,6 +2,7 @@
 
 #include "app/runtime/shell/ShellHost.h"
 #include "app/services/ExportPagePort.h"
+#include "audio/QtPreviewSfxRuntime.h"
 
 #include <QPointer>
 
@@ -107,6 +108,18 @@ void miacode::runtime::VideoExportHost::setIntroAuditionPlaying(bool playing)
 bool miacode::runtime::VideoExportHost::introAuditionPlaying() const
 {
     return session_.exportIntroAuditionPlaying();
+}
+
+void miacode::runtime::VideoExportHost::auditionIntroSound()
+{
+    // Live playback already plays the jingle at the intro head; a second copy would double it.
+    if (session_.playing_) {
+        return;
+    }
+    session_.ensurePreviewSfxRuntimePrepared();
+    if (session_.previewSfxRuntime_ != nullptr) {
+        session_.previewSfxRuntime_->audition(QStringLiteral("track_start"), 1.0);
+    }
 }
 
 int Session::resolveToolsMenuExportDifficultyId() const

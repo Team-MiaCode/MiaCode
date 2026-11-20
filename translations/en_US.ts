@@ -1614,12 +1614,12 @@ Failed: %2</translation>
         <translation>Audition</translation>
     </message>
     <message id="dialog.render_settings.music.default_intro_sound">
-        <source>Default intro sound</source>
-        <translation>Default intro sound</translation>
+        <source>Default</source>
+        <translation>Default</translation>
     </message>
     <message id="dialog.render_settings.music.intro_sound">
-        <source>Intro sound</source>
-        <translation>Intro sound</translation>
+        <source>Intro music</source>
+        <translation>Intro music</translation>
     </message>
     <message id="dialog.render_settings.preview.canvas_frame_rate">
         <source>Preview Refresh Rate</source>
@@ -4380,6 +4380,10 @@ Error: %1</translation>
     <message id="video_export.intro_audition_stop">
         <source>Stop</source>
         <translation>Stop</translation>
+    </message>
+    <message id="video_export.intro_music_import">
+        <source>Import audio…</source>
+        <translation>Import audio…</translation>
     </message>
     <message id="video_export.intro_music_segment">
         <source>Music segment</source>

@@ -675,6 +675,52 @@ Rectangle {
                                     onActivated: if (root.session) root.session.introPvPreview = currentIndex === 1
                                 }
                             }
+                            // The PV preview plays the song segment instead of an opening music.
+                            RowLayout {
+                                visible: !(root.session && root.session.introPvPreview)
+                                Text {
+                                    font.family: Theme.uiFont
+                                    font.pixelSize: Theme.uiFontSize
+                                    text: root.session ? root.session.introSoundLabel : ""
+                                    color: Theme.colors.text.secondary
+                                    Layout.preferredWidth: 120
+                                }
+                                AppComboBox {
+                                    id: introSoundCombo
+
+                                    function selectedIndex() {
+                                        return root.session ? root.session.introSoundIndex : 0
+                                    }
+
+                                    objectName: "introSoundCombo"
+                                    Layout.fillWidth: true
+                                    // The trailing entry opens the import picker rather than selecting.
+                                    model: root.session
+                                           ? root.session.introSoundOptions.concat(
+                                                 [{ label: qsTrId("video_export.intro_music_import") }])
+                                           : []
+                                    textRole: "label"
+                                    currentIndex: selectedIndex()
+                                    Accessible.name: root.session ? root.session.introSoundLabel : ""
+                                    onActivated: function(index) {
+                                        if (!root.session)
+                                            return
+                                        if (index === count - 1) {
+                                            currentIndex = Qt.binding(selectedIndex)
+                                            root.session.importIntroSound()
+                                        } else {
+                                            root.session.introSoundIndex = index
+                                        }
+                                    }
+                                }
+                                IconButton {
+                                    objectName: "introSoundAuditionButton"
+                                    iconSource: Qt.resolvedUrl("icons/play.svg")
+                                    label: qsTrId("video_export.intro_audition")
+                                    tooltip: label
+                                    onClicked: if (root.session) root.session.auditionIntroSound()
+                                }
+                            }
                             RowLayout {
                                 Text {
                                     font.family: Theme.uiFont

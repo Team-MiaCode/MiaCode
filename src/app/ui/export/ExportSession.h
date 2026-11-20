@@ -239,6 +239,7 @@ public:
     Q_INVOKABLE QString setExportStartText(const QString& text);
     Q_INVOKABLE QString setIntroPvStartText(const QString& text);
     Q_INVOKABLE void toggleIntroAudition();
+    Q_INVOKABLE void auditionIntroSound();
     // The picker seeked inside its window (click or playhead drag).
     Q_INVOKABLE void noteIntroPvSeek();
     Q_INVOKABLE QString setExportEndText(const QString& text);

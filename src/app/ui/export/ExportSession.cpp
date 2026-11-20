@@ -1516,6 +1516,13 @@ void ExportSession::toggleIntroAudition()
     emit introPreviewStateChanged();
 }
 
+void ExportSession::auditionIntroSound()
+{
+    if (engine() != nullptr) {
+        engine()->auditionIntroSound();
+    }
+}
+
 void ExportSession::noteIntroPvSeek()
 {
     introAuditionFromHead_ = false;

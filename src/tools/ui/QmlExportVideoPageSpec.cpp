@@ -127,6 +127,15 @@ ApplicationWindow {
         property string introFontDisplayPath: ""
         property string introFontBodyPath: ""
         property int introFontImportRequests: 0
+        property bool introPvPreview: false
+        property string introSoundLabel: "Intro music"
+        property var introSoundOptions: [
+            { label: "Default", fileName: "" },
+            { label: "jingle.ogg", fileName: "jingle.ogg" }
+        ]
+        property int introSoundIndex: 0
+        property int introSoundImportRequests: 0
+        property int introSoundAuditionRequests: 0
         property real exportStartSeconds: 60.0
         property real exportEndSeconds: 180.0
         property real retainedExportDurationSeconds: 120.0
@@ -164,6 +173,8 @@ ApplicationWindow {
         function browseOutputPath() {}
         function browseIntroBackground() {}
         function importIntroFont() { introFontImportRequests += 1 }
+        function importIntroSound() { introSoundImportRequests += 1 }
+        function auditionIntroSound() { introSoundAuditionRequests += 1 }
         function resetIntroFonts() {
             introFontDisplayPath = ""
             introFontBodyPath = ""
@@ -419,14 +430,43 @@ bool verifyRealExportPageControls(QTextStream& err)
         return false;
     }
 
-    // The intro's sound selection is hidden for now and its volume lives in the
-    // audio settings under the global volume, so the page offers neither.
+    // The classic intro picks its opening music in one row; the import picker is
+    // the combo's trailing entry and the volume stays in the audio settings.
+    QObject* introSoundCombo = root->findChild<QObject*>(QStringLiteral("introSoundCombo"));
+    QObject* introSoundAudition = root->findChild<QObject*>(QStringLiteral("introSoundAuditionButton"));
     ok &= require(
-        root->findChild<QObject*>(QStringLiteral("introSoundCombo")) == nullptr
+        introSoundCombo != nullptr && introSoundAudition != nullptr
             && root->findChild<QObject*>(QStringLiteral("introSoundImportButton")) == nullptr
-            && root->findChild<QObject*>(QStringLiteral("introSoundVolumeSlider")) == nullptr,
-        QStringLiteral("the export page offers no intro sound or intro volume controls"),
+            && root->findChild<QObject*>(QStringLiteral("introSoundVolumeSlider")) == nullptr
+            && introSoundCombo->property("count").toInt() == 3,
+        QStringLiteral("the export page offers one intro music row without a volume slider"),
         err);
+    if (introSoundCombo != nullptr && introSoundAudition != nullptr) {
+        introSoundCombo->setProperty("currentIndex", 1);
+        QMetaObject::invokeMethod(introSoundCombo, "activated", Q_ARG(int, 1));
+        ok &= require(session->property("introSoundIndex").toInt() == 1,
+                      QStringLiteral("choosing a library entry selects that intro music"),
+                      err);
+        introSoundCombo->setProperty("currentIndex", 2);
+        QMetaObject::invokeMethod(introSoundCombo, "activated", Q_ARG(int, 2));
+        QCoreApplication::processEvents();
+        ok &= require(session->property("introSoundImportRequests").toInt() == 1
+                          && session->property("introSoundIndex").toInt() == 1
+                          && introSoundCombo->property("currentIndex").toInt() == 1,
+                      QStringLiteral("the import entry opens the picker and keeps the current selection"),
+                      err);
+        QMetaObject::invokeMethod(introSoundAudition, "clicked");
+        ok &= require(session->property("introSoundAuditionRequests").toInt() == 1,
+                      QStringLiteral("the audition button plays the selected intro music"),
+                      err);
+        session->setProperty("introPvPreview", true);
+        QCoreApplication::processEvents();
+        auto* introSoundRow = qobject_cast<QQuickItem*>(introSoundCombo->parent());
+        ok &= require(introSoundRow != nullptr && !introSoundRow->isVisible(),
+                      QStringLiteral("the PV preview style hides the intro music row"),
+                      err);
+        session->setProperty("introPvPreview", false);
+    }
 
     displayFontCombo->setProperty("currentIndex", 1);
     QMetaObject::invokeMethod(displayFontCombo, "activated", Q_ARG(int, 1));
