@@ -81,6 +81,13 @@ Item {
         root._activeMenu = null
     }
 
+    // Close the menu tree before a tool opens its modal dialog. Otherwise the
+    // parent of the triggering submenu stays open behind the dialog.
+    function requestMediaTool(toolId) {
+        root.closeActiveMenu()
+        root.commands.mediaToolRequested(toolId)
+    }
+
     function toggleAnchoredMenu(menu, anchor) {
         if (root._activeMenu === menu)
             root.closeActiveMenu()
@@ -495,12 +502,12 @@ Item {
             AudioProcessingMenu {
                 enabled: root.commandsEnabled && root.documentAvailable
                 documentAvailable: root.documentAvailable
-                onToolRequested: toolId => root.commands.mediaToolRequested(toolId)
+                onToolRequested: toolId => root.requestMediaTool(toolId)
             }
             VideoProcessingMenu {
                 enabled: root.commandsEnabled && root.documentAvailable
                 documentAvailable: root.documentAvailable
-                onToolRequested: toolId => root.commands.mediaToolRequested(toolId)
+                onToolRequested: toolId => root.requestMediaTool(toolId)
             }
         }
 
