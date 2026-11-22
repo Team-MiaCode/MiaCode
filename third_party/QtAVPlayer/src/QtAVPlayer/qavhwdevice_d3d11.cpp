@@ -155,6 +155,7 @@ AVBufferRef *qavCreateSharedD3D11VADeviceContext()
 namespace {
 
 std::atomic<QAVPreviewDiagLogFn> g_diagLogFn{ nullptr };
+std::atomic<unsigned int> g_d3d11FailureLogCount{ 0 };
 
 // Dump config (published once from src before any media loads) + per-arm budget.
 std::atomic<int> g_dumpBudgetPerArm{ 0 };
@@ -249,6 +250,31 @@ void diagLog(const QString &payload)
     if (fn) {
         fn(payload.toUtf8().constData());
     }
+}
+
+void noteD3D11BridgeFailure(const char *stage, HRESULT result,
+                            ID3D11Device *decodeDevice, ID3D11Device *renderDevice)
+{
+    // Query device status only on failure and cap rows across all consumers.
+    constexpr unsigned int logLimit = 16;
+    const unsigned int count = g_d3d11FailureLogCount.fetch_add(1, std::memory_order_relaxed);
+    if (count >= logLimit) {
+        if (count == logLimit) {
+            diagLog(QStringLiteral("event=d3d11_failure_suppressed limit=%1").arg(logLimit));
+        }
+        return;
+    }
+
+    const HRESULT decodeRemovedReason = decodeDevice ? decodeDevice->GetDeviceRemovedReason() : S_OK;
+    const HRESULT renderRemovedReason = renderDevice ? renderDevice->GetDeviceRemovedReason() : S_OK;
+    diagLog(QStringLiteral("event=d3d11_failure stage=%1 hr=0x%2 decode_device=0x%3 "
+                           "render_device=0x%4 decode_removed_reason=0x%5 render_removed_reason=0x%6")
+                .arg(QString::fromLatin1(stage))
+                .arg(static_cast<quint32>(result), 0, 16)
+                .arg(reinterpret_cast<quintptr>(decodeDevice), 0, 16)
+                .arg(reinterpret_cast<quintptr>(renderDevice), 0, 16)
+                .arg(static_cast<quint32>(decodeRemovedReason), 0, 16)
+                .arg(static_cast<quint32>(renderRemovedReason), 0, 16));
 }
 
 // Per-frame geometry tracking: cheap atomic stores + a coded-size change compare.
@@ -711,7 +737,7 @@ public:
     bool isCorrupt() const { return m_corrupt; }
 
 private:
-    bool copyToShared(bool collectTiming);
+    bool copyToShared(ID3D11Device *renderDevice, bool collectTiming);
 
     const ComPtr<ID3D11Texture2D> m_texture;
     const UINT m_textureIndex = 0;
@@ -739,7 +765,7 @@ private:
     ComPtr<IDXGIKeyedMutex> m_destMutex;
 };
 
-bool QAVVideoFrame_D3D11::copyToShared(bool collectTiming)
+bool QAVVideoFrame_D3D11::copyToShared(ID3D11Device *renderDevice, bool collectTiming)
 {
     const bool timeBridge = collectTiming;
     const long long sourceSetupStartedNs = timeBridge ? steadyNowNs() : 0;
@@ -772,7 +798,10 @@ bool QAVVideoFrame_D3D11::copyToShared(bool collectTiming)
             g_sourceTextureCreateMaxUs,
             sourceCreateStartedNs);
     }
-    ENSURE(sourceCreateHr, false);
+    if (FAILED(sourceCreateHr)) {
+        noteD3D11BridgeFailure("source_create_texture", sourceCreateHr, m_hwctx->device, renderDevice);
+        return false;
+    }
     g_texturesCreated.fetch_add(1, std::memory_order_relaxed);
 
     // §10 PRIMARY FIX: force the decode GPU work for this DPB slot to COMPLETE before we
@@ -795,7 +824,12 @@ bool QAVVideoFrame_D3D11::copyToShared(bool collectTiming)
 
     ComPtr<IDXGIResource1> res;
     ENSURE(m_srcTex.As(&res), false);
-    ENSURE(res->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ, nullptr, &m_sharedHandle), false);
+    const HRESULT sharedHandleHr =
+        res->CreateSharedHandle(nullptr, DXGI_SHARED_RESOURCE_READ, nullptr, &m_sharedHandle);
+    if (FAILED(sharedHandleHr)) {
+        noteD3D11BridgeFailure("create_shared_handle", sharedHandleHr, m_hwctx->device, renderDevice);
+        return false;
+    }
     ENSURE(m_srcTex.As(&m_srcMutex), false);
     m_hwctx->device_context->Flush();
     // MiaCode S1: bounded acquire (was INFINITE). AcquireSync returns WAIT_TIMEOUT
@@ -813,12 +847,17 @@ bool QAVVideoFrame_D3D11::copyToShared(bool collectTiming)
     }
     if (srcAcq != S_OK) {
         g_acquireTimeouts.fetch_add(1, std::memory_order_relaxed);
+        noteD3D11BridgeFailure("source_acquire_sync", srcAcq, m_hwctx->device, renderDevice);
         qWarning() << QString::fromLatin1("Error@%1. AcquireSync(src) timeout/fail: (0x%2)")
                           .arg(__LINE__).arg(static_cast<quint32>(srcAcq), 0, 16);
         return false;
     }
     m_hwctx->device_context->CopySubresourceRegion(m_srcTex.Get(), 0, 0, 0, 0, m_texture.Get(), m_textureIndex, nullptr);
-    m_srcMutex->ReleaseSync(m_destKey);
+    const HRESULT srcRelease = m_srcMutex->ReleaseSync(m_destKey);
+    if (srcRelease != S_OK) {
+        noteD3D11BridgeFailure("source_release_sync", srcRelease, m_hwctx->device, renderDevice);
+        return false;
+    }
     return true;
 }
 
@@ -836,7 +875,7 @@ ComPtr<ID3D11Texture2D> QAVVideoFrame_D3D11::copyTexture(const ComPtr<ID3D11Devi
                 bridgeStartedNs);
         }
     });
-    if (!copyToShared(timeBridge))
+    if (!copyToShared(dev.Get(), timeBridge))
         return {};
 
     const long long destinationSetupStartedNs = timeBridge ? steadyNowNs() : 0;
@@ -859,7 +898,10 @@ ComPtr<ID3D11Texture2D> QAVVideoFrame_D3D11::copyTexture(const ComPtr<ID3D11Devi
             g_sharedResourceOpenMaxUs,
             openSharedStartedNs);
     }
-    ENSURE(openSharedHr, {});
+    if (FAILED(openSharedHr)) {
+        noteD3D11BridgeFailure("open_shared_resource", openSharedHr, m_hwctx->device, dev.Get());
+        return {};
+    }
     CD3D11_TEXTURE2D_DESC desc{};
     m_destTex->GetDesc(&desc);
 
@@ -882,7 +924,10 @@ ComPtr<ID3D11Texture2D> QAVVideoFrame_D3D11::copyTexture(const ComPtr<ID3D11Devi
             g_destinationTextureCreateMaxUs,
             destinationCreateStartedNs);
     }
-    ENSURE(destinationCreateHr, {});
+    if (FAILED(destinationCreateHr)) {
+        noteD3D11BridgeFailure("destination_create_texture", destinationCreateHr, m_hwctx->device, dev.Get());
+        return {};
+    }
     g_texturesCreated.fetch_add(1, std::memory_order_relaxed);
     ENSURE(m_destTex.As(&m_destMutex), {});
     // MiaCode S1: bounded acquire (was INFINITE). See copyToShared. A dest-side
@@ -898,13 +943,18 @@ ComPtr<ID3D11Texture2D> QAVVideoFrame_D3D11::copyTexture(const ComPtr<ID3D11Devi
     }
     if (destAcq != S_OK) {
         g_acquireTimeouts.fetch_add(1, std::memory_order_relaxed);
+        noteD3D11BridgeFailure("destination_acquire_sync", destAcq, m_hwctx->device, dev.Get());
         qWarning() << QString::fromLatin1("Error@%1. AcquireSync(dest) timeout/fail: (0x%2)")
                           .arg(__LINE__).arg(static_cast<quint32>(destAcq), 0, 16);
         return {};
     }
 
     ctx->CopySubresourceRegion(outputTex.Get(), 0, 0, 0, 0, m_destTex.Get(), 0, nullptr);
-    m_destMutex->ReleaseSync(m_srcKey);
+    const HRESULT destRelease = m_destMutex->ReleaseSync(m_srcKey);
+    if (destRelease != S_OK) {
+        noteD3D11BridgeFailure("destination_release_sync", destRelease, m_hwctx->device, dev.Get());
+        return {};
+    }
 
     // MiaCode diag: geometry tracking (coded-vs-display, always) + bounded OUTPUT
     // readback. On the two-device path the src vs output comparison localizes whether

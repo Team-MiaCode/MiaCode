@@ -58,6 +58,9 @@ void shutdownAsyncLogWriter();
 QString timestampString();
 QString logDirectory();
 void setSessionProjectLogDirectory(const QString& directoryPath);
+// Called after crash-log relocation; reads the destinations actually cached
+// by OperationLog. Normal startup/GUI-thread use only.
+void appendCrashBreadcrumbPathHint(const QString& projectLogDirectory);
 QString logPath(Channel channel);
 QString runtimeLogPath();
 QString audioLogPath();

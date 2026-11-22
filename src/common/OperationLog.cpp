@@ -623,14 +623,35 @@ void appendStartupBeaconLine(const char* lineUtf8) noexcept
 #endif
 }
 
-void relocateLogs(const QString& targetDirectory)
+QString startupBeaconPath()
 {
 #ifdef Q_OS_WIN
+    return QString::fromWCharArray(g_beaconPathW);
+#else
+    return {};
+#endif
+}
+
+QString shadowLogPath()
+{
+#ifdef Q_OS_WIN
+    return QString::fromWCharArray(g_shadowPathW);
+#else
+    return {};
+#endif
+}
+
+void relocateLogs(const QString& targetDirectory)
+{
     if (targetDirectory.trimmed().isEmpty()) {
         return;
     }
     const QString dir = QDir::cleanPath(targetDirectory.trimmed());
-    QDir().mkpath(dir);
+#ifdef Q_OS_WIN
+    if (!QDir().mkpath(dir)) {
+        miacode::debug_log::appendCrashBreadcrumbPathHint(dir);
+        return;
+    }
 
     const qint64 pid = QCoreApplication::applicationPid();
 
@@ -646,8 +667,9 @@ void relocateLogs(const QString& targetDirectory)
             // Copy existing beacon content forward so the full startup
             // diagnostic trail is preserved at the new location.
             const QString oldBeaconPath = QString::fromWCharArray(g_beaconPathW);
+            bool beaconReady = true;
             if (g_beaconPathW[0] != L'\0' && oldBeaconPath != newBeaconPath) {
-                ::CopyFileW(g_beaconPathW, newBeaconW.c_str(), FALSE);
+                beaconReady = ::CopyFileW(g_beaconPathW, newBeaconW.c_str(), FALSE) != 0;
             } else if (!QFileInfo::exists(newBeaconPath)) {
                 // No old beacon to copy and file doesn't exist at the new
                 // location yet — create an empty one so subsequent appends
@@ -656,16 +678,18 @@ void relocateLogs(const QString& targetDirectory)
                     newBeaconW.c_str(), GENERIC_WRITE,
                     FILE_SHARE_READ, nullptr,
                     CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-                if (h != INVALID_HANDLE_VALUE) {
+                beaconReady = h != INVALID_HANDLE_VALUE;
+                if (beaconReady) {
                     ::CloseHandle(h);
                 }
             }
 
-            // Update the cached path so future appendStartupBeaconLine
-            // calls write to the new location.
-            std::memset(g_beaconPathW, 0, sizeof(g_beaconPathW));
-            std::memcpy(g_beaconPathW, newBeaconW.c_str(),
-                        (newBeaconW.size() + 1) * sizeof(wchar_t));
+            // Failed copies must keep appending to the existing beacon.
+            if (beaconReady) {
+                std::memset(g_beaconPathW, 0, sizeof(g_beaconPathW));
+                std::memcpy(g_beaconPathW, newBeaconW.c_str(),
+                            (newBeaconW.size() + 1) * sizeof(wchar_t));
+            }
         }
     }
 
@@ -683,9 +707,8 @@ void relocateLogs(const QString& targetDirectory)
                         (newShadowW.size() + 1) * sizeof(wchar_t));
         }
     }
-#else
-    Q_UNUSED(targetDirectory);
 #endif
+    miacode::debug_log::appendCrashBreadcrumbPathHint(dir);
 }
 
 }  // namespace miacode::oplog
