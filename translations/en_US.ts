@@ -5139,8 +5139,8 @@ Error: %1</translation>
         <translation>Midnight</translation>
     </message>
     <message id="dialog.preferences.theme.forest">
-        <source>Forest</source>
-        <translation>Forest</translation>
+        <source>Si-callion</source>
+        <translation>Si-callion</translation>
     </message>
     <message id="dialog.preferences.theme.paper">
         <source>Warm Paper</source>

@@ -5139,7 +5139,7 @@ Error: %1</source>
         <translation>午夜蓝</translation>
     </message>
     <message id="dialog.preferences.theme.forest">
-        <source>Forest</source>
+        <source>Si-callion</source>
         <translation>小葱</translation>
     </message>
     <message id="dialog.preferences.theme.paper">
