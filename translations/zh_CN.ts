@@ -5140,7 +5140,7 @@ Error: %1</source>
     </message>
     <message id="dialog.preferences.theme.forest">
         <source>Forest</source>
-        <translation>森林绿</translation>
+        <translation>小葱</translation>
     </message>
     <message id="dialog.preferences.theme.paper">
         <source>Warm Paper</source>
