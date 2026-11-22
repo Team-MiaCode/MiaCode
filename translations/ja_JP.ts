@@ -3389,6 +3389,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Return to Main Window</source>
         <translation>メインウィンドウに戻す</translation>
     </message>
+    <message id="preview.window.show">
+        <source>Show Preview Window</source>
+        <translation>プレビューウィンドウを表示</translation>
+    </message>
     <message id="preview.window.title">
         <source>Preview</source>
         <translation>プレビュー</translation>
@@ -5211,9 +5215,29 @@ Error: %1</source>
         <source>Refresh</source>
         <translation>更新</translation>
     </message>
+    <message id="library.current_editing">
+        <source>Currently editing</source>
+        <translation>編集中</translation>
+    </message>
     <message id="library.search">
-        <source>Search songs or artists</source>
-        <translation>曲名またはアーティストで検索</translation>
+        <source>Search</source>
+        <translation>検索</translation>
+    </message>
+    <message id="library.all_difficulties">
+        <source>All difficulties</source>
+        <translation>すべての難易度</translation>
+    </message>
+    <message id="library.source_id">
+        <source>Source song ID</source>
+        <translation>楽曲ID</translation>
+    </message>
+    <message id="library.version">
+        <source>Version</source>
+        <translation>バージョン</translation>
+    </message>
+    <message id="library.genre">
+        <source>Genre</source>
+        <translation>ジャンル</translation>
     </message>
     <message id="library.scanning">
         <source>Scanning chart library…</source>

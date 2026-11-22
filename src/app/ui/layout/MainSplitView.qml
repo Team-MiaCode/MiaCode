@@ -9,6 +9,7 @@ Item {
     id: root
 
     required property Item backgroundSource
+    required property Item compactLibraryHost
     required property point backgroundOffset
     required property var viewState
     required property var documentSession
@@ -44,7 +45,7 @@ Item {
         ? detachedPreviewWindow.Overlay.overlay : root.Overlay.overlay
     property bool previewSurfaceMoving: false
     readonly property rect activityBarMaterialRect: Qt.rect(0, 0,
-        root.compact && !root.libraryActive ? 0 : root.preferences.efficientSidebarEnabled
+        root.compact ? 0 : root.preferences.efficientSidebarEnabled
             ? sidebar.width + sidebarToggle.width : sidebar.activityBarWidth,
         horizontalSplit.height)
     readonly property real minimumEditorWidth: Math.max(editorPane.minimumWidth,
@@ -54,8 +55,9 @@ Item {
         ? minimumEditorWidth
         : Math.max(620, minimumEditorWidth + preview.minimumWidth + Theme.splitDividerThickness)
     readonly property real expandedSidebarWidth:
-        root.preferences.sidebarWidth + Theme.splitDividerThickness
-        + (root.preferences.efficientSidebarEnabled ? 20 : Theme.activityButtonSize)
+        root.libraryActive ? sidebar.libraryContentWidth + Theme.activityButtonSize
+        : root.preferences.sidebarWidth + Theme.splitDividerThickness
+            + (root.preferences.efficientSidebarEnabled ? 20 : Theme.activityButtonSize)
     readonly property real minimumHeight: Math.max(
         editorHost.SplitView.minimumHeight + (root.bottomPanelEffectivelyVisible
             ? bottomPanel.minimumHeight + Theme.splitDividerThickness : 0),
@@ -76,11 +78,9 @@ Item {
         && root.viewState.bottomPanelVisible && root.timelineSession.panelVisible
     readonly property bool exportVideoActive:
         root.pages.activePageId === "export"
-    readonly property bool libraryActive: root.pages.activePageId === "chart-library"
-    onLibraryActiveChanged: {
-        if (libraryActive && previewSession.playing)
-            previewSession.playing = false
-    }
+    readonly property bool libraryActive: root.viewState.activeSidebarView === "library"
+    readonly property bool previewOnLeft: !libraryActive && root.preferencesModel.previewOnLeft
+    onPreviewOnLeftChanged: root.syncWorkspacePanelOrder()
     readonly property real previewEditorAvailableWidth:
         Math.max(1, workspaceSplit.width - (previewHost.visible ? Theme.splitDividerThickness : 0))
     signal openRequested()
@@ -173,11 +173,16 @@ Item {
     function toggleRenderModeMenu() {
         if (!preview.renderModeMenuAvailable)
             return
-        if (root.previewDetached) {
-            detachedPreviewWindow.raise()
-            detachedPreviewWindow.requestActivate()
-        }
+        if (root.previewDetached)
+            root.showDetachedPreview()
         preview.toggleRenderModeMenu()
+    }
+
+    function showDetachedPreview() {
+        if (detachedPreviewWindow.visibility === Window.Minimized)
+            detachedPreviewWindow.windowChrome.showRestored()
+        detachedPreviewWindow.raise()
+        detachedPreviewWindow.requestActivate()
     }
 
     function detachPreview() {
@@ -185,8 +190,7 @@ Item {
         root.previewSurfaceMoving = true
         root.preferences.previewDetached = true
         detachedPreviewWindow.windowChrome.showRestored()
-        detachedPreviewWindow.raise()
-        detachedPreviewWindow.requestActivate()
+        root.showDetachedPreview()
         Qt.callLater(root.finishPreviewMove)
     }
 
@@ -239,27 +243,23 @@ Item {
     }
 
     function syncWorkspacePanelOrder() {
-        const targetPreviewIndex = root.preferencesModel.previewOnLeft ? 0 : 1
+        if (!workspaceSplit || workspaceSplit.count !== 2)
+            return
+        const targetPreviewIndex = root.previewOnLeft ? 0 : 1
         const currentPreviewIndex = workspaceSplit.itemAt(0) === previewHost ? 0 : 1
         if (currentPreviewIndex !== targetPreviewIndex)
             workspaceSplit.moveItem(currentPreviewIndex, targetPreviewIndex)
     }
 
-    Connections {
-        target: root.preferencesModel
-        function onInterfaceChanged() {
-            root.syncWorkspacePanelOrder()
-        }
-    }
-
     PreviewPane {
         id: preview
+        objectName: "workspacePreviewPane"
         parent: root.previewDetached ? detachedPreviewContent : previewHost
         anchors.fill: parent
         documentAvailable: root.documentSession.hasDocument
-        surfaceActive: !root.previewSurfaceMoving && !root.libraryActive
+        surfaceActive: !root.previewSurfaceMoving
         detached: root.previewDetached
-        transportMirrored: root.preferencesModel.previewOnLeft && !root.previewDetached
+        transportMirrored: root.previewOnLeft && !root.previewDetached
         previewSession: root.previewSession
         preferences: root.preferences
         exportSession: root.pages.exportSession
@@ -494,10 +494,11 @@ Item {
             commands: root.commands
             pages: root.pages
             compact: root.compact
-            visible: root.libraryActive
-                || (!root.compact && (!root.preferences.efficientSidebarEnabled || root.viewState.sidebarVisible))
-            width: visible ? sidebar.activityBarWidth + (!root.libraryActive && root.viewState.sidebarVisible
-                ? (root.sidebarResizing ? root.sidebarDragWidth : root.preferences.sidebarWidth) : 0) : 0
+            visible: !root.compact && (root.libraryActive
+                || !root.preferences.efficientSidebarEnabled || root.viewState.sidebarVisible)
+            width: visible ? sidebar.activityBarWidth + (root.viewState.sidebarVisible
+                ? (root.libraryActive ? sidebar.libraryContentWidth
+                    : root.sidebarResizing ? root.sidebarDragWidth : root.preferences.sidebarWidth) : 0) : 0
             height: parent.height
             onSettingsRequested: root.settingsRequested()
             onMediaToolRequested: toolId => root.mediaToolRequested(toolId)
@@ -516,7 +517,6 @@ Item {
 
         SplitView {
             id: workspaceSplit
-            visible: !root.libraryActive
             orientation: Qt.Horizontal
             x: sidebar.width + sidebarHandle.width + sidebarToggle.width
             width: parent.width - x
@@ -614,14 +614,16 @@ Item {
         ChartLibraryPage {
             id: libraryPage
             objectName: "chartLibraryPage"
-            x: sidebar.width
-            width: parent.width - x
-            height: parent.height
+            parent: root.compact ? root.compactLibraryHost : sidebar.libraryHost
+            anchors.fill: parent
             visible: root.libraryActive
+            activeChartPath: root.documentSession.currentFilePath
             onDifficultyRequested: (chartUrl, difficulty) => {
                 if (root.documentSession.openSong(chartUrl, difficulty)) {
-                    root.pages.closeChartLibrary(true)
-                    root.viewState.activateEditor(root.viewState.difficultyEditorKey(difficulty))
+                    root.pages.ensureDifficultyPageActive(difficulty)
+                    root.viewState.openEditor(root.viewState.difficultyEditorKey(difficulty), false)
+                    if (root.compact)
+                        root.viewState.compactPanel = ""
                 }
             }
         }
@@ -632,7 +634,7 @@ Item {
             y: workspaceSplit.y
             splitView: workspaceSplit
             resizedItem: previewHost
-            resizeDirection: root.preferencesModel.previewOnLeft ? 1 : -1
+            resizeDirection: root.previewOnLeft ? 1 : -1
             minimumSize: root.previewEditorAvailableWidth * root.preferences.previewMinimumWidthRatio
             maximumSize: root.previewEditorAvailableWidth * root.preferences.previewMaximumWidthRatio
             targets: [{ size: root.previewEditorAvailableWidth * root.preferences.previewDefaultWidthRatio }]
@@ -716,7 +718,7 @@ Item {
             backgroundOffset: Qt.point(root.backgroundOffset.x + x, root.backgroundOffset.y)
             panelItem: !root.compact && root.viewState.sidebarVisible
                 ? sidebar.cornerSourceItem
-                : root.preferencesModel.previewOnLeft && previewHost.visible
+                : root.previewOnLeft && previewHost.visible
                     ? preview.cornerSourceItem
                     : root.exportVideoActive ? exportVideoPage.cornerSourceItem
                         : editorPane.cornerSourceItem

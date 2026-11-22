@@ -18,6 +18,7 @@ Rectangle {
     signal redoRequested()
     signal audioSettingsRequested()
     signal previewSettingsRequested()
+    signal showDetachedPreviewRequested()
     signal unavailableFeatureRequested(string featureName)
 
     property bool sidebarActive: false
@@ -139,6 +140,14 @@ Rectangle {
             label: qsTrId("action.video_settings")
             tooltip: qsTrId("action.video_settings")
             onClicked: root.previewSettingsRequested()
+        }
+        ToolBarButton {
+            objectName: "showDetachedPreviewButton"
+            visible: !root.previewSettingsVisible
+            iconSource: Qt.resolvedUrl("icons/preview-detach.svg")
+            label: qsTrId("preview.window.show")
+            tooltip: label
+            onClicked: root.showDetachedPreviewRequested()
         }
         ToolBarButton {
             objectName: "toggleSidebarButton"

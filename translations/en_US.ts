@@ -3389,6 +3389,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Return to Main Window</source>
         <translation>Return to Main Window</translation>
     </message>
+    <message id="preview.window.show">
+        <source>Show Preview Window</source>
+        <translation>Show Preview Window</translation>
+    </message>
     <message id="preview.window.title">
         <source>Preview</source>
         <translation>Preview</translation>
@@ -5211,9 +5215,29 @@ Error: %1</translation>
         <source>Refresh</source>
         <translation>Refresh</translation>
     </message>
+    <message id="library.current_editing">
+        <source>Currently editing</source>
+        <translation>Currently editing</translation>
+    </message>
     <message id="library.search">
-        <source>Search songs or artists</source>
-        <translation>Search songs or artists</translation>
+        <source>Search</source>
+        <translation>Search</translation>
+    </message>
+    <message id="library.all_difficulties">
+        <source>All difficulties</source>
+        <translation>All difficulties</translation>
+    </message>
+    <message id="library.source_id">
+        <source>Source song ID</source>
+        <translation>Source song ID</translation>
+    </message>
+    <message id="library.version">
+        <source>Version</source>
+        <translation>Version</translation>
+    </message>
+    <message id="library.genre">
+        <source>Genre</source>
+        <translation>Genre</translation>
     </message>
     <message id="library.scanning">
         <source>Scanning chart library…</source>

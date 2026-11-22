@@ -242,7 +242,7 @@ Item {
             state.activeSidebarView = "export"
         else if (page.startsWith("net-"))
             state.activeSidebarView = "network"
-        else if (state.activeSidebarView !== "tools")
+        else if (state.activeSidebarView !== "tools" && state.activeSidebarView !== "library")
             state.activeSidebarView = "chart"
     }
 
@@ -329,7 +329,8 @@ Item {
             Qt.callLater(setupWizard.open)
     }
 
-    onCompactChanged: state.compactPanel = ""
+    onCompactChanged: state.compactPanel = compact && state.activeSidebarView === "library"
+        && state.sidebarVisible && !splitView.previewSurfaceMoving ? "sidebar" : ""
 
     Column {
         anchors.fill: parent
@@ -420,6 +421,7 @@ Item {
                 onSaveWholeDocumentRequested: root.saveWholeDocument()
                 onAudioSettingsRequested: audioSettingsDialog.open()
                 onPreviewSettingsRequested: previewSettingsDialog.open()
+                onShowDetachedPreviewRequested: splitView.showDetachedPreview()
                 onUnavailableFeatureRequested: featureName => root.showUnavailableFeature(featureName)
             }
         }
@@ -432,6 +434,7 @@ Item {
             MainSplitView {
                 id: splitView
                 anchors.fill: parent
+                compactLibraryHost: compactPanelLayer.libraryHost
                 timelineGuideActive: beginnerGuide.visible
                     && beginnerGuide.selectedSection.id === "timeline-options"
                 backgroundSource: root.backgroundSource
@@ -584,7 +587,7 @@ Item {
         }
 
         function onDocumentReplaced() {
-            if (!root.documentSession.hasDocument)
+            if (!root.documentSession.hasDocument && state.activeSidebarView !== "library")
                 state.activeSidebarView = "chart"
             state.resetEditorTabs(root.documentSession.currentDifficultyId)
             const saved = root.songDifficultyTabs[root.documentSession.activeSongId]
@@ -638,7 +641,8 @@ Item {
             }
             root.commands.selectDifficulty(difficultyId)
             root.pages.ensureDifficultyPageActive(difficultyId)
-            state.activeSidebarView = "chart"
+            if (state.activeSidebarView !== "library")
+                state.activeSidebarView = "chart"
         }
 
         function onEditorPresentationCleared() {
@@ -671,7 +675,8 @@ Item {
             root.pendingDifficultyActivation = 0
             root.commands.selectDifficulty(difficultyId)
             root.pages.ensureDifficultyPageActive(difficultyId)
-            state.activeSidebarView = "chart"
+            if (state.activeSidebarView !== "library")
+                state.activeSidebarView = "chart"
         }
 
         function onNavigationRejected() {

@@ -3389,6 +3389,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Return to Main Window</source>
         <translation>返回主窗口</translation>
     </message>
+    <message id="preview.window.show">
+        <source>Show Preview Window</source>
+        <translation>显示预览窗口</translation>
+    </message>
     <message id="preview.window.title">
         <source>Preview</source>
         <translation>预览</translation>
@@ -5211,9 +5215,29 @@ Error: %1</source>
         <source>Refresh</source>
         <translation>刷新</translation>
     </message>
+    <message id="library.current_editing">
+        <source>Currently editing</source>
+        <translation>正在编辑</translation>
+    </message>
     <message id="library.search">
-        <source>Search songs or artists</source>
-        <translation>搜索曲名或曲师</translation>
+        <source>Search</source>
+        <translation>搜索</translation>
+    </message>
+    <message id="library.all_difficulties">
+        <source>All difficulties</source>
+        <translation>全部难度</translation>
+    </message>
+    <message id="library.source_id">
+        <source>Source song ID</source>
+        <translation>源曲目 ID</translation>
+    </message>
+    <message id="library.version">
+        <source>Version</source>
+        <translation>版本</translation>
+    </message>
+    <message id="library.genre">
+        <source>Genre</source>
+        <translation>流派</translation>
     </message>
     <message id="library.scanning">
         <source>Scanning chart library…</source>
