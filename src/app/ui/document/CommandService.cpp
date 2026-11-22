@@ -5,6 +5,7 @@
 
 #include <QDesktopServices>
 #include <QFileInfo>
+#include "core/chart/ChartAssetPaths.h"
 
 namespace miacode::ui {
 CommandService::CommandService(
@@ -31,12 +32,16 @@ void CommandService::whenDocumentMayBeLeft(std::function<void()> proceed)
 
 void CommandService::openDocument(const QUrl& fileUrl)
 {
-    whenDocumentMayBeLeft([this, fileUrl]() { document_->openChartFile(fileUrl); });
+    document_->openSong(fileUrl);
 }
 
 void CommandService::openRecentDocument(const QString& path)
 {
     if (path.trimmed().isEmpty()) {
+        return;
+    }
+    if (!miacode::chart_assets::isSupportedTrackFilePath(path)) {
+        document_->openSong(QUrl::fromLocalFile(path));
         return;
     }
     whenDocumentMayBeLeft(
@@ -61,7 +66,7 @@ void CommandService::closeDocument()
     if (document_ == nullptr || !document_->hasDocument()) {
         return;
     }
-    whenDocumentMayBeLeft([this]() { document_->closeDocument(); });
+    document_->requestCloseSong(document_->activeSongId());
 }
 
 bool CommandService::saveDocument() { return document_->save(); }

@@ -690,6 +690,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/chrome/StatusBar.qml
     src/app/ui/layout/MainView.qml
     src/app/ui/layout/MainSplitView.qml
+    src/app/ui/layout/ChartLibraryPage.qml
     src/app/ui/layout/WelcomePage.qml
     src/app/ui/layout/BeginnerGuideOverlay.qml
     src/app/ui/layout/SetupWizard.qml
@@ -709,6 +710,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/editor/EditorPane.qml
     src/app/ui/editor/MetadataDifficultyCard.qml
     src/app/ui/editor/EditorTabBar.qml
+    src/app/ui/editor/SongTabBar.qml
     src/app/ui/editor/SourceEditor.qml
     src/app/ui/editor/CompletionPopup.qml
     src/app/ui/editor/NormalizeOptionsDialog.qml
@@ -884,6 +886,8 @@ qt_add_qml_module(MiaCode
         src/app/ui/chrome/PlatformChrome.h
         src/app/ui/layout/PageHost.cpp
         src/app/ui/layout/PageHost.h
+        src/app/ui/layout/ChartLibraryModel.cpp
+        src/app/ui/layout/ChartLibraryModel.h
         src/app/ui/editor/EditorController.cpp
         src/app/ui/editor/EditorController.h
         src/app/ui/editor/ScintillaEditorBridge.cpp
@@ -975,6 +979,7 @@ target_include_directories(MiaCode PRIVATE
     # code includes them by their src-rooted path.
     src/app/ui/chrome
     src/app/ui/editor
+    src/app/ui/layout
     src/app/ui/pet
     src/app/ui/timeline
 )

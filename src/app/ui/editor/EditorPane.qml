@@ -197,17 +197,27 @@ Item {
     Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
-        y: tabs.height
+        y: tabs.y + tabs.height
         height: (root.sourceVisible ? sourceEditor.y : root.height) - y
         color: Theme.surfaceColor(Theme.colors.background.surface)
         visible: root.documentSession.hasDocument || root.viewState.netEditorActive
+    }
+
+    SongTabBar {
+        id: songTabs
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: visible ? implicitHeight : 0
+        documentSession: root.documentSession
+        previewSession: root.previewSession
     }
 
     EditorTabBar {
         id: tabs
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.top: parent.top
+        anchors.top: songTabs.bottom
         visible: root.viewState.openEditorTabs.length > 0
         height: visible ? implicitHeight : 0
         viewState: root.viewState

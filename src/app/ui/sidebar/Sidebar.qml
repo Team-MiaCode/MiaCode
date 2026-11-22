@@ -12,7 +12,8 @@ Item {
     property bool compact: false
     property string pendingChartEditor: ""
     readonly property bool efficientMode: preferences.efficientSidebarEnabled
-    readonly property bool primarySidebarVisible: compact || viewState.sidebarVisible
+    readonly property bool libraryActive: pages.activePageId === "chart-library"
+    readonly property bool primarySidebarVisible: !libraryActive && (compact || viewState.sidebarVisible)
     readonly property Item navigationItem: efficientMode ? efficientSidebar : activityBar
     readonly property Item chartSidebarItem: efficientMode
         ? efficientSidebar.navigationContentItem : chartSidebar.navigationContentItem
@@ -43,10 +44,20 @@ Item {
     // Activity Bar 只负责功能域导航。再次选择当前功能时，桌面端切换
     // Primary Sidebar；紧凑布局直接关闭当前覆盖层。
     function activateView(viewId) {
+        if (viewId === "library") {
+            root.viewState.activeSidebarView = "chart"
+            root.pages.openChartLibrary()
+            if (root.compact)
+                root.viewState.compactPanel = ""
+            return
+        }
+        const leavingLibrary = root.libraryActive
+        if (leavingLibrary)
+            root.pages.closeChartLibrary(viewId === "chart")
         const pageAlreadyActive = viewId === "export" ? root.pages.activePageId === "export"
             : viewId === "chart" ? !root.pages.overlayActive && !root.viewState.netEditorActive
             : true
-        if (viewState.activeSidebarView === viewId && pageAlreadyActive) {
+        if (!leavingLibrary && viewState.activeSidebarView === viewId && pageAlreadyActive) {
             if (compact) {
                 viewState.compactPanel = ""
                 return
@@ -69,6 +80,8 @@ Item {
         }
 
         viewState.activeSidebarView = viewId
+        if (compact && leavingLibrary && (viewId === "network" || viewId === "tools"))
+            viewState.compactPanel = "sidebar"
         if (!viewState.sidebarVisible) {
             viewState.sidebarVisible = true
             root.preferences.sidebarVisible = true
@@ -94,13 +107,13 @@ Item {
     ActivityBar {
         netUploadEnabled: root.pages.netUploadEnabled
         id: activityBar
-        visible: !root.efficientMode
-        width: root.efficientMode ? 0 : implicitWidth
+        visible: !root.efficientMode || root.libraryActive
+        width: !root.efficientMode || root.libraryActive ? implicitWidth : 0
         color: root.compact ? "transparent" : Theme.chromeSurfaceColor(Theme.colors.background.activityBar)
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        activeView: root.viewState.activeSidebarView
+        activeView: root.libraryActive ? "library" : root.viewState.activeSidebarView
         documentAvailable: root.documentSession.hasDocument
         networkActive: root.viewState.netEditorActive
         toolsAvailable: true
@@ -131,7 +144,6 @@ Item {
             color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
             anchors.fill: parent
             visible: !root.efficientMode && root.viewState.activeSidebarView === "chart"
-            enabled: root.documentSession.hasDocument
             viewState: root.viewState
             documentSession: root.documentSession
             commands: root.commands
@@ -151,6 +163,7 @@ Item {
             pages: root.pages
             toolsMenuActive: activityBar.toolsMenuActive
             onToolsRequested: activityBar.showMediaToolsMenu(efficientSidebar.toolsItem)
+            onLibraryRequested: root.activateView("library")
             onSettingsRequested: root.settingsRequested()
         }
 

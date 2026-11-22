@@ -5199,6 +5199,82 @@ Error: %1</source>
         <source>Shadow Y offset</source>
         <translation>阴影垂直偏移</translation>
     </message>
+    <message id="library.title">
+        <source>Chart library</source>
+        <translation>谱库</translation>
+    </message>
+    <message id="library.choose_folder">
+        <source>Choose library folder</source>
+        <translation>选择谱库目录</translation>
+    </message>
+    <message id="library.refresh">
+        <source>Refresh</source>
+        <translation>刷新</translation>
+    </message>
+    <message id="library.search">
+        <source>Search songs or artists</source>
+        <translation>搜索曲名或曲师</translation>
+    </message>
+    <message id="library.scanning">
+        <source>Scanning chart library…</source>
+        <translation>正在读取谱库…</translation>
+    </message>
+    <message id="library.missing_folder">
+        <source>Library folder unavailable</source>
+        <translation>找不到谱库目录</translation>
+    </message>
+    <message id="library.empty">
+        <source>No charts found</source>
+        <translation>没有找到谱面</translation>
+    </message>
+    <message id="library.audition">
+        <source>Listen</source>
+        <translation>试听</translation>
+    </message>
+    <message id="library.pause">
+        <source>Pause</source>
+        <translation>暂停</translation>
+    </message>
+    <message id="library.untitled">
+        <source>Untitled chart</source>
+        <translation>未命名谱面</translation>
+    </message>
+    <message id="library.difficulty.1">
+        <source>Easy</source>
+        <translation>Easy</translation>
+    </message>
+    <message id="library.difficulty.2">
+        <source>Basic</source>
+        <translation>Basic</translation>
+    </message>
+    <message id="library.difficulty.3">
+        <source>Advanced</source>
+        <translation>Advanced</translation>
+    </message>
+    <message id="library.difficulty.4">
+        <source>Expert</source>
+        <translation>Expert</translation>
+    </message>
+    <message id="library.difficulty.5">
+        <source>Master</source>
+        <translation>Master</translation>
+    </message>
+    <message id="library.difficulty.6">
+        <source>Re:Master</source>
+        <translation>Re:Master</translation>
+    </message>
+    <message id="library.difficulty.7">
+        <source>Utage</source>
+        <translation>Utage</translation>
+    </message>
+    <message id="library.result_count">
+        <source>%1 of %2 songs</source>
+        <translation>显示 %1 / %2 首</translation>
+    </message>
+    <message id="library.select_song">
+        <source>Select a song to see its details</source>
+        <translation>选择一首歌曲查看详情</translation>
+    </message>
 </context>
 <context>
     <!-- Qt loads qtbase texts for the system locale; this context keeps the

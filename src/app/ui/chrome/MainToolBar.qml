@@ -141,6 +141,7 @@ Rectangle {
             onClicked: root.previewSettingsRequested()
         }
         ToolBarButton {
+            objectName: "toggleSidebarButton"
             iconSource: Qt.resolvedUrl("icons/panel-left.svg")
             filledIconSource: Qt.resolvedUrl("icons/panel-left-fill.svg")
             tooltip: root.sidebarActive ? qsTrId("qml.close_sidebar") : qsTrId("qml.open_sidebar")

@@ -30,12 +30,21 @@ Rectangle {
         anchors.top: parent.top
 
         ActivityButton {
+            objectName: "chartActivityButton"
             height: 2 * Theme.workspaceHeaderContentCenterY
             iconSource: Qt.resolvedUrl("icons/file.svg")
             filledIconSource: Qt.resolvedUrl("icons/file-fill.svg")
             tooltip: qsTrId("qml.chart")
             selected: root.activeView === "chart"
             onClicked: root.viewRequested("chart")
+        }
+        ActivityButton {
+            objectName: "chartLibraryActivityButton"
+            iconSource: Qt.resolvedUrl("icons/folder-open.svg")
+            tooltip: qsTrId("library.title")
+            selected: root.activeView === "library"
+            activeFocusOnTab: true
+            onClicked: root.viewRequested("library")
         }
         ActivityButton {
             iconSource: Qt.resolvedUrl("icons/export.svg")
@@ -105,6 +114,7 @@ Rectangle {
         width: Theme.activityButtonSize
         height: Theme.activityButtonSize
         hoverEnabled: true
+        Accessible.name: button.tooltip
 
         // Controls size contentItem to the button's available area. Keep the
         // icon inside a container so its higher-resolution source cannot

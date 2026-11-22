@@ -5199,6 +5199,82 @@ Error: %1</source>
         <source>Shadow Y offset</source>
         <translation>影の縦方向オフセット</translation>
     </message>
+    <message id="library.title">
+        <source>Chart library</source>
+        <translation>譜面ライブラリ</translation>
+    </message>
+    <message id="library.choose_folder">
+        <source>Choose library folder</source>
+        <translation>ライブラリフォルダーを選択</translation>
+    </message>
+    <message id="library.refresh">
+        <source>Refresh</source>
+        <translation>更新</translation>
+    </message>
+    <message id="library.search">
+        <source>Search songs or artists</source>
+        <translation>曲名またはアーティストで検索</translation>
+    </message>
+    <message id="library.scanning">
+        <source>Scanning chart library…</source>
+        <translation>ライブラリを読み込み中…</translation>
+    </message>
+    <message id="library.missing_folder">
+        <source>Library folder unavailable</source>
+        <translation>ライブラリフォルダーが見つかりません</translation>
+    </message>
+    <message id="library.empty">
+        <source>No charts found</source>
+        <translation>譜面が見つかりません</translation>
+    </message>
+    <message id="library.audition">
+        <source>Listen</source>
+        <translation>試聴</translation>
+    </message>
+    <message id="library.pause">
+        <source>Pause</source>
+        <translation>一時停止</translation>
+    </message>
+    <message id="library.untitled">
+        <source>Untitled chart</source>
+        <translation>無題の譜面</translation>
+    </message>
+    <message id="library.difficulty.1">
+        <source>Easy</source>
+        <translation>Easy</translation>
+    </message>
+    <message id="library.difficulty.2">
+        <source>Basic</source>
+        <translation>Basic</translation>
+    </message>
+    <message id="library.difficulty.3">
+        <source>Advanced</source>
+        <translation>Advanced</translation>
+    </message>
+    <message id="library.difficulty.4">
+        <source>Expert</source>
+        <translation>Expert</translation>
+    </message>
+    <message id="library.difficulty.5">
+        <source>Master</source>
+        <translation>Master</translation>
+    </message>
+    <message id="library.difficulty.6">
+        <source>Re:Master</source>
+        <translation>Re:Master</translation>
+    </message>
+    <message id="library.difficulty.7">
+        <source>Utage</source>
+        <translation>Utage</translation>
+    </message>
+    <message id="library.result_count">
+        <source>%1 of %2 songs</source>
+        <translation>%2 曲中 %1 曲</translation>
+    </message>
+    <message id="library.select_song">
+        <source>Select a song to see its details</source>
+        <translation>曲を選択すると詳細が表示されます</translation>
+    </message>
 </context>
 <context>
     <!-- Qt loads qtbase texts for the system locale; this context keeps the

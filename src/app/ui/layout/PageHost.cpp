@@ -46,6 +46,10 @@ PageHost::PageHost(miacode::ShellNotifications& notifications,
         openVideoExportPage();
     });
     connect(&document, &DocumentModel::documentReplaced, this, [this]() {
+        if (activePageId_ == QLatin1String("chart-library")) {
+            closeChartLibrary(true);
+            return;
+        }
         if (activePageId_.startsWith(QStringLiteral("net-")) && document_ != nullptr && document_->hasDocument()) {
             activePageId_.clear();
             emit activePageIdChanged();
@@ -77,6 +81,7 @@ PageHost::PageHost(miacode::ShellNotifications& notifications,
     });
     connect(&document, &DocumentModel::documentStateChanged, this, [this]() {
         if (document_ == nullptr || document_->hasDocument() || activePageId_.isEmpty()
+            || activePageId_ == QLatin1String("chart-library")
             || activePageId_.startsWith(QStringLiteral("net-"))) {
             return;
         }
@@ -281,8 +286,35 @@ bool PageHost::openNetPage(const QString& page)
     });
 }
 
+bool PageHost::openChartLibrary()
+{
+    if (activePageId_ == QLatin1String("chart-library")) {
+        return true;
+    }
+    return requestPageSwitch([this] {
+        if (overlayActive() && !finishLeaveOverlay()) return false;
+        libraryReturnPageId_ = activePageId_;
+        activePageId_ = QStringLiteral("chart-library");
+        emit activePageIdChanged();
+        return true;
+    });
+}
+
+void PageHost::closeChartLibrary(bool showChart)
+{
+    if (activePageId_ != QLatin1String("chart-library")) return;
+    activePageId_ = showChart ? QString() : libraryReturnPageId_;
+    libraryReturnPageId_.clear();
+    emit activePageIdChanged();
+}
+
 bool PageHost::finishLeaveOverlay()
 {
+    if (activePageId_ == QLatin1String("chart-library")) {
+        closeChartLibrary();
+        emit overlayPageLeft();
+        return true;
+    }
     if (router() == nullptr) {
         return false;
     }
