@@ -13,8 +13,7 @@
 // Plain Space is an ordinary registry binding (preview.play_pause_non_text), not a
 // hard-coded gesture. The contract: it plays outside text/menus/dialogs, it can be
 // rebound, and it yields to any other command that owns the same keys.
-// Typing keys belong to the chart editor: it types them before shortcuts, and typing
-// that no shortcut takes in a neutral area returns to it.
+// The chart editor receives unclaimed typing keys, including from neutral areas.
 int main(int argc, char** argv)
 {
     QGuiApplication app(argc, argv);
@@ -34,15 +33,20 @@ Window {
     id: main; width: 320; height: 200; visible: true
     property int toggles: 0
     property int stops: 0
+    property int normalizations: 0
+    property bool normalizationEnabled: true
     QtObject {
         id: preview
         function stopOrPlay() { main.stops++ }
         function togglePlayback() { main.toggles++ }
         function adjustRate(direction) {}
     }
-    Chrome.PreviewShortcuts {
-        shortcuts: testShortcuts; previewSession: preview; inputContext: testInput
+    QtObject { id: commands; function shortcutCommandIds() { return [] } }
+    Chrome.ShortcutBindings {
+        shortcuts: testShortcuts; commands: commands; previewSession: preview; inputContext: testInput
         commandsEnabled: testInput.workbenchCommandsAllowed
+        chartNormalizationEnabled: main.normalizationEnabled
+        onChartNormalizationRequested: main.normalizations++
     }
     // Like ScintillaQuick, the chart editor is not a Qt text control and claims no keys itself.
     Item {
@@ -176,13 +180,26 @@ Window {
     };
 
     shortcuts.setShortcutText("preview.stop_or_play", "Space");
-    check(typeFrom("source", Qt::Key_Space) == " " && window->property("stops").toInt() == 0,
-          "the chart editor types a bound Space instead of running the shortcut");
-    check(typeFrom("neutral", Qt::Key_Space).isEmpty() && window->property("stops").toInt() == 1
+    check(typeFrom("source", Qt::Key_Space).isEmpty() && window->property("stops").toInt() == 1,
+          "a bound Space runs its shortcut in the chart editor without inserting text");
+    check(typeFrom("neutral", Qt::Key_Space).isEmpty() && window->property("stops").toInt() == 2
               && window->activeFocusItem() == neutral,
           "outside the editor a bound Space stays a shortcut");
     window->setProperty("stops", 0);
     shortcuts.resetShortcut("preview.stop_or_play");
+
+    const QString normalizeId = QStringLiteral("editor.normalize_chart");
+    check(shortcuts.sequence(normalizeId).isEmpty()
+              && typeFrom("source", Qt::Key_N).toLower() == "n",
+          "normalization has no default binding");
+    check(shortcuts.setShortcutText(normalizeId, "N")
+              && typeFrom("source", Qt::Key_N).isEmpty()
+              && window->property("normalizations").toInt() == 1,
+          "a configured single key runs normalization without inserting text");
+    window->setProperty("normalizationEnabled", false);
+    check(typeFrom("source", Qt::Key_N).toLower() == "n"
+              && window->property("normalizations").toInt() == 1,
+          "an unavailable normalization shortcut leaves the key to typing");
 
     check(typeFrom("neutral", Qt::Key_ParenLeft, Qt::ShiftModifier) == "("
               && window->activeFocusItem() == source,

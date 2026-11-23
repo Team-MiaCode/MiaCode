@@ -53,6 +53,7 @@ Item {
         && !pages.overlayActive && !beginnerGuideActive
     readonly property bool chartEditorActive: documentSession.hasDocument
         && documentSession.currentDifficultyId > 0 && !pages.overlayActive && !beginnerGuideActive
+    readonly property bool chartNormalizationAvailable: chartEditorActive && splitView.canNormalizeChart()
     readonly property alias mainMenuCommands: menuCommands
     readonly property string windowTitle: titleBar.titleText
     readonly property real minimumWidth: Math.max(splitView.minimumWorkspaceWidth,
@@ -266,6 +267,11 @@ Item {
         if (!root.chartEditorActive)
             return false
         return splitView.applyChartTransform(opId)
+    }
+
+    function normalizeChartWithPreferences() {
+        return root.chartNormalizationAvailable
+            && splitView.applyNormalization(root.documentSession.normalizeOptions())
     }
 
     function showUnavailableFeature(featureName) {
