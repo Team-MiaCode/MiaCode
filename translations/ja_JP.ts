@@ -5227,6 +5227,10 @@ Error: %1</source>
         <source>Refresh</source>
         <translation>更新</translation>
     </message>
+    <message id="workspace.open_songs">
+        <source>Open Songs</source>
+        <translation>開いている楽曲</translation>
+    </message>
     <message id="library.current_editing">
         <source>Currently editing</source>
         <translation>編集中</translation>

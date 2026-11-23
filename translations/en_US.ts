@@ -5227,6 +5227,10 @@ Error: %1</translation>
         <source>Refresh</source>
         <translation>Refresh</translation>
     </message>
+    <message id="workspace.open_songs">
+        <source>Open Songs</source>
+        <translation>Open Songs</translation>
+    </message>
     <message id="library.current_editing">
         <source>Currently editing</source>
         <translation>Currently editing</translation>

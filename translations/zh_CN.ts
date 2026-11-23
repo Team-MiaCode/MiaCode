@@ -5227,6 +5227,10 @@ Error: %1</source>
         <source>Refresh</source>
         <translation>刷新</translation>
     </message>
+    <message id="workspace.open_songs">
+        <source>Open Songs</source>
+        <translation>已打开的曲目</translation>
+    </message>
     <message id="library.current_editing">
         <source>Currently editing</source>
         <translation>正在编辑</translation>

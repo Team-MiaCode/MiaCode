@@ -73,10 +73,10 @@ Item {
             sourceEditor.paste()
     }
 
-    // Keyboard close follows the visible tab and its save prompt.
+    // Keyboard close follows the active editor and its save prompt.
     function requestCloseActiveEditor() {
-        if (tabs.activeTabKey.length > 0)
-            tabs.requestCloseTab(tabs.activeTabKey)
+        if (viewState.activeEditorKey.length > 0)
+            tabs.requestCloseTab(viewState.activeEditorKey)
     }
 
     function selectAll() {
@@ -207,10 +207,11 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        visible: tabCount > 0
+        visible: root.viewState.openEditorTabs.length > 0 || root.documentSession.songTabs.length > 1
         height: visible ? implicitHeight : 0
         viewState: root.viewState
         documentSession: root.documentSession
+        commands: root.commands
         pages: root.pages
         onSongRequested: songId => {
             if (songId !== root.documentSession.activeSongId && root.previewSession.playing)
@@ -295,7 +296,6 @@ Item {
 
     Item {
         id: difficultyHeader
-        objectName: "difficultyFieldsHeader"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: tabs.bottom
@@ -312,9 +312,10 @@ Item {
             readonly property real gap: 8
             readonly property real normalizeButtonWidth: normalizeButton.implicitWidth
             readonly property real wideWidth:
-                firstRowWidth + designerField.implicitWidth + normalizeButtonWidth + 2 * gap
+                levelField.implicitWidth + designerField.implicitWidth
+                + offsetField.implicitWidth + normalizeButtonWidth + 3 * gap
             readonly property real firstRowWidth:
-                difficultyField.implicitWidth + levelField.implicitWidth + offsetField.implicitWidth + 2 * gap
+                levelField.implicitWidth + offsetField.implicitWidth + gap
             readonly property real twoRowWidth:
                 Math.max(firstRowWidth,
                     designerField.implicitWidth + normalizeButtonWidth + gap)
@@ -323,49 +324,10 @@ Item {
 
             height: designerField.y + designerField.height
 
-            RowLayout {
-                id: difficultyField
-                spacing: headerContent.gap
-                width: Math.min(implicitWidth, headerContent.width)
-
-                Label {
-                    text: qsTrId("dialog.batch_export.difficulty")
-                    color: Theme.colors.text.primary
-                    font.family: Theme.uiFont
-                    font.pixelSize: Theme.uiFontSize
-                }
-
-                AppComboBox {
-                    id: difficultyPicker
-                    objectName: "workspaceDifficultyPicker"
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    backgroundColor: Theme.colors.background.panel
-                    outlined: true
-                    leftPadding: 8
-                    rightPadding: 24
-                    implicitWidth: Math.ceil(root.documentSession.difficulties.reduce(
-                        (widest, difficulty) => Math.max(widest, difficultyNameMetrics.advanceWidth(difficulty.name)),
-                        46)) + leftPadding + rightPadding
-                    model: root.documentSession.difficulties
-                    textRole: "name"
-                    valueRole: "id"
-                    currentIndex: model.findIndex(difficulty => difficulty.id === root.documentSession.currentDifficultyId)
-                    Accessible.name: qsTrId("dialog.batch_export.difficulty")
-                    onActivated: root.viewState.openDifficultyEditor(currentValue)
-
-                    FontMetrics {
-                        id: difficultyNameMetrics
-                        font: difficultyPicker.font
-                    }
-                }
-            }
-
             DifficultyHeaderField {
                 id: levelField
-                objectName: "workspaceDifficultyLevelField"
-                x: headerContent.wide || headerContent.twoRows ? difficultyField.width + headerContent.gap : 0
-                y: headerContent.wide || headerContent.twoRows ? 0 : difficultyField.height + headerContent.gap
+                x: 0
+                y: 0
                 stacked: !headerContent.wide && !headerContent.twoRows
                     && headerContent.width < implicitWidth
                 width: stacked ? headerContent.width : implicitWidth
@@ -391,7 +353,7 @@ Item {
                     headerContent.width - x - headerContent.normalizeButtonWidth - headerContent.gap))
                 labelText: qsTrId("net.designer")
                 value: root.documentSession.currentDifficultyDesigner
-                editorWidth: 76
+                editorWidth: 100
                 fillEditorWidth: true
                 onCommitted: value => root.documentSession.currentDifficultyDesigner = value
             }

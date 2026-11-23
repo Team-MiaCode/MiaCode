@@ -11,46 +11,29 @@ Item {
 
     required property var viewState
     required property var documentSession
+    required property var commands
     required property var pages
 
     signal songRequested(var songId)
 
-    readonly property var songsByKey: {
-        const songs = {}
-        for (const song of documentSession.songTabs)
-            songs["song:" + song.id] = song
-        return songs
-    }
-    // Keep delegate identity stable when the document republishes tab captions or dirty state.
-    readonly property string tabKeySequence: {
-        const songKeys = Object.keys(songsByKey)
-        const editorKeys = viewState.openEditorTabs
-        return songKeys.concat(songKeys.length === 0 ? editorKeys
-            : editorKeys.filter(key => !key.startsWith("difficulty:"))).join(" ")
-    }
-    readonly property var tabKeys: tabKeySequence.length > 0 ? tabKeySequence.split(" ") : []
-    readonly property string currentSongKey: "song:" + documentSession.activeSongId
-    readonly property string activeTabKey: songsByKey[currentSongKey]
-        && (viewState.difficultyEditorActive || !viewState.hasActiveEditor)
-        ? currentSongKey : viewState.activeEditorKey
     readonly property int minimumTabWidth: 80
-    readonly property int tabCount: tabKeys.length
-    readonly property real availableTabWidth: Math.max(0, width - (tabsOverflow ? overflowButton.width : 0))
+    readonly property int tabCount: viewState.openEditorTabs.length
+    readonly property real editorStripWidth: Math.max(0, width - (songsButton.visible ? songsButton.width : 0))
+    readonly property real availableTabWidth: Math.max(0,
+        editorStripWidth - (tabsOverflow ? overflowButton.width : 0))
     readonly property real activePreferredWidth: activeTabIndex >= 0
-        ? preferredWidthForKey(activeTabKey) : 0
+        ? preferredWidthForKey(viewState.activeEditorKey) : 0
     readonly property bool tabsOverflow: activeTabIndex >= 0
-        ? activePreferredWidth + (tabCount - 1) * minimumTabWidth > width
-        : tabCount * minimumTabWidth > width
+        ? activePreferredWidth + (tabCount - 1) * minimumTabWidth > editorStripWidth
+        : tabCount * minimumTabWidth > editorStripWidth
     function preferredWidthForKey(key) {
-        const title = tabCaption(key)
+        const title = (documentSession.dirtyEditorKeys.indexOf(key) >= 0 ? "*" : "") + titleForKey(key)
         const iconWidth = difficultyIdForKey(key) > 0 ? Theme.difficultySwatchSize
             : iconForKey(key).toString().length > 0 ? 15 : 0
-        const titleWidth = tabFontMetrics.advanceWidth(title)
         return Math.max(minimumTabWidth,
-            Math.ceil((songsByKey[key] ? Math.min(titleWidth, 156) : titleWidth)
-                + 14 + 9 + 24 + 6 + (iconWidth > 0 ? iconWidth + 6 : 0)))
+            Math.ceil(tabFontMetrics.advanceWidth(title) + 14 + 9 + 24 + 6 + (iconWidth > 0 ? iconWidth + 6 : 0)))
     }
-    readonly property var preferredTabWidths: tabKeys.map(key => preferredWidthForKey(key))
+    readonly property var preferredTabWidths: viewState.openEditorTabs.map(key => preferredWidthForKey(key))
     readonly property real preferredTabsWidth: preferredTabWidths.reduce((sum, value) => sum + value, 0)
     readonly property real inactiveTabScale: {
         const otherCount = tabCount - (activeTabIndex >= 0 ? 1 : 0)
@@ -89,11 +72,6 @@ Item {
 
     // Closing a dirty editor asks about that editor's staged content.
     function requestCloseTab(key) {
-        const song = songsByKey[key]
-        if (song) {
-            root.documentSession.requestCloseSong(song.id)
-            return
-        }
         const difficultyId = root.difficultyIdForKey(key)
         if (key === root.viewState.metadataEditorKey && !root.documentSession.finishPendingEdits())
             return
@@ -103,13 +81,6 @@ Item {
             return
         }
         root.documentSession.requestCloseDifficulty(difficultyId)
-    }
-
-    function tabCaption(key) {
-        const song = songsByKey[key]
-        if (song)
-            return (song.dirty ? "● " : "") + (song.title || qsTrId("library.untitled"))
-        return (documentSession.dirtyEditorKeys.indexOf(key) >= 0 ? "*" : "") + titleForKey(key)
     }
 
     function difficultyIdForKey(key) {
@@ -145,9 +116,6 @@ Item {
     }
 
     function tooltipForKey(key) {
-        const song = songsByKey[key]
-        if (song)
-            return song.path
         if (key === viewState.metadataEditorKey || key === viewState.latencyEditorKey)
             return ""
         const difficulty = difficultyData(difficultyIdForKey(key))
@@ -163,11 +131,6 @@ Item {
     }
 
     function activateTab(key) {
-        const song = songsByKey[key]
-        if (song) {
-            root.songRequested(song.id)
-            return
-        }
         if (root.viewState.isNetEditor(key)) {
             root.pages.openNetPage(key)
             return
@@ -184,7 +147,7 @@ Item {
 
     function editorKeyAt(rowX) {
         for (let index = 0; index < tabRepeater.count; ++index) {
-            const key = root.tabKeys[index]
+            const key = root.viewState.openEditorTabs[index]
             const item = tabRepeater.itemAt(index)
             if (!item)
                 continue
@@ -195,7 +158,7 @@ Item {
     }
 
     function revealActiveTab() {
-        const index = activeTabIndex
+        const index = viewState.openEditorTabs.indexOf(viewState.activeEditorKey)
         const item = index >= 0 ? tabRepeater.itemAt(index) : null
         if (!item)
             return
@@ -206,7 +169,7 @@ Item {
     }
 
     readonly property real outlineWidth: 1 / Screen.devicePixelRatio
-    readonly property int activeTabIndex: tabKeys.indexOf(activeTabKey)
+    readonly property int activeTabIndex: viewState.openEditorTabs.indexOf(viewState.activeEditorKey)
     readonly property real activeTabLeft: tabWidths.slice(0, Math.max(0, activeTabIndex))
         .reduce((sum, value) => sum + value, 0) - tabViewport.contentX
     readonly property real activeTabRight: activeTabLeft + (tabWidths[activeTabIndex] || 0)
@@ -249,7 +212,7 @@ Item {
 
         ShapePath {
             strokeWidth: -1
-            fillColor: Theme.surfaceColor(Theme.colors.background.panel)
+            fillColor: Theme.surfaceColor(Theme.colors.background.editorTabStrip)
             fillRule: ShapePath.OddEvenFill
             PathSvg {
                 path: "M 0 0 H " + root.width + " V " + root.height + " H 0 Z " + root.activeFillPath
@@ -278,7 +241,8 @@ Item {
         id: tabViewport
 
         anchors.left: parent.left
-        anchors.right: root.tabsOverflow ? overflowButton.left : parent.right
+        anchors.right: root.tabsOverflow ? overflowButton.left
+            : songsButton.visible ? songsButton.left : parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         contentWidth: tabRow.width
@@ -301,7 +265,7 @@ Item {
 
             Repeater {
                 id: tabRepeater
-                model: root.tabKeys
+                model: root.viewState.openEditorTabs
 
                 delegate: AppTab {
                     id: editorTab
@@ -310,20 +274,21 @@ Item {
                     required property int index
 
                     property bool suppressClickAfterDrag: false
-                    readonly property var song: root.songsByKey[modelData]
 
                     width: active ? preferredTabWidth
                         : root.minimumTabWidth + (preferredTabWidth - root.minimumTabWidth) * root.inactiveTabScale
                     height: parent.height
                     preferredTabWidth: root.preferredWidthForKey(modelData)
                     showSeparator: index < root.tabCount - 1
-                        && root.tabKeys[index + 1] !== root.activeTabKey
-                    text: root.tabCaption(modelData)
+                        && root.viewState.openEditorTabs[index + 1] !== root.viewState.activeEditorKey
+                    text: (root.documentSession.dirtyEditorKeys.indexOf(modelData) >= 0 ? "*" : "")
+                          + root.titleForKey(modelData)
+                    secondaryText: ""
                     iconSource: root.iconForKey(modelData)
                     difficultyId: root.difficultyIdForKey(modelData)
                     filledIconSource: root.iconForKey(modelData, true)
                     tooltip: root.tooltipForKey(modelData)
-                    active: root.activeTabKey === modelData
+                    active: root.viewState.activeEditorKey === modelData
                     closable: true
                     opacity: tabDrag.active ? 0.65 : 1
                     onClicked: {
@@ -336,7 +301,6 @@ Item {
                         id: tabDrag
 
                         target: null
-                        enabled: !editorTab.song
                         acceptedButtons: Qt.LeftButton
 
                         onActiveChanged: {
@@ -370,9 +334,48 @@ Item {
     property string draggingEditorKey: ""
 
     IconButton {
+        id: songsButton
+        objectName: "workspaceOpenSongsButton"
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: parent.height
+        visible: root.documentSession.songTabs.length > 1
+        iconSource: Qt.resolvedUrl("icons/chevron-down.svg")
+        iconWidth: 12
+        iconHeight: 12
+        label: qsTrId("workspace.open_songs")
+        tooltip: label
+        active: songsMenu.active
+        onClicked: songsMenu.open()
+
+        AppMenu {
+            id: songsMenu
+            x: parent.width - width
+            y: parent.height
+
+            ButtonGroup { id: currentSongGroup }
+
+            Repeater {
+                model: root.documentSession.songTabs
+
+                delegate: AppMenuItem {
+                    required property var modelData
+                    readonly property var song: modelData
+                    text: (song.dirty ? "● " : "") + (song.title || qsTrId("library.untitled"))
+                    tooltip: song.path
+                    checkable: true
+                    ButtonGroup.group: currentSongGroup
+                    checked: song.id === root.documentSession.activeSongId
+                    onTriggered: root.songRequested(song.id)
+                }
+            }
+        }
+    }
+
+    IconButton {
         id: overflowButton
 
-        anchors.right: parent.right
+        anchors.right: songsButton.visible ? songsButton.left : parent.right
         anchors.top: parent.top
         width: 30
         height: parent.height
@@ -395,20 +398,31 @@ Item {
             y: parent.height
 
             Repeater {
-                model: root.tabKeys
+                model: root.viewState.openEditorTabs
 
                 delegate: AppMenuItem {
                     required property string modelData
 
-                    text: root.tabCaption(modelData)
+                    text: (root.documentSession.dirtyEditorKeys.indexOf(modelData) >= 0 ? "*" : "")
+                          + root.titleForKey(modelData)
                     difficultyId: root.difficultyIdForKey(modelData)
                     checkable: true
-                    checked: root.activeTabKey === modelData
+                    checked: root.viewState.activeEditorKey === modelData
                     onTriggered: root.activateTab(modelData)
                 }
             }
         }
     }
 
-    onActiveTabKeyChanged: revealTimer.restart()
+    Connections {
+        target: root.viewState
+
+        function onActiveEditorKeyChanged() {
+            revealTimer.restart()
+        }
+
+        function onOpenEditorTabsChanged() {
+            revealTimer.restart()
+        }
+    }
 }
