@@ -19,6 +19,7 @@
 #include "core/chart/IntroConfig.h"
 
 #include <QCoreApplication>
+#include <QDesktopServices>
 #include <QDir>
 #include <QEventLoop>
 #include <QFile>
@@ -1008,8 +1009,14 @@ void ExportSession::applyIntroSoundImport(const QString& selectedPath)
         return;
     }
 
+    const auto reportCopyFailure = [this]() {
+        uiRequests_->postNotice(miacode::NoticeSeverity::Warning,
+                                miacode::localizedText("dialog.render_settings.music.intro_sound"),
+                                miacode::localizedText("video_export.intro_music_copy_failed"));
+    };
     const QString musicDirectory = miacode::preview_sfx::assetMusicDirectory();
     if (musicDirectory.isEmpty() || !QDir().mkpath(musicDirectory)) {
+        reportCopyFailure();
         return;
     }
 
@@ -1026,12 +1033,28 @@ void ExportSession::applyIntroSoundImport(const QString& selectedPath)
             importedPath = QDir(musicDirectory).filePath(importedName);
         }
         if (!QFile::copy(selectedPath, importedPath)) {
+            reportCopyFailure();
             return;
         }
     }
 
     emit introSoundOptionsChanged();
     setIntroSoundFileName(importedName);
+}
+
+void ExportSession::openIntroSoundDirectory()
+{
+    const QString musicDirectory = miacode::preview_sfx::assetMusicDirectory();
+    if (!musicDirectory.isEmpty() && QDir().mkpath(musicDirectory)) {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(musicDirectory));
+    }
+}
+
+void ExportSession::refreshIntroSoundOptions()
+{
+    // Files may have been added or removed in the folder since the list was built.
+    emit introSoundOptionsChanged();
+    emit introChanged();
 }
 
 void ExportSession::browseBatchOutputDirectory()
@@ -1517,6 +1540,13 @@ void ExportSession::toggleIntroAudition()
     }
     engine()->setIntroAuditionPlaying(!engine()->introAuditionPlaying());
     emit introPreviewStateChanged();
+}
+
+void ExportSession::auditionIntroSound()
+{
+    if (engine() != nullptr) {
+        engine()->auditionIntroSound();
+    }
 }
 
 void ExportSession::noteIntroPvSeek()
