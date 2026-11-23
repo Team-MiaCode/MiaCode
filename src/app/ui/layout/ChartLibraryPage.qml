@@ -210,7 +210,6 @@ Rectangle {
             ListView {
                 id: list
                 objectName: "chartLibrarySongList"
-                readonly property int minimumRowHeight: 60
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
@@ -223,6 +222,8 @@ Rectangle {
                 ScrollBar.vertical: AppScrollBar { id: libraryScrollBar }
 
                 WheelHandler {
+                    id: songWheel
+                    property int remainingAngle: 0
                     target: null
                     acceptedDevices: PointerDevice.Mouse
                     acceptedModifiers: Qt.NoModifier
@@ -232,11 +233,22 @@ Rectangle {
                             event.accepted = false
                             return
                         }
-                        const distance = 3 * (list.minimumRowHeight + list.spacing) * event.angleDelta.y / 120
-                        const bottom = list.originY + Math.max(0, list.contentHeight - list.height)
-                        list.cancelFlick()
-                        list.contentY = Math.max(list.originY, Math.min(bottom, list.contentY - distance))
                         event.accepted = true
+                        songWheel.remainingAngle += event.angleDelta.y
+                        const steps = Math.trunc(songWheel.remainingAngle / 120)
+                        songWheel.remainingAngle -= steps * 120
+                        if (steps === 0)
+                            return
+
+                        const x = list.contentX + 1
+                        let topIndex = list.indexAt(x, list.contentY)
+                        if (topIndex < 0)
+                            topIndex = list.indexAt(x, list.contentY + list.spacing)
+                        if (topIndex >= 0) {
+                            list.cancelFlick()
+                            const nextIndex = Math.max(0, Math.min(list.count - 1, topIndex - steps))
+                            list.positionViewAtIndex(nextIndex, ListView.Beginning)
+                        }
                     }
                 }
 
@@ -248,7 +260,7 @@ Rectangle {
                     readonly property bool currentChart: root.activeChartKey.length > 0
                         && root.activeChartKey === modelData.pathKey
                     width: Math.max(0, ListView.view.width - root.scrollBarGutter)
-                    height: Math.max(list.minimumRowHeight, songBody.implicitHeight + 12)
+                    height: Math.max(60, songBody.implicitHeight + 12)
                     leftPadding: 6
                     rightPadding: 8
                     highlightFillsBounds: true
