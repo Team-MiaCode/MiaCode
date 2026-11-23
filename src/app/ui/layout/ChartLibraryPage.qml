@@ -16,6 +16,7 @@ Rectangle {
     readonly property alias libraryModel: library
     readonly property string activeChartKey: library.chartPathKey(activeChartPath)
     readonly property real scrollBarGutter: libraryScrollBar.width
+    readonly property real contentRightMargin: 14
     property bool loaded: false
     property int selectedDifficulty: 0
     readonly property var difficultyOptions: [qsTrId("library.all_difficulties"),
@@ -73,12 +74,27 @@ Rectangle {
 
     PanelHeader {
         id: heading
+        objectName: "chartLibraryHeader"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
         height: implicitHeight
         title: qsTrId("library.title")
         sidebarTitle: true
+        trailingRightMargin: root.contentRightMargin + root.scrollBarGutter
+
+        Label {
+            objectName: "chartLibraryDirectoryName"
+            width: Math.min(implicitWidth, heading.availableTrailingWidth)
+            visible: text.length > 0
+            text: library.directoryName
+            textFormat: Text.PlainText
+            horizontalAlignment: Text.AlignRight
+            color: Theme.colors.text.secondary
+            font.family: Theme.uiFont
+            font.pixelSize: Theme.uiFontSize
+            elide: Text.ElideMiddle
+        }
     }
 
     ColumnLayout {
@@ -87,22 +103,9 @@ Rectangle {
         anchors.top: heading.bottom
         anchors.bottom: parent.bottom
         anchors.leftMargin: 10
-        anchors.rightMargin: 14
+        anchors.rightMargin: root.contentRightMargin
         anchors.bottomMargin: 10
         spacing: 9
-
-        Label {
-            objectName: "chartLibraryDirectoryName"
-            Layout.fillWidth: true
-            Layout.rightMargin: root.scrollBarGutter
-            visible: text.length > 0
-            text: library.directoryName
-            textFormat: Text.PlainText
-            color: Theme.colors.text.secondary
-            font.family: Theme.uiFont
-            font.pixelSize: Theme.uiFontSize
-            elide: Text.ElideMiddle
-        }
 
         RowLayout {
             Layout.fillWidth: true
