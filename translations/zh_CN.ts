@@ -5216,8 +5216,12 @@ Error: %1</source>
         <translation>谱库</translation>
     </message>
     <message id="library.choose_folder">
-        <source>Choose library folder</source>
-        <translation>选择谱库目录</translation>
+        <source>Choose folder</source>
+        <translation>选择目录</translation>
+    </message>
+    <message id="library.no_directory">
+        <source>No library folder selected</source>
+        <translation>尚未选择谱库目录</translation>
     </message>
     <message id="library.refresh">
         <source>Refresh</source>

@@ -5216,8 +5216,12 @@ Error: %1</source>
         <translation>譜面ライブラリ</translation>
     </message>
     <message id="library.choose_folder">
-        <source>Choose library folder</source>
-        <translation>ライブラリフォルダーを選択</translation>
+        <source>Choose folder</source>
+        <translation>フォルダーを選択</translation>
+    </message>
+    <message id="library.no_directory">
+        <source>No library folder selected</source>
+        <translation>譜面ライブラリのフォルダーが未選択です</translation>
     </message>
     <message id="library.refresh">
         <source>Refresh</source>

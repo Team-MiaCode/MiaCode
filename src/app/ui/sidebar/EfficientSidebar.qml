@@ -65,7 +65,7 @@ Rectangle {
                 objectName: "chartLibrarySidebarButton"
                 width: parent.width
                 text: qsTrId("library.title")
-                iconSource: Qt.resolvedUrl("icons/folder-open.svg")
+                iconSource: Qt.resolvedUrl("icons/chart-library.svg")
                 onClicked: root.libraryRequested()
             }
 

@@ -450,6 +450,7 @@ AppDialog {
 
                     PreferenceGroup {
                         title: qsTrId("dialog.preferences.group.workspace")
+                        Layout.topMargin: 6
 
                         PreferenceCombo {
                             objectName: "preferencesLanguageCombo"
@@ -695,6 +696,7 @@ AppDialog {
 
                         PreferenceGroup {
                             title: qsTrId("dialog.preferences.group.input")
+                            Layout.topMargin: 6
 
                             PreferenceCombo {
                                 objectName: "preferencesInputHandlingCombo"

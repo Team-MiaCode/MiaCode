@@ -40,7 +40,7 @@ Rectangle {
         }
         ActivityButton {
             objectName: "chartLibraryActivityButton"
-            iconSource: Qt.resolvedUrl("icons/folder-open.svg")
+            iconSource: Qt.resolvedUrl("icons/chart-library.svg")
             tooltip: qsTrId("library.title")
             selected: root.activeView === "library"
             activeFocusOnTab: true

@@ -203,8 +203,15 @@ Item {
         visible: root.documentSession.hasDocument || root.viewState.netEditorActive
     }
 
+    Rectangle {
+        anchors.fill: songTabs
+        color: Theme.surfaceColor(Theme.colors.background.panel)
+        visible: songTabs.visible
+    }
+
     SongTabBar {
         id: songTabs
+        objectName: "songTabBar"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
@@ -215,11 +222,13 @@ Item {
 
     EditorTabBar {
         id: tabs
+        objectName: "difficultyTabBar"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: songTabs.bottom
         visible: root.viewState.openEditorTabs.length > 0
-        height: visible ? implicitHeight : 0
+        height: visible ? (songTabs.visible ? Theme.controlMinHeight : implicitHeight) : 0
+        stripColor: songTabs.visible ? Theme.colors.background.panel : Theme.colors.background.editorTabStrip
         viewState: root.viewState
         documentSession: root.documentSession
         commands: root.commands

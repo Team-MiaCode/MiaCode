@@ -197,6 +197,7 @@ Item {
     readonly property string activeFillPath: activeTabIndex >= 0
         ? tabContour + " V " + height + " H " + (leftEdge - leftCurve) + " Z" : ""
 
+    property color stripColor: Theme.colors.background.editorTabStrip
     implicitHeight: Theme.workspaceHeaderHeight
 
     Shape {
@@ -208,7 +209,7 @@ Item {
 
         ShapePath {
             strokeWidth: -1
-            fillColor: Theme.surfaceColor(Theme.colors.background.editorTabStrip)
+            fillColor: Theme.surfaceColor(root.stripColor)
             fillRule: ShapePath.OddEvenFill
             PathSvg {
                 path: "M 0 0 H " + root.width + " V " + root.height + " H 0 Z " + root.activeFillPath

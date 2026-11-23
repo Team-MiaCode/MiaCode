@@ -5216,8 +5216,12 @@ Error: %1</translation>
         <translation>Chart library</translation>
     </message>
     <message id="library.choose_folder">
-        <source>Choose library folder</source>
-        <translation>Choose library folder</translation>
+        <source>Choose folder</source>
+        <translation>Choose folder</translation>
+    </message>
+    <message id="library.no_directory">
+        <source>No library folder selected</source>
+        <translation>No library folder selected</translation>
     </message>
     <message id="library.refresh">
         <source>Refresh</source>

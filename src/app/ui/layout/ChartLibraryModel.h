@@ -28,6 +28,7 @@ public:
     Q_INVOKABLE void setDirectory(const QUrl& directory);
     Q_INVOKABLE void refresh();
     Q_INVOKABLE static QString chartPathKey(const QString& path);
+    Q_INVOKABLE QUrl pickerDirectory(const QString& chartPath) const;
 
 signals:
     void directoryChanged();

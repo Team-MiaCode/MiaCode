@@ -100,6 +100,16 @@ QString ChartLibraryModel::chartPathKey(const QString& path)
     return canonical.isEmpty() ? info.absoluteFilePath() : canonical;
 }
 
+QUrl ChartLibraryModel::pickerDirectory(const QString& chartPath) const
+{
+    if (!directory_.isEmpty()) return directory_;
+    const QFileInfo chart(chartPath);
+    if (chartPath.isEmpty() || !chart.isAbsolute()) return {};
+    QDir parent = chart.absoluteDir();
+    parent.cdUp();
+    return QUrl::fromLocalFile(parent.absolutePath());
+}
+
 void ChartLibraryModel::setDirectory(const QUrl& directory)
 {
     if (!directory.isLocalFile()) return;

@@ -42,6 +42,7 @@ Flickable {
             id: songItems
             model: root.documentSession.songTabs
             AppTab {
+                id: songTab
                 required property var modelData
                 width: preferredTabWidth
                 height: root.height
@@ -58,6 +59,18 @@ Flickable {
                     root.documentSession.activateSong(modelData.id)
                 }
                 onCloseRequested: root.documentSession.requestCloseSong(modelData.id)
+
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    anchors.leftMargin: 14
+                    anchors.rightMargin: 14
+                    height: 2
+                    radius: 1
+                    color: Theme.colors.accent.primary
+                    visible: songTab.active
+                }
             }
         }
     }

@@ -18,13 +18,24 @@ Rectangle {
     readonly property real scrollBarGutter: libraryScrollBar.width
     property var selectedSong: null
     property bool loaded: false
+    property int selectedDifficulty: 0
+    readonly property var difficultyOptions: [qsTrId("library.all_difficulties"),
+        qsTrId("library.difficulty.1"), qsTrId("library.difficulty.2"),
+        qsTrId("library.difficulty.3"), qsTrId("library.difficulty.4"),
+        qsTrId("library.difficulty.5"), qsTrId("library.difficulty.6"),
+        qsTrId("library.difficulty.7")]
     readonly property var filteredSongs: {
         const query = search.text.trim().toLocaleLowerCase()
-        const difficulty = difficultyFilter.currentIndex
+        const difficulty = root.selectedDifficulty
         return library.songs.filter(song =>
             (difficulty <= 0 || song.difficulties.some(entry => entry.id === difficulty))
             && (query.length === 0 || [song.title, song.artist, song.variant, song.songId]
                 .some(value => value?.toLocaleLowerCase().includes(query))))
+    }
+
+    onSelectedDifficultyChanged: {
+        list.currentIndex = -1
+        list.positionViewAtBeginning()
     }
 
     function selectVisibleSong() {
@@ -55,6 +66,7 @@ Rectangle {
         onAccepted: {
             root.loaded = true
             root.selectedSong = null
+            root.selectedDifficulty = 0
             library.setDirectory(selectedFolder)
         }
     }
@@ -89,16 +101,18 @@ Rectangle {
                 backgroundFillsWidth: true
                 text: qsTrId("library.choose_folder")
                 onClicked: {
-                    if (library.directory.toString().length > 0)
-                        directoryPicker.currentFolder = library.directory
+                    const folder = library.pickerDirectory(root.activeChartPath)
+                    if (folder.toString().length > 0)
+                        directoryPicker.currentFolder = folder
                     directoryPicker.open()
                 }
             }
-            AppButton {
+            IconButton {
                 objectName: "chartLibraryRefreshButton"
-                Layout.fillWidth: true
-                backgroundFillsWidth: true
-                text: qsTrId("library.refresh")
+                Layout.preferredWidth: Theme.controlMinHeight
+                Layout.preferredHeight: Theme.controlMinHeight
+                iconSource: Qt.resolvedUrl("icons/refresh.svg")
+                tooltip: qsTrId("library.refresh")
                 enabled: !library.scanning && library.directory.toString().length > 0
                 onClicked: library.refresh()
             }
@@ -123,41 +137,68 @@ Rectangle {
             Layout.fillHeight: true
             spacing: 8
 
-            AppComboBox {
-                id: difficultyFilter
-                objectName: "chartLibraryDifficultyFilter"
+            RowLayout {
+                objectName: "chartLibrarySearchRow"
                 Layout.fillWidth: true
                 Layout.rightMargin: root.scrollBarGutter
-                visible: library.songs.length > 0
-                Accessible.name: qsTrId("dialog.batch_export.difficulty")
-                model: [qsTrId("library.all_difficulties"),
-                    qsTrId("library.difficulty.1"), qsTrId("library.difficulty.2"),
-                    qsTrId("library.difficulty.3"), qsTrId("library.difficulty.4"),
-                    qsTrId("library.difficulty.5"), qsTrId("library.difficulty.6"),
-                    qsTrId("library.difficulty.7")]
-                onActivated: {
-                    list.currentIndex = -1
-                    list.positionViewAtBeginning()
-                }
-            }
+                spacing: 8
 
-            AppTextField {
-                id: search
-                objectName: "chartLibrarySearch"
-                Layout.fillWidth: true
-                Layout.rightMargin: root.scrollBarGutter
-                outlined: true
-                Accessible.name: qsTrId("library.search")
-                placeholderText: activeFocus ? "" : Accessible.name
-                onTextChanged: {
-                    list.currentIndex = -1
-                    list.positionViewAtBeginning()
+                AppTextField {
+                    id: search
+                    objectName: "chartLibrarySearch"
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    outlined: true
+                    Accessible.name: qsTrId("library.search")
+                    placeholderText: activeFocus ? "" : Accessible.name
+                    onTextChanged: {
+                        list.currentIndex = -1
+                        list.positionViewAtBeginning()
+                    }
+                    onAccepted: root.selectVisibleSong()
+                    Keys.onDownPressed: {
+                        if (list.count > 0) {
+                            list.currentIndex = Math.max(0, list.currentIndex)
+                            list.forceActiveFocus()
+                        }
+                    }
                 }
-                onAccepted: root.selectVisibleSong()
-                Keys.onDownPressed: {
-                    if (list.count > 0) {
-                        list.currentIndex = Math.max(0, list.currentIndex)
-                        list.forceActiveFocus()
+
+                IconButton {
+                    objectName: "chartLibraryDifficultyFilter"
+                    Layout.preferredWidth: Theme.controlMinHeight
+                    Layout.preferredHeight: Theme.controlMinHeight
+                    visible: library.songs.length > 0
+                    active: difficultyMenu.active || root.selectedDifficulty > 0
+                    iconSource: Qt.resolvedUrl("icons/sliders-horizontal.svg")
+                    filledIconSource: Qt.resolvedUrl("icons/sliders-horizontal-fill.svg")
+                    tooltip: qsTrId("dialog.batch_export.difficulty") + " · "
+                        + root.difficultyOptions[root.selectedDifficulty]
+                    onClicked: difficultyMenu.open()
+
+                    AppMenu {
+                        id: difficultyMenu
+                        x: parent.width - width
+                        y: parent.height
+
+                        ButtonGroup {
+                            id: difficultyGroup
+                        }
+
+                        Repeater {
+                            model: root.difficultyOptions
+                            delegate: AppMenuItem {
+                                objectName: "chartLibraryDifficultyOption"
+                                required property int index
+                                required property string modelData
+                                text: modelData
+                                difficultyId: index
+                                checkable: true
+                                ButtonGroup.group: difficultyGroup
+                                checked: root.selectedDifficulty === index
+                                onTriggered: root.selectedDifficulty = index
+                            }
+                        }
                     }
                 }
             }
@@ -323,9 +364,11 @@ Rectangle {
                                         background: Rectangle {
                                             radius: Theme.smallControlRadius
                                             color: Qt.rgba(badge.badgeColor.r, badge.badgeColor.g, badge.badgeColor.b,
-                                                badge.hovered || badge.down ? 0.42 : 0.25)
-                                            border.width: badge.visualFocus ? 1 : 0
-                                            border.color: badge.badgeColor
+                                                Theme.darkTheme ? (badge.hovered || badge.down ? 0.58 : 0.40)
+                                                    : (badge.hovered || badge.down ? 0.42 : 0.25))
+                                            border.width: badge.visualFocus || Theme.darkTheme ? Theme.controlBorderWidth : 0
+                                            border.color: badge.visualFocus ? Theme.colors.accent.focus
+                                                : Qt.lighter(badge.badgeColor, 1.18)
                                         }
                                         contentItem: Label {
                                             text: badge.text
@@ -348,7 +391,7 @@ Rectangle {
                     visible: library.scanning || list.count === 0
                     text: library.scanning ? qsTrId("library.scanning")
                         : library.directoryMissing ? qsTrId("library.missing_folder")
-                        : library.directory.toString().length === 0 ? qsTrId("library.choose_folder")
+                        : library.directory.toString().length === 0 ? qsTrId("library.no_directory")
                         : qsTrId("library.empty")
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.WordWrap
