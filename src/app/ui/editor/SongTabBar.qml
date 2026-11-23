@@ -7,7 +7,7 @@ import MiaCode.UI
 Flickable {
     id: root
     required property var documentSession
-    required property var previewSession
+    signal songRequested(var songId)
     visible: documentSession.songTabs.length > 0
     implicitHeight: Theme.workspaceHeaderHeight
     contentWidth: tabs.width
@@ -53,11 +53,7 @@ Flickable {
                 onActiveChanged: if (active) Qt.callLater(root.revealActive)
                 Component.onCompleted: if (active) Qt.callLater(root.revealActive)
                 closable: true
-                onClicked: {
-                    if (!active && root.previewSession.playing)
-                        root.previewSession.playing = false
-                    root.documentSession.activateSong(modelData.id)
-                }
+                onClicked: root.songRequested(modelData.id)
                 onCloseRequested: root.documentSession.requestCloseSong(modelData.id)
 
                 Rectangle {

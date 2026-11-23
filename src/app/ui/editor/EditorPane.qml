@@ -217,7 +217,12 @@ Item {
         anchors.top: parent.top
         height: visible ? implicitHeight : 0
         documentSession: root.documentSession
-        previewSession: root.previewSession
+        onSongRequested: songId => {
+            if (songId !== root.documentSession.activeSongId && root.previewSession.playing)
+                root.previewSession.playing = false
+            if (root.documentSession.activateSong(songId))
+                root.viewState.openDifficultyEditor(root.documentSession.currentDifficultyId)
+        }
     }
 
     EditorTabBar {
