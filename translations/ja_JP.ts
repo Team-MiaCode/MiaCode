@@ -5147,8 +5147,8 @@ Error: %1</source>
         <translation>ミッドナイト</translation>
     </message>
     <message id="dialog.preferences.theme.forest">
-        <source>Forest</source>
-        <translation>フォレスト</translation>
+        <source>Si-callion</source>
+        <translation>スーねぎ</translation>
     </message>
     <message id="dialog.preferences.theme.paper">
         <source>Warm Paper</source>

@@ -129,7 +129,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import MiaCode.UI
 ApplicationWindow {
-    width: 840; height: 720
+    width: 920; height: 720
     color: Theme.colors.background.surface
     QtObject {
         id: previewPreferences

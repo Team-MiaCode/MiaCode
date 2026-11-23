@@ -420,7 +420,23 @@ AppDialog {
                             label: qsTrId("dialog.preferences.theme.mode")
                             options: root.preferencesModel.themeModeOptions
                             currentValue: root.preferencesModel.themeModeToken
-                            onPicked: function(value) { root.preferencesModel.themeModeToken = value }
+                            onPicked: value => root.preferencesModel.themeModeToken = value
+                        }
+
+                        ThemePicker {
+                            id: palettePicker
+                            objectName: "preferencesThemePicker"
+                            darkPalette: Theme.darkTheme
+                            label: ""
+                            options: root.preferencesModel.themePaletteOptions
+                            currentValue: darkPalette ? root.preferencesModel.darkThemeToken
+                                : root.preferencesModel.lightThemeToken
+                            onPicked: value => {
+                                if (palettePicker.darkPalette)
+                                    root.preferencesModel.darkThemeToken = value
+                                else
+                                    root.preferencesModel.lightThemeToken = value
+                            }
                         }
 
                         PreferenceCombo {
@@ -430,27 +446,6 @@ AppDialog {
                             currentValue: root.preferencesModel.uiScalePercent
                             onPicked: value => root.preferencesModel.uiScalePercent = value
                         }
-
-                        ThemePicker {
-                            objectName: "preferencesLightThemeCombo"
-                            darkPalette: false
-                            visible: root.preferencesModel.themeModeToken !== "dark"
-                            label: qsTrId("dialog.preferences.theme.light_palette")
-                            options: root.preferencesModel.themePaletteOptions
-                            currentValue: root.preferencesModel.lightThemeToken
-                            onPicked: function(value) { root.preferencesModel.lightThemeToken = value }
-                        }
-
-                        ThemePicker {
-                            objectName: "preferencesDarkThemeCombo"
-                            darkPalette: true
-                            visible: root.preferencesModel.themeModeToken !== "light"
-                            label: qsTrId("dialog.preferences.theme.dark_palette")
-                            options: root.preferencesModel.themePaletteOptions
-                            currentValue: root.preferencesModel.darkThemeToken
-                            onPicked: function(value) { root.preferencesModel.darkThemeToken = value }
-                        }
-
                     }
 
                     PreferenceGroup {
