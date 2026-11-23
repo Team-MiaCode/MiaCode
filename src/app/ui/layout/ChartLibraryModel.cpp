@@ -131,14 +131,6 @@ void ChartLibraryModel::setDirectory(const QUrl& directory)
     refresh();
 }
 
-QString ChartLibraryModel::directoryName() const
-{
-    if (directory_.isEmpty()) return {};
-    const QString path = QDir::cleanPath(directory_.toLocalFile());
-    const QString name = QFileInfo(path).fileName();
-    return name.isEmpty() ? QDir::toNativeSeparators(path) : name;
-}
-
 void ChartLibraryModel::refresh()
 {
     if (directory_.isEmpty()) return;

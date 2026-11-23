@@ -81,20 +81,6 @@ Rectangle {
         height: implicitHeight
         title: qsTrId("library.title")
         sidebarTitle: true
-        trailingRightMargin: root.contentRightMargin + root.scrollBarGutter
-
-        Label {
-            objectName: "chartLibraryDirectoryName"
-            width: Math.min(implicitWidth, heading.availableTrailingWidth)
-            visible: text.length > 0
-            text: library.directoryName
-            textFormat: Text.PlainText
-            horizontalAlignment: Text.AlignRight
-            color: Theme.colors.text.secondary
-            font.family: Theme.uiFont
-            font.pixelSize: Theme.uiFontSize
-            elide: Text.ElideMiddle
-        }
     }
 
     ColumnLayout {
@@ -387,8 +373,6 @@ Rectangle {
                                         focusPolicy: Qt.StrongFocus
                                         text: (modelData.level ?? "").trim() || modelData.shortName
                                         Accessible.name: qsTrId("action.open") + " " + difficultyName
-                                        ToolTip.visible: hovered
-                                        ToolTip.text: Accessible.name
                                         onClicked: root.openSongAt(songRow.index, modelData.id)
                                         background: Rectangle {
                                             radius: Theme.smallControlRadius

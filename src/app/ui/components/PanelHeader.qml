@@ -7,11 +7,7 @@ Rectangle {
     property string title
     property bool showMore: false
     property bool sidebarTitle: false
-    property real trailingRightMargin: 10
     default property alias trailing: trailingRow.data
-
-    readonly property real availableTrailingWidth: Math.max(0,
-        width - trailingRightMargin - titleLabel.x - titleLabel.implicitWidth - 10)
 
     readonly property real titleInkCenter: {
         const sample = root.title.length > 0 ? root.title : "汉"
@@ -49,7 +45,7 @@ Rectangle {
     Row {
         id: trailingRow
         anchors.right: parent.right
-        anchors.rightMargin: root.trailingRightMargin
+        anchors.rightMargin: 10
         y: (root.sidebarTitle ? Theme.workspaceHeaderContentCenterY : root.height / 2)
            - height / 2
         spacing: 5
@@ -57,7 +53,7 @@ Rectangle {
 
     Text {
         anchors.right: parent.right
-        anchors.rightMargin: root.trailingRightMargin
+        anchors.rightMargin: 10
         y: (root.sidebarTitle ? Theme.workspaceHeaderContentCenterY : root.height / 2)
            - height / 2
         visible: root.showMore && trailingRow.children.length === 0

@@ -416,6 +416,14 @@ AppDialog {
                         first: true
 
                         PreferenceCombo {
+                            objectName: "preferencesUiScaleCombo"
+                            label: qsTrId("dialog.preferences.ui_scale")
+                            options: root.preferencesModel.uiScaleOptions
+                            currentValue: root.preferencesModel.uiScalePercent
+                            onPicked: value => root.preferencesModel.uiScalePercent = value
+                        }
+
+                        PreferenceCombo {
                             objectName: "preferencesThemeModeCombo"
                             label: qsTrId("dialog.preferences.theme.mode")
                             options: root.preferencesModel.themeModeOptions
@@ -437,14 +445,6 @@ AppDialog {
                                 else
                                     root.preferencesModel.lightThemeToken = value
                             }
-                        }
-
-                        PreferenceCombo {
-                            objectName: "preferencesUiScaleCombo"
-                            label: qsTrId("dialog.preferences.ui_scale")
-                            options: root.preferencesModel.uiScaleOptions
-                            currentValue: root.preferencesModel.uiScalePercent
-                            onPicked: value => root.preferencesModel.uiScalePercent = value
                         }
                     }
 
