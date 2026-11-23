@@ -91,6 +91,19 @@ Rectangle {
         anchors.bottomMargin: 10
         spacing: 9
 
+        Label {
+            objectName: "chartLibraryDirectoryName"
+            Layout.fillWidth: true
+            Layout.rightMargin: root.scrollBarGutter
+            visible: text.length > 0
+            text: library.directoryName
+            textFormat: Text.PlainText
+            color: Theme.colors.text.secondary
+            font.family: Theme.uiFont
+            font.pixelSize: Theme.uiFontSize
+            elide: Text.ElideMiddle
+        }
+
         RowLayout {
             Layout.fillWidth: true
             Layout.rightMargin: root.scrollBarGutter
@@ -116,18 +129,6 @@ Rectangle {
                 enabled: !library.scanning && library.directory.toString().length > 0
                 onClicked: library.refresh()
             }
-        }
-
-        Label {
-            Layout.fillWidth: true
-            Layout.rightMargin: root.scrollBarGutter
-            visible: text.length > 0
-            text: library.directoryPath
-            textFormat: Text.PlainText
-            color: Theme.colors.text.secondary
-            font.family: Theme.uiFont
-            font.pixelSize: Theme.uiFontSize
-            elide: Text.ElideMiddle
         }
 
         ColumnLayout {
@@ -206,6 +207,7 @@ Rectangle {
             ListView {
                 id: list
                 objectName: "chartLibrarySongList"
+                readonly property int minimumRowHeight: 60
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
@@ -216,6 +218,25 @@ Rectangle {
                 Keys.onReturnPressed: root.openCurrentResult()
                 Keys.onEnterPressed: root.openCurrentResult()
                 ScrollBar.vertical: AppScrollBar { id: libraryScrollBar }
+
+                WheelHandler {
+                    target: null
+                    acceptedDevices: PointerDevice.Mouse
+                    acceptedModifiers: Qt.NoModifier
+                    orientation: Qt.Vertical
+                    onWheel: event => {
+                        if (event.pixelDelta.x || event.pixelDelta.y || !event.angleDelta.y) {
+                            event.accepted = false
+                            return
+                        }
+                        const distance = 3 * (list.minimumRowHeight + list.spacing) * event.angleDelta.y / 120
+                        const bottom = list.originY + Math.max(0, list.contentHeight - list.height)
+                        list.cancelFlick()
+                        list.contentY = Math.max(list.originY, Math.min(bottom, list.contentY - distance))
+                        event.accepted = true
+                    }
+                }
+
                 delegate: NavRow {
                     id: songRow
                     objectName: "chartLibrarySongRow"
@@ -224,7 +245,7 @@ Rectangle {
                     readonly property bool currentChart: root.activeChartKey.length > 0
                         && root.activeChartKey === modelData.pathKey
                     width: Math.max(0, ListView.view.width - root.scrollBarGutter)
-                    height: Math.max(60, songBody.implicitHeight + 12)
+                    height: Math.max(list.minimumRowHeight, songBody.implicitHeight + 12)
                     leftPadding: 6
                     rightPadding: 8
                     highlightFillsBounds: true
