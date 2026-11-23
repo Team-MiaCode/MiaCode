@@ -41,17 +41,19 @@ bool CommandService::isCurrentChart(const QUrl& fileUrl) const
     return !selectedPath.isEmpty() && selectedPath == QFileInfo(document_->currentFilePath()).canonicalFilePath();
 }
 
-void CommandService::openLibraryDifficulty(const QUrl& fileUrl, int difficultyId)
+void CommandService::openLibraryChart(const QUrl& fileUrl, int preferredDifficultyId)
 {
     if (isCurrentChart(fileUrl)) {
-        document_->requestLeaveCurrentField([this, difficultyId](bool mayLeave) {
-            if (mayLeave) emit libraryDifficultyOpened(difficultyId);
+        document_->requestLeaveCurrentField([this, preferredDifficultyId](bool mayLeave) {
+            if (mayLeave)
+                emit libraryChartOpened(preferredDifficultyId > 0 ? preferredDifficultyId
+                    : document_->currentDifficultyId());
         });
         return;
     }
-    whenDocumentMayBeLeft([this, fileUrl, difficultyId]() {
-        if (document_->openChartFile(fileUrl, difficultyId))
-            emit libraryDifficultyOpened(document_->currentDifficultyId());
+    whenDocumentMayBeLeft([this, fileUrl, preferredDifficultyId]() {
+        if (document_->openChartFile(fileUrl, preferredDifficultyId))
+            emit libraryChartOpened(document_->currentDifficultyId());
     });
 }
 

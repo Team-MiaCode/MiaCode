@@ -11,12 +11,11 @@ Rectangle {
     id: root
     color: Theme.surfaceColor(Theme.colors.background.surface)
 
-    signal difficultyRequested(url chart, int difficulty)
+    signal chartRequested(url chart, int preferredDifficultyId)
     required property string activeChartPath
     readonly property alias libraryModel: library
     readonly property string activeChartKey: library.chartPathKey(activeChartPath)
     readonly property real scrollBarGutter: libraryScrollBar.width
-    property var selectedSong: null
     property bool loaded: false
     property int selectedDifficulty: 0
     readonly property var difficultyOptions: [qsTrId("library.all_difficulties"),
@@ -38,11 +37,17 @@ Rectangle {
         list.positionViewAtBeginning()
     }
 
-    function selectVisibleSong() {
-        if (filteredSongs.length > 0) {
-            const index = Math.max(0, Math.min(list.currentIndex, filteredSongs.length - 1))
-            selectedSong = filteredSongs[index]
-        }
+    function openSongAt(index, preferredDifficultyId) {
+        const song = filteredSongs[index]
+        if (!song)
+            return
+        list.currentIndex = index
+        root.chartRequested(song.chart, preferredDifficultyId)
+    }
+
+    function openCurrentResult() {
+        const index = Math.max(0, Math.min(list.currentIndex, filteredSongs.length - 1))
+        openSongAt(index, selectedDifficulty)
     }
 
     onVisibleChanged: {
@@ -54,10 +59,6 @@ Rectangle {
 
     ChartLibraryModel {
         id: library
-        onSongsChanged: {
-            const path = root.selectedSong?.chart.toString()
-            root.selectedSong = path ? songs.find(song => song.chart.toString() === path) ?? null : null
-        }
     }
 
     FolderDialog {
@@ -65,7 +66,6 @@ Rectangle {
         title: qsTrId("library.choose_folder")
         onAccepted: {
             root.loaded = true
-            root.selectedSong = null
             root.selectedDifficulty = 0
             library.setDirectory(selectedFolder)
         }
@@ -155,7 +155,7 @@ Rectangle {
                         list.currentIndex = -1
                         list.positionViewAtBeginning()
                     }
-                    onAccepted: root.selectVisibleSong()
+                    onAccepted: root.openCurrentResult()
                     Keys.onDownPressed: {
                         if (list.count > 0) {
                             list.currentIndex = Math.max(0, list.currentIndex)
@@ -213,8 +213,8 @@ Rectangle {
                 spacing: 4
                 boundsBehavior: Flickable.StopAtBounds
                 keyNavigationEnabled: true
-                Keys.onReturnPressed: root.selectVisibleSong()
-                Keys.onEnterPressed: root.selectVisibleSong()
+                Keys.onReturnPressed: root.openCurrentResult()
+                Keys.onEnterPressed: root.openCurrentResult()
                 ScrollBar.vertical: AppScrollBar { id: libraryScrollBar }
                 delegate: NavRow {
                     id: songRow
@@ -232,12 +232,9 @@ Rectangle {
                     Accessible.name: [modelData.title, modelData.artist, modelData.variant, modelData.songId,
                         currentChart ? qsTrId("library.current_editing") : ""]
                         .filter(value => value).join(", ")
-                    selected: root.selectedSong?.chart.toString() === modelData.chart.toString()
+                    selected: currentChart
                     highlighted: list.activeFocus && ListView.isCurrentItem
-                    onClicked: {
-                        list.currentIndex = index
-                        root.selectedSong = modelData
-                    }
+                    onClicked: root.openSongAt(index, root.selectedDifficulty)
                     ToolTip.visible: songRow.hovered && (songName.truncated || artistName.truncated || variantName.truncated)
                     ToolTip.text: [modelData.title, modelData.artist, modelData.variant]
                         .filter(value => value).join("\n")
@@ -356,11 +353,7 @@ Rectangle {
                                         Accessible.name: qsTrId("action.open") + " " + difficultyName
                                         ToolTip.visible: hovered
                                         ToolTip.text: Accessible.name
-                                        onClicked: {
-                                            list.currentIndex = songRow.index
-                                            root.selectedSong = songRow.modelData
-                                            root.difficultyRequested(songRow.modelData.chart, modelData.id)
-                                        }
+                                        onClicked: root.openSongAt(songRow.index, modelData.id)
                                         background: Rectangle {
                                             radius: Theme.smallControlRadius
                                             color: Qt.rgba(badge.badgeColor.r, badge.badgeColor.g, badge.badgeColor.b,

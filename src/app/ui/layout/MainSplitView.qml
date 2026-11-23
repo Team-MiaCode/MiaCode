@@ -618,13 +618,16 @@ Item {
             anchors.fill: parent
             visible: root.libraryActive
             activeChartPath: root.documentSession.currentFilePath
-            onDifficultyRequested: (chartUrl, difficulty) => root.commands.openLibraryDifficulty(chartUrl, difficulty)
+            onChartRequested: (chartUrl, preferredDifficultyId) => root.commands.openLibraryChart(chartUrl, preferredDifficultyId)
         }
 
         Connections {
             target: root.commands
-            function onLibraryDifficultyOpened(difficultyId) {
-                root.viewState.openDifficultyEditor(difficultyId)
+            function onLibraryChartOpened(difficultyId) {
+                if (difficultyId > 0)
+                    root.viewState.openDifficultyEditor(difficultyId)
+                else
+                    root.viewState.openMetadataEditor()
                 if (root.compact && root.libraryActive)
                     root.viewState.compactPanel = ""
             }

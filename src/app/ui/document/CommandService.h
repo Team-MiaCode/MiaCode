@@ -27,7 +27,7 @@ public:
     // These do not return a verdict — the answer arrives from a dialog, so
     // there is none to return yet. The action happens later, or not at all.
     Q_INVOKABLE void openDocument(const QUrl& fileUrl);
-    Q_INVOKABLE void openLibraryDifficulty(const QUrl& fileUrl, int difficultyId);
+    Q_INVOKABLE void openLibraryChart(const QUrl& fileUrl, int preferredDifficultyId);
     Q_INVOKABLE void openRecentDocument(const QString& path);
     Q_INVOKABLE void closeDocument();
     // 新建: guarded like every other way of leaving the open document, then a
@@ -53,7 +53,7 @@ public:
     Q_INVOKABLE QStringList shortcutCommandIds() const;
 
 signals:
-    void libraryDifficultyOpened(int difficultyId);
+    void libraryChartOpened(int difficultyId);
 
 private:
     bool isCurrentChart(const QUrl& fileUrl) const;
