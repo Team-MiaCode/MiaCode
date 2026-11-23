@@ -73,12 +73,10 @@ Item {
             sourceEditor.paste()
     }
 
-    // Keyboard tab-close must use the same three-way guard as the tab's x
-    // button. Calling ViewState.closeEditor directly would discard a dirty
-    // metadata or difficulty view without asking.
+    // Keyboard close follows the visible tab and its save prompt.
     function requestCloseActiveEditor() {
-        if (viewState.activeEditorKey.length > 0)
-            tabs.requestCloseTab(viewState.activeEditorKey)
+        if (tabs.activeTabKey.length > 0)
+            tabs.requestCloseTab(tabs.activeTabKey)
     }
 
     function selectAll() {
@@ -203,41 +201,23 @@ Item {
         visible: root.documentSession.hasDocument || root.viewState.netEditorActive
     }
 
-    Rectangle {
-        anchors.fill: songTabs
-        color: Theme.surfaceColor(Theme.colors.background.panel)
-        visible: songTabs.visible
-    }
-
-    SongTabBar {
-        id: songTabs
-        objectName: "songTabBar"
+    EditorTabBar {
+        id: tabs
+        objectName: "workspaceTabBar"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
+        visible: tabCount > 0
         height: visible ? implicitHeight : 0
+        viewState: root.viewState
         documentSession: root.documentSession
+        pages: root.pages
         onSongRequested: songId => {
             if (songId !== root.documentSession.activeSongId && root.previewSession.playing)
                 root.previewSession.playing = false
             if (root.documentSession.activateSong(songId))
                 root.viewState.openDifficultyEditor(root.documentSession.currentDifficultyId)
         }
-    }
-
-    EditorTabBar {
-        id: tabs
-        objectName: "difficultyTabBar"
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: songTabs.bottom
-        visible: root.viewState.openEditorTabs.length > 0
-        height: visible ? (songTabs.visible ? Theme.controlMinHeight : implicitHeight) : 0
-        stripColor: songTabs.visible ? Theme.colors.background.panel : Theme.colors.background.editorTabStrip
-        viewState: root.viewState
-        documentSession: root.documentSession
-        commands: root.commands
-        pages: root.pages
     }
 
     LatencyPage {

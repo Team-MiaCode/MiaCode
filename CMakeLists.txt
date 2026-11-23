@@ -710,7 +710,6 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/editor/EditorPane.qml
     src/app/ui/editor/MetadataDifficultyCard.qml
     src/app/ui/editor/EditorTabBar.qml
-    src/app/ui/editor/SongTabBar.qml
     src/app/ui/editor/SourceEditor.qml
     src/app/ui/editor/CompletionPopup.qml
     src/app/ui/editor/NormalizeOptionsDialog.qml

@@ -17,6 +17,7 @@ Item {
     property bool active: false
     property bool closable: false
     property bool showSeparator: false
+    property Component accessory: null
     property real preferredTabWidth: 160
     readonly property real outlineWidth: 1 / Screen.devicePixelRatio
     readonly property bool hovered: tabButton.hovered || closeButton.hovered
@@ -100,6 +101,14 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                 }
 
+                Loader {
+                    id: accessoryLoader
+                    Layout.alignment: Qt.AlignVCenter
+                    visible: active
+                    active: root.accessory !== null
+                    sourceComponent: root.accessory
+                }
+
                 AbstractButton {
                     id: closeButton
                     objectName: "tabCloseButton"
@@ -173,7 +182,8 @@ Item {
     }
 
     Tooltip {
-        visible: tabButton.hovered && !closeButton.hovered && root.tooltip.length > 0
+        visible: tabButton.hovered && !closeButton.hovered
+            && !accessoryLoader.item?.hovered && root.tooltip.length > 0
         text: root.tooltip
     }
 }
