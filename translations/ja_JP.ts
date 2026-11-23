@@ -1614,12 +1614,12 @@ Failed: %2</source>
         <translation>試聴</translation>
     </message>
     <message id="dialog.render_settings.music.default_intro_sound">
-        <source>Default intro sound</source>
-        <translation>既定の開始音</translation>
+        <source>Default</source>
+        <translation>既定</translation>
     </message>
     <message id="dialog.render_settings.music.intro_sound">
-        <source>Intro sound</source>
-        <translation>開始音</translation>
+        <source>Intro music</source>
+        <translation>開始音楽</translation>
     </message>
     <message id="dialog.render_settings.preview.canvas_frame_rate">
         <source>Preview Refresh Rate</source>
@@ -4385,6 +4385,14 @@ Error: %1</source>
         <source>Stop</source>
         <translation>停止</translation>
     </message>
+    <message id="video_export.intro_music_copy_failed">
+        <source>Could not copy the audio into the intro music folder.</source>
+        <translation>音声を開始音楽フォルダーにコピーできませんでした。</translation>
+    </message>
+    <message id="video_export.intro_music_import">
+        <source>Import audio…</source>
+        <translation>音声を読み込む…</translation>
+    </message>
     <message id="video_export.intro_music_segment">
         <source>Music segment</source>
         <translation>楽曲区間</translation>
@@ -5143,8 +5151,8 @@ Error: %1</source>
         <translation>ミッドナイト</translation>
     </message>
     <message id="dialog.preferences.theme.forest">
-        <source>Forest</source>
-        <translation>フォレスト</translation>
+        <source>Si-callion</source>
+        <translation>スーねぎ</translation>
     </message>
     <message id="dialog.preferences.theme.paper">
         <source>Warm Paper</source>
