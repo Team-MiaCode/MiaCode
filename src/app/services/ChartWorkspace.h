@@ -74,21 +74,6 @@ public:
     explicit ChartWorkspace(QObject* parent = nullptr);
     static constexpr int MetadataSection = -1;
 
-    struct SongState {
-        SimaiDocument document;
-        SimaiDocument savedDocument;
-        QString sourceText;
-        QString savedSourceText;
-        QString filePath;
-        int difficultyId = 0;
-        quint64 editorId = 0;
-        bool unifiedDesigner = false;
-        ChartDocumentOrigin origin = ChartDocumentOrigin::Local;
-    };
-    SongState songState() const;
-    void restoreSong(SongState state, int requestedDifficulty = 0);
-    quint64 editorId() const { return editorId_; }
-
     static ChartWorkspacePreflightResult preflightSource(
         const QString& source, SimaiValidationLocale locale);
 
@@ -182,7 +167,6 @@ private:
     bool dirty_ = false;
     bool unifiedDesignerEnabled_ = false;
     quint64 documentOpenGeneration_ = 0;
-    quint64 editorId_ = 0;
     ChartDocumentOrigin origin_ = ChartDocumentOrigin::Local;
 };
 

@@ -5,7 +5,6 @@
 
 #include <QDesktopServices>
 #include <QFileInfo>
-#include "core/chart/ChartAssetPaths.h"
 
 namespace miacode::ui {
 CommandService::CommandService(
@@ -32,7 +31,28 @@ void CommandService::whenDocumentMayBeLeft(std::function<void()> proceed)
 
 void CommandService::openDocument(const QUrl& fileUrl)
 {
-    document_->openSong(fileUrl);
+    if (isCurrentChart(fileUrl)) return;
+    whenDocumentMayBeLeft([this, fileUrl]() { document_->openChartFile(fileUrl); });
+}
+
+bool CommandService::isCurrentChart(const QUrl& fileUrl) const
+{
+    const QString selectedPath = QFileInfo(fileUrl.toLocalFile()).canonicalFilePath();
+    return !selectedPath.isEmpty() && selectedPath == QFileInfo(document_->currentFilePath()).canonicalFilePath();
+}
+
+void CommandService::openLibraryDifficulty(const QUrl& fileUrl, int difficultyId)
+{
+    if (isCurrentChart(fileUrl)) {
+        document_->requestLeaveCurrentField([this, difficultyId](bool mayLeave) {
+            if (mayLeave) emit libraryDifficultyOpened(difficultyId);
+        });
+        return;
+    }
+    whenDocumentMayBeLeft([this, fileUrl, difficultyId]() {
+        if (document_->openChartFile(fileUrl, difficultyId))
+            emit libraryDifficultyOpened(document_->currentDifficultyId());
+    });
 }
 
 void CommandService::openRecentDocument(const QString& path)
@@ -40,12 +60,9 @@ void CommandService::openRecentDocument(const QString& path)
     if (path.trimmed().isEmpty()) {
         return;
     }
-    if (!miacode::chart_assets::isSupportedTrackFilePath(path)) {
-        document_->openSong(QUrl::fromLocalFile(path));
-        return;
-    }
-    whenDocumentMayBeLeft(
-        [this, path]() { document_->openFile(QUrl::fromLocalFile(path)); });
+    const auto fileUrl = QUrl::fromLocalFile(path);
+    if (isCurrentChart(fileUrl)) return;
+    whenDocumentMayBeLeft([this, fileUrl]() { document_->openFile(fileUrl); });
 }
 
 void CommandService::newDocument()
@@ -66,7 +83,7 @@ void CommandService::closeDocument()
     if (document_ == nullptr || !document_->hasDocument()) {
         return;
     }
-    document_->requestCloseSong(document_->activeSongId());
+    whenDocumentMayBeLeft([this]() { document_->closeDocument(); });
 }
 
 bool CommandService::saveDocument() { return document_->save(); }

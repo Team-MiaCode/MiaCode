@@ -61,7 +61,6 @@ Item {
         + splitView.minimumHeight
     readonly property bool compact: width < splitView.minimumWorkspaceWidth
         + splitView.expandedSidebarWidth
-    property var songDifficultyTabs: ({})
 
     ViewState {
         id: state
@@ -578,21 +577,10 @@ Item {
     Connections {
         target: root.documentSession
 
-        function onSongAboutToBeParked(id) {
-            root.songDifficultyTabs[id] = state.openEditorTabs.filter(key => key.startsWith("difficulty:"))
-        }
-
-        function onSongReleased(id) {
-            delete root.songDifficultyTabs[id]
-        }
-
         function onDocumentReplaced() {
             if (!root.documentSession.hasDocument && state.activeSidebarView !== "library")
                 state.activeSidebarView = "chart"
             state.resetEditorTabs(root.documentSession.currentDifficultyId)
-            const saved = root.songDifficultyTabs[root.documentSession.activeSongId]
-            if (saved)
-                state.openEditorTabs = saved.concat(state.openEditorTabs.filter(key => !saved.includes(key)))
             // The projection is queued, so this can run while the incoming
             // document's active difficulty is not set yet. Healing here means a
             // replacement never leaves the editor with no tab at all.

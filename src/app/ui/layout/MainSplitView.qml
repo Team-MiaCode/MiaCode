@@ -618,13 +618,15 @@ Item {
             anchors.fill: parent
             visible: root.libraryActive
             activeChartPath: root.documentSession.currentFilePath
-            onDifficultyRequested: (chartUrl, difficulty) => {
-                if (root.documentSession.openSong(chartUrl, difficulty)) {
-                    root.pages.ensureDifficultyPageActive(difficulty)
-                    root.viewState.openEditor(root.viewState.difficultyEditorKey(difficulty), false)
-                    if (root.compact)
-                        root.viewState.compactPanel = ""
-                }
+            onDifficultyRequested: (chartUrl, difficulty) => root.commands.openLibraryDifficulty(chartUrl, difficulty)
+        }
+
+        Connections {
+            target: root.commands
+            function onLibraryDifficultyOpened(difficultyId) {
+                root.viewState.openDifficultyEditor(difficultyId)
+                if (root.compact && root.libraryActive)
+                    root.viewState.compactPanel = ""
             }
         }
 

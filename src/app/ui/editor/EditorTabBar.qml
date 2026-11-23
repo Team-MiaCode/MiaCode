@@ -14,18 +14,14 @@ Item {
     required property var commands
     required property var pages
 
-    signal songRequested(var songId)
-
     readonly property int minimumTabWidth: 80
     readonly property int tabCount: viewState.openEditorTabs.length
-    readonly property real editorStripWidth: Math.max(0, width - (songsButton.visible ? songsButton.width : 0))
-    readonly property real availableTabWidth: Math.max(0,
-        editorStripWidth - (tabsOverflow ? overflowButton.width : 0))
+    readonly property real availableTabWidth: Math.max(0, width - (tabsOverflow ? overflowButton.width : 0))
     readonly property real activePreferredWidth: activeTabIndex >= 0
         ? preferredWidthForKey(viewState.activeEditorKey) : 0
     readonly property bool tabsOverflow: activeTabIndex >= 0
-        ? activePreferredWidth + (tabCount - 1) * minimumTabWidth > editorStripWidth
-        : tabCount * minimumTabWidth > editorStripWidth
+        ? activePreferredWidth + (tabCount - 1) * minimumTabWidth > width
+        : tabCount * minimumTabWidth > width
     function preferredWidthForKey(key) {
         const title = (documentSession.dirtyEditorKeys.indexOf(key) >= 0 ? "*" : "") + titleForKey(key)
         const iconWidth = difficultyIdForKey(key) > 0 ? Theme.difficultySwatchSize
@@ -241,8 +237,7 @@ Item {
         id: tabViewport
 
         anchors.left: parent.left
-        anchors.right: root.tabsOverflow ? overflowButton.left
-            : songsButton.visible ? songsButton.left : parent.right
+        anchors.right: root.tabsOverflow ? overflowButton.left : parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         contentWidth: tabRow.width
@@ -334,48 +329,9 @@ Item {
     property string draggingEditorKey: ""
 
     IconButton {
-        id: songsButton
-        objectName: "workspaceOpenSongsButton"
-        anchors.right: parent.right
-        anchors.top: parent.top
-        height: parent.height
-        visible: root.documentSession.songTabs.length > 1
-        iconSource: Qt.resolvedUrl("icons/chevron-down.svg")
-        iconWidth: 12
-        iconHeight: 12
-        label: qsTrId("workspace.open_songs")
-        tooltip: label
-        active: songsMenu.active
-        onClicked: songsMenu.open()
-
-        AppMenu {
-            id: songsMenu
-            x: parent.width - width
-            y: parent.height
-
-            ButtonGroup { id: currentSongGroup }
-
-            Repeater {
-                model: root.documentSession.songTabs
-
-                delegate: AppMenuItem {
-                    required property var modelData
-                    readonly property var song: modelData
-                    text: (song.dirty ? "● " : "") + (song.title || qsTrId("library.untitled"))
-                    tooltip: song.path
-                    checkable: true
-                    ButtonGroup.group: currentSongGroup
-                    checked: song.id === root.documentSession.activeSongId
-                    onTriggered: root.songRequested(song.id)
-                }
-            }
-        }
-    }
-
-    IconButton {
         id: overflowButton
 
-        anchors.right: songsButton.visible ? songsButton.left : parent.right
+        anchors.right: parent.right
         anchors.top: parent.top
         width: 30
         height: parent.height

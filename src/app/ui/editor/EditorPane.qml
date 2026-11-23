@@ -73,7 +73,9 @@ Item {
             sourceEditor.paste()
     }
 
-    // Keyboard close follows the active editor and its save prompt.
+    // Keyboard tab-close must use the same three-way guard as the tab's x
+    // button. Calling ViewState.closeEditor directly would discard a dirty
+    // metadata or difficulty view without asking.
     function requestCloseActiveEditor() {
         if (viewState.activeEditorKey.length > 0)
             tabs.requestCloseTab(viewState.activeEditorKey)
@@ -195,7 +197,7 @@ Item {
     Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
-        y: tabs.y + tabs.height
+        y: tabs.height
         height: (root.sourceVisible ? sourceEditor.y : root.height) - y
         color: Theme.surfaceColor(Theme.colors.background.surface)
         visible: root.documentSession.hasDocument || root.viewState.netEditorActive
@@ -207,18 +209,12 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        visible: root.viewState.openEditorTabs.length > 0 || root.documentSession.songTabs.length > 1
+        visible: root.viewState.openEditorTabs.length > 0
         height: visible ? implicitHeight : 0
         viewState: root.viewState
         documentSession: root.documentSession
         commands: root.commands
         pages: root.pages
-        onSongRequested: songId => {
-            if (songId !== root.documentSession.activeSongId && root.previewSession.playing)
-                root.previewSession.playing = false
-            if (root.documentSession.activateSong(songId))
-                root.viewState.openDifficultyEditor(root.documentSession.currentDifficultyId)
-        }
     }
 
     LatencyPage {
