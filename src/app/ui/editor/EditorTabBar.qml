@@ -2,8 +2,6 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Controls.impl as ControlsImpl
-import QtQuick.Layouts
 import QtQuick.Window
 import QtQuick.Shapes
 import MiaCode.UI
@@ -35,10 +33,6 @@ Item {
     readonly property string activeTabKey: songsByKey[currentSongKey]
         && (viewState.difficultyEditorActive || !viewState.hasActiveEditor)
         ? currentSongKey : viewState.activeEditorKey
-    readonly property bool showDifficultyPicker: activeTabKey === currentSongKey
-        && documentSession.difficulties.length > 0
-    readonly property int difficultyPickerWidth: Math.min(128,
-        Math.ceil(tabFontMetrics.advanceWidth(documentSession.currentDifficultyLabel)) + 33)
     readonly property int minimumTabWidth: 80
     readonly property int tabCount: tabKeys.length
     readonly property real availableTabWidth: Math.max(0, width - (tabsOverflow ? overflowButton.width : 0))
@@ -52,10 +46,9 @@ Item {
         const iconWidth = difficultyIdForKey(key) > 0 ? Theme.difficultySwatchSize
             : iconForKey(key).toString().length > 0 ? 15 : 0
         const titleWidth = tabFontMetrics.advanceWidth(title)
-        const pickerWidth = showDifficultyPicker && key === currentSongKey ? difficultyPickerWidth + 6 : 0
         return Math.max(minimumTabWidth,
             Math.ceil((songsByKey[key] ? Math.min(titleWidth, 156) : titleWidth)
-                + 14 + 9 + 24 + 6 + (iconWidth > 0 ? iconWidth + 6 : 0) + pickerWidth))
+                + 14 + 9 + 24 + 6 + (iconWidth > 0 ? iconWidth + 6 : 0)))
     }
     readonly property var preferredTabWidths: tabKeys.map(key => preferredWidthForKey(key))
     readonly property real preferredTabsWidth: preferredTabWidths.reduce((sum, value) => sum + value, 0)
@@ -331,7 +324,6 @@ Item {
                     filledIconSource: root.iconForKey(modelData, true)
                     tooltip: root.tooltipForKey(modelData)
                     active: root.activeTabKey === modelData
-                    accessory: active && root.showDifficultyPicker ? difficultyPicker : null
                     closable: true
                     opacity: tabDrag.active ? 0.65 : 1
                     onClicked: {
@@ -366,72 +358,6 @@ Item {
                     }
                 }
             }
-        }
-    }
-
-    Component {
-        id: difficultyPicker
-
-        AppComboBox {
-            id: picker
-            objectName: "workspaceDifficultyPicker"
-            compact: true
-            implicitWidth: root.difficultyPickerWidth
-            implicitHeight: Theme.compactControlHeight
-            leftPadding: 4
-            rightPadding: 17
-            model: root.documentSession.difficulties
-            textRole: "label"
-            currentIndex: model.findIndex(difficulty => difficulty.id === root.documentSession.currentDifficultyId)
-            Accessible.name: qsTrId("dialog.batch_export.difficulty") + " " + displayText
-            onActivated: index => root.viewState.openDifficultyEditor(model[index].id)
-
-            contentItem: RowLayout {
-                spacing: 5
-
-                DifficultySwatch {
-                    Layout.preferredWidth: 7
-                    Layout.preferredHeight: 7
-                    Layout.alignment: Qt.AlignVCenter
-                    radius: 2
-                    difficultyId: root.documentSession.currentDifficultyId
-                    visible: difficultyId > 0
-                }
-                Text {
-                    id: difficultyLabel
-                    Layout.fillWidth: true
-                    font: picker.font
-                    color: picker.hovered || picker.popup.visible || picker.visualFocus
-                        ? Theme.colors.text.active : Theme.colors.text.secondary
-                    text: picker.displayText
-                    elide: Text.ElideRight
-                }
-            }
-
-            indicator: ControlsImpl.IconImage {
-                x: picker.width - width - 4
-                y: (picker.height - height) / 2
-                width: 9
-                height: 9
-                source: Qt.resolvedUrl("icons/chevron-down.svg")
-                sourceSize: Theme.iconSourceSize(width, height)
-                color: Theme.colors.text.secondary
-            }
-
-            background: HoverChrome {
-                fillBounds: true
-                cornerRadius: Theme.smallControlRadius
-                stateColors: Theme.colors.buttonState
-                hovered: picker.hovered
-                pressed: picker.down
-                selected: picker.popup.visible
-                focused: picker.visualFocus
-                borderWidth: picker.visualFocus ? Theme.controlBorderWidth : 0
-                borderColor: Theme.colors.accent.focus
-            }
-
-            ToolTip.visible: hovered && difficultyLabel.truncated
-            ToolTip.text: displayText
         }
     }
 

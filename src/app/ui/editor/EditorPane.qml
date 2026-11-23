@@ -295,6 +295,7 @@ Item {
 
     Item {
         id: difficultyHeader
+        objectName: "difficultyFieldsHeader"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: tabs.bottom
@@ -311,10 +312,9 @@ Item {
             readonly property real gap: 8
             readonly property real normalizeButtonWidth: normalizeButton.implicitWidth
             readonly property real wideWidth:
-                levelField.implicitWidth + designerField.implicitWidth
-                + offsetField.implicitWidth + normalizeButtonWidth + 3 * gap
+                firstRowWidth + designerField.implicitWidth + normalizeButtonWidth + 2 * gap
             readonly property real firstRowWidth:
-                levelField.implicitWidth + offsetField.implicitWidth + gap
+                difficultyField.implicitWidth + levelField.implicitWidth + offsetField.implicitWidth + 2 * gap
             readonly property real twoRowWidth:
                 Math.max(firstRowWidth,
                     designerField.implicitWidth + normalizeButtonWidth + gap)
@@ -323,10 +323,49 @@ Item {
 
             height: designerField.y + designerField.height
 
+            RowLayout {
+                id: difficultyField
+                spacing: headerContent.gap
+                width: Math.min(implicitWidth, headerContent.width)
+
+                Label {
+                    text: qsTrId("dialog.batch_export.difficulty")
+                    color: Theme.colors.text.primary
+                    font.family: Theme.uiFont
+                    font.pixelSize: Theme.uiFontSize
+                }
+
+                AppComboBox {
+                    id: difficultyPicker
+                    objectName: "workspaceDifficultyPicker"
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    backgroundColor: Theme.colors.background.panel
+                    outlined: true
+                    leftPadding: 8
+                    rightPadding: 24
+                    implicitWidth: Math.ceil(root.documentSession.difficulties.reduce(
+                        (widest, difficulty) => Math.max(widest, difficultyNameMetrics.advanceWidth(difficulty.name)),
+                        46)) + leftPadding + rightPadding
+                    model: root.documentSession.difficulties
+                    textRole: "name"
+                    valueRole: "id"
+                    currentIndex: model.findIndex(difficulty => difficulty.id === root.documentSession.currentDifficultyId)
+                    Accessible.name: qsTrId("dialog.batch_export.difficulty")
+                    onActivated: root.viewState.openDifficultyEditor(currentValue)
+
+                    FontMetrics {
+                        id: difficultyNameMetrics
+                        font: difficultyPicker.font
+                    }
+                }
+            }
+
             DifficultyHeaderField {
                 id: levelField
-                x: 0
-                y: 0
+                objectName: "workspaceDifficultyLevelField"
+                x: headerContent.wide || headerContent.twoRows ? difficultyField.width + headerContent.gap : 0
+                y: headerContent.wide || headerContent.twoRows ? 0 : difficultyField.height + headerContent.gap
                 stacked: !headerContent.wide && !headerContent.twoRows
                     && headerContent.width < implicitWidth
                 width: stacked ? headerContent.width : implicitWidth
@@ -352,7 +391,7 @@ Item {
                     headerContent.width - x - headerContent.normalizeButtonWidth - headerContent.gap))
                 labelText: qsTrId("net.designer")
                 value: root.documentSession.currentDifficultyDesigner
-                editorWidth: 100
+                editorWidth: 76
                 fillEditorWidth: true
                 onCommitted: value => root.documentSession.currentDifficultyDesigner = value
             }
