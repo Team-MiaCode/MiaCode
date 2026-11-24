@@ -15,8 +15,7 @@ Item {
     required property string activeChartPath
     readonly property alias libraryModel: library
     readonly property string activeChartKey: library.chartPathKey(activeChartPath)
-    readonly property real scrollBarGutter: libraryScrollBar.width
-    readonly property real contentRightMargin: 14
+    readonly property real contentMargin: 10
     property bool loaded: false
     property int selectedDifficulty: 0
     readonly property var difficultyOptions: [qsTrId("library.all_difficulties"),
@@ -123,14 +122,13 @@ Item {
         anchors.right: parent.right
         anchors.top: heading.bottom
         anchors.bottom: parent.bottom
-        anchors.leftMargin: 10
-        anchors.rightMargin: root.contentRightMargin
         anchors.bottomMargin: 10
         spacing: 9
 
         RowLayout {
             Layout.fillWidth: true
-            Layout.rightMargin: root.scrollBarGutter
+            Layout.leftMargin: root.contentMargin
+            Layout.rightMargin: root.contentMargin
             spacing: 8
             AppButton {
                 objectName: "chartLibraryFolderButton"
@@ -166,7 +164,8 @@ Item {
             RowLayout {
                 objectName: "chartLibrarySearchRow"
                 Layout.fillWidth: true
-                Layout.rightMargin: root.scrollBarGutter
+                Layout.leftMargin: root.contentMargin
+                Layout.rightMargin: root.contentMargin
                 spacing: 8
 
                 AppTextField {
@@ -232,15 +231,15 @@ Item {
                     objectName: "chartLibrarySongList"
                     anchors.fill: parent
                     contentWidth: availableWidth
-                    rightPadding: root.scrollBarGutter
+                    leftPadding: root.contentMargin
+                    rightPadding: root.contentMargin
                     clip: true
                     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                     ScrollBar.vertical: AppScrollBar {
-                        id: libraryScrollBar
                         parent: viewport
-                        x: viewport.width - width
-                        y: viewport.topPadding
-                        height: viewport.availableHeight
+                        anchors.top: viewport.top
+                        anchors.bottom: viewport.bottom
+                        anchors.right: viewport.right
                     }
 
                     property int currentIndex: -1
@@ -279,11 +278,14 @@ Item {
                                 required property var modelData
                                 readonly property bool currentChart: root.activeChartKey.length > 0
                                     && root.activeChartKey === modelData.pathKey
+                                readonly property color secondaryTextColor: chromeSelected
+                                    ? Theme.colors.text.primary : Theme.colors.text.secondary
                                 width: songColumn.width
                                 height: Math.max(60, songBody.implicitHeight + 12)
                                 leftPadding: 6
-                                rightPadding: 8
+                                rightPadding: leftPadding
                                 highlightFillsBounds: true
+                                emphasizedText: true
                                 text: modelData.title
                                 Accessible.name: [modelData.title, modelData.artist, modelData.variant,
                                     currentChart ? qsTrId("library.current_editing") : ""]
@@ -299,19 +301,6 @@ Item {
                                 ToolTip.visible: songRow.hovered && (songName.truncated || artistName.truncated || variantName.truncated)
                                 ToolTip.text: [modelData.title, modelData.artist, modelData.variant]
                                     .filter(value => value).join("\n")
-                                Rectangle {
-                                    objectName: "chartLibraryCurrentSongMarker"
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: 2
-                                    anchors.top: parent.top
-                                    anchors.bottom: parent.bottom
-                                    anchors.topMargin: 9
-                                    anchors.bottomMargin: 9
-                                    width: 2
-                                    radius: 1
-                                    color: Theme.colors.accent.primary
-                                    visible: songRow.currentChart
-                                }
                                 contentItem: RowLayout {
                                     id: songBody
                                     spacing: 9
@@ -352,7 +341,7 @@ Item {
                                             Layout.fillWidth: true
                                             text: songRow.modelData.title
                                             textFormat: Text.PlainText
-                                            color: Theme.colors.text.primary
+                                            color: songRow.contentColor
                                             font.family: Theme.uiFont
                                             font.pixelSize: Theme.uiFontSize + 1
                                             font.weight: Font.DemiBold
@@ -364,7 +353,7 @@ Item {
                                             text: songRow.modelData.artist
                                             textFormat: Text.PlainText
                                             visible: text.length > 0
-                                            color: Theme.colors.text.secondary
+                                            color: songRow.secondaryTextColor
                                             font.family: Theme.uiFont
                                             font.pixelSize: Theme.uiFontSize - 1
                                             elide: Text.ElideRight
@@ -376,7 +365,7 @@ Item {
                                             text: songRow.modelData.variant ?? ""
                                             textFormat: Text.PlainText
                                             visible: text.length > 0
-                                            color: Theme.colors.text.secondary
+                                            color: songRow.secondaryTextColor
                                             font.family: Theme.uiFont
                                             font.pixelSize: Theme.uiFontSize - 1
                                             elide: Text.ElideRight
@@ -448,7 +437,8 @@ Item {
             }
             Label {
                 Layout.fillWidth: true
-                Layout.rightMargin: root.scrollBarGutter
+                Layout.leftMargin: root.contentMargin
+                Layout.rightMargin: root.contentMargin
                 visible: library.songs.length > 0
                 text: qsTrId("library.result_count").arg(songs.count).arg(library.songs.length)
                 color: Theme.colors.text.secondary
