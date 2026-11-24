@@ -16,8 +16,7 @@ class EditorInputContext : public QObject
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QQuickWindow* window READ window WRITE setWindow NOTIFY windowChanged)
-    // The chart editor owns typing keys: it types them before single-key shortcuts,
-    // and typing left unclaimed in neutral workbench areas returns to it.
+    // Typing left unclaimed by shortcuts and focused controls returns to the chart editor.
     Q_PROPERTY(QQuickItem* typingTarget READ typingTarget WRITE setTypingTarget NOTIFY typingTargetChanged)
     Q_PROPERTY(bool workbenchCommandsAllowed READ workbenchCommandsAllowed NOTIFY contextChanged)
     Q_PROPERTY(QObject* textInput READ textInput NOTIFY contextChanged)

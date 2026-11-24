@@ -177,14 +177,6 @@ bool EditorInputContext::eventFilter(QObject* object, QEvent* event)
     case QEvent::InputMethod:
         QTimer::singleShot(0, this, &EditorInputContext::refresh);
         break;
-    case QEvent::ShortcutOverride:
-        // Like other text controls, the focused chart editor types before matching shortcuts.
-        if (object == typingTarget_ && typingTargetWritable()
-            && isTypingKey(static_cast<QKeyEvent*>(event))) {
-            event->accept();
-            return true;
-        }
-        break;
     case QEvent::KeyPress:
         // A key reaches the root item only after shortcuts and every focused item declined it.
         if (window_ && object == window_->contentItem())

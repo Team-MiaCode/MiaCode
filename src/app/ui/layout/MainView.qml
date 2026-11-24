@@ -53,6 +53,7 @@ Item {
         && !pages.overlayActive && !beginnerGuideActive
     readonly property bool chartEditorActive: documentSession.hasDocument
         && documentSession.currentDifficultyId > 0 && !pages.overlayActive && !beginnerGuideActive
+    readonly property bool chartNormalizationAvailable: chartEditorActive && splitView.canNormalizeChart()
     readonly property alias mainMenuCommands: menuCommands
     readonly property string windowTitle: titleBar.titleText
     readonly property real minimumWidth: Math.max(splitView.minimumWorkspaceWidth,
@@ -269,6 +270,11 @@ Item {
         if (!root.chartEditorActive)
             return false
         return splitView.applyChartTransform(opId)
+    }
+
+    function normalizeChartWithPreferences() {
+        return root.chartNormalizationAvailable
+            && splitView.applyNormalization(root.documentSession.normalizeOptions())
     }
 
     function showUnavailableFeature(featureName) {
@@ -795,7 +801,7 @@ Item {
                 title: qsTrId("guide.editor.title"),
                 columns: 1,
                 features: [
-                    { icon: Qt.resolvedUrl("icons/metadata.svg"), label: qsTrId("guide.editor.metadata_save") },
+                    { icon: Qt.resolvedUrl("icons/wand.svg"), label: qsTrId("guide.editor.normalize") },
                     { kind: "code", sample: "|| 3/4", label: qsTrId("guide.editor.measure") },
                     { kind: "code", sample: "|||", label: qsTrId("guide.editor.comment") },
                     { kind: "code", sample: "|| [A]", label: qsTrId("guide.editor.bookmark") }

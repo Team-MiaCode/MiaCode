@@ -37,6 +37,7 @@ Item {
     // Transforms edit the chart, so they are inert without one.
     property bool commandsEnabled: true
     property bool chartCommandsEnabled: true
+    property bool chartNormalizationEnabled: false
     property bool playbackCommandsEnabled: true
     property bool menuOwnsChartTransformShortcuts: false
     property bool menuOwnsPreviewRateShortcuts: false
@@ -46,6 +47,17 @@ Item {
     // that nothing ever synced from here, so every transform found an empty
     // selection and silently did nothing.
     signal chartTransformRequested(string opId)
+    signal chartNormalizationRequested()
+
+    Shortcut {
+        sequence: root.shortcuts.revision >= 0
+            ? root.shortcuts.sequence("editor.normalize_chart") : ""
+        enabled: root.commandsEnabled && root.chartNormalizationEnabled
+            && !root.shortcuts.captureActive && sequence !== ""
+        context: Qt.WindowShortcut
+        autoRepeat: false
+        onActivated: root.chartNormalizationRequested()
+    }
 
     Shortcut {
         sequence: root.timelineStateBridge && root.shortcuts.revision >= 0
