@@ -17,22 +17,27 @@ Item {
     readonly property string activeChartKey: library.chartPathKey(activeChartPath)
     readonly property real contentMargin: 10
     property bool loaded: false
-    property int selectedDifficulty: 0
-    readonly property var difficultyOptions: [qsTrId("library.all_difficulties"),
-        qsTrId("library.difficulty.1"), qsTrId("library.difficulty.2"),
+    property list<int> selectedDifficulties: []
+    readonly property var difficultyOptions: [qsTrId("library.difficulty.1"), qsTrId("library.difficulty.2"),
         qsTrId("library.difficulty.3"), qsTrId("library.difficulty.4"),
         qsTrId("library.difficulty.5"), qsTrId("library.difficulty.6"),
         qsTrId("library.difficulty.7")]
     readonly property var filteredSongs: {
         const query = search.text.trim().toLocaleLowerCase()
-        const difficulty = root.selectedDifficulty
+        const difficulties = root.selectedDifficulties
         return library.songs.filter(song =>
-            (difficulty <= 0 || song.difficulties.some(entry => entry.id === difficulty))
+            (difficulties.length === 0 || song.difficulties.some(entry => difficulties.includes(entry.id)))
             && (query.length === 0 || [song.title, song.artist, song.variant, song.songId]
                 .some(value => value?.toLocaleLowerCase().includes(query))))
     }
 
-    onSelectedDifficultyChanged: resetSongPosition()
+    onSelectedDifficultiesChanged: resetSongPosition()
+
+    function setDifficultySelected(difficultyId: int, selected: bool) {
+        selectedDifficulties = selected
+            ? [...selectedDifficulties, difficultyId]
+            : selectedDifficulties.filter(id => id !== difficultyId)
+    }
 
     function resetSongPosition() {
         viewport.currentIndex = -1
@@ -59,12 +64,13 @@ Item {
         if (!song)
             return
         viewport.currentIndex = index
-        root.chartRequested(song.chart, preferredDifficultyId)
+        const matchingDifficulty = song.difficulties.find(entry => selectedDifficulties.includes(entry.id))
+        root.chartRequested(song.chart, preferredDifficultyId ?? matchingDifficulty?.id ?? 0)
     }
 
     function openCurrentResult() {
         const index = Math.max(0, Math.min(viewport.currentIndex, filteredSongs.length - 1))
-        openSongAt(index, selectedDifficulty)
+        openSongAt(index)
     }
 
     function showSongMenu(row, x, y) {
@@ -101,7 +107,7 @@ Item {
         title: qsTrId("library.choose_folder")
         onAccepted: {
             root.loaded = true
-            root.selectedDifficulty = 0
+            root.selectedDifficulties = []
             library.setDirectory(selectedFolder)
         }
     }
@@ -185,39 +191,47 @@ Item {
                 }
 
                 IconButton {
+                    id: difficultyButton
                     objectName: "chartLibraryDifficultyFilter"
                     Layout.preferredWidth: Theme.controlMinHeight
                     Layout.preferredHeight: Theme.controlMinHeight
                     backgroundFillsWidth: true
                     visible: library.songs.length > 0
-                    active: difficultyMenu.active || root.selectedDifficulty > 0
+                    active: difficultyMenu.active || root.selectedDifficulties.length > 0
                     iconSource: Qt.resolvedUrl("icons/sliders-horizontal.svg")
                     filledIconSource: Qt.resolvedUrl("icons/sliders-horizontal-fill.svg")
                     tooltip: qsTrId("dialog.batch_export.difficulty") + " · "
-                        + root.difficultyOptions[root.selectedDifficulty]
-                    onClicked: difficultyMenu.open()
+                        + (root.selectedDifficulties.length === 0 ? qsTrId("library.all_difficulties")
+                            : root.difficultyOptions.filter((_, index) =>
+                                root.selectedDifficulties.includes(index + 1)).join(", "))
+                    onClicked: {
+                        if (difficultyMenu.active)
+                            difficultyMenu.close()
+                        else
+                            difficultyMenu.openAt(difficultyButton)
+                    }
 
-                    AppMenu {
+                    AppStickyPopup {
                         id: difficultyMenu
-                        x: parent.width - width
-                        y: parent.height
+                        minimumWidth: 180
 
-                        ButtonGroup {
-                            id: difficultyGroup
-                        }
+                        contentItem: Column {
+                            id: difficultyOptionsColumn
 
-                        Repeater {
-                            model: root.difficultyOptions
-                            delegate: AppMenuItem {
-                                objectName: "chartLibraryDifficultyOption"
-                                required property int index
-                                required property string modelData
-                                text: modelData
-                                difficultyId: index
-                                checkable: true
-                                ButtonGroup.group: difficultyGroup
-                                checked: root.selectedDifficulty === index
-                                onTriggered: root.selectedDifficulty = index
+                            Repeater {
+                                model: root.difficultyOptions
+                                delegate: AppMenuItem {
+                                    objectName: "chartLibraryDifficultyOption"
+                                    required property int index
+                                    required property string modelData
+                                    width: difficultyOptionsColumn.width
+                                    focusPolicy: Qt.StrongFocus
+                                    text: modelData
+                                    difficultyId: index + 1
+                                    checkable: true
+                                    checked: root.selectedDifficulties.includes(difficultyId)
+                                    onToggled: root.setDifficultySelected(difficultyId, checked)
+                                }
                             }
                         }
                     }
@@ -312,7 +326,7 @@ Item {
                                     .filter(value => value).join(", ")
                                 selected: currentChart
                                 highlighted: viewport.activeFocus && index === viewport.currentIndex
-                                onClicked: root.openSongAt(index, root.selectedDifficulty)
+                                onClicked: root.openSongAt(index)
                                 TapHandler {
                                     acceptedButtons: Qt.RightButton
                                     onTapped: eventPoint =>
