@@ -35,19 +35,10 @@ Rectangle {
         return tabs
     }
 
-    function fontIndexForPath(options, path) {
-        if (!options)
-            return 0
-        for (let index = 0; index < options.length; ++index) {
-            if (options[index].path === path)
-                return index
-        }
-        return 0
-    }
+    readonly property var introFontOptions: session ? session.fontLibraryOptions : []
 
-    function fontFamilyForPath(options, path) {
-        const index = fontIndexForPath(options, path)
-        return options && options.length > index ? options[index].family : ""
+    function introFontFamily(path, fallback) {
+        return introFontOptions.find(option => option.path === path)?.family || fallback
     }
 
     FontLoader {
@@ -899,84 +890,53 @@ Rectangle {
 
                             enabled: root.introSettingsEnabled
 
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Text {
-                                    font.family: Theme.uiFont
-                                    font.pixelSize: Theme.uiFontSize
-                                    text: qsTrId("card_font.title")
-                                    color: Theme.colors.text.secondary
-                                    Layout.preferredWidth: 120
-                                }
-                                AppComboBox {
-                                    id: introDisplayFontCombo
-                                    fontFamilyRole: "family"
-                                    objectName: "introDisplayFontCombo"
-                                    Layout.fillWidth: true
-                                    model: root.session ? root.session.fontLibraryOptions : []
-                                    textRole: "label"
-                                    currentIndex: root.fontIndexForPath(
-                                                      model, root.session ? root.session.introFontDisplayPath : "")
-                                    Accessible.name: qsTrId("qml.intro_title_font")
-                                    onActivated: if (root.session)
-                                        root.session.introFontDisplayPath = model[currentIndex].path
-                                }
+                            LabeledCombo {
+                                comboObjectName: "introDisplayFontCombo"
+                                label: qsTrId("card_font.title")
+                                options: root.introFontOptions
+                                valueRole: "path"
+                                fontFamilyRole: "family"
+                                currentValue: root.session?.introFontDisplayPath ?? ""
+                                onPicked: value => { if (root.session) root.session.introFontDisplayPath = value }
                             }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Text {
-                                    font.family: Theme.uiFont
-                                    font.pixelSize: Theme.uiFontSize
-                                    text: qsTrId("card_font.body")
-                                    color: Theme.colors.text.secondary
-                                    Layout.preferredWidth: 120
-                                }
-                                AppComboBox {
-                                    id: introBodyFontCombo
-                                    fontFamilyRole: "family"
-                                    objectName: "introBodyFontCombo"
-                                    Layout.fillWidth: true
-                                    model: root.session ? root.session.fontLibraryOptions : []
-                                    textRole: "label"
-                                    currentIndex: root.fontIndexForPath(
-                                                      model, root.session ? root.session.introFontBodyPath : "")
-                                    Accessible.name: qsTrId("qml.intro_body_font")
-                                    onActivated: if (root.session)
-                                        root.session.introFontBodyPath = model[currentIndex].path
-                                }
+
+                            LabeledCombo {
+                                comboObjectName: "introBodyFontCombo"
+                                label: qsTrId("card_font.body")
+                                options: root.introFontOptions
+                                valueRole: "path"
+                                fontFamilyRole: "family"
+                                currentValue: root.session?.introFontBodyPath ?? ""
+                                onPicked: value => { if (root.session) root.session.introFontBodyPath = value }
                             }
-                            Rectangle {
-                                Layout.fillWidth: true
-                                implicitHeight: introFontPreviewColumn.implicitHeight + 20
-                                radius: Theme.controlRadius
-                                color: Theme.overlayColor(Theme.colors.background.surface)
-                                Column {
-                                    id: introFontPreviewColumn
-                                    anchors.fill: parent
-                                    anchors.margins: 10
-                                    spacing: 3
-                                    Text {
-                                        id: introFontSample
-                                        width: parent.width
-                                        text: qsTrId("qml.title_font_preview")
-                                        color: Theme.colors.text.primary
-                                        font.family: root.fontFamilyForPath(
-                                                         root.session ? root.session.fontLibraryOptions : [],
-                                                         root.session ? root.session.introFontDisplayPath : "") || defaultDisplayFont.name
-                                        font.pixelSize: Theme.uiFontSize
-                                        font.bold: true
-                                        elide: Text.ElideRight
-                                    }
-                                    Text {
-                                        width: parent.width
-                                        text: qsTrId("qml.body_font_preview")
-                                        color: Theme.colors.text.secondary
-                                        font.family: root.fontFamilyForPath(
-                                                         root.session ? root.session.fontLibraryOptions : [],
-                                                         root.session ? root.session.introFontBodyPath : "") || defaultBodyFont.name
-                                        font.pixelSize: Theme.secondaryFontSize
-                                        elide: Text.ElideRight
-                                    }
+
+                            FontSamplePane {
+                                Text {
+                                    objectName: "introDisplayFontSample"
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    text: qsTrId("qml.title_font_preview")
+                                    textFormat: Text.PlainText
+                                    renderType: Text.NativeRendering
+                                    color: Theme.colors.text.primary
+                                    font.family: root.introFontFamily(
+                                        root.session?.introFontDisplayPath, defaultDisplayFont.name)
+                                    font.pixelSize: Theme.headingFontSize
+                                    font.bold: true
+                                    elide: Text.ElideRight
+                                }
+                                Text {
+                                    objectName: "introBodyFontSample"
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    text: qsTrId("qml.body_font_preview")
+                                    textFormat: Text.PlainText
+                                    renderType: Text.NativeRendering
+                                    color: Theme.colors.text.secondary
+                                    font.family: root.introFontFamily(
+                                        root.session?.introFontBodyPath, defaultBodyFont.name)
+                                    font.pixelSize: Theme.uiFontSize
+                                    elide: Text.ElideRight
                                 }
                             }
                             RowLayout {

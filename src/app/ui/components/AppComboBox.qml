@@ -14,6 +14,9 @@ ComboBox {
     property bool outlined: false
     // Only choices with an explicit font family preview it.
     property string fontFamilyRole: ""
+    // Custom fonts missing a PostScript name can render blank in Qt's
+    // distance-field glyph cache; native rendering avoids dropping them.
+    readonly property int optionRenderType: root.fontFamilyRole ? Text.NativeRendering : Text.QtRendering
 
     function optionFamily(index) {
         if (root.fontFamilyRole && root.model && index >= 0 && index < root.count)
@@ -43,6 +46,7 @@ ComboBox {
         rightPadding: 0
         text: root.displayText
         font: root.font
+        renderType: root.optionRenderType
         color: root.enabled ? Theme.colors.text.active : Theme.colors.text.disabled
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
@@ -90,6 +94,7 @@ ComboBox {
         highlighted: root.highlightedIndex === index
         text: root.textAt(index)
         labelFont: root.optionFont(index)
+        labelRenderType: root.optionRenderType
     }
 
     popup: AppDropdownPanel {

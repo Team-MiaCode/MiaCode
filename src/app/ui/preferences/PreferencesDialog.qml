@@ -629,12 +629,7 @@ AppDialog {
                                 }
                             }
 
-                            Rectangle {
-                                Layout.fillWidth: true
-                                implicitHeight: fontPreview.implicitHeight + 24
-                                radius: Theme.controlRadius
-                                color: Theme.colors.background.surface
-                                border.color: Theme.colors.border.normal
+                            FontSamplePane {
                                 FontMetrics {
                                     id: fontPreviewMetrics
                                     font: Theme.codeFont
@@ -642,9 +637,8 @@ AppDialog {
                                 Text {
                                     id: fontPreview
                                     objectName: "preferencesFontPreview"
-                                    x: 12
-                                    y: 12
-                                    width: parent.width - 24
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
                                     text: {
                                         const keyword = Theme.colors.syntax.keyword
                                         const beat = Theme.colors.syntax.beat || keyword
@@ -655,7 +649,7 @@ AppDialog {
                                             .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
                                         return "<font color='" + keyword + "'>(180)</font><font color='" + beat + "'>{4}</font><font color='" + note + "'>1</font>,<font color='" + note + "'>2</font>,<font color='" + note + "'>3</font>,<font color='" + note + "'>4</font>,<br>"
                                             + "<font color='" + note + "'>1-5</font><font color='" + duration + "'>[4:1]</font>,<font color='" + note + "'>2h</font>"
-                                            + "<font color='" + duration + "'>[8:1]</font>,<font color='" + note + "'>B1</font>,<br>"
+                                            + "<font color='" + duration + "'>[8:1]</font>,<font color='" + note + "'>3b</font>,<br>"
                                             + "<font color='" + comment + "'>|| " + sample + "</font>"
                                     }
                                     textFormat: Text.StyledText

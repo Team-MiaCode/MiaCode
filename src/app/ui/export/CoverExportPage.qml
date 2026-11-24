@@ -58,14 +58,7 @@ Rectangle {
         && root.session.chartFrameAvailable
         && !root.session.busy
 
-    // LabeledCombo 吃 { value, label }；字体库给的是 { path, label, family }。
-    readonly property var fontOptions: {
-        const source = root.session ? root.session.fontLibraryOptions : []
-        const options = []
-        for (let index = 0; index < source.length; ++index)
-            options.push({ value: source[index].path, label: source[index].label, family: source[index].family })
-        return options
-    }
+    readonly property var fontOptions: session ? session.fontLibraryOptions : []
 
     // 检查器标签列。标签都是短词，88px 容得下中/英/日三种文案而不折行。
     readonly property int labelWidth: 88
@@ -727,6 +720,22 @@ Rectangle {
                                                 onEdited: function(color) { if (root.session) root.session.setActiveLayerTextColor(color) }
                                             }
                                         }
+                                        LabeledCombo {
+                                            comboObjectName: "coverTextFontCombo"
+                                            label: qsTrId("cover.font")
+                                            labelWidth: root.labelWidth
+                                            options: root.fontOptions
+                                            valueRole: "path"
+                                            fontFamilyRole: "family"
+                                            currentValue: root.activeLayer?.fontPath ?? ""
+                                            onPicked: value => { if (root.session) root.session.setActiveLayerFontPath(value) }
+
+                                            IconButton {
+                                                iconSource: Qt.resolvedUrl("icons/folder-open.svg")
+                                                tooltip: qsTrId("card_font.import")
+                                                onClicked: if (root.session) root.session.importActiveLayerFont()
+                                            }
+                                        }
                                         RowLayout {
                                             Layout.fillWidth: true
                                             AppSwitch {
@@ -735,10 +744,6 @@ Rectangle {
                                                 onToggled: if (root.session) root.session.setActiveLayerTextBold(checked)
                                             }
                                             Item { Layout.fillWidth: true }
-                                            AppButton {
-                                                text: qsTrId("card_font.import")
-                                                onClicked: root.session.importActiveLayerFont()
-                                            }
                                         }
                                         AppSwitch {
                                             text: qsTrId("cover.text_stroke")
@@ -1006,11 +1011,12 @@ Rectangle {
                                         title: qsTrId("cover.font")
 
                                         LabeledCombo {
-                                            objectName: "coverCardDisplayFontCombo"
+                                            comboObjectName: "coverCardDisplayFontCombo"
                                             fontFamilyRole: "family"
-                                            label: qsTrId("cover.title_font")
+                                            label: qsTrId("card_font.title")
                                             labelWidth: root.labelWidth
                                             options: root.fontOptions
+                                            valueRole: "path"
                                             currentValue: root.session ? root.session.cardFontDisplayPath : ""
                                             onPicked: function(value) { if (root.session) root.session.cardFontDisplayPath = value }
 
@@ -1021,11 +1027,12 @@ Rectangle {
                                             }
                                         }
                                         LabeledCombo {
-                                            objectName: "coverCardBodyFontCombo"
+                                            comboObjectName: "coverCardBodyFontCombo"
                                             fontFamilyRole: "family"
-                                            label: qsTrId("cover.body_font")
+                                            label: qsTrId("card_font.body")
                                             labelWidth: root.labelWidth
                                             options: root.fontOptions
+                                            valueRole: "path"
                                             currentValue: root.session ? root.session.cardFontBodyPath : ""
                                             onPicked: function(value) { if (root.session) root.session.cardFontBodyPath = value }
 

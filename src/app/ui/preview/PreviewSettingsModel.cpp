@@ -386,9 +386,14 @@ QString PreviewSettingsModel::hudFontSample() const
 QFont PreviewSettingsModel::hudFont() const
 {
     const auto area = miacode::preview::scene::previewHudFontAreaFromId(hudFontAreaId_);
-    return area == miacode::preview::scene::PreviewHudFontArea::DebugInfo
-        ? miacode::preview::scene::previewHudMonoFontForArea(miacode::hud_preferences::load(), area, 14)
-        : miacode::preview::scene::previewHudTimestampFontForArea(miacode::hud_preferences::load(), area, 14, QFont::DemiBold);
+    const auto settings = miacode::hud_preferences::load();
+    QFont font = area == miacode::preview::scene::PreviewHudFontArea::DebugInfo
+        ? miacode::preview::scene::previewHudMonoFontForArea(settings, area, 14, QFont::Medium)
+        : miacode::preview::scene::previewHudTimestampFontForArea(
+            settings, area, 14,
+            area == miacode::preview::scene::PreviewHudFontArea::CenterDisplay ? QFont::Black : QFont::DemiBold);
+    font.setPixelSize(14);
+    return font;
 }
 
 void PreviewSettingsModel::setSkinIndex(int index)

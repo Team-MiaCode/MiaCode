@@ -1,5 +1,6 @@
 #include <QCoreApplication>
 #include <QDir>
+#include <QFont>
 #include <QGuiApplication>
 #include <QQmlComponent>
 #include <QVariantMap>
@@ -498,6 +499,14 @@ bool verifyRealExportPageControls(QTextStream& err)
         session->property("introFontDisplayPath").toString() == QStringLiteral("/fonts/example.ttf")
             && session->property("introFontBodyPath").toString() == QStringLiteral("/fonts/example.ttf"),
         QStringLiteral("the title and body card-font selectors write independently to the session"),
+        err);
+    const auto* titleSample = root->findChild<QObject*>(QStringLiteral("introDisplayFontSample"));
+    const auto* bodySample = root->findChild<QObject*>(QStringLiteral("introBodyFontSample"));
+    ok &= require(
+        titleSample != nullptr && bodySample != nullptr
+            && titleSample->property("font").value<QFont>().family() == QStringLiteral("Example Font")
+            && bodySample->property("font").value<QFont>().family() == QStringLiteral("Example Font"),
+        QStringLiteral("intro font samples apply the selected families"),
         err);
 
     QMetaObject::invokeMethod(introFontImportButton, "clicked");
