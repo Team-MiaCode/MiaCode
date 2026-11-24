@@ -197,8 +197,8 @@ Item {
                     backgroundFillsWidth: true
                     visible: library.songs.length > 0
                     active: difficultyMenu.active || root.selectedDifficulties.length > 0
-                    iconSource: Qt.resolvedUrl("icons/sliders-horizontal.svg")
-                    filledIconSource: Qt.resolvedUrl("icons/sliders-horizontal-fill.svg")
+                    iconSource: Qt.resolvedUrl("icons/filter.svg")
+                    filledIconSource: Qt.resolvedUrl("icons/filter-fill.svg")
                     tooltip: qsTrId("action.filter")
                     onClicked: {
                         if (difficultyMenu.active)

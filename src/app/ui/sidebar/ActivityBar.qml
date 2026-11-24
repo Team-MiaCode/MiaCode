@@ -41,6 +41,7 @@ Rectangle {
         ActivityButton {
             objectName: "chartLibraryActivityButton"
             iconSource: Qt.resolvedUrl("icons/chart-library.svg")
+            filledIconSource: Qt.resolvedUrl("icons/chart-library-fill.svg")
             tooltip: qsTrId("library.title")
             selected: root.activeView === "library"
             activeFocusOnTab: true
@@ -58,6 +59,7 @@ Rectangle {
             id: majnetButton
             objectName: "majnetActivityButton"
             iconSource: Qt.resolvedUrl("icons/globe.svg")
+            filledIconSource: Qt.resolvedUrl("icons/globe-fill.svg")
             tooltip: qsTrId("net.ui.majnet")
             selected: root.activeView === "network"
             onClicked: root.viewRequested("network")

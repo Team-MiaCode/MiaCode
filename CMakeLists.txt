@@ -783,9 +783,13 @@ set(MIACODE_UI_ICON_FILES
     src/app/ui/resources/icons/more-fill.svg
     src/app/ui/resources/icons/folder-open.svg
     src/app/ui/resources/icons/chart-library.svg
+    src/app/ui/resources/icons/chart-library-fill.svg
     src/app/ui/resources/icons/refresh.svg
+    src/app/ui/resources/icons/filter.svg
+    src/app/ui/resources/icons/filter-fill.svg
     src/app/ui/resources/icons/folder-arrow-right.svg
     src/app/ui/resources/icons/globe.svg
+    src/app/ui/resources/icons/globe-fill.svg
     src/app/ui/resources/icons/download.svg
     src/app/ui/resources/icons/download-fill.svg
     src/app/ui/resources/icons/upload.svg
