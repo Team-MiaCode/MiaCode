@@ -1614,12 +1614,12 @@ Failed: %2</source>
         <translation>试听</translation>
     </message>
     <message id="dialog.render_settings.music.default_intro_sound">
-        <source>Default intro sound</source>
-        <translation>默认片头音效</translation>
+        <source>Default</source>
+        <translation>默认</translation>
     </message>
     <message id="dialog.render_settings.music.intro_sound">
-        <source>Intro sound</source>
-        <translation>片头音效</translation>
+        <source>Intro music</source>
+        <translation>片头音乐</translation>
     </message>
     <message id="dialog.render_settings.preview.canvas_frame_rate">
         <source>Preview Refresh Rate</source>
@@ -4409,6 +4409,14 @@ Error: %1</source>
         <source>Stop</source>
         <translation>停止</translation>
     </message>
+    <message id="video_export.intro_music_copy_failed">
+        <source>Could not copy the audio into the intro music folder.</source>
+        <translation>无法将音频复制到片头音乐文件夹。</translation>
+    </message>
+    <message id="video_export.intro_music_import">
+        <source>Import audio…</source>
+        <translation>导入音频…</translation>
+    </message>
     <message id="video_export.intro_music_segment">
         <source>Music segment</source>
         <translation>音乐片段</translation>
@@ -5167,8 +5175,8 @@ Error: %1</source>
         <translation>午夜蓝</translation>
     </message>
     <message id="dialog.preferences.theme.forest">
-        <source>Forest</source>
-        <translation>森林绿</translation>
+        <source>Si-callion</source>
+        <translation>小葱</translation>
     </message>
     <message id="dialog.preferences.theme.paper">
         <source>Warm Paper</source>

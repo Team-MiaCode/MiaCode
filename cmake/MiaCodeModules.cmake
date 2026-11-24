@@ -652,6 +652,8 @@ miacode_add_module(miacode_media_tools
         src/media_tools/media/AudioVolumeBalance.h
         src/media_tools/media/VideoAudioAlignment.cpp
         src/media_tools/media/VideoAudioAlignment.h
+        src/media_tools/media/VideoCompression.cpp
+        src/media_tools/media/VideoCompression.h
         src/media_tools/net/NetBatchDownloadWorker.cpp
         src/media_tools/net/NetBatchDownloadWorker.h
         src/media_tools/net/NetBatchUploadScanner.cpp

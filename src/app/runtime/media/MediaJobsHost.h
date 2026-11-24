@@ -76,6 +76,8 @@ private:
     std::unique_ptr<VolumeBalanceJob> volumeBalanceJob_;
     struct AlignmentJob;
     std::unique_ptr<AlignmentJob> alignmentJob_;
+    struct CompressionJob;
+    std::unique_ptr<CompressionJob> compressionJob_;
     bool shuttingDown_ = false;
 
     Session& session_;
