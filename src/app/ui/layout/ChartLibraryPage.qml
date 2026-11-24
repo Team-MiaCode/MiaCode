@@ -18,7 +18,7 @@ Item {
     property bool nativeMaterialActive: false
     readonly property bool hasDirectory: library.directory.toString().length > 0
     readonly property real contentMargin: 10
-    readonly property int toolbarButtonSize: root.efficientMode ? Theme.controlHighlightHeight : Theme.controlMinHeight
+    readonly property int toolbarButtonWidth: root.efficientMode ? 28 : Theme.controlMinHeight
     readonly property int toolbarIconSize: root.efficientMode ? 15 : 16
     readonly property var rowStateColors: nativeMaterialActive ? ({
         hover: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.07) : Qt.rgba(0, 0, 0, 0.05),
@@ -135,15 +135,15 @@ Item {
     }
 
     component LibraryIconButton: IconButton {
-        implicitWidth: root.toolbarButtonSize
-        implicitHeight: root.toolbarButtonSize
-        width: root.toolbarButtonSize
-        height: root.toolbarButtonSize
-        Layout.preferredWidth: root.toolbarButtonSize
-        Layout.preferredHeight: root.toolbarButtonSize
+        implicitWidth: root.toolbarButtonWidth
+        implicitHeight: Theme.controlMinHeight
+        width: root.toolbarButtonWidth
+        height: Theme.controlMinHeight
+        Layout.preferredWidth: root.toolbarButtonWidth
+        Layout.preferredHeight: Theme.controlMinHeight
         iconWidth: root.toolbarIconSize
         iconHeight: root.toolbarIconSize
-        cornerRadius: root.efficientMode ? Theme.compactControlRadius : Theme.controlRadius
+        cornerRadius: Theme.controlRadius
         backgroundFillsWidth: true
         stateColors: root.buttonStateColors
     }
@@ -200,13 +200,15 @@ Item {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
                 outlined: true
+                leadingIcon: Qt.resolvedUrl("icons/search.svg")
                 backgroundColor: root.nativeMaterialActive
                     ? (Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.055) : Qt.rgba(0, 0, 0, 0.045))
                     : Theme.colors.background.control
                 Accessible.name: qsTrId("library.search")
-                placeholderText: activeFocus ? "" : Accessible.name
+                placeholderText: Accessible.name
                 onTextChanged: root.resetSongPosition()
                 onAccepted: root.openCurrentResult()
+                Keys.onEscapePressed: search.focus = false
                 Keys.onDownPressed: event => {
                     event.accepted = root.focusSong(Math.max(0, viewport.currentIndex))
                 }

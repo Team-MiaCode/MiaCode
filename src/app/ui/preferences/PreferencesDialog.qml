@@ -604,6 +604,7 @@ AppDialog {
                                 id: fontSearch
                                 objectName: "preferencesFontSearch"
                                 Layout.fillWidth: true
+                                leadingIcon: Qt.resolvedUrl("icons/search.svg")
                                 placeholderText: qsTrId("dialog.preferences.font.search")
                                 Accessible.name: placeholderText
                             }

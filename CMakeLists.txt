@@ -788,6 +788,7 @@ set(MIACODE_UI_ICON_FILES
     src/app/ui/resources/icons/refresh.svg
     src/app/ui/resources/icons/filter.svg
     src/app/ui/resources/icons/filter-fill.svg
+    src/app/ui/resources/icons/search.svg
     src/app/ui/resources/icons/folder-arrow-right.svg
     src/app/ui/resources/icons/globe.svg
     src/app/ui/resources/icons/globe-fill.svg
