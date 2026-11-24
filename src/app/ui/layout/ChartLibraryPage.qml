@@ -296,15 +296,14 @@ Item {
                                     && root.activeChartKey === modelData.pathKey
                                 readonly property color secondaryTextColor: chromeSelected
                                     ? Theme.colors.text.primary : Theme.colors.text.secondary
-                                readonly property bool hasThreeDetailLines: coverTile.visible && artistName.visible
-                                    && !variantName.visible && levelBadges.count > 0
-                                    && badgeFlow.implicitHeight === badgeFlow.badgeHeight
+                                readonly property bool hasThreeDetailLines: coverTile.visible && !variantName.visible
+                                    && badgeFlow.implicitHeight <= badgeFlow.badgeHeight
                                 readonly property rect titleInk: hasThreeDetailLines
                                     ? visibleInk(songName, titleMetrics) : Qt.rect(0, 0, 0, 0)
                                 readonly property rect artistInk: hasThreeDetailLines
                                     ? visibleInk(artistName, artistMetrics) : Qt.rect(0, 0, 0, 0)
                                 readonly property bool alignDetailsToCover: hasThreeDetailLines
-                                    && titleInk.height > 0 && artistInk.height > 0
+                                    && titleInk.height > 0
                                     && titleInk.height + artistInk.height + 2
                                         <= coverTile.Layout.preferredHeight - badgeFlow.badgeHeight
 
@@ -321,7 +320,7 @@ Item {
                                 highlightFillsBounds: true
                                 emphasizedText: true
                                 text: modelData.title
-                                Accessible.name: [modelData.title, modelData.artist, modelData.variant,
+                                Accessible.name: [modelData.title, artistName.text, modelData.variant,
                                     currentChart ? qsTrId("library.current_editing") : ""]
                                     .filter(value => value).join(", ")
                                 selected: currentChart
@@ -333,7 +332,7 @@ Item {
                                         root.showSongMenu(songRow, eventPoint.position.x, eventPoint.position.y)
                                 }
                                 ToolTip.visible: songRow.hovered && (songName.truncated || artistName.truncated || variantName.truncated)
-                                ToolTip.text: [modelData.title, modelData.artist, modelData.variant]
+                                ToolTip.text: [modelData.title, artistName.text, modelData.variant]
                                     .filter(value => value).join("\n")
                                 contentItem: RowLayout {
                                     id: songBody
@@ -381,12 +380,12 @@ Item {
                                         Label {
                                             id: songName
                                             Layout.fillWidth: true
-                                            Layout.preferredHeight: Theme.uiFontSize + 3
+                                            Layout.preferredHeight: Theme.uiFontSize + 2
                                             text: songRow.modelData.title
                                             textFormat: Text.PlainText
                                             color: songRow.contentColor
                                             font.family: Theme.uiFont
-                                            font.pixelSize: Theme.uiFontSize + 1
+                                            font.pixelSize: Theme.uiFontSize
                                             font.weight: Font.DemiBold
                                             verticalAlignment: Text.AlignVCenter
                                             elide: Text.ElideRight
@@ -406,17 +405,16 @@ Item {
                                             Layout.fillWidth: true
                                             Layout.fillHeight: songRow.alignDetailsToCover
                                             Layout.preferredHeight: Theme.uiFontSize
-                                            text: songRow.modelData.artist
+                                            text: (songRow.modelData.artist ?? "").trim()
                                             textFormat: Text.PlainText
-                                            visible: text.length > 0
-                                            color: songRow.secondaryTextColor
+                                            color: Theme.colors.text.secondary
                                             font.family: Theme.uiFont
-                                            font.pixelSize: Theme.uiFontSize - 1
+                                            font.pixelSize: Theme.secondaryFontSize
                                             verticalAlignment: Text.AlignVCenter
                                             elide: Text.ElideRight
                                             transform: Translate {
                                                 y: {
-                                                    if (!songRow.alignDetailsToCover)
+                                                    if (!songRow.alignDetailsToCover || artistName.text.length === 0)
                                                         return 0
                                                     const titleBottom = coverTile.y - songDetails.y + songRow.titleInk.height
                                                     const inkCenter = artistName.baselineOffset + songRow.artistInk.y
@@ -448,7 +446,7 @@ Item {
                                             readonly property int badgeHeight: 16
                                             Layout.fillWidth: true
                                             Layout.minimumWidth: 0
-                                            visible: levelBadges.count > 0
+                                            Layout.minimumHeight: badgeHeight
                                             spacing: 4
                                             Repeater {
                                                 id: levelBadges
@@ -487,6 +485,7 @@ Item {
                                                         color: Theme.colors.text.primary
                                                         font.family: Theme.uiFont
                                                         font.pixelSize: Theme.compactFontSize
+                                                        font.weight: Font.Medium
                                                         leftPadding: 1
                                                         rightPadding: 1
                                                         elide: Text.ElideRight
