@@ -18,7 +18,7 @@ Item {
     property bool nativeMaterialActive: false
     readonly property bool hasDirectory: library.directory.toString().length > 0
     readonly property real contentMargin: 10
-    readonly property int toolbarButtonWidth: root.efficientMode ? 28 : Theme.controlMinHeight
+    readonly property int toolbarButtonWidth: root.efficientMode ? Theme.chromeMinSize : Theme.controlHighlightHeight
     readonly property int toolbarIconSize: root.efficientMode ? 15 : 16
     readonly property var rowStateColors: nativeMaterialActive ? ({
         hover: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.07) : Qt.rgba(0, 0, 0, 0.05),
@@ -192,7 +192,7 @@ Item {
             Layout.leftMargin: root.contentMargin
             Layout.rightMargin: root.contentMargin
             visible: root.hasDirectory
-            spacing: root.efficientMode ? 4 : 6
+            spacing: 6
 
             AppTextField {
                 id: search
@@ -214,62 +214,68 @@ Item {
                 }
             }
 
-            LibraryIconButton {
-                id: difficultyButton
-                objectName: "chartLibraryDifficultyFilter"
-                visible: library.songs.length > 0
-                active: difficultyMenu.active || root.selectedDifficulties.length > 0
-                iconSource: Qt.resolvedUrl("icons/filter.svg")
-                filledIconSource: Qt.resolvedUrl("icons/filter-fill.svg")
-                tooltip: qsTrId("action.filter")
-                onClicked: {
-                    if (difficultyMenu.active)
-                        difficultyMenu.close()
-                    else
-                        difficultyMenu.openAt(difficultyButton)
-                }
+            RowLayout {
+                objectName: "chartLibraryActionGroup"
+                visible: root.efficientMode || difficultyButton.visible
+                spacing: 2
 
-                AppStickyPopup {
-                    id: difficultyMenu
-                    minimumWidth: 180
+                LibraryIconButton {
+                    id: difficultyButton
+                    objectName: "chartLibraryDifficultyFilter"
+                    visible: library.songs.length > 0
+                    active: difficultyMenu.active || root.selectedDifficulties.length > 0
+                    iconSource: Qt.resolvedUrl("icons/filter.svg")
+                    filledIconSource: Qt.resolvedUrl("icons/filter-fill.svg")
+                    tooltip: qsTrId("action.filter")
+                    onClicked: {
+                        if (difficultyMenu.active)
+                            difficultyMenu.close()
+                        else
+                            difficultyMenu.openAt(difficultyButton)
+                    }
 
-                    contentItem: Column {
-                        id: difficultyOptionsColumn
+                    AppStickyPopup {
+                        id: difficultyMenu
+                        minimumWidth: 180
 
-                        Repeater {
-                            model: root.difficultyOptions
-                            delegate: AppMenuItem {
-                                objectName: "chartLibraryDifficultyOption"
-                                required property int index
-                                required property string modelData
-                                width: difficultyOptionsColumn.width
-                                focusPolicy: Qt.StrongFocus
-                                text: modelData
-                                difficultyId: index + 1
-                                checkable: true
-                                checked: root.selectedDifficulties.includes(difficultyId)
-                                onToggled: root.setDifficultySelected(difficultyId, checked)
+                        contentItem: Column {
+                            id: difficultyOptionsColumn
+
+                            Repeater {
+                                model: root.difficultyOptions
+                                delegate: AppMenuItem {
+                                    objectName: "chartLibraryDifficultyOption"
+                                    required property int index
+                                    required property string modelData
+                                    width: difficultyOptionsColumn.width
+                                    focusPolicy: Qt.StrongFocus
+                                    text: modelData
+                                    difficultyId: index + 1
+                                    checkable: true
+                                    checked: root.selectedDifficulties.includes(difficultyId)
+                                    onToggled: root.setDifficultySelected(difficultyId, checked)
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            LibraryIconButton {
-                objectName: "chartLibraryEfficientFolderButton"
-                visible: root.efficientMode
-                iconSource: Qt.resolvedUrl("icons/folder-open.svg")
-                tooltip: qsTrId("library.choose_folder")
-                onClicked: root.openDirectoryPicker()
-            }
+                LibraryIconButton {
+                    objectName: "chartLibraryEfficientFolderButton"
+                    visible: root.efficientMode
+                    iconSource: Qt.resolvedUrl("icons/folder-open.svg")
+                    tooltip: qsTrId("library.choose_folder")
+                    onClicked: root.openDirectoryPicker()
+                }
 
-            LibraryIconButton {
-                objectName: "chartLibraryEfficientRefreshButton"
-                visible: root.efficientMode
-                iconSource: Qt.resolvedUrl("icons/refresh.svg")
-                tooltip: qsTrId("library.refresh")
-                enabled: !library.scanning && root.hasDirectory
-                onClicked: library.refresh()
+                LibraryIconButton {
+                    objectName: "chartLibraryEfficientRefreshButton"
+                    visible: root.efficientMode
+                    iconSource: Qt.resolvedUrl("icons/refresh.svg")
+                    tooltip: qsTrId("library.refresh")
+                    enabled: !library.scanning && root.hasDirectory
+                    onClicked: library.refresh()
+                }
             }
         }
 
