@@ -638,6 +638,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/components/DifficultySelector.qml
     src/app/ui/components/DifficultySwatch.qml
     src/app/ui/components/PanelHeader.qml
+    src/app/ui/components/SidebarEdgePill.qml
     src/app/ui/components/SplitHandle.qml
     src/app/ui/components/SplitSnapController.qml
     src/app/ui/components/ResizeSnapState.qml

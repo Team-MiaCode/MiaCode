@@ -19,10 +19,11 @@ Rectangle {
         hover: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.07) : Qt.rgba(0, 0, 0, 0.05),
         pressed: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.11) : Qt.rgba(0, 0, 0, 0.09),
         selected: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.13) : Qt.rgba(0, 0, 0, 0.08)
-    }) : Theme.colors.listState
+    }) : root.compact ? Theme.colors.popupState : Theme.colors.listState
     readonly property Item cornerSourceItem: scroll
     readonly property Item navigationContentItem: difficulties
     readonly property Item toolsItem: toolsRow
+    readonly property bool popupActive: difficulties.popupActive
 
     signal toolsRequested()
     signal settingsRequested()

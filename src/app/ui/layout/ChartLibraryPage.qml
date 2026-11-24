@@ -17,6 +17,7 @@ Item {
     property bool efficientMode: false
     property bool nativeMaterialActive: false
     readonly property bool hasDirectory: library.directory.toString().length > 0
+    readonly property bool popupActive: directoryPicker.visible || difficultyMenu.active || songMenu.active
     readonly property real contentMargin: 10
     readonly property int toolbarButtonWidth: root.efficientMode ? Theme.chromeMinSize : Theme.controlHighlightHeight
     readonly property int toolbarIconSize: root.efficientMode ? 15 : 16
@@ -24,12 +25,12 @@ Item {
         hover: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.07) : Qt.rgba(0, 0, 0, 0.05),
         pressed: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.11) : Qt.rgba(0, 0, 0, 0.09),
         selected: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.13) : Qt.rgba(0, 0, 0, 0.08)
-    }) : Theme.colors.listState
+    }) : root.compact ? Theme.colors.popupState : Theme.colors.listState
     readonly property var buttonStateColors: nativeMaterialActive ? ({
         hover: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.06),
         pressed: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(0, 0, 0, 0.11),
         selected: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(0, 0, 0, 0.10)
-    }) : Theme.colors.buttonState
+    }) : root.compact ? Theme.colors.popupState : Theme.colors.buttonState
     readonly property string activeChartKey: library.chartPathKey(activeChartPath)
     property bool loaded: false
     property list<int> selectedDifficulties: []

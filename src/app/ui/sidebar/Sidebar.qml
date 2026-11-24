@@ -10,11 +10,14 @@ Item {
     required property var commands
     required property var pages
     property bool compact: false
+    property real expandedContentWidth: 0
+    property bool contentRevealed: compact || viewState.sidebarVisible
     property string pendingChartEditor: ""
     property bool pendingLibrary: false
     readonly property bool efficientMode: preferences.efficientSidebarEnabled
     readonly property bool libraryActive: viewState.activeSidebarView === "library"
-    readonly property bool primarySidebarVisible: compact || viewState.sidebarVisible
+    readonly property bool primarySidebarVisible: compact || contentRevealed
+    readonly property bool popupActive: activityBar.toolsMenuActive || efficientSidebar.popupActive
     readonly property alias libraryHost: libraryContent
     readonly property Item navigationItem: efficientMode
         ? (libraryActive ? libraryContent : efficientSidebar) : activityBar
@@ -34,21 +37,27 @@ Item {
     function showMediaToolsMenu() {
         if (root.efficientMode) {
             root.viewState.activeSidebarView = "chart"
-            root.viewState.sidebarVisible = true
-            root.preferences.sidebarVisible = true
+            if (!root.compact) {
+                root.viewState.sidebarVisible = true
+                root.preferences.sidebarVisible = true
+            }
             Qt.callLater(efficientSidebar.showTools)
         } else {
             root.viewState.activeSidebarView = "tools"
-            root.viewState.sidebarVisible = true
-            root.preferences.sidebarVisible = true
+            if (!root.compact) {
+                root.viewState.sidebarVisible = true
+                root.preferences.sidebarVisible = true
+            }
         }
     }
 
     clip: true
 
     function showLibrary() {
-        viewState.sidebarVisible = true
-        preferences.sidebarVisible = true
+        if (!root.compact) {
+            viewState.sidebarVisible = true
+            preferences.sidebarVisible = true
+        }
         viewState.activeSidebarView = "library"
         const lastEditor = viewState.lastChartEditor()
         if (documentSession.hasDocument && !viewState.difficultyEditorActive && lastEditor.length > 0)
@@ -105,7 +114,7 @@ Item {
         }
 
         viewState.activeSidebarView = viewId
-        if (!viewState.sidebarVisible) {
+        if (!root.compact && !viewState.sidebarVisible) {
             viewState.sidebarVisible = true
             root.preferences.sidebarVisible = true
         }
@@ -138,9 +147,11 @@ Item {
     ActivityBar {
         netUploadEnabled: root.pages.netUploadEnabled
         id: activityBar
+        z: 2
         visible: !root.efficientMode
         width: !root.efficientMode ? implicitWidth : 0
         color: root.compact ? "transparent" : Theme.chromeSurfaceColor(Theme.colors.background.activityBar)
+        buttonStateColors: root.compact ? Theme.colors.popupState : Theme.chromeStateColors
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
@@ -162,13 +173,25 @@ Item {
         onSettingsRequested: root.settingsRequested()
     }
 
+    // Clip sliding sidebar content at its expanded width so collapse/expand
+    // slides smoothly without reflowing or squishing labels and cards.
     Item {
-        id: pageHost
+        id: pageHostClip
         anchors.left: activityBar.right
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        visible: root.primarySidebarVisible
+        clip: true
+        visible: root.primarySidebarVisible && width > 0.5
+
+        Item {
+            id: pageHost
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: root.compact || root.expandedContentWidth <= 0
+                ? parent.width
+                : Math.max(parent.width, root.expandedContentWidth)
 
         Rectangle {
             id: efficientHeader
@@ -216,6 +239,7 @@ Item {
         ChartFieldSidebar {
             id: chartSidebar
             color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
+            rowStateColors: root.compact ? Theme.colors.popupState : Theme.colors.listState
             anchors.fill: parent
             visible: !root.efficientMode && root.viewState.activeSidebarView === "chart"
             viewState: root.viewState
@@ -246,6 +270,8 @@ Item {
 
         UtilitySidebarPage {
             id: networkSidebar
+            color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
+            rowStateColors: root.compact ? Theme.colors.popupState : Theme.colors.listState
             anchors.fill: parent
             visible: !root.efficientMode && root.viewState.activeSidebarView === "network"
             mode: "network"
@@ -255,6 +281,8 @@ Item {
 
         UtilitySidebarPage {
             id: toolsSidebar
+            color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
+            rowStateColors: root.compact ? Theme.colors.popupState : Theme.colors.listState
             anchors.fill: parent
             visible: !root.efficientMode && root.viewState.activeSidebarView === "tools"
             mode: "tools"
@@ -266,10 +294,12 @@ Item {
         ExportSidebarPage {
             id: exportSidebar
             color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
+            rowStateColors: root.compact ? Theme.colors.popupState : Theme.colors.listState
             anchors.fill: parent
             visible: !root.efficientMode && root.viewState.activeSidebarView === "export"
             documentAvailable: root.documentSession.hasDocument
             pages: root.pages
+        }
         }
     }
 }

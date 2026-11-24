@@ -187,11 +187,11 @@ Item {
 
     function toggleSidebar() {
         if (root.compact) {
-            if (!state.sidebarVisible) {
-                state.sidebarVisible = true
-                root.preferences.sidebarVisible = true
-            }
-            state.compactPanel = state.compactPanel === "sidebar" ? "" : "sidebar"
+            compactPanelLayer.toggleCompactDrawer()
+            return
+        }
+        if (compactPanelLayer.peekOpen) {
+            compactPanelLayer.dockFromPeek()
             return
         }
         state.sidebarVisible = !state.sidebarVisible
@@ -337,8 +337,7 @@ Item {
             Qt.callLater(setupWizard.open)
     }
 
-    onCompactChanged: state.compactPanel = compact && state.activeSidebarView === "library"
-        && state.sidebarVisible && !splitView.previewSurfaceMoving ? "sidebar" : ""
+    onCompactChanged: state.compactPanel = ""
 
     Column {
         anchors.fill: parent
@@ -405,7 +404,7 @@ Item {
                 titleBarLeadingInset: titleBar.leadingInset
                 previewSettingsVisible: !splitView.previewDetached
                 sidebarActive: root.compact
-                               ? state.compactPanel === "sidebar"
+                               ? compactPanelLayer.peekOpen
                                : state.sidebarVisible
                 bottomActive: (state.difficultyEditorActive || state.latencyEditorActive)
                               && state.bottomPanelVisible && root.timelineSession.panelVisible
@@ -443,6 +442,8 @@ Item {
                 id: splitView
                 anchors.fill: parent
                 compactLibraryHost: compactPanelLayer.libraryHost
+                drawerLibraryActive: compactPanelLayer.drawerActive
+                peekDismissOnPress: compactPanelLayer.peekOpen && !compactPanelLayer.hasBlockingPopup
                 timelineGuideActive: beginnerGuide.visible
                     && beginnerGuide.selectedSection.id === "timeline-options"
                 backgroundSource: root.backgroundSource
@@ -471,6 +472,7 @@ Item {
                 onAudioSettingsRequested: audioSettingsDialog.open()
                 onPreviewSettingsRequested: previewSettingsDialog.open()
                 onMediaToolRequested: toolId => root.runMediaTool(toolId)
+                onWorkspacePressed: compactPanelLayer.handleWorkspacePress()
             }
 
             CompactPanelLayer {
@@ -482,8 +484,19 @@ Item {
                 commands: root.commands
                 pages: root.pages
                 compact: root.compact
+                peekEnabled: (root.compact
+                    || (root.preferences.efficientSidebarEnabled
+                        && !state.sidebarVisible
+                        && !splitView.sidebarAnimating))
+                    && !root.beginnerGuideActive
+                canDock: !root.compact
+                    && root.preferences.efficientSidebarEnabled
+                    && !state.sidebarVisible
+                    && !splitView.sidebarAnimating
+                libraryPopupActive: splitView.libraryPopupActive
                 onSettingsRequested: preferencesDialog.open()
                 onMediaToolRequested: toolId => root.runMediaTool(toolId)
+                onDockRequested: splitView.dockSidebarWithoutAnimation()
             }
         }
 

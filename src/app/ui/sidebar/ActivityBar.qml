@@ -11,6 +11,7 @@ Rectangle {
     property bool netUploadEnabled: false
     property bool networkActive: false
     property bool toolsAvailable: true
+    property var buttonStateColors: Theme.chromeStateColors
     readonly property bool toolsMenuActive: toolsPopup.active
     signal viewRequested(string viewId)
     signal toolRequested(string toolId)
@@ -143,7 +144,7 @@ Rectangle {
                 anchors.fill: parent
                 contentWidth: Theme.activityIconSize + 1
                 contentHeight: Theme.activityIconSize
-                stateColors: Theme.chromeStateColors
+                stateColors: root.buttonStateColors
                 hovered: button.hovered
                 pressed: button.down
                 selected: button.selected

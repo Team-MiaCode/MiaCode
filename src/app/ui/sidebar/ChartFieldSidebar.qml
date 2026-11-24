@@ -9,6 +9,7 @@ Rectangle {
     required property var documentSession
     required property var commands
     property var pages
+    property var rowStateColors: Theme.colors.listState
     readonly property alias cornerSourceItem: heading
     readonly property Item navigationContentItem: list
 
@@ -44,6 +45,7 @@ Rectangle {
 
             NavRow {
                 width: parent.width
+                stateColors: root.rowStateColors
                 text: qsTrId("dialog.unsaved_field_changes.field.metadata")
                 iconSource: Qt.resolvedUrl("icons/metadata.svg")
                 filledIconSource: Qt.resolvedUrl("icons/metadata-fill.svg")
@@ -58,6 +60,7 @@ Rectangle {
 
             NavRow {
                 width: parent.width
+                stateColors: root.rowStateColors
                 text: qsTrId("qml.latency_calibration")
                 iconSource: Qt.resolvedUrl("icons/metronome.svg")
                 filledIconSource: Qt.resolvedUrl("icons/metronome-fill.svg")
@@ -67,6 +70,7 @@ Rectangle {
 
             DifficultyList {
                 width: parent.width
+                rowStateColors: root.rowStateColors
                 viewState: root.viewState
                 documentSession: root.documentSession
                 commands: root.commands

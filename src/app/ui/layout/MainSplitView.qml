@@ -2,8 +2,6 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Controls.impl as ControlsImpl
-import QtQuick.Effects
 import QtQuick.Window
 import MiaCode.UI
 
@@ -29,10 +27,23 @@ Item {
     required property var net
     required property var netUpload
     property bool compact: false
+    property bool drawerLibraryActive: false
+    property bool peekDismissOnPress: false
     property bool timelineGuideActive: false
     property string documentTitle: ""
     property real sidebarDragWidth: 0
     property bool sidebarResizing: false
+    property bool sidebarAnimationReady: false
+    property bool suppressSidebarAnimation: false
+    readonly property real targetSidebarContentWidth: root.compact
+        ? 0
+        : root.viewState.sidebarVisible
+            ? (root.sidebarResizing ? root.sidebarDragWidth : root.preferences.sidebarWidth)
+            : 0
+    property real animatedSidebarContentWidth: targetSidebarContentWidth
+    readonly property bool sidebarPanelShown: animatedSidebarContentWidth > 0.5
+    readonly property bool sidebarAnimating: Math.abs(animatedSidebarContentWidth - targetSidebarContentWidth) > 0.5
+    readonly property bool libraryPopupActive: libraryPage.popupActive
     readonly property Item navigationItem: sidebar.navigationItem
     readonly property Item chartSidebarItem: sidebar.chartSidebarItem
     readonly property Item sourceEditorItem: editorPane.sourceEditorItem
@@ -48,7 +59,7 @@ Item {
     property bool previewSurfaceMoving: false
     readonly property rect activityBarMaterialRect: Qt.rect(0, 0,
         root.compact ? 0 : root.preferences.efficientSidebarEnabled
-            ? sidebar.width + sidebarToggle.width : sidebar.activityBarWidth,
+            ? sidebar.width : sidebar.activityBarWidth,
         horizontalSplit.height)
     readonly property real minimumEditorWidth: Math.max(editorPane.minimumWidth,
         bottomPanel.minimumWidth)
@@ -90,6 +101,31 @@ Item {
     signal audioSettingsRequested()
     signal previewSettingsRequested()
     signal mediaToolRequested(string toolId)
+    signal workspacePressed()
+
+    Behavior on animatedSidebarContentWidth {
+        enabled: root.sidebarAnimationReady
+            && !root.sidebarResizing
+            && !root.compact
+            && !root.suppressSidebarAnimation
+        NumberAnimation {
+            duration: 180
+            easing.type: Easing.OutCubic
+        }
+    }
+
+    Component.onCompleted: Qt.callLater(() => { root.sidebarAnimationReady = true })
+    onCompactChanged: {
+        root.suppressSidebarAnimation = true
+        Qt.callLater(() => { root.suppressSidebarAnimation = false })
+    }
+
+    function dockSidebarWithoutAnimation() {
+        root.suppressSidebarAnimation = true
+        root.viewState.sidebarVisible = true
+        root.preferences.sidebarVisible = true
+        Qt.callLater(() => { root.suppressSidebarAnimation = false })
+    }
 
     function showMediaToolsMenu() {
         sidebar.showMediaToolsMenu()
@@ -495,9 +531,10 @@ Item {
             commands: root.commands
             pages: root.pages
             compact: root.compact
-            visible: !root.compact && (!root.preferences.efficientSidebarEnabled || root.viewState.sidebarVisible)
-            width: visible ? sidebar.activityBarWidth + (root.viewState.sidebarVisible
-                ? (root.sidebarResizing ? root.sidebarDragWidth : root.preferences.sidebarWidth) : 0) : 0
+            expandedContentWidth: root.sidebarResizing ? root.sidebarDragWidth : root.preferences.sidebarWidth
+            contentRevealed: root.sidebarPanelShown
+            visible: !root.compact && (!root.preferences.efficientSidebarEnabled || root.sidebarPanelShown)
+            width: visible ? sidebar.activityBarWidth + root.animatedSidebarContentWidth : 0
             height: parent.height
             onSettingsRequested: root.settingsRequested()
             onMediaToolRequested: toolId => root.mediaToolRequested(toolId)
@@ -517,7 +554,7 @@ Item {
         SplitView {
             id: workspaceSplit
             orientation: Qt.Horizontal
-            x: sidebar.width + sidebarHandle.width + sidebarToggle.width
+            x: sidebar.width + sidebarHandle.width
             width: parent.width - x
             height: parent.height
             Component.onCompleted: root.syncWorkspacePanelOrder()
@@ -612,15 +649,36 @@ Item {
             }
         }
 
+        // Passively observe workspace presses above workspaceSplit while the
+        // floating drawer is open so clicking the editor dismisses it without
+        // swallowing the click (and never adds an extra SplitView pane).
+        Item {
+            x: workspaceSplit.x
+            y: workspaceSplit.y
+            width: workspaceSplit.width
+            height: workspaceSplit.height
+            z: 10
+            visible: root.peekDismissOnPress
+
+            PointHandler {
+                enabled: root.peekDismissOnPress
+                acceptedButtons: Qt.AllButtons
+                onActiveChanged: {
+                    if (active)
+                        root.workspacePressed()
+                }
+            }
+        }
+
         ChartLibraryPage {
             id: libraryPage
             objectName: "chartLibraryPage"
-            parent: root.compact ? root.compactLibraryHost : sidebar.libraryHost
+            parent: root.compact || root.drawerLibraryActive ? root.compactLibraryHost : sidebar.libraryHost
             anchors.fill: parent
             visible: root.libraryActive
-            compact: root.compact
+            compact: root.compact || root.drawerLibraryActive
             efficientMode: root.preferences.efficientSidebarEnabled
-            nativeMaterialActive: !root.compact && root.preferences.efficientSidebarEnabled && Theme.nativeMaterialActive
+            nativeMaterialActive: !compact && root.preferences.efficientSidebarEnabled && Theme.nativeMaterialActive
             activeChartPath: root.documentSession.currentFilePath
             onChartRequested: (chartUrl, preferredDifficultyId) => root.commands.openLibraryChart(chartUrl, preferredDifficultyId)
             onChartFolderRequested: chartUrl => root.commands.openChartFolder(chartUrl)
@@ -723,7 +781,7 @@ Item {
             x: root.compact ? 0 : sidebar.activityBarWidth
             backgroundSource: root.backgroundSource
             backgroundOffset: Qt.point(root.backgroundOffset.x + x, root.backgroundOffset.y)
-            panelItem: !root.compact && root.viewState.sidebarVisible
+            panelItem: !root.compact && root.sidebarPanelShown
                 ? sidebar.cornerSourceItem
                 : root.previewOnLeft && previewHost.visible
                     ? preview.cornerSourceItem
@@ -753,49 +811,16 @@ Item {
             enabled: false
         }
 
-        Rectangle {
-            id: sidebarToggle
-            x: sidebar.width
-            y: 1 / root.Screen.devicePixelRatio
-            width: visible ? 20 : 0
-            height: parent.height - y
-            visible: !root.compact && root.preferences.efficientSidebarEnabled && !root.viewState.sidebarVisible
-            color: Theme.chromeSurfaceColor(Theme.colors.background.panel)
-
-            IconButton {
-                id: sidebarToggleButton
-                objectName: "efficientSidebarToggleButton"
-                anchors.centerIn: parent
-                width: parent.width
-                height: 32
-                iconWidth: 14
-                iconHeight: 14
-                Accessible.name: tooltip
-                background: Rectangle {
-                    radius: Theme.compactControlRadius
-                    color: Theme.overlayColor(sidebarToggleButton.down
-                        ? Theme.chromeStateColors.pressed
-                        : sidebarToggleButton.hovered || sidebarToggleButton.visualFocus
-                            ? Theme.chromeStateColors.hover : "transparent")
-                }
-                iconSource: Qt.resolvedUrl("icons/chevron-right.svg")
-                tooltip: qsTrId("qml.open_sidebar")
-                onClicked: {
-                    root.viewState.sidebarVisible = true
-                    root.preferences.sidebarVisible = true
-                }
-            }
-        }
-
         SplitHandle {
             id: sidebarHandle
             verticalDivider: true
-            x: sidebar.width + sidebarToggle.width
-            width: visible && (root.viewState.sidebarVisible || root.preferences.efficientSidebarEnabled)
-                ? Theme.splitDividerThickness : 0
+            x: sidebar.width
+            width: visible && root.sidebarPanelShown ? Theme.splitDividerThickness : 0
             height: parent.height
-            visible: !root.compact
-            showDivider: root.viewState.sidebarVisible || root.preferences.efficientSidebarEnabled
+            // In collapsed efficient mode, keep the left edge free for hover-peek
+            // instead of showing a split resize cursor on the editor edge.
+            visible: !root.compact && (!root.preferences.efficientSidebarEnabled || root.sidebarPanelShown)
+            showDivider: root.sidebarPanelShown
             snapped: sidebarSnap.snapped
             handlePressed: sidebarDrag.pressed
             handleHovered: sidebarDrag.containsMouse
@@ -842,6 +867,7 @@ Item {
             readonly property bool available: !root.compact
                 && root.preferences.efficientSidebarEnabled
                 && root.viewState.sidebarVisible
+                && !root.sidebarAnimating
             readonly property bool reveal: available
                 && !root.sidebarResizing
                 && !sidebarDrag.pressed
@@ -859,31 +885,15 @@ Item {
                 id: edgeHover
             }
 
-            RectangularShadow {
-                anchors.fill: efficientCollapsePill
-                radius: efficientCollapsePill.width / 2
-                blur: 12
-                offset: Qt.vector2d(0, 2)
-                color: Qt.rgba(0, 0, 0, Theme.darkTheme ? 0.36 : 0.14)
-                opacity: efficientCollapsePill.opacity
-                visible: efficientCollapsePill.visible
-            }
-
-            AbstractButton {
+            SidebarEdgePill {
                 id: efficientCollapsePill
-                objectName: "efficientSidebarCollapseButton"
+                buttonObjectName: "efficientSidebarCollapseButton"
                 anchors.centerIn: parent
-                width: 22
-                height: 44
-                hoverEnabled: true
-                enabled: efficientCollapseZone.reveal
+                iconSource: Qt.resolvedUrl("icons/chevron-left.svg")
+                tooltip: qsTrId("qml.close_sidebar")
+                interactive: efficientCollapseZone.reveal
                 opacity: efficientCollapseZone.reveal ? 1 : 0
                 visible: opacity > 0.01
-                Accessible.name: qsTrId("qml.close_sidebar")
-
-                HoverHandler {
-                    cursorShape: Qt.PointingHandCursor
-                }
 
                 Behavior on opacity {
                     NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
@@ -892,37 +902,6 @@ Item {
                 onClicked: {
                     root.viewState.sidebarVisible = false
                     root.preferences.sidebarVisible = false
-                }
-
-                background: Rectangle {
-                    radius: width / 2
-                    color: Theme.overlayColor(efficientCollapsePill.down
-                        ? Theme.colors.buttonState.pressed
-                        : efficientCollapsePill.hovered
-                            ? Theme.colors.buttonState.hover
-                            : Theme.colors.background.elevated)
-                    border.width: efficientCollapsePill.visualFocus
-                        ? Theme.controlBorderWidth : 1 / root.Screen.devicePixelRatio
-                    border.color: efficientCollapsePill.visualFocus
-                        ? Theme.colors.accent.focus : Theme.colors.border.control
-                    border.pixelAligned: false
-                }
-
-                contentItem: Item {
-                    ControlsImpl.IconImage {
-                        anchors.centerIn: parent
-                        width: 13
-                        height: 13
-                        source: Qt.resolvedUrl("icons/chevron-left.svg")
-                        sourceSize: Theme.iconSourceSize(13, 13)
-                        color: efficientCollapsePill.hovered || efficientCollapsePill.visualFocus
-                            ? Theme.colors.text.active : Theme.colors.text.secondary
-                    }
-                }
-
-                Tooltip {
-                    visible: efficientCollapsePill.hovered
-                    text: qsTrId("qml.close_sidebar")
                 }
             }
         }
