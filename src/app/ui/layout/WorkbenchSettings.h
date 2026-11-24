@@ -150,14 +150,14 @@ signals:
     void uiScalePercentChanged();
 
 private:
-    static constexpr int kSidebarDefaultWidth = 190;
+    static constexpr int kSidebarDefaultWidth = 240;
     static constexpr int kUiScaleDefaultPercent = 100;
     static constexpr int kUiScaleMinimumPercent = 75;
     static constexpr int kUiScaleMaximumPercent = 200;
     static constexpr double kBottomPanelDefaultHeightRatio = 0.25;
     static constexpr double kPreviewDefaultWidthRatio = 0.5;
     static constexpr int kSidebarMinimumContentWidth = 120;
-    static constexpr int kSidebarMaximumContentWidth = 272;
+    static constexpr int kSidebarMaximumContentWidth = 400;
     static constexpr double kBottomPanelMinimumHeightRatio = 0.15;
     static constexpr double kBottomPanelMaximumHeightRatio = 0.65;
     static constexpr double kPreviewMinimumWidthRatio = 0.3;

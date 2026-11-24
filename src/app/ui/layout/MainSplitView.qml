@@ -54,10 +54,9 @@ Item {
     readonly property real minimumWorkspaceWidth: root.previewDetached
         ? minimumEditorWidth
         : Math.max(620, minimumEditorWidth + preview.minimumWidth + Theme.splitDividerThickness)
-    readonly property real expandedSidebarWidth:
-        root.libraryActive ? sidebar.libraryContentWidth + Theme.activityButtonSize
-        : root.preferences.sidebarWidth + Theme.splitDividerThickness
-            + (root.preferences.efficientSidebarEnabled ? 20 : Theme.activityButtonSize)
+    readonly property real sidebarChromeWidth: Theme.splitDividerThickness
+        + (root.preferences.efficientSidebarEnabled && !root.libraryActive ? 20 : Theme.activityButtonSize)
+    readonly property real expandedSidebarWidth: root.preferences.sidebarWidth + root.sidebarChromeWidth
     readonly property real minimumHeight: Math.max(
         editorHost.SplitView.minimumHeight + (root.bottomPanelEffectivelyVisible
             ? bottomPanel.minimumHeight + Theme.splitDividerThickness : 0),
@@ -97,7 +96,8 @@ Item {
     ResizeSnapState {
         id: sidebarSnap
         minimumSize: root.preferences.sidebarMinimumContentWidth
-        maximumSize: root.preferences.sidebarMaximumContentWidth
+        maximumSize: Math.min(root.preferences.sidebarMaximumContentWidth,
+            Math.max(minimumSize, Math.floor(root.width - root.minimumWorkspaceWidth - root.sidebarChromeWidth)))
         targets: [{ size: root.preferences.sidebarDefaultWidth }]
         alignmentTolerance: 0.5 / root.Screen.devicePixelRatio
     }
@@ -226,10 +226,9 @@ Item {
 
     function resizeSidebar(contentWidth) {
         sidebarSnap.update(contentWidth)
-        root.sidebarDragWidth = Math.max(root.preferences.sidebarMinimumContentWidth,
-            Math.min(root.preferences.sidebarMaximumContentWidth,
-                     sidebarSnap.snapped ? sidebarSnap.targetSize : contentWidth))
-        root.viewState.sidebarVisible = contentWidth >= root.preferences.sidebarMinimumContentWidth / 2
+        root.sidebarDragWidth = Math.max(sidebarSnap.minimumSize,
+            Math.min(sidebarSnap.maximumSize, sidebarSnap.targetSize))
+        root.viewState.sidebarVisible = contentWidth >= sidebarSnap.minimumSize / 2
     }
 
     function persistPreviewWidthRatio(finalWidth) {
@@ -497,8 +496,7 @@ Item {
             visible: !root.compact && (root.libraryActive
                 || !root.preferences.efficientSidebarEnabled || root.viewState.sidebarVisible)
             width: visible ? sidebar.activityBarWidth + (root.viewState.sidebarVisible
-                ? (root.libraryActive ? sidebar.libraryContentWidth
-                    : root.sidebarResizing ? root.sidebarDragWidth : root.preferences.sidebarWidth) : 0) : 0
+                ? (root.sidebarResizing ? root.sidebarDragWidth : root.preferences.sidebarWidth) : 0) : 0
             height: parent.height
             onSettingsRequested: root.settingsRequested()
             onMediaToolRequested: toolId => root.mediaToolRequested(toolId)
@@ -525,6 +523,7 @@ Item {
 
             handle: SplitHandle {
                 verticalDivider: true
+                snapped: previewWidthSnap.constrained
                 onReleased: previewWidthSnap.finishDrag(true)
             }
 
@@ -541,6 +540,7 @@ Item {
 
                 handle: SplitHandle {
                     verticalDivider: false
+                    snapped: bottomPanelSnap.constrained && !bottomPanelSnap.lineConstrained
                     onReleased: bottomPanelSnap.finishDrag(true)
                 }
 
@@ -796,8 +796,9 @@ Item {
             width: visible && (root.viewState.sidebarVisible || root.preferences.efficientSidebarEnabled)
                 ? Theme.splitDividerThickness : 0
             height: parent.height
-            visible: !root.compact && !root.libraryActive
+            visible: !root.compact
             showDivider: root.viewState.sidebarVisible || root.preferences.efficientSidebarEnabled
+            snapped: sidebarSnap.snapped
             handlePressed: sidebarDrag.pressed
             handleHovered: sidebarDrag.containsMouse
 

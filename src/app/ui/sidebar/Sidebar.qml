@@ -15,7 +15,6 @@ Item {
     readonly property bool efficientMode: preferences.efficientSidebarEnabled
     readonly property bool libraryActive: viewState.activeSidebarView === "library"
     readonly property bool primarySidebarVisible: compact || viewState.sidebarVisible
-    readonly property int libraryContentWidth: 320
     readonly property alias libraryHost: libraryContent
     readonly property Item navigationItem: efficientMode ? efficientSidebar : activityBar
     readonly property Item chartSidebarItem: efficientMode
@@ -160,10 +159,13 @@ Item {
         anchors.bottom: parent.bottom
         visible: root.primarySidebarVisible
 
-        Item {
+        Rectangle {
             id: libraryContent
             anchors.fill: parent
             visible: root.libraryActive
+            color: root.compact ? "transparent" : root.efficientMode
+                ? Theme.chromeSurfaceColor(Theme.colors.background.panel)
+                : Theme.surfaceColor(Theme.colors.background.panel)
         }
 
         ChartFieldSidebar {

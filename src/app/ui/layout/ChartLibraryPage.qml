@@ -7,9 +7,8 @@ import QtQuick.Dialogs
 import QtQuick.Layouts
 import MiaCode.UI
 
-Rectangle {
+Item {
     id: root
-    color: Theme.surfaceColor(Theme.colors.background.surface)
 
     signal chartRequested(url chart, int preferredDifficultyId)
     signal chartFolderRequested(url chart)
@@ -136,6 +135,7 @@ Rectangle {
             AppButton {
                 objectName: "chartLibraryFolderButton"
                 Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 backgroundFillsWidth: true
                 text: qsTrId("library.choose_folder")
                 onClicked: {
@@ -318,6 +318,7 @@ Rectangle {
                                     Rectangle {
                                         Layout.preferredWidth: 48
                                         Layout.preferredHeight: 48
+                                        visible: songRow.availableWidth >= 2 * Layout.preferredWidth + songBody.spacing
                                         color: Theme.colors.background.control
                                         radius: Theme.compactControlRadius
                                         clip: true

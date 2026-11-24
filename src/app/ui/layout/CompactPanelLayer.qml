@@ -31,8 +31,7 @@ Item {
         id: sidebarDrawer
         parent: Overlay.overlay
         edge: Qt.LeftEdge
-        width: Math.min(compactSidebar.libraryActive
-            ? compactSidebar.libraryContentWidth + Theme.activityButtonSize : 320, root.width - 36)
+        width: Math.min(320, root.width - 36)
         height: root.height
         y: {
             root.parent.y

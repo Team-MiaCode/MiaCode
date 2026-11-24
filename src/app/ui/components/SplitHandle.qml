@@ -8,6 +8,7 @@ Item {
 
     signal released()
     property bool showDivider: true
+    property bool snapped: false
 
     implicitWidth: Theme.splitDividerThickness
     implicitHeight: Theme.splitDividerThickness
@@ -18,9 +19,8 @@ Item {
     readonly property bool handleActive: handlePressed || handleHovered
     property bool verticalDivider: parent !== null
                                             && parent.orientation === Qt.Horizontal
-    readonly property real lineThickness: handleActive
-                                          ? Theme.splitHandleActiveThickness
-                                          : 1 / root.Screen.devicePixelRatio
+    readonly property real lineThickness: snapped ? Theme.splitHandleSnapThickness
+        : handleActive ? Theme.splitHandleActiveThickness : 1 / root.Screen.devicePixelRatio
 
     containmentMask: Item {
         x: root.verticalDivider ? (root.width - width) / 2 : 0

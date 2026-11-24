@@ -248,6 +248,7 @@ QtObject {
     // wider invisible hit, thicker stroke only while hovered/pressed.
     readonly property int splitDividerThickness: 1
     readonly property int splitHandleActiveThickness: 3
+    readonly property int splitHandleSnapThickness: 5
     readonly property int splitHandleHitExtent: 9
     readonly property int activityButtonSize: 48
     readonly property int activityIconSize: 22
