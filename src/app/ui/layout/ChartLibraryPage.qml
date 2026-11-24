@@ -34,21 +34,38 @@ Rectangle {
                 .some(value => value?.toLocaleLowerCase().includes(query))))
     }
 
-    onSelectedDifficultyChanged: {
-        list.currentIndex = -1
-        list.positionViewAtBeginning()
+    onSelectedDifficultyChanged: resetSongPosition()
+
+    function resetSongPosition() {
+        viewport.currentIndex = -1
+        viewport.contentItem.contentY = 0
+    }
+
+    function focusSong(index) {
+        const row = songs.itemAt(index)
+        if (!row)
+            return false
+
+        viewport.currentIndex = index
+        viewport.forceActiveFocus()
+        const scroll = viewport.contentItem
+        if (row.y < scroll.contentY)
+            scroll.contentY = row.y
+        else if (row.y + row.height > scroll.contentY + scroll.height)
+            scroll.contentY = Math.min(row.y, row.y + row.height - scroll.height)
+        return true
     }
 
     function openSongAt(index, preferredDifficultyId) {
         const song = filteredSongs[index]
         if (!song)
             return
-        list.currentIndex = index
+        viewport.currentIndex = index
         root.chartRequested(song.chart, preferredDifficultyId)
     }
 
     function openCurrentResult() {
-        const index = Math.max(0, Math.min(list.currentIndex, filteredSongs.length - 1))
+        const index = Math.max(0, Math.min(viewport.currentIndex, filteredSongs.length - 1))
         openSongAt(index, selectedDifficulty)
     }
 
@@ -160,16 +177,10 @@ Rectangle {
                     outlined: true
                     Accessible.name: qsTrId("library.search")
                     placeholderText: activeFocus ? "" : Accessible.name
-                    onTextChanged: {
-                        list.currentIndex = -1
-                        list.positionViewAtBeginning()
-                    }
+                    onTextChanged: root.resetSongPosition()
                     onAccepted: root.openCurrentResult()
-                    Keys.onDownPressed: {
-                        if (list.count > 0) {
-                            list.currentIndex = Math.max(0, list.currentIndex)
-                            list.forceActiveFocus()
-                        }
+                    Keys.onDownPressed: event => {
+                        event.accepted = root.focusSong(Math.max(0, viewport.currentIndex))
                     }
                 }
 
@@ -212,206 +223,205 @@ Rectangle {
                 }
             }
 
-            ListView {
-                id: list
-                objectName: "chartLibrarySongList"
+            Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                clip: true
-                model: root.filteredSongs
-                spacing: 4
-                boundsBehavior: Flickable.StopAtBounds
-                keyNavigationEnabled: true
-                Keys.onReturnPressed: root.openCurrentResult()
-                Keys.onEnterPressed: root.openCurrentResult()
-                Keys.onPressed: event => {
-                    const contextMenuKey = event.key === Qt.Key_Menu
-                        || (event.key === Qt.Key_F10 && event.modifiers === Qt.ShiftModifier)
-                    if (contextMenuKey && list.currentItem) {
-                        root.showSongMenu(list.currentItem, 0, list.currentItem.height)
-                        event.accepted = true
+
+                ScrollView {
+                    id: viewport
+                    objectName: "chartLibrarySongList"
+                    anchors.fill: parent
+                    contentWidth: availableWidth
+                    rightPadding: root.scrollBarGutter
+                    clip: true
+                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                    ScrollBar.vertical: AppScrollBar {
+                        id: libraryScrollBar
+                        parent: viewport
+                        x: viewport.width - width
+                        y: viewport.topPadding
+                        height: viewport.availableHeight
                     }
-                }
-                ScrollBar.vertical: AppScrollBar { id: libraryScrollBar }
 
-                WheelHandler {
-                    id: songWheel
-                    property int remainingAngle: 0
-                    target: null
-                    acceptedDevices: PointerDevice.Mouse
-                    acceptedModifiers: Qt.NoModifier
-                    orientation: Qt.Vertical
-                    onWheel: event => {
-                        if (event.pixelDelta.x || event.pixelDelta.y || !event.angleDelta.y) {
-                            event.accepted = false
-                            return
-                        }
-                        event.accepted = true
-                        songWheel.remainingAngle += event.angleDelta.y
-                        const steps = Math.trunc(songWheel.remainingAngle / 120)
-                        songWheel.remainingAngle -= steps * 120
-                        if (steps === 0)
-                            return
+                    property int currentIndex: -1
 
-                        const x = list.contentX + 1
-                        let topIndex = list.indexAt(x, list.contentY)
-                        if (topIndex < 0)
-                            topIndex = list.indexAt(x, list.contentY + list.spacing)
-                        if (topIndex >= 0) {
-                            list.cancelFlick()
-                            const nextIndex = Math.max(0, Math.min(list.count - 1, topIndex - steps))
-                            list.positionViewAtIndex(nextIndex, ListView.Beginning)
+                    Keys.onUpPressed: event => {
+                        event.accepted = root.focusSong(currentIndex - 1)
+                    }
+                    Keys.onDownPressed: event => {
+                        event.accepted = root.focusSong(currentIndex + 1)
+                    }
+                    Keys.onReturnPressed: root.openCurrentResult()
+                    Keys.onEnterPressed: root.openCurrentResult()
+                    Keys.onPressed: event => {
+                        const contextMenuKey = event.key === Qt.Key_Menu
+                            || (event.key === Qt.Key_F10 && event.modifiers === Qt.ShiftModifier)
+                        const row = contextMenuKey ? songs.itemAt(currentIndex) : null
+                        if (row) {
+                            root.showSongMenu(row, 0, row.height)
+                            event.accepted = true
                         }
                     }
-                }
 
-                delegate: NavRow {
-                    id: songRow
-                    objectName: "chartLibrarySongRow"
-                    required property int index
-                    required property var modelData
-                    readonly property bool currentChart: root.activeChartKey.length > 0
-                        && root.activeChartKey === modelData.pathKey
-                    width: Math.max(0, ListView.view.width - root.scrollBarGutter)
-                    height: Math.max(60, songBody.implicitHeight + 12)
-                    leftPadding: 6
-                    rightPadding: 8
-                    highlightFillsBounds: true
-                    text: modelData.title
-                    Accessible.name: [modelData.title, modelData.artist, modelData.variant,
-                        currentChart ? qsTrId("library.current_editing") : ""]
-                        .filter(value => value).join(", ")
-                    selected: currentChart
-                    highlighted: list.activeFocus && ListView.isCurrentItem
-                    onClicked: root.openSongAt(index, root.selectedDifficulty)
-                    TapHandler {
-                        acceptedButtons: Qt.RightButton
-                        onTapped: eventPoint =>
-                            root.showSongMenu(songRow, eventPoint.position.x, eventPoint.position.y)
-                    }
-                    ToolTip.visible: songRow.hovered && (songName.truncated || artistName.truncated || variantName.truncated)
-                    ToolTip.text: [modelData.title, modelData.artist, modelData.variant]
-                        .filter(value => value).join("\n")
-                    Rectangle {
-                        objectName: "chartLibraryCurrentSongMarker"
-                        anchors.left: parent.left
-                        anchors.leftMargin: 2
-                        anchors.top: parent.top
-                        anchors.bottom: parent.bottom
-                        anchors.topMargin: 9
-                        anchors.bottomMargin: 9
-                        width: 2
-                        radius: 1
-                        color: Theme.colors.accent.primary
-                        visible: songRow.currentChart
-                    }
-                    contentItem: RowLayout {
-                        id: songBody
-                        spacing: 9
-                        Rectangle {
-                            Layout.preferredWidth: 48
-                            Layout.preferredHeight: 48
-                            color: Theme.colors.background.control
-                            radius: Theme.compactControlRadius
-                            clip: true
+                    Column {
+                        id: songColumn
+                        width: viewport.availableWidth
+                        spacing: 4
 
-                            ControlsImpl.IconImage {
-                                objectName: "chartLibraryCoverFallback"
-                                width: 20
-                                height: 20
-                                anchors.centerIn: parent
-                                visible: songCover.status !== Image.Ready
-                                source: Qt.resolvedUrl("icons/image.svg")
-                                color: Theme.colors.text.secondary
-                            }
-                            Image {
-                                id: songCover
-                                objectName: "chartLibraryCoverThumbnail"
-                                anchors.fill: parent
-                                source: songRow.modelData.cover
-                                sourceSize: Qt.size(96, 96)
-                                asynchronous: true
-                                fillMode: Image.PreserveAspectCrop
-                                visible: status === Image.Ready
-                            }
-                        }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 0
-                            spacing: 2
-                            Label {
-                                id: songName
-                                Layout.fillWidth: true
-                                text: songRow.modelData.title
-                                textFormat: Text.PlainText
-                                color: Theme.colors.text.primary
-                                font.family: Theme.uiFont
-                                font.pixelSize: Theme.uiFontSize + 1
-                                font.weight: Font.DemiBold
-                                elide: Text.ElideRight
-                            }
-                            Label {
-                                id: artistName
-                                Layout.fillWidth: true
-                                text: songRow.modelData.artist
-                                textFormat: Text.PlainText
-                                visible: text.length > 0
-                                color: Theme.colors.text.secondary
-                                font.family: Theme.uiFont
-                                font.pixelSize: Theme.uiFontSize - 1
-                                elide: Text.ElideRight
-                            }
-                            Label {
-                                id: variantName
-                                objectName: "chartLibraryVariant"
-                                Layout.fillWidth: true
-                                text: songRow.modelData.variant ?? ""
-                                textFormat: Text.PlainText
-                                visible: text.length > 0
-                                color: Theme.colors.text.secondary
-                                font.family: Theme.uiFont
-                                font.pixelSize: Theme.uiFontSize - 1
-                                elide: Text.ElideRight
-                            }
-                            Flow {
-                                Layout.fillWidth: true
-                                Layout.minimumWidth: 0
-                                visible: levelBadges.count > 0
-                                spacing: 5
-                                Repeater {
-                                    id: levelBadges
-                                    model: songRow.modelData.difficulties
-                                    delegate: AbstractButton {
-                                        id: badge
-                                        required property var modelData
-                                        readonly property color badgeColor: Theme.difficultyColor(modelData.id)
-                                        readonly property string difficultyName: qsTrId("library.difficulty." + modelData.id)
-                                        objectName: "chartLibraryDifficultyBadge"
-                                        implicitWidth: Math.max(26, implicitContentWidth + 10)
-                                        implicitHeight: implicitContentHeight + 2
-                                        padding: 0
-                                        hoverEnabled: true
-                                        focusPolicy: Qt.StrongFocus
-                                        text: (modelData.level ?? "").trim() || modelData.shortName
-                                        Accessible.name: qsTrId("action.open") + " " + difficultyName
-                                        onClicked: root.openSongAt(songRow.index, modelData.id)
-                                        background: Rectangle {
-                                            radius: Theme.smallControlRadius
-                                            color: Qt.rgba(badge.badgeColor.r, badge.badgeColor.g, badge.badgeColor.b,
-                                                Theme.darkTheme ? (badge.hovered || badge.down ? 0.58 : 0.40)
-                                                    : (badge.hovered || badge.down ? 0.42 : 0.25))
-                                            border.width: badge.visualFocus || Theme.darkTheme ? Theme.controlBorderWidth : 0
-                                            border.color: badge.visualFocus ? Theme.colors.accent.focus
-                                                : Qt.lighter(badge.badgeColor, 1.18)
+                        Repeater {
+                            id: songs
+                            model: root.filteredSongs
+
+                            delegate: NavRow {
+                                id: songRow
+                                objectName: "chartLibrarySongRow"
+                                required property int index
+                                required property var modelData
+                                readonly property bool currentChart: root.activeChartKey.length > 0
+                                    && root.activeChartKey === modelData.pathKey
+                                width: songColumn.width
+                                height: Math.max(60, songBody.implicitHeight + 12)
+                                leftPadding: 6
+                                rightPadding: 8
+                                highlightFillsBounds: true
+                                text: modelData.title
+                                Accessible.name: [modelData.title, modelData.artist, modelData.variant,
+                                    currentChart ? qsTrId("library.current_editing") : ""]
+                                    .filter(value => value).join(", ")
+                                selected: currentChart
+                                highlighted: viewport.activeFocus && index === viewport.currentIndex
+                                onClicked: root.openSongAt(index, root.selectedDifficulty)
+                                TapHandler {
+                                    acceptedButtons: Qt.RightButton
+                                    onTapped: eventPoint =>
+                                        root.showSongMenu(songRow, eventPoint.position.x, eventPoint.position.y)
+                                }
+                                ToolTip.visible: songRow.hovered && (songName.truncated || artistName.truncated || variantName.truncated)
+                                ToolTip.text: [modelData.title, modelData.artist, modelData.variant]
+                                    .filter(value => value).join("\n")
+                                Rectangle {
+                                    objectName: "chartLibraryCurrentSongMarker"
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 2
+                                    anchors.top: parent.top
+                                    anchors.bottom: parent.bottom
+                                    anchors.topMargin: 9
+                                    anchors.bottomMargin: 9
+                                    width: 2
+                                    radius: 1
+                                    color: Theme.colors.accent.primary
+                                    visible: songRow.currentChart
+                                }
+                                contentItem: RowLayout {
+                                    id: songBody
+                                    spacing: 9
+                                    Rectangle {
+                                        Layout.preferredWidth: 48
+                                        Layout.preferredHeight: 48
+                                        color: Theme.colors.background.control
+                                        radius: Theme.compactControlRadius
+                                        clip: true
+
+                                        ControlsImpl.IconImage {
+                                            objectName: "chartLibraryCoverFallback"
+                                            width: 20
+                                            height: 20
+                                            anchors.centerIn: parent
+                                            visible: songCover.status !== Image.Ready
+                                            source: Qt.resolvedUrl("icons/image.svg")
+                                            color: Theme.colors.text.secondary
                                         }
-                                        contentItem: Label {
-                                            text: badge.text
+                                        Image {
+                                            id: songCover
+                                            objectName: "chartLibraryCoverThumbnail"
+                                            anchors.fill: parent
+                                            source: songRow.modelData.cover
+                                            sourceSize: Qt.size(96, 96)
+                                            asynchronous: true
+                                            fillMode: Image.PreserveAspectCrop
+                                            visible: status === Image.Ready
+                                        }
+                                    }
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        Layout.minimumWidth: 0
+                                        spacing: 2
+                                        Label {
+                                            id: songName
+                                            Layout.fillWidth: true
+                                            text: songRow.modelData.title
                                             textFormat: Text.PlainText
-                                            horizontalAlignment: Text.AlignHCenter
-                                            verticalAlignment: Text.AlignVCenter
                                             color: Theme.colors.text.primary
                                             font.family: Theme.uiFont
-                                            font.pixelSize: Theme.secondaryFontSize
+                                            font.pixelSize: Theme.uiFontSize + 1
+                                            font.weight: Font.DemiBold
+                                            elide: Text.ElideRight
+                                        }
+                                        Label {
+                                            id: artistName
+                                            Layout.fillWidth: true
+                                            text: songRow.modelData.artist
+                                            textFormat: Text.PlainText
+                                            visible: text.length > 0
+                                            color: Theme.colors.text.secondary
+                                            font.family: Theme.uiFont
+                                            font.pixelSize: Theme.uiFontSize - 1
+                                            elide: Text.ElideRight
+                                        }
+                                        Label {
+                                            id: variantName
+                                            objectName: "chartLibraryVariant"
+                                            Layout.fillWidth: true
+                                            text: songRow.modelData.variant ?? ""
+                                            textFormat: Text.PlainText
+                                            visible: text.length > 0
+                                            color: Theme.colors.text.secondary
+                                            font.family: Theme.uiFont
+                                            font.pixelSize: Theme.uiFontSize - 1
+                                            elide: Text.ElideRight
+                                        }
+                                        Flow {
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            visible: levelBadges.count > 0
+                                            spacing: 5
+                                            Repeater {
+                                                id: levelBadges
+                                                model: songRow.modelData.difficulties
+                                                delegate: AbstractButton {
+                                                    id: badge
+                                                    required property var modelData
+                                                    readonly property color badgeColor: Theme.difficultyColor(modelData.id)
+                                                    readonly property string difficultyName: qsTrId("library.difficulty." + modelData.id)
+                                                    objectName: "chartLibraryDifficultyBadge"
+                                                    implicitWidth: Math.max(26, implicitContentWidth + 10)
+                                                    implicitHeight: implicitContentHeight + 2
+                                                    padding: 0
+                                                    hoverEnabled: true
+                                                    focusPolicy: Qt.StrongFocus
+                                                    text: (modelData.level ?? "").trim() || modelData.shortName
+                                                    Accessible.name: qsTrId("action.open") + " " + difficultyName
+                                                    onClicked: root.openSongAt(songRow.index, modelData.id)
+                                                    background: Rectangle {
+                                                        radius: Theme.smallControlRadius
+                                                        color: Qt.rgba(badge.badgeColor.r, badge.badgeColor.g, badge.badgeColor.b,
+                                                            Theme.darkTheme ? (badge.hovered || badge.down ? 0.58 : 0.40)
+                                                                : (badge.hovered || badge.down ? 0.42 : 0.25))
+                                                        border.width: badge.visualFocus || Theme.darkTheme ? Theme.controlBorderWidth : 0
+                                                        border.color: badge.visualFocus ? Theme.colors.accent.focus
+                                                            : Qt.lighter(badge.badgeColor, 1.18)
+                                                    }
+                                                    contentItem: Label {
+                                                        text: badge.text
+                                                        textFormat: Text.PlainText
+                                                        horizontalAlignment: Text.AlignHCenter
+                                                        verticalAlignment: Text.AlignVCenter
+                                                        color: Theme.colors.text.primary
+                                                        font.family: Theme.uiFont
+                                                        font.pixelSize: Theme.secondaryFontSize
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -419,10 +429,11 @@ Rectangle {
                         }
                     }
                 }
+
                 Label {
                     anchors.centerIn: parent
                     width: Math.max(0, parent.width - 16)
-                    visible: library.scanning || list.count === 0
+                    visible: library.scanning || songs.count === 0
                     text: library.scanning ? qsTrId("library.scanning")
                         : library.directoryMissing ? qsTrId("library.missing_folder")
                         : library.directory.toString().length === 0 ? qsTrId("library.no_directory")
@@ -438,7 +449,7 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.rightMargin: root.scrollBarGutter
                 visible: library.songs.length > 0
-                text: qsTrId("library.result_count").arg(list.count).arg(library.songs.length)
+                text: qsTrId("library.result_count").arg(songs.count).arg(library.songs.length)
                 color: Theme.colors.text.secondary
                 font.family: Theme.uiFont
                 font.pixelSize: Theme.uiFontSize - 1
