@@ -93,6 +93,10 @@ Rectangle {
                     onClicked: root.toolRequested("prependTrack")
                 }
                 ToolRow {
+                    text: qsTrId("media_tools.volume_balance")
+                    onClicked: root.toolRequested("balanceVolume")
+                }
+                ToolRow {
                     text: qsTrId("media_tools.sample_rate_conversion")
                     onClicked: root.toolRequested("convertTrack")
                 }

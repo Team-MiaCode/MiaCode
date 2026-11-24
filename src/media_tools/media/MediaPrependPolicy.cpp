@@ -14,22 +14,35 @@ QString fixedSeconds(double seconds)
     return QString::number(std::max(0.0, seconds), 'f', 6);
 }
 
-void appendAudioEncoderArguments(QStringList& args, const QString& suffix)
-{
-    if (suffix.compare(QStringLiteral("mp3"), Qt::CaseInsensitive) == 0) {
-        args << QStringLiteral("-c:a") << QStringLiteral("libmp3lame")
-             << QStringLiteral("-q:a") << QStringLiteral("2");
-    } else if (suffix.compare(QStringLiteral("wav"), Qt::CaseInsensitive) == 0) {
-        args << QStringLiteral("-c:a") << QStringLiteral("pcm_s16le");
-    } else if (suffix.compare(QStringLiteral("flac"), Qt::CaseInsensitive) == 0) {
-        args << QStringLiteral("-c:a") << QStringLiteral("flac");
-    } else if (suffix.compare(QStringLiteral("ogg"), Qt::CaseInsensitive) == 0) {
-        args << QStringLiteral("-c:a") << QStringLiteral("libvorbis")
-             << QStringLiteral("-q:a") << QStringLiteral("6");
-    }
-}
-
 }  // namespace
+
+QStringList audioEncoderArguments(const QString& suffix, bool highPrecision)
+{
+    const QString extension = suffix.toLower();
+    if (extension == QStringLiteral("mp3")) {
+        return {QStringLiteral("-c:a"), QStringLiteral("libmp3lame"),
+                QStringLiteral("-q:a"), QStringLiteral("2")};
+    }
+    if (extension == QStringLiteral("wav")) {
+        if (highPrecision) {
+            return {QStringLiteral("-c:a"), QStringLiteral("pcm_s24le"),
+                    QStringLiteral("-rf64"), QStringLiteral("auto")};
+        }
+        return {QStringLiteral("-c:a"), QStringLiteral("pcm_s16le")};
+    }
+    if (extension == QStringLiteral("flac")) {
+        if (highPrecision) {
+            return {QStringLiteral("-c:a"), QStringLiteral("flac"),
+                    QStringLiteral("-sample_fmt"), QStringLiteral("s32")};
+        }
+        return {QStringLiteral("-c:a"), QStringLiteral("flac")};
+    }
+    if (extension == QStringLiteral("ogg")) {
+        return {QStringLiteral("-c:a"), QStringLiteral("libvorbis"),
+                QStringLiteral("-q:a"), QStringLiteral("6")};
+    }
+    return {};
+}
 
 QStringList makeAudioPrependArguments(
     const QString& inputPath,
@@ -56,7 +69,7 @@ QStringList makeAudioPrependArguments(
             .arg(duration, audioFormat),
         QStringLiteral("-map"), QStringLiteral("[out]"),
     };
-    appendAudioEncoderArguments(args, outputSuffix);
+    args << audioEncoderArguments(outputSuffix);
     args << outputPath;
     return args;
 }

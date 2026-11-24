@@ -15,6 +15,11 @@ AppMenu {
         onTriggered: root.toolRequested("prependTrack")
     }
     AppMenuAction {
+        text: qsTrId("media_tools.volume_balance")
+        enabled: root.documentAvailable
+        onTriggered: root.toolRequested("balanceVolume")
+    }
+    AppMenuAction {
         text: qsTrId("media_tools.sample_rate_conversion")
         enabled: root.documentAvailable
         onTriggered: root.toolRequested("convertTrack")
