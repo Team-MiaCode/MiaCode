@@ -5235,6 +5235,82 @@ Error: %1</translation>
         <source>Shadow Y offset</source>
         <translation>Shadow Y offset</translation>
     </message>
+    <message id="library.title">
+        <source>Chart library</source>
+        <translation>Chart library</translation>
+    </message>
+    <message id="library.choose_folder">
+        <source>Choose library folder</source>
+        <translation>Choose library folder</translation>
+    </message>
+    <message id="library.refresh">
+        <source>Refresh</source>
+        <translation>Refresh</translation>
+    </message>
+    <message id="library.search">
+        <source>Search songs or artists</source>
+        <translation>Search songs or artists</translation>
+    </message>
+    <message id="library.scanning">
+        <source>Scanning chart library…</source>
+        <translation>Scanning chart library…</translation>
+    </message>
+    <message id="library.missing_folder">
+        <source>Library folder unavailable</source>
+        <translation>Library folder unavailable</translation>
+    </message>
+    <message id="library.empty">
+        <source>No charts found</source>
+        <translation>No charts found</translation>
+    </message>
+    <message id="library.audition">
+        <source>Listen</source>
+        <translation>Listen</translation>
+    </message>
+    <message id="library.pause">
+        <source>Pause</source>
+        <translation>Pause</translation>
+    </message>
+    <message id="library.untitled">
+        <source>Untitled chart</source>
+        <translation>Untitled chart</translation>
+    </message>
+    <message id="library.difficulty.1">
+        <source>Easy</source>
+        <translation>Easy</translation>
+    </message>
+    <message id="library.difficulty.2">
+        <source>Basic</source>
+        <translation>Basic</translation>
+    </message>
+    <message id="library.difficulty.3">
+        <source>Advanced</source>
+        <translation>Advanced</translation>
+    </message>
+    <message id="library.difficulty.4">
+        <source>Expert</source>
+        <translation>Expert</translation>
+    </message>
+    <message id="library.difficulty.5">
+        <source>Master</source>
+        <translation>Master</translation>
+    </message>
+    <message id="library.difficulty.6">
+        <source>Re:Master</source>
+        <translation>Re:Master</translation>
+    </message>
+    <message id="library.difficulty.7">
+        <source>Utage</source>
+        <translation>Utage</translation>
+    </message>
+    <message id="library.result_count">
+        <source>%1 of %2 songs</source>
+        <translation>%1 of %2 songs</translation>
+    </message>
+    <message id="library.select_song">
+        <source>Select a song to see its details</source>
+        <translation>Select a song to see its details</translation>
+    </message>
 </context>
 <context>
     <!-- Qt loads qtbase texts for the system locale; this context keeps the

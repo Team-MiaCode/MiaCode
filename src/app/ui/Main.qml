@@ -142,7 +142,15 @@ ApplicationWindow {
             return
         }
         close.accepted = false
-        window.shellLifecycle.requestClose()
+        window.applicationContext.document.requestCloseWorkspace()
+    }
+
+    Connections {
+        target: window.applicationContext.document
+        function onWorkspaceCloseDecided(accepted) {
+            if (accepted)
+                window.shellLifecycle.requestClose()
+        }
     }
 
     Connections {

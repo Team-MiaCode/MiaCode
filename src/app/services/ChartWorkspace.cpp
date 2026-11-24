@@ -126,7 +126,7 @@ ChartWorkspaceResult ChartWorkspace::openSource(
     filePath_ = filePath;
     origin_ = origin;
     hasDocument_ = true;
-    ++documentOpenGeneration_;
+    editorId_ = ++documentOpenGeneration_;
     // A new document arrives with the mode off. Whether the project's stored
     // preference may turn it back on is the application layer's decision, and
     // it is made without writing a single byte into the document.
@@ -138,6 +138,31 @@ ChartWorkspaceResult ChartWorkspace::openSource(
     ChartWorkspaceResult result = commit();
     result.issues = preflight.issues;
     return result;
+}
+
+ChartWorkspace::SongState ChartWorkspace::songState() const
+{
+    return {document_, savedDocument_, sourceText_, savedSourceText_, filePath_,
+        activeDifficultyId_, editorId_, unifiedDesignerEnabled_, origin_};
+}
+
+void ChartWorkspace::restoreSong(SongState state, int requestedDifficulty)
+{
+    document_ = std::move(state.document);
+    savedDocument_ = std::move(state.savedDocument);
+    sourceText_ = std::move(state.sourceText);
+    savedSourceText_ = std::move(state.savedSourceText);
+    filePath_ = std::move(state.filePath);
+    activeDifficultyId_ = document_.difficulty(requestedDifficulty) != nullptr
+        ? requestedDifficulty : state.difficultyId;
+    editorId_ = state.editorId;
+    unifiedDesignerEnabled_ = state.unifiedDesigner;
+    origin_ = state.origin;
+    hasDocument_ = true;
+    dirty_ = sourceText_ != savedSourceText_;
+    // Reject stale analysis/media work when returning to a cached editor.
+    ++documentOpenGeneration_;
+    commit();
 }
 
 ChartWorkspaceResult ChartWorkspace::replaceSource(const QString& source)
@@ -406,6 +431,7 @@ ChartWorkspaceResult ChartWorkspace::closeDocument()
     origin_ = ChartDocumentOrigin::Local;
     activeDifficultyId_ = 0;
     hasDocument_ = false;
+    editorId_ = 0;
     dirty_ = false;
     unifiedDesignerEnabled_ = false;
     ++documentOpenGeneration_;

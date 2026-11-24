@@ -44,7 +44,7 @@ Item {
         ? detachedPreviewWindow.Overlay.overlay : root.Overlay.overlay
     property bool previewSurfaceMoving: false
     readonly property rect activityBarMaterialRect: Qt.rect(0, 0,
-        root.compact ? 0 : root.preferences.efficientSidebarEnabled
+        root.compact && !root.libraryActive ? 0 : root.preferences.efficientSidebarEnabled
             ? sidebar.width + sidebarToggle.width : sidebar.activityBarWidth,
         horizontalSplit.height)
     readonly property real minimumEditorWidth: Math.max(editorPane.minimumWidth,
@@ -54,8 +54,8 @@ Item {
         ? minimumEditorWidth
         : Math.max(620, minimumEditorWidth + preview.minimumWidth + Theme.splitDividerThickness)
     readonly property real expandedSidebarWidth:
-        sidebar.activityBarWidth + root.preferences.sidebarWidth + Theme.splitDividerThickness
-        + (root.preferences.efficientSidebarEnabled ? 20 : 0)
+        root.preferences.sidebarWidth + Theme.splitDividerThickness
+        + (root.preferences.efficientSidebarEnabled ? 20 : Theme.activityButtonSize)
     readonly property real minimumHeight: Math.max(
         editorHost.SplitView.minimumHeight + (root.bottomPanelEffectivelyVisible
             ? bottomPanel.minimumHeight + Theme.splitDividerThickness : 0),
@@ -76,6 +76,11 @@ Item {
         && root.viewState.bottomPanelVisible && root.timelineSession.panelVisible
     readonly property bool exportVideoActive:
         root.pages.activePageId === "export"
+    readonly property bool libraryActive: root.pages.activePageId === "chart-library"
+    onLibraryActiveChanged: {
+        if (libraryActive && previewSession.playing)
+            previewSession.playing = false
+    }
     readonly property real previewEditorAvailableWidth:
         Math.max(1, workspaceSplit.width - (previewHost.visible ? Theme.splitDividerThickness : 0))
     signal openRequested()
@@ -252,7 +257,7 @@ Item {
         parent: root.previewDetached ? detachedPreviewContent : previewHost
         anchors.fill: parent
         documentAvailable: root.documentSession.hasDocument
-        surfaceActive: !root.previewSurfaceMoving
+        surfaceActive: !root.previewSurfaceMoving && !root.libraryActive
         detached: root.previewDetached
         transportMirrored: root.preferencesModel.previewOnLeft && !root.previewDetached
         previewSession: root.previewSession
@@ -488,9 +493,10 @@ Item {
             preferences: root.preferences
             commands: root.commands
             pages: root.pages
-            compact: false
-            visible: !root.compact && (!root.preferences.efficientSidebarEnabled || root.viewState.sidebarVisible)
-            width: visible ? sidebar.activityBarWidth + (root.viewState.sidebarVisible
+            compact: root.compact
+            visible: root.libraryActive
+                || (!root.compact && (!root.preferences.efficientSidebarEnabled || root.viewState.sidebarVisible))
+            width: visible ? sidebar.activityBarWidth + (!root.libraryActive && root.viewState.sidebarVisible
                 ? (root.sidebarResizing ? root.sidebarDragWidth : root.preferences.sidebarWidth) : 0) : 0
             height: parent.height
             onSettingsRequested: root.settingsRequested()
@@ -510,6 +516,7 @@ Item {
 
         SplitView {
             id: workspaceSplit
+            visible: !root.libraryActive
             orientation: Qt.Horizontal
             x: sidebar.width + sidebarHandle.width + sidebarToggle.width
             width: parent.width - x
@@ -601,6 +608,21 @@ Item {
                     ? previewWidthSnap.targetSize : previewWidthSnap.minimumSize
                 SplitView.maximumWidth: previewWidthSnap.constrained
                     ? previewWidthSnap.targetSize : previewWidthSnap.maximumSize
+            }
+        }
+
+        ChartLibraryPage {
+            id: libraryPage
+            objectName: "chartLibraryPage"
+            x: sidebar.width
+            width: parent.width - x
+            height: parent.height
+            visible: root.libraryActive
+            onDifficultyRequested: (chartUrl, difficulty) => {
+                if (root.documentSession.openSong(chartUrl, difficulty)) {
+                    root.pages.closeChartLibrary(true)
+                    root.viewState.activateEditor(root.viewState.difficultyEditorKey(difficulty))
+                }
             }
         }
 
@@ -728,7 +750,7 @@ Item {
             y: 1 / root.Screen.devicePixelRatio
             width: visible ? 20 : 0
             height: parent.height - y
-            visible: !root.compact && root.preferences.efficientSidebarEnabled
+            visible: !root.compact && !root.libraryActive && root.preferences.efficientSidebarEnabled
             color: Theme.chromeSurfaceColor(Theme.colors.background.panel)
 
             IconButton {
@@ -766,7 +788,7 @@ Item {
             width: visible && (root.viewState.sidebarVisible || root.preferences.efficientSidebarEnabled)
                 ? Theme.splitDividerThickness : 0
             height: parent.height
-            visible: !root.compact
+            visible: !root.compact && !root.libraryActive
             showDivider: root.viewState.sidebarVisible || root.preferences.efficientSidebarEnabled
             handlePressed: sidebarDrag.pressed
             handleHovered: sidebarDrag.containsMouse

@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <utility>
 
 #include <QDateTime>
 #include <QDir>
@@ -1463,13 +1464,13 @@ net::NetEnginePort::Cancel DocumentModel::openNetPreview(const QString& path, co
     return [finish, failure] { finish({{}, failure("job.cancelled")}); };
 }
 
-bool DocumentModel::openFileWithOrigin(const QUrl& fileUrl, ChartDocumentOrigin origin)
+bool DocumentModel::openFileWithOrigin(const QUrl& fileUrl, ChartDocumentOrigin origin, int preferredDifficultyId)
 {
     const QString path = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
     if (fileService_ == nullptr) return false;
     miacode::ChartWorkspaceFileResult result;
     if (!runWorkspaceMutation([&] {
-            result = fileService_->open(path, origin);
+            result = fileService_->open(path, origin, preferredDifficultyId);
             return result.accepted;
         })) {
         uiRequests_->postNotice(miacode::NoticeSeverity::Error,
@@ -1499,6 +1500,135 @@ bool DocumentModel::openFileWithOrigin(const QUrl& fileUrl, ChartDocumentOrigin 
     publishWorkspaceCommit(
         WorkspaceCommitKind::Open, true, result.usedSystemEncoding);
     return true;
+}
+
+qulonglong DocumentModel::activeSongId() const
+{
+    return workspace_ != nullptr ? workspace_->editorId() : 0;
+}
+
+QVariantList DocumentModel::songTabs() const
+{
+    QMap<qulonglong, QVariantMap> tabs;
+    const auto insert = [&tabs](qulonglong id, const QString& title, const QString& path, bool dirty) {
+        const QString caption = title.trimmed().isEmpty() ? QFileInfo(path).absoluteDir().dirName() : title.trimmed();
+        tabs.insert(id, {{QStringLiteral("id"), QVariant::fromValue(id)},
+            {QStringLiteral("title"), caption}, {QStringLiteral("path"), path},
+            {QStringLiteral("dirty"), dirty}});
+    };
+    for (const auto& song : std::as_const(parkedSongs_)) {
+        insert(song.editorId, song.document.title, song.filePath, song.sourceText != song.savedSourceText);
+    }
+    if (hasDocument()) insert(activeSongId(), metadataTitle(), currentFilePath(), dirty());
+    QVariantList result;
+    for (const auto& tab : std::as_const(tabs)) result.append(tab);
+    return result;
+}
+
+bool DocumentModel::openSong(const QUrl& fileUrl, int difficultyId)
+{
+    if (!fileUrl.isLocalFile() || closeDecisionPending_ || workspaceClosePending_ || !finishPendingEdits()) return false;
+    const QFileInfo file(fileUrl.toLocalFile());
+    const QString path = file.canonicalFilePath().isEmpty() ? file.absoluteFilePath() : file.canonicalFilePath();
+    if (!currentFilePath().isEmpty() && QFileInfo(currentFilePath()).canonicalFilePath() == path) {
+        if (difficultyId > 0) selectDifficulty(difficultyId);
+        return true;
+    }
+    for (auto it = parkedSongs_.cbegin(); it != parkedSongs_.cend(); ++it) {
+        if (QFileInfo(it->filePath).canonicalFilePath() == path) return restoreSong(it.key(), difficultyId);
+    }
+    const auto outgoing = activeSongId();
+    if (outgoing != 0) {
+        emit songAboutToBeParked(outgoing);
+        parkedSongs_.insert(outgoing, workspace_->songState());
+    }
+    if (openFileWithOrigin(QUrl::fromLocalFile(path), ChartDocumentOrigin::Local, difficultyId)) return true;
+    parkedSongs_.remove(outgoing);
+    return false;
+}
+
+bool DocumentModel::activateSong(qulonglong id)
+{
+    if (closeDecisionPending_ || workspaceClosePending_ || !finishPendingEdits()) return false;
+    return id == activeSongId() || restoreSong(id);
+}
+
+bool DocumentModel::restoreSong(qulonglong id, int difficultyId)
+{
+    if (!parkedSongs_.contains(id)) return false;
+    auto incoming = parkedSongs_.take(id);
+    if (const auto outgoing = activeSongId(); outgoing != 0) {
+        emit songAboutToBeParked(outgoing);
+        parkedSongs_.insert(outgoing, workspace_->songState());
+    }
+    runWorkspaceMutation([&] {
+        workspace_->restoreSong(std::move(incoming), difficultyId);
+        return true;
+    });
+    publishWorkspaceCommit(WorkspaceCommitKind::Open, true);
+    return true;
+}
+
+void DocumentModel::requestCloseSong(qulonglong id)
+{
+    if (id == 0 || closeDecisionPending_ || workspaceClosePending_) return;
+    const auto previous = activeSongId();
+    if (id != previous) {
+        auto it = parkedSongs_.find(id);
+        if (it == parkedSongs_.end()) return;
+        if (it->sourceText == it->savedSourceText) {
+            parkedSongs_.erase(it);
+            emit songReleased(id);
+            emit songTabsChanged();
+            return;
+        }
+        if (!activateSong(id)) return;
+    }
+    requestLeaveDocument([this, id, previous](bool accepted) {
+        if (!accepted || activeSongId() != id) return;
+        const auto next = parkedSongs_.contains(previous) ? previous
+            : parkedSongs_.isEmpty() ? 0 : parkedSongs_.lastKey();
+        if (next == 0) {
+            closeDocument();
+        } else if (restoreSong(next)) {
+            parkedSongs_.remove(id);
+            emit songReleased(id);
+            emit songTabsChanged();
+        }
+    });
+}
+
+void DocumentModel::requestCloseWorkspace()
+{
+    if (workspaceClosePending_ || closeDecisionPending_) return;
+    workspaceClosePending_ = true;
+    confirmWorkspaceClose();
+}
+
+void DocumentModel::confirmWorkspaceClose()
+{
+    requestLeaveDocument([this](bool accepted) {
+        if (accepted) {
+            for (auto it = parkedSongs_.cbegin(); it != parkedSongs_.cend(); ++it) {
+                if (it->sourceText != it->savedSourceText && restoreSong(it.key())) {
+                    // Defer the next dialog until the current dialog has closed.
+                    QMetaObject::invokeMethod(this, &DocumentModel::confirmWorkspaceClose, Qt::QueuedConnection);
+                    return;
+                }
+            }
+        }
+        workspaceClosePending_ = false;
+        emit workspaceCloseDecided(accepted);
+    });
+}
+
+void DocumentModel::publishSongIdentity()
+{
+    const auto id = activeSongId();
+    if (id == publishedSongId_) return;
+    const auto previous = std::exchange(publishedSongId_, id);
+    metadataSaveTimer_.stop();
+    if (previous != 0 && !parkedSongs_.contains(previous)) emit songReleased(previous);
 }
 
 void DocumentModel::requestLeaveDocument(std::function<void(bool)> onDecided)
@@ -1954,6 +2084,7 @@ void DocumentModel::publishWorkspaceCommit(
 {
     Q_UNUSED(usedSystemEncoding);
     if (workspace_ == nullptr) return;
+    publishSongIdentity();
     if (!closeDecisionPending_ && kind != WorkspaceCommitKind::SavePoint && workspace_->metadataDirty()
         && !currentFilePath().isEmpty() && !workspace_->isNetPreview()) {
         // 同一事件中的字段修改合并为一次写入，覆盖页面与运行时入口。
@@ -1994,6 +2125,7 @@ void DocumentModel::emitDocumentStateChanged(WorkspaceCommitKind kind)
     emit dirtyEditorKeysChanged();
     emit syntaxIssuesChanged();
     emit documentStateChanged();
+    emit songTabsChanged();
 }
 
 void DocumentModel::refreshDocumentState()
@@ -2040,6 +2172,7 @@ bool DocumentModel::saveToPath(const QString& path)
 
 void DocumentModel::adoptBackendDocumentReplacement()
 {
+    publishSongIdentity();
     ++documentGeneration_;
     refreshUnifiedDesignerState();
     emitDocumentStateChanged(WorkspaceCommitKind::Open);

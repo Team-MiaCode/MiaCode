@@ -20,12 +20,13 @@ Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
+        height: implicitHeight
         title: qsTrId("qml.chart")
         sidebarTitle: true
-        showMore: false
     }
 
     Flickable {
+        enabled: root.documentSession.hasDocument
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: heading.bottom

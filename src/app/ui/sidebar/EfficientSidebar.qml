@@ -21,6 +21,7 @@ Rectangle {
     readonly property Item toolsItem: toolsRow
 
     signal toolsRequested()
+    signal libraryRequested()
     signal settingsRequested()
 
     function showTools() {
@@ -37,6 +38,7 @@ Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
+        height: implicitHeight
         title: qsTrId("sidebar.menu")
         sidebarTitle: true
     }
@@ -58,6 +60,14 @@ Rectangle {
             y: 6
             width: parent.width - 12
             spacing: 6
+
+            SidebarRow {
+                objectName: "chartLibrarySidebarButton"
+                width: parent.width
+                text: qsTrId("library.title")
+                iconSource: Qt.resolvedUrl("icons/folder-open.svg")
+                onClicked: root.libraryRequested()
+            }
 
             SidebarRow {
                 id: metadataRow

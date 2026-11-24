@@ -4,6 +4,7 @@
 #include "editor/SimaiTextEditPolicy.h"
 #include "core/chart/selection/ChartSelectionBeatSummary.h"
 #include <QImage>
+#include <QMap>
 
 #include <functional>
 #include <QStringList>
@@ -78,6 +79,8 @@ class DocumentModel final : public QObject
     Q_PROPERTY(bool validationPending READ validationPending NOTIFY documentStateChanged)
     Q_PROPERTY(bool validationAvailable READ validationAvailable NOTIFY documentStateChanged)
     Q_PROPERTY(bool dirty READ dirty NOTIFY dirtyChanged)
+    Q_PROPERTY(QVariantList songTabs READ songTabs NOTIFY songTabsChanged)
+    Q_PROPERTY(qulonglong activeSongId READ activeSongId NOTIFY documentStateChanged)
     // 保存命令按当前标签选择难度正文，或谱面信息字段。
     Q_PROPERTY(bool wholeSourceEditorActive READ wholeSourceEditorActive
                    WRITE setWholeSourceEditorActive NOTIFY wholeSourceEditorActiveChanged)
@@ -181,6 +184,12 @@ public:
     Q_INVOKABLE QStringList openFileNameFilters() const;
     Q_INVOKABLE bool openFile(const QUrl& fileUrl);
     bool openChartFile(const QUrl& fileUrl);
+    QVariantList songTabs() const;
+    qulonglong activeSongId() const;
+    Q_INVOKABLE bool openSong(const QUrl& fileUrl, int difficultyId = 0);
+    Q_INVOKABLE bool activateSong(qulonglong id);
+    Q_INVOKABLE void requestCloseSong(qulonglong id);
+    Q_INVOKABLE void requestCloseWorkspace();
     QJsonObject documentIdentity() const;
     net::NetEnginePort::Cancel openNetPreview(const QString& path, const QJsonObject& expected,
                                              net::NetEnginePort::Done done);
@@ -261,6 +270,10 @@ signals:
     void currentDifficultyFieldsChanged();
     void syntaxIssuesChanged();
     void dirtyChanged();
+    void songTabsChanged();
+    void songAboutToBeParked(qulonglong id);
+    void songReleased(qulonglong id);
+    void workspaceCloseDecided(bool accepted);
     void difficultyCloseAccepted(int difficultyId);
     void wholeSourceEditorActiveChanged();
     void dirtyEditorKeysChanged();
@@ -269,7 +282,13 @@ signals:
     void bookmarksChanged();
 
 private:
-    bool openFileWithOrigin(const QUrl& fileUrl, ChartDocumentOrigin origin);
+    bool openFileWithOrigin(const QUrl& fileUrl, ChartDocumentOrigin origin, int preferredDifficultyId = 0);
+    bool restoreSong(qulonglong id, int difficultyId = 0);
+    void publishSongIdentity();
+    void confirmWorkspaceClose();
+    QMap<qulonglong, miacode::ChartWorkspace::SongState> parkedSongs_;
+    qulonglong publishedSongId_ = 0;
+    bool workspaceClosePending_ = false;
     mutable QString workspaceId_;
     enum class WorkspaceCommitKind {
         Incremental,

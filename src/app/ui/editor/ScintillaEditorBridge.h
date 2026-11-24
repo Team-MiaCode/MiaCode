@@ -167,6 +167,8 @@ private:
     void seekPreviewToCaret();
     QRectF positionToRectangle(int position) const;
     void synchronizeDocument();
+    void releaseSong(qulonglong id);
+    void dropDocumentScope(const QString& scope);
     void textMutated();
     void refreshDecorations();
     void refreshDiagnostics();

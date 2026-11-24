@@ -42,6 +42,8 @@ public:
     Q_INVOKABLE bool openLatencyPage();
     bool netUploadEnabled() const;
     Q_INVOKABLE bool openNetPage(const QString& page = QStringLiteral("net-download"));
+    Q_INVOKABLE bool openChartLibrary();
+    Q_INVOKABLE void closeChartLibrary(bool showChart = false);
     Q_INVOKABLE bool leaveOverlayPage();
     Q_INVOKABLE bool ensureDifficultyPageActive(int difficultyId);
     Q_INVOKABLE bool activateMetadataPage();
@@ -86,6 +88,7 @@ private:
         return routerSlot_ != nullptr ? *routerSlot_ : nullptr;
     }
     QString activePageId_;
+    QString libraryReturnPageId_;
     int resumeDifficultyId_ = 0;
     QString resumeEditorKey_;
     bool resumeEditorKeyExplicit_ = false;
