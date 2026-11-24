@@ -41,11 +41,11 @@ ScanResult scanLibrary(const QString& path)
                 {QStringLiteral("shortName"), SimaiDocument::difficultyShortName(id)},
                 {QStringLiteral("level"), difficulty->level}});
         }
-        QHash<QString, QString> metadata;
-        for (const auto& field : document.extraFields)
-            metadata.insert(field.key.toLower(), field.value.trimmed());
-
-        QString songId = metadata.value(QStringLiteral("shortid"));
+        QString songId;
+        for (const auto& field : document.extraFields) {
+            if (field.key.compare(QLatin1String("shortid"), Qt::CaseInsensitive) == 0)
+                songId = field.value.trimmed();
+        }
         if (songId.toUInt() > 0)
             songId = songId.rightJustified(6, u'0');
         const QString cover = chart_assets::resolveBackgroundMediaPath(chartPath, /*includeVideoCandidates=*/false);
@@ -54,7 +54,6 @@ ScanResult scanLibrary(const QString& path)
             {QStringLiteral("artist"), document.artist.trimmed()},
             {QStringLiteral("folder"), folder.fileName()},
             {QStringLiteral("songId"), songId},
-            {QStringLiteral("kind"), metadata.value(QStringLiteral("cabinet"))},
             {QStringLiteral("chart"), QUrl::fromLocalFile(chartPath)},
             {QStringLiteral("pathKey"), ChartLibraryModel::chartPathKey(chartPath)},
             {QStringLiteral("cover"), chart_assets::displayBackgroundImageUrl(cover)},

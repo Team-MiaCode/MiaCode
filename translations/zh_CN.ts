@@ -5304,8 +5304,8 @@ Error: %1</source>
         <translation>Utage</translation>
     </message>
     <message id="library.result_count">
-        <source>%1 of %2 songs</source>
-        <translation>显示 %1 / %2 首</translation>
+        <source>%1 / %2 songs</source>
+        <translation>%1 / %2 首</translation>
     </message>
     <message id="library.select_song">
         <source>Select a song to see its details</source>

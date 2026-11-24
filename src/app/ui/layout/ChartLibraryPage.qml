@@ -251,7 +251,7 @@ Rectangle {
                     rightPadding: 8
                     highlightFillsBounds: true
                     text: modelData.title
-                    Accessible.name: [modelData.title, modelData.artist, modelData.variant, modelData.songId,
+                    Accessible.name: [modelData.title, modelData.artist, modelData.variant,
                         currentChart ? qsTrId("library.current_editing") : ""]
                         .filter(value => value).join(", ")
                     selected: currentChart
@@ -307,17 +307,6 @@ Rectangle {
                             Layout.fillWidth: true
                             Layout.minimumWidth: 0
                             spacing: 2
-                            Label {
-                                Layout.fillWidth: true
-                                text: [songRow.modelData.songId, songRow.modelData.kind]
-                                    .filter(Boolean).join("  ·  ")
-                                visible: text.length > 0
-                                textFormat: Text.PlainText
-                                elide: Text.ElideRight
-                                color: Theme.colors.text.secondary
-                                font.family: Theme.uiFont
-                                font.pixelSize: Theme.secondaryFontSize
-                            }
                             Label {
                                 id: songName
                                 Layout.fillWidth: true
