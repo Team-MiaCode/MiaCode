@@ -238,8 +238,8 @@ void PreferencesModel::setEditorFontFamily(const QString& family)
 QVariantList PreferencesModel::editorFontOptions(const QString& filter) const
 {
     const QString defaultFamily = miacode::editor_typography::resolveFont(QString()).family();
-    QVariantMap defaultRow = option(QString(), defaultFamily + QStringLiteral(" · ")
-                                    + qtTrId("dialog.preferences.font.default_suffix"));
+    QVariantMap defaultRow = option(QString(), QStringLiteral("%1 (%2)")
+                                    .arg(defaultFamily, qtTrId("dialog.preferences.font.default_suffix")));
     defaultRow.insert(QStringLiteral("family"), defaultFamily);
     QVariantList rows{defaultRow};
     QStringList families = QFontDatabase::families();

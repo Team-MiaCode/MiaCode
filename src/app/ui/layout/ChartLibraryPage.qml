@@ -199,10 +199,7 @@ Item {
                     active: difficultyMenu.active || root.selectedDifficulties.length > 0
                     iconSource: Qt.resolvedUrl("icons/sliders-horizontal.svg")
                     filledIconSource: Qt.resolvedUrl("icons/sliders-horizontal-fill.svg")
-                    tooltip: qsTrId("dialog.batch_export.difficulty") + " · "
-                        + (root.selectedDifficulties.length === 0 ? qsTrId("library.all_difficulties")
-                            : root.difficultyOptions.filter((_, index) =>
-                                root.selectedDifficulties.includes(index + 1)).join(", "))
+                    tooltip: qsTrId("action.filter")
                     onClicked: {
                         if (difficultyMenu.active)
                             difficultyMenu.close()

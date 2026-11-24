@@ -213,6 +213,10 @@ Classic mode: All functions are on one page, similar to the layout in earlier ve
         <source>Later</source>
         <translation>後で</translation>
     </message>
+    <message id="action.filter">
+        <source>Filter</source>
+        <translation>絞り込み</translation>
+    </message>
     <message id="action.new">
         <source>New</source>
         <translation>新規</translation>
@@ -3550,8 +3554,8 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>譜面</translation>
     </message>
     <message id="qml.chart_designer_1">
-        <source> · Chart Designer: %1</source>
-        <translation> ・譜面制作者：%1</translation>
+        <source>Chart Designer: %1</source>
+        <translation>譜面制作者：%1</translation>
     </message>
     <message id="qml.choose_a_folder_to_scan">
         <source>Choose a folder to scan</source>
@@ -4325,6 +4329,10 @@ Error: %1</source>
         <source>Muri</source>
         <translation>無理</translation>
     </message>
+    <message id="validation.muri.issue_heading">
+        <source>%1 (%2)</source>
+        <translation>%1（%2）</translation>
+    </message>
     <message id="validation.muri.alert.warning">
         <source>Warning</source>
         <translation>警告</translation>
@@ -4568,7 +4576,7 @@ Error: %1</source>
     </message>
     <message id="net.ui.case_sensitive">
         <source>Case sensitive</source>
-        <translation>大文字・小文字を区別</translation>
+        <translation>大文字と小文字を区別</translation>
     </message>
     <message id="net.ui.force_refresh">
         <source>Refresh from server</source>
@@ -4884,8 +4892,8 @@ Error: %1</source>
         <translation>状態：降順</translation>
     </message>
     <message id="guide.page_one">
-        <source>Getting started · Page 1</source>
-        <translation>初心者ガイド · 1 ページ</translation>
+        <source>Getting started, page 1</source>
+        <translation>初心者ガイドの 1 ページ目</translation>
     </message>
     <message id="guide.exit">
         <source>Exit guide</source>
@@ -5029,7 +5037,7 @@ Error: %1</source>
     </message>
     <message id="guide.navigation.tools">
         <source>Toolbox: chart normalization, audio and video processing, and more.</source>
-        <translation>ツールボックス：譜面の整理、音声・動画処理ツールなど。</translation>
+        <translation>ツールボックス：譜面の整理、音声や動画の処理ツールなど。</translation>
     </message>
     <message id="guide.navigation.preferences">
         <source>Preferences: configure interface appearance and styling, the editor and shortcuts.</source>

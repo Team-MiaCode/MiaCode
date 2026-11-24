@@ -32,7 +32,7 @@ inline QVariantList themeOptions()
 inline QString fontLabel(const QString& family, bool fixedPitch)
 {
     return fixedPitch
-        ? family + QStringLiteral(" · ") + qtTrId("dialog.preferences.font.monospace") : family;
+        ? QStringLiteral("%1 (%2)").arg(family, qtTrId("dialog.preferences.font.monospace")) : family;
 }
 
 } // namespace miacode::ui::appearance_labels

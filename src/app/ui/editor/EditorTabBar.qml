@@ -122,7 +122,7 @@ Item {
             : root.documentSession.currentFileName
         let result = fileIdentity + "\n" + difficulty.label
         if (difficulty.designer.length > 0)
-            result += qsTrId("qml.chart_designer_1").arg(difficulty.designer)
+            result += "\n" + qsTrId("qml.chart_designer_1").arg(difficulty.designer)
         return result
     }
 

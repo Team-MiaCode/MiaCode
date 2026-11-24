@@ -86,7 +86,7 @@ QString describeReport(const JobResult& result)
     if (parts.isEmpty()) {
         parts.append(QStringLiteral("无变化"));
     }
-    return parts.join(QStringLiteral(" · "));
+    return parts.join(QStringLiteral("、"));
 }
 
 struct PreviewData {
@@ -684,7 +684,7 @@ void BatchCleanerController::finish(quint64 generation, bool write, bool cancell
         summary_ = QStringLiteral("预检完成：将修改 %1，有警告 %2，失败 %3").arg(changed).arg(warned).arg(failed);
     }
     if (cancelled) {
-        summary_ = QStringLiteral("已取消 · ") + summary_;
+        summary_ = QStringLiteral("已取消。%1").arg(summary_);
     }
     emit busyChanged();
     emit summaryChanged();

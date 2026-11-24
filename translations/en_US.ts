@@ -213,6 +213,10 @@ Classic mode: All functions are on one page, similar to the layout in earlier ve
         <source>Later</source>
         <translation>Later</translation>
     </message>
+    <message id="action.filter">
+        <source>Filter</source>
+        <translation>Filter</translation>
+    </message>
     <message id="action.new">
         <source>New</source>
         <translation>New</translation>
@@ -3550,8 +3554,8 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>Chart</translation>
     </message>
     <message id="qml.chart_designer_1">
-        <source> · Chart Designer: %1</source>
-        <translation> · Chart Designer: %1</translation>
+        <source>Chart Designer: %1</source>
+        <translation>Chart Designer: %1</translation>
     </message>
     <message id="qml.choose_a_folder_to_scan">
         <source>Choose a folder to scan</source>
@@ -4325,6 +4329,10 @@ Error: %1</translation>
         <source>Muri</source>
         <translation>Muri</translation>
     </message>
+    <message id="validation.muri.issue_heading">
+        <source>%1 (%2)</source>
+        <translation>%1 (%2)</translation>
+    </message>
     <message id="validation.muri.alert.warning">
         <source>Warning</source>
         <translation>Warning</translation>
@@ -4884,8 +4892,8 @@ Error: %1</translation>
         <translation>Status: descending</translation>
     </message>
     <message id="guide.page_one">
-        <source>Getting started · Page 1</source>
-        <translation>Getting started · Page 1</translation>
+        <source>Getting started, page 1</source>
+        <translation>Getting started, page 1</translation>
     </message>
     <message id="guide.exit">
         <source>Exit guide</source>
