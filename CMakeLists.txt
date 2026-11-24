@@ -633,6 +633,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/components/AppTabButton.qml
     src/app/ui/components/AppTabBar.qml
     src/app/ui/components/AppTabPages.qml
+    src/app/ui/components/AppSegmentedControl.qml
     src/app/ui/components/AppChoiceButton.qml
     src/app/ui/components/DifficultySelector.qml
     src/app/ui/components/DifficultySwatch.qml

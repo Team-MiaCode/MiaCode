@@ -16,12 +16,13 @@ Item {
     readonly property bool libraryActive: viewState.activeSidebarView === "library"
     readonly property bool primarySidebarVisible: compact || viewState.sidebarVisible
     readonly property alias libraryHost: libraryContent
-    readonly property Item navigationItem: efficientMode ? efficientSidebar : activityBar
+    readonly property Item navigationItem: efficientMode
+        ? (libraryActive ? libraryContent : efficientSidebar) : activityBar
     readonly property Item chartSidebarItem: efficientMode
         ? efficientSidebar.navigationContentItem : chartSidebar.navigationContentItem
     readonly property real activityBarWidth: activityBar.width
-    readonly property Item cornerSourceItem: libraryActive ? libraryContent
-        : efficientMode ? efficientSidebar.cornerSourceItem
+    readonly property Item cornerSourceItem: efficientMode ? efficientHeader
+        : libraryActive ? libraryContent
         : root.viewState.activeSidebarView === "export" ? exportSidebar.cornerSourceItem
         : root.viewState.activeSidebarView === "network" ? networkSidebar.cornerSourceItem
         : root.viewState.activeSidebarView === "tools" ? toolsSidebar.cornerSourceItem
@@ -32,6 +33,7 @@ Item {
 
     function showMediaToolsMenu() {
         if (root.efficientMode) {
+            root.viewState.activeSidebarView = "chart"
             root.viewState.sidebarVisible = true
             root.preferences.sidebarVisible = true
             Qt.callLater(efficientSidebar.showTools)
@@ -59,6 +61,15 @@ Item {
         if (viewId === "library") {
             if (root.pages.navigationPending)
                 return
+            if (!root.efficientMode && viewState.activeSidebarView === "library" && !root.pages.overlayActive) {
+                if (compact) {
+                    viewState.compactPanel = ""
+                    return
+                }
+                viewState.sidebarVisible = !viewState.sidebarVisible
+                root.preferences.sidebarVisible = viewState.sidebarVisible
+                return
+            }
             if (root.pages.overlayActive) {
                 root.pendingLibrary = true
                 if (!root.pages.leaveOverlayPage())
@@ -127,8 +138,8 @@ Item {
     ActivityBar {
         netUploadEnabled: root.pages.netUploadEnabled
         id: activityBar
-        visible: !root.efficientMode || root.libraryActive
-        width: !root.efficientMode || root.libraryActive ? implicitWidth : 0
+        visible: !root.efficientMode
+        width: !root.efficientMode ? implicitWidth : 0
         color: root.compact ? "transparent" : Theme.chromeSurfaceColor(Theme.colors.background.activityBar)
         anchors.left: parent.left
         anchors.top: parent.top
@@ -160,11 +171,45 @@ Item {
         visible: root.primarySidebarVisible
 
         Rectangle {
+            id: efficientHeader
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            height: visible ? Theme.workspaceHeaderHeight + 8 : 0
+            visible: root.efficientMode
+            color: root.compact ? "transparent"
+                : Theme.chromeSurfaceColor(Theme.colors.background.panel, Theme.nativeMaterialActive)
+
+            AppSegmentedControl {
+                anchors.left: parent.left
+                anchors.leftMargin: 10
+                anchors.right: parent.right
+                anchors.rightMargin: 10
+                anchors.verticalCenter: parent.verticalCenter
+                nativeMaterialActive: !root.compact && Theme.nativeMaterialActive
+                tabs: [
+                    { id: "menu", label: qsTrId("sidebar.menu"), objectName: "efficientMenuTab" },
+                    { id: "library", label: qsTrId("library.title"), objectName: "efficientLibraryTab" }
+                ]
+                selectedId: root.libraryActive ? "library" : "menu"
+                onTabSelected: tabId => {
+                    if (tabId === "library")
+                        root.activateView("library")
+                    else
+                        root.viewState.activeSidebarView = "chart"
+                }
+            }
+        }
+
+        Rectangle {
             id: libraryContent
-            anchors.fill: parent
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: root.efficientMode ? efficientHeader.bottom : parent.top
+            anchors.bottom: parent.bottom
             visible: root.libraryActive
             color: root.compact ? "transparent" : root.efficientMode
-                ? Theme.chromeSurfaceColor(Theme.colors.background.panel)
+                ? Theme.chromeSurfaceColor(Theme.colors.background.panel, Theme.nativeMaterialActive)
                 : Theme.surfaceColor(Theme.colors.background.panel)
         }
 
@@ -181,8 +226,12 @@ Item {
 
         EfficientSidebar {
             id: efficientSidebar
-            anchors.fill: parent
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: efficientHeader.bottom
+            anchors.bottom: parent.bottom
             visible: root.efficientMode && !root.libraryActive
+            compact: root.compact
             nativeMaterialActive: !root.compact && Theme.nativeMaterialActive
             color: root.compact ? "transparent"
                 : Theme.chromeSurfaceColor(Theme.colors.background.panel, Theme.nativeMaterialActive)
@@ -192,7 +241,6 @@ Item {
             pages: root.pages
             toolsMenuActive: activityBar.toolsMenuActive
             onToolsRequested: activityBar.showMediaToolsMenu(efficientSidebar.toolsItem)
-            onLibraryRequested: root.activateView("library")
             onSettingsRequested: root.settingsRequested()
         }
 

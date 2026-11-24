@@ -13,8 +13,24 @@ Item {
     signal chartRequested(url chart, int preferredDifficultyId)
     signal chartFolderRequested(url chart)
     required property string activeChartPath
-    readonly property string activeChartKey: library.chartPathKey(activeChartPath)
+    property bool compact: false
+    property bool efficientMode: false
+    property bool nativeMaterialActive: false
+    readonly property bool hasDirectory: library.directory.toString().length > 0
     readonly property real contentMargin: 10
+    readonly property int toolbarButtonSize: root.efficientMode ? Theme.controlHighlightHeight : Theme.controlMinHeight
+    readonly property int toolbarIconSize: root.efficientMode ? 15 : 16
+    readonly property var rowStateColors: nativeMaterialActive ? ({
+        hover: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.07) : Qt.rgba(0, 0, 0, 0.05),
+        pressed: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.11) : Qt.rgba(0, 0, 0, 0.09),
+        selected: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.13) : Qt.rgba(0, 0, 0, 0.08)
+    }) : Theme.colors.listState
+    readonly property var buttonStateColors: nativeMaterialActive ? ({
+        hover: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.06),
+        pressed: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(0, 0, 0, 0.11),
+        selected: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(0, 0, 0, 0.10)
+    }) : Theme.colors.buttonState
+    readonly property string activeChartKey: library.chartPathKey(activeChartPath)
     property bool loaded: false
     property list<int> selectedDifficulties: []
     readonly property var difficultyOptions: [qsTrId("library.difficulty.1"), qsTrId("library.difficulty.2"),
@@ -78,6 +94,13 @@ Item {
         songMenu.popup(root, point.x, point.y)
     }
 
+    function openDirectoryPicker() {
+        const folder = library.pickerDirectory(root.activeChartPath)
+        if (folder.toString().length > 0)
+            directoryPicker.currentFolder = folder
+        directoryPicker.open()
+    }
+
     onVisibleChanged: {
         if (visible && !loaded && library.directory.toString().length > 0) {
             loaded = true
@@ -111,140 +134,154 @@ Item {
         }
     }
 
+    component LibraryIconButton: IconButton {
+        implicitWidth: root.toolbarButtonSize
+        implicitHeight: root.toolbarButtonSize
+        width: root.toolbarButtonSize
+        height: root.toolbarButtonSize
+        Layout.preferredWidth: root.toolbarButtonSize
+        Layout.preferredHeight: root.toolbarButtonSize
+        iconWidth: root.toolbarIconSize
+        iconHeight: root.toolbarIconSize
+        cornerRadius: root.efficientMode ? Theme.compactControlRadius : Theme.controlRadius
+        backgroundFillsWidth: true
+        stateColors: root.buttonStateColors
+    }
+
     PanelHeader {
         id: heading
         objectName: "chartLibraryHeader"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        height: implicitHeight
+        visible: !root.efficientMode
+        height: visible ? implicitHeight : 0
         title: qsTrId("library.title")
         sidebarTitle: true
+
+        LibraryIconButton {
+            objectName: "chartLibraryFolderButton"
+            visible: !root.efficientMode && root.hasDirectory
+            iconSource: Qt.resolvedUrl("icons/folder-open.svg")
+            tooltip: qsTrId("library.choose_folder")
+            onClicked: root.openDirectoryPicker()
+        }
+        LibraryIconButton {
+            objectName: "chartLibraryRefreshButton"
+            visible: !root.efficientMode && root.hasDirectory
+            iconSource: Qt.resolvedUrl("icons/refresh.svg")
+            tooltip: qsTrId("library.refresh")
+            enabled: !library.scanning && root.hasDirectory
+            onClicked: library.refresh()
+        }
     }
 
     ColumnLayout {
+        objectName: "chartLibraryListColumn"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: heading.bottom
+        anchors.topMargin: root.efficientMode ? 2 : 4
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 10
-        spacing: 9
+        anchors.bottomMargin: 8
+        spacing: 8
 
         RowLayout {
+            objectName: "chartLibrarySearchRow"
             Layout.fillWidth: true
             Layout.leftMargin: root.contentMargin
             Layout.rightMargin: root.contentMargin
-            spacing: 8
-            AppButton {
-                objectName: "chartLibraryFolderButton"
+            visible: root.hasDirectory
+            spacing: root.efficientMode ? 4 : 6
+
+            AppTextField {
+                id: search
+                objectName: "chartLibrarySearch"
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
-                backgroundFillsWidth: true
-                text: qsTrId("library.choose_folder")
+                outlined: true
+                backgroundColor: root.nativeMaterialActive
+                    ? (Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.055) : Qt.rgba(0, 0, 0, 0.045))
+                    : Theme.colors.background.control
+                Accessible.name: qsTrId("library.search")
+                placeholderText: activeFocus ? "" : Accessible.name
+                onTextChanged: root.resetSongPosition()
+                onAccepted: root.openCurrentResult()
+                Keys.onDownPressed: event => {
+                    event.accepted = root.focusSong(Math.max(0, viewport.currentIndex))
+                }
+            }
+
+            LibraryIconButton {
+                id: difficultyButton
+                objectName: "chartLibraryDifficultyFilter"
+                visible: library.songs.length > 0
+                active: difficultyMenu.active || root.selectedDifficulties.length > 0
+                iconSource: Qt.resolvedUrl("icons/filter.svg")
+                filledIconSource: Qt.resolvedUrl("icons/filter-fill.svg")
+                tooltip: qsTrId("action.filter")
                 onClicked: {
-                    const folder = library.pickerDirectory(root.activeChartPath)
-                    if (folder.toString().length > 0)
-                        directoryPicker.currentFolder = folder
-                    directoryPicker.open()
-                }
-            }
-            IconButton {
-                objectName: "chartLibraryRefreshButton"
-                Layout.preferredWidth: Theme.controlMinHeight
-                Layout.preferredHeight: Theme.controlMinHeight
-                backgroundFillsWidth: true
-                iconSource: Qt.resolvedUrl("icons/refresh.svg")
-                tooltip: qsTrId("library.refresh")
-                enabled: !library.scanning && library.directory.toString().length > 0
-                onClicked: library.refresh()
-            }
-        }
-
-        ColumnLayout {
-            objectName: "chartLibraryListColumn"
-            Layout.fillWidth: true
-            Layout.minimumWidth: 0
-            Layout.fillHeight: true
-            spacing: 8
-
-            RowLayout {
-                objectName: "chartLibrarySearchRow"
-                Layout.fillWidth: true
-                Layout.leftMargin: root.contentMargin
-                Layout.rightMargin: root.contentMargin
-                spacing: 8
-
-                AppTextField {
-                    id: search
-                    objectName: "chartLibrarySearch"
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 0
-                    outlined: true
-                    Accessible.name: qsTrId("library.search")
-                    placeholderText: activeFocus ? "" : Accessible.name
-                    onTextChanged: root.resetSongPosition()
-                    onAccepted: root.openCurrentResult()
-                    Keys.onDownPressed: event => {
-                        event.accepted = root.focusSong(Math.max(0, viewport.currentIndex))
-                    }
+                    if (difficultyMenu.active)
+                        difficultyMenu.close()
+                    else
+                        difficultyMenu.openAt(difficultyButton)
                 }
 
-                IconButton {
-                    id: difficultyButton
-                    objectName: "chartLibraryDifficultyFilter"
-                    Layout.preferredWidth: Theme.controlMinHeight
-                    Layout.preferredHeight: Theme.controlMinHeight
-                    backgroundFillsWidth: true
-                    visible: library.songs.length > 0
-                    active: difficultyMenu.active || root.selectedDifficulties.length > 0
-                    iconSource: Qt.resolvedUrl("icons/filter.svg")
-                    filledIconSource: Qt.resolvedUrl("icons/filter-fill.svg")
-                    tooltip: qsTrId("action.filter")
-                    onClicked: {
-                        if (difficultyMenu.active)
-                            difficultyMenu.close()
-                        else
-                            difficultyMenu.openAt(difficultyButton)
-                    }
+                AppStickyPopup {
+                    id: difficultyMenu
+                    minimumWidth: 180
 
-                    AppStickyPopup {
-                        id: difficultyMenu
-                        minimumWidth: 180
+                    contentItem: Column {
+                        id: difficultyOptionsColumn
 
-                        contentItem: Column {
-                            id: difficultyOptionsColumn
-
-                            Repeater {
-                                model: root.difficultyOptions
-                                delegate: AppMenuItem {
-                                    objectName: "chartLibraryDifficultyOption"
-                                    required property int index
-                                    required property string modelData
-                                    width: difficultyOptionsColumn.width
-                                    focusPolicy: Qt.StrongFocus
-                                    text: modelData
-                                    difficultyId: index + 1
-                                    checkable: true
-                                    checked: root.selectedDifficulties.includes(difficultyId)
-                                    onToggled: root.setDifficultySelected(difficultyId, checked)
-                                }
+                        Repeater {
+                            model: root.difficultyOptions
+                            delegate: AppMenuItem {
+                                objectName: "chartLibraryDifficultyOption"
+                                required property int index
+                                required property string modelData
+                                width: difficultyOptionsColumn.width
+                                focusPolicy: Qt.StrongFocus
+                                text: modelData
+                                difficultyId: index + 1
+                                checkable: true
+                                checked: root.selectedDifficulties.includes(difficultyId)
+                                onToggled: root.setDifficultySelected(difficultyId, checked)
                             }
                         }
                     }
                 }
             }
 
-            Item {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
+            LibraryIconButton {
+                objectName: "chartLibraryEfficientFolderButton"
+                visible: root.efficientMode
+                iconSource: Qt.resolvedUrl("icons/folder-open.svg")
+                tooltip: qsTrId("library.choose_folder")
+                onClicked: root.openDirectoryPicker()
+            }
 
-                ScrollView {
-                    id: viewport
-                    objectName: "chartLibrarySongList"
-                    anchors.fill: parent
-                    contentWidth: availableWidth
-                    leftPadding: root.contentMargin
-                    rightPadding: root.contentMargin
+            LibraryIconButton {
+                objectName: "chartLibraryEfficientRefreshButton"
+                visible: root.efficientMode
+                iconSource: Qt.resolvedUrl("icons/refresh.svg")
+                tooltip: qsTrId("library.refresh")
+                enabled: !library.scanning && root.hasDirectory
+                onClicked: library.refresh()
+            }
+        }
+
+        Item {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+
+            ScrollView {
+                id: viewport
+                objectName: "chartLibrarySongList"
+                anchors.fill: parent
+                contentWidth: availableWidth
+                leftPadding: root.contentMargin
+                rightPadding: root.contentMargin
                     clip: true
                     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                     ScrollBar.vertical: AppScrollBar {
@@ -313,6 +350,7 @@ Item {
                                 height: Math.max(60, songBody.implicitHeight + 12)
                                 leftPadding: 6
                                 rightPadding: leftPadding
+                                stateColors: root.rowStateColors
                                 highlightFillsBounds: true
                                 emphasizedText: true
                                 text: modelData.title
@@ -514,13 +552,17 @@ Item {
                     }
                 }
 
+            ColumnLayout {
+                anchors.centerIn: parent
+                width: Math.max(0, parent.width - 2 * root.contentMargin - 16)
+                visible: songs.count === 0
+                spacing: 10
+
                 Label {
-                    anchors.centerIn: parent
-                    width: Math.max(0, parent.width - 16)
-                    visible: songs.count === 0
+                    Layout.fillWidth: true
                     text: library.scanning ? qsTrId("library.scanning")
                         : library.directoryMissing ? qsTrId("library.missing_folder")
-                        : library.directory.toString().length === 0 ? qsTrId("library.no_directory")
+                        : !root.hasDirectory ? qsTrId("library.no_directory")
                         : qsTrId("library.empty")
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.WordWrap
@@ -528,17 +570,25 @@ Item {
                     font.family: Theme.uiFont
                     font.pixelSize: Theme.uiFontSize
                 }
+
+                AppButton {
+                    objectName: "chartLibraryEmptyFolderButton"
+                    Layout.alignment: Qt.AlignHCenter
+                    visible: !library.scanning && (!root.hasDirectory || library.directoryMissing)
+                    text: qsTrId("library.choose_folder")
+                    onClicked: root.openDirectoryPicker()
+                }
             }
-            Label {
-                Layout.fillWidth: true
-                Layout.leftMargin: root.contentMargin
-                Layout.rightMargin: root.contentMargin
-                visible: library.songs.length > 0
-                text: qsTrId("library.result_count").arg(songs.count).arg(library.songs.length)
-                color: Theme.colors.text.secondary
-                font.family: Theme.uiFont
-                font.pixelSize: Theme.uiFontSize - 1
-            }
+        }
+        Label {
+            Layout.fillWidth: true
+            Layout.leftMargin: root.contentMargin
+            Layout.rightMargin: root.contentMargin
+            visible: library.songs.length > 0
+            text: qsTrId("library.result_count").arg(songs.count).arg(library.songs.length)
+            color: Theme.colors.text.secondary
+            font.family: Theme.uiFont
+            font.pixelSize: Theme.uiFontSize - 1
         }
     }
 }

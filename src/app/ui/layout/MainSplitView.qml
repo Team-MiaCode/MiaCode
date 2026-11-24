@@ -2,6 +2,8 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Controls.impl as ControlsImpl
+import QtQuick.Effects
 import QtQuick.Window
 import MiaCode.UI
 
@@ -55,7 +57,7 @@ Item {
         ? minimumEditorWidth
         : Math.max(620, minimumEditorWidth + preview.minimumWidth + Theme.splitDividerThickness)
     readonly property real sidebarChromeWidth: Theme.splitDividerThickness
-        + (root.preferences.efficientSidebarEnabled && !root.libraryActive ? 20 : Theme.activityButtonSize)
+        + (root.preferences.efficientSidebarEnabled ? 0 : Theme.activityButtonSize)
     readonly property real expandedSidebarWidth: root.preferences.sidebarWidth + root.sidebarChromeWidth
     readonly property real minimumHeight: Math.max(
         editorHost.SplitView.minimumHeight + (root.bottomPanelEffectivelyVisible
@@ -493,8 +495,7 @@ Item {
             commands: root.commands
             pages: root.pages
             compact: root.compact
-            visible: !root.compact && (root.libraryActive
-                || !root.preferences.efficientSidebarEnabled || root.viewState.sidebarVisible)
+            visible: !root.compact && (!root.preferences.efficientSidebarEnabled || root.viewState.sidebarVisible)
             width: visible ? sidebar.activityBarWidth + (root.viewState.sidebarVisible
                 ? (root.sidebarResizing ? root.sidebarDragWidth : root.preferences.sidebarWidth) : 0) : 0
             height: parent.height
@@ -617,6 +618,9 @@ Item {
             parent: root.compact ? root.compactLibraryHost : sidebar.libraryHost
             anchors.fill: parent
             visible: root.libraryActive
+            compact: root.compact
+            efficientMode: root.preferences.efficientSidebarEnabled
+            nativeMaterialActive: !root.compact && root.preferences.efficientSidebarEnabled && Theme.nativeMaterialActive
             activeChartPath: root.documentSession.currentFilePath
             onChartRequested: (chartUrl, preferredDifficultyId) => root.commands.openLibraryChart(chartUrl, preferredDifficultyId)
             onChartFolderRequested: chartUrl => root.commands.openChartFolder(chartUrl)
@@ -755,7 +759,7 @@ Item {
             y: 1 / root.Screen.devicePixelRatio
             width: visible ? 20 : 0
             height: parent.height - y
-            visible: !root.compact && !root.libraryActive && root.preferences.efficientSidebarEnabled
+            visible: !root.compact && root.preferences.efficientSidebarEnabled && !root.viewState.sidebarVisible
             color: Theme.chromeSurfaceColor(Theme.colors.background.panel)
 
             IconButton {
@@ -774,14 +778,11 @@ Item {
                         : sidebarToggleButton.hovered || sidebarToggleButton.visualFocus
                             ? Theme.chromeStateColors.hover : "transparent")
                 }
-                iconSource: root.viewState.sidebarVisible
-                    ? Qt.resolvedUrl("icons/chevron-left.svg")
-                    : Qt.resolvedUrl("icons/chevron-right.svg")
-                tooltip: root.viewState.sidebarVisible
-                    ? qsTrId("qml.close_sidebar") : qsTrId("qml.open_sidebar")
+                iconSource: Qt.resolvedUrl("icons/chevron-right.svg")
+                tooltip: qsTrId("qml.open_sidebar")
                 onClicked: {
-                    root.viewState.sidebarVisible = !root.viewState.sidebarVisible
-                    root.preferences.sidebarVisible = root.viewState.sidebarVisible
+                    root.viewState.sidebarVisible = true
+                    root.preferences.sidebarVisible = true
                 }
             }
         }
@@ -830,6 +831,98 @@ Item {
                     root.persistSidebarWidth()
                     sidebarSnap.end()
                     root.sidebarResizing = false
+                }
+            }
+        }
+
+        // Passive hover zone straddling the split divider center so the
+        // floating collapse pill appears on approach without blocking scroll or clicks.
+        Item {
+            id: efficientCollapseZone
+            readonly property bool available: !root.compact
+                && root.preferences.efficientSidebarEnabled
+                && root.viewState.sidebarVisible
+            readonly property bool reveal: available
+                && !root.sidebarResizing
+                && !sidebarDrag.pressed
+                && (edgeHover.hovered || sidebarDrag.containsMouse
+                    || efficientCollapsePill.hovered || efficientCollapsePill.visualFocus)
+
+            x: sidebarHandle.x + sidebarHandle.width / 2 - width / 2
+            y: Math.round((parent.height - height) / 2)
+            width: 36
+            height: 96
+            z: 5
+            visible: available
+
+            HoverHandler {
+                id: edgeHover
+            }
+
+            RectangularShadow {
+                anchors.fill: efficientCollapsePill
+                radius: efficientCollapsePill.width / 2
+                blur: 12
+                offset: Qt.vector2d(0, 2)
+                color: Qt.rgba(0, 0, 0, Theme.darkTheme ? 0.36 : 0.14)
+                opacity: efficientCollapsePill.opacity
+                visible: efficientCollapsePill.visible
+            }
+
+            AbstractButton {
+                id: efficientCollapsePill
+                objectName: "efficientSidebarCollapseButton"
+                anchors.centerIn: parent
+                width: 22
+                height: 44
+                hoverEnabled: true
+                enabled: efficientCollapseZone.reveal
+                opacity: efficientCollapseZone.reveal ? 1 : 0
+                visible: opacity > 0.01
+                Accessible.name: qsTrId("qml.close_sidebar")
+
+                HoverHandler {
+                    cursorShape: Qt.PointingHandCursor
+                }
+
+                Behavior on opacity {
+                    NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+                }
+
+                onClicked: {
+                    root.viewState.sidebarVisible = false
+                    root.preferences.sidebarVisible = false
+                }
+
+                background: Rectangle {
+                    radius: width / 2
+                    color: Theme.overlayColor(efficientCollapsePill.down
+                        ? Theme.colors.buttonState.pressed
+                        : efficientCollapsePill.hovered
+                            ? Theme.colors.buttonState.hover
+                            : Theme.colors.background.elevated)
+                    border.width: efficientCollapsePill.visualFocus
+                        ? Theme.controlBorderWidth : 1 / root.Screen.devicePixelRatio
+                    border.color: efficientCollapsePill.visualFocus
+                        ? Theme.colors.accent.focus : Theme.colors.border.control
+                    border.pixelAligned: false
+                }
+
+                contentItem: Item {
+                    ControlsImpl.IconImage {
+                        anchors.centerIn: parent
+                        width: 13
+                        height: 13
+                        source: Qt.resolvedUrl("icons/chevron-left.svg")
+                        sourceSize: Theme.iconSourceSize(13, 13)
+                        color: efficientCollapsePill.hovered || efficientCollapsePill.visualFocus
+                            ? Theme.colors.text.active : Theme.colors.text.secondary
+                    }
+                }
+
+                Tooltip {
+                    visible: efficientCollapsePill.hovered
+                    text: qsTrId("qml.close_sidebar")
                 }
             }
         }
