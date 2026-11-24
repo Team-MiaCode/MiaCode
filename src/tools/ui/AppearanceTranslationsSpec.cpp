@@ -118,7 +118,6 @@ ApplicationWindow {
             label: qsTrId("dialog.preferences.font.family")
             options: translatedFonts; fontFamilyRole: "family"
             currentValue: sampleFont.family
-            defaultFontFamily: sampleFont.family
         }
         Text {
             objectName: "localizedComment"

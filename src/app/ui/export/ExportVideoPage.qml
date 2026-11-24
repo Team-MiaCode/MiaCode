@@ -911,7 +911,6 @@ Rectangle {
                                 AppComboBox {
                                     id: introDisplayFontCombo
                                     fontFamilyRole: "family"
-                                    defaultFontFamily: defaultDisplayFont.name
                                     objectName: "introDisplayFontCombo"
                                     Layout.fillWidth: true
                                     model: root.session ? root.session.fontLibraryOptions : []
@@ -935,7 +934,6 @@ Rectangle {
                                 AppComboBox {
                                     id: introBodyFontCombo
                                     fontFamilyRole: "family"
-                                    defaultFontFamily: defaultBodyFont.name
                                     objectName: "introBodyFontCombo"
                                     Layout.fillWidth: true
                                     model: root.session ? root.session.fontLibraryOptions : []

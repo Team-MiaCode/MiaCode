@@ -12,15 +12,13 @@ ComboBox {
     property bool compact: false
     property color backgroundColor: Theme.colors.background.elevated
     property bool outlined: false
-    // Font pickers render each choice in its own family, including their
-    // context-specific default. Ordinary dropdowns keep the UI font.
+    // Only choices with an explicit font family preview it.
     property string fontFamilyRole: ""
-    property string defaultFontFamily: Theme.uiFont
 
     function optionFamily(index) {
         if (root.fontFamilyRole && root.model && index >= 0 && index < root.count)
-            return root.model[index][root.fontFamilyRole] || root.defaultFontFamily
-        return root.defaultFontFamily
+            return root.model[index][root.fontFamilyRole] || Theme.uiFont
+        return Theme.uiFont
     }
 
     function optionFont(index) {

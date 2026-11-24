@@ -323,8 +323,6 @@ int PreviewSettingsModel::outlineIndex() const
 QVariantList PreviewSettingsModel::fontLibraryOptions() const
 {
     QVariantList list;
-    const auto area = miacode::preview::scene::previewHudFontAreaFromId(hudFontAreaId_);
-    const QString defaultFamily = miacode::preview::scene::previewHudDefaultFontForArea(area, 14).family();
     const QString selectedPath = hudFontPath();
     bool selectedListed = selectedPath.isEmpty();
     const QVector<miacode::video_export::FontLibraryEntry> entries =
@@ -334,7 +332,7 @@ QVariantList PreviewSettingsModel::fontLibraryOptions() const
         list.append(QVariantMap{
             {QStringLiteral("label"), entry.label},
             {QStringLiteral("path"), entry.path},
-            {QStringLiteral("family"), entry.path.isEmpty() ? defaultFamily : entry.family},
+            {QStringLiteral("family"), entry.family},
         });
         selectedListed |= entry.path == selectedPath;
     }

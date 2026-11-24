@@ -619,7 +619,6 @@ AppDialog {
                                     }
                                     currentValue: root.preferencesModel.editorFontFamily
                                     fontFamilyRole: "family"
-                                    defaultFontFamily: Theme.codeFont.family
                                     onPicked: function(value) { root.preferencesModel.editorFontFamily = value }
                                 }
                                 AppButton {

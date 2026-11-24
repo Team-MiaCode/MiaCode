@@ -67,15 +67,6 @@ Rectangle {
         return options
     }
 
-    FontLoader {
-        id: defaultDisplayFont
-        source: "qrc:/intro/assets/fonts/ResourceHanRoundedCN-Heavy.ttf"
-    }
-    FontLoader {
-        id: defaultBodyFont
-        source: "qrc:/intro/assets/fonts/ResourceHanRoundedCN-Bold.ttf"
-    }
-
     // 检查器标签列。标签都是短词，88px 容得下中/英/日三种文案而不折行。
     readonly property int labelWidth: 88
 
@@ -1017,7 +1008,6 @@ Rectangle {
                                         LabeledCombo {
                                             objectName: "coverCardDisplayFontCombo"
                                             fontFamilyRole: "family"
-                                            defaultFontFamily: defaultDisplayFont.name
                                             label: qsTrId("cover.title_font")
                                             labelWidth: root.labelWidth
                                             options: root.fontOptions
@@ -1033,7 +1023,6 @@ Rectangle {
                                         LabeledCombo {
                                             objectName: "coverCardBodyFontCombo"
                                             fontFamilyRole: "family"
-                                            defaultFontFamily: defaultBodyFont.name
                                             label: qsTrId("cover.body_font")
                                             labelWidth: root.labelWidth
                                             options: root.fontOptions
