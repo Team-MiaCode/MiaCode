@@ -147,6 +147,7 @@ Item {
                 objectName: "chartLibraryRefreshButton"
                 Layout.preferredWidth: Theme.controlMinHeight
                 Layout.preferredHeight: Theme.controlMinHeight
+                backgroundFillsWidth: true
                 iconSource: Qt.resolvedUrl("icons/refresh.svg")
                 tooltip: qsTrId("library.refresh")
                 enabled: !library.scanning && library.directory.toString().length > 0
@@ -187,6 +188,7 @@ Item {
                     objectName: "chartLibraryDifficultyFilter"
                     Layout.preferredWidth: Theme.controlMinHeight
                     Layout.preferredHeight: Theme.controlMinHeight
+                    backgroundFillsWidth: true
                     visible: library.songs.length > 0
                     active: difficultyMenu.active || root.selectedDifficulty > 0
                     iconSource: Qt.resolvedUrl("icons/sliders-horizontal.svg")
@@ -280,6 +282,24 @@ Item {
                                     && root.activeChartKey === modelData.pathKey
                                 readonly property color secondaryTextColor: chromeSelected
                                     ? Theme.colors.text.primary : Theme.colors.text.secondary
+                                readonly property bool hasThreeDetailLines: coverTile.visible && artistName.visible
+                                    && !variantName.visible && levelBadges.count > 0
+                                    && badgeFlow.implicitHeight === badgeFlow.badgeHeight
+                                readonly property rect titleInk: hasThreeDetailLines
+                                    ? visibleInk(songName, titleMetrics) : Qt.rect(0, 0, 0, 0)
+                                readonly property rect artistInk: hasThreeDetailLines
+                                    ? visibleInk(artistName, artistMetrics) : Qt.rect(0, 0, 0, 0)
+                                readonly property bool alignDetailsToCover: hasThreeDetailLines
+                                    && titleInk.height > 0 && artistInk.height > 0
+                                    && titleInk.height + artistInk.height + 2
+                                        <= coverTile.Layout.preferredHeight - badgeFlow.badgeHeight
+
+                                function visibleInk(label, metrics) {
+                                    const displayedText = label.truncated
+                                        ? metrics.elidedText(label.text, Text.ElideRight, label.width) : label.text
+                                    return metrics.tightBoundingRect(displayedText)
+                                }
+
                                 width: songColumn.width
                                 height: Math.max(60, songBody.implicitHeight + 12)
                                 leftPadding: 6
@@ -305,12 +325,13 @@ Item {
                                     id: songBody
                                     spacing: 9
                                     Rectangle {
+                                        id: coverTile
                                         Layout.preferredWidth: 48
                                         Layout.preferredHeight: 48
+                                        Layout.alignment: Qt.AlignVCenter
                                         visible: songRow.availableWidth >= 2 * Layout.preferredWidth + songBody.spacing
                                         color: Theme.colors.background.control
                                         radius: Theme.compactControlRadius
-                                        clip: true
 
                                         ControlsImpl.IconImage {
                                             objectName: "chartLibraryCoverFallback"
@@ -325,7 +346,10 @@ Item {
                                             id: songCover
                                             objectName: "chartLibraryCoverThumbnail"
                                             anchors.fill: parent
-                                            source: songRow.modelData.cover
+                                            source: songRow.modelData.coverKey.length > 0
+                                                ? "image://chartlibrarycover/" + (coverTile.radius / coverTile.Layout.preferredWidth)
+                                                    + "/" + songRow.modelData.coverKey
+                                                : ""
                                             sourceSize: Qt.size(96, 96)
                                             asynchronous: true
                                             fillMode: Image.PreserveAspectCrop
@@ -333,48 +357,85 @@ Item {
                                         }
                                     }
                                     ColumnLayout {
+                                        id: songDetails
                                         Layout.fillWidth: true
+                                        Layout.fillHeight: false
                                         Layout.minimumWidth: 0
-                                        spacing: 2
+                                        Layout.preferredHeight: songRow.alignDetailsToCover ? coverTile.height : -1
+                                        Layout.alignment: Qt.AlignVCenter
+                                        spacing: 1
                                         Label {
                                             id: songName
                                             Layout.fillWidth: true
+                                            Layout.preferredHeight: Theme.uiFontSize + 3
                                             text: songRow.modelData.title
                                             textFormat: Text.PlainText
                                             color: songRow.contentColor
                                             font.family: Theme.uiFont
                                             font.pixelSize: Theme.uiFontSize + 1
                                             font.weight: Font.DemiBold
+                                            verticalAlignment: Text.AlignVCenter
                                             elide: Text.ElideRight
+                                            transform: Translate {
+                                                y: songRow.alignDetailsToCover
+                                                    ? coverTile.y - songDetails.y - songName.y
+                                                        - songName.baselineOffset - songRow.titleInk.y
+                                                    : 0
+                                            }
+                                            FontMetrics {
+                                                id: titleMetrics
+                                                font: songName.font
+                                            }
                                         }
                                         Label {
                                             id: artistName
                                             Layout.fillWidth: true
+                                            Layout.fillHeight: songRow.alignDetailsToCover
+                                            Layout.preferredHeight: Theme.uiFontSize
                                             text: songRow.modelData.artist
                                             textFormat: Text.PlainText
                                             visible: text.length > 0
                                             color: songRow.secondaryTextColor
                                             font.family: Theme.uiFont
                                             font.pixelSize: Theme.uiFontSize - 1
+                                            verticalAlignment: Text.AlignVCenter
                                             elide: Text.ElideRight
+                                            transform: Translate {
+                                                y: {
+                                                    if (!songRow.alignDetailsToCover)
+                                                        return 0
+                                                    const titleBottom = coverTile.y - songDetails.y + songRow.titleInk.height
+                                                    const inkCenter = artistName.baselineOffset + songRow.artistInk.y
+                                                        + songRow.artistInk.height / 2
+                                                    return (titleBottom + badgeFlow.y) / 2 - artistName.y - inkCenter
+                                                }
+                                            }
+                                            FontMetrics {
+                                                id: artistMetrics
+                                                font: artistName.font
+                                            }
                                         }
                                         Label {
                                             id: variantName
                                             objectName: "chartLibraryVariant"
                                             Layout.fillWidth: true
+                                            Layout.preferredHeight: Theme.uiFontSize
                                             text: songRow.modelData.variant ?? ""
                                             textFormat: Text.PlainText
                                             visible: text.length > 0
                                             color: songRow.secondaryTextColor
                                             font.family: Theme.uiFont
                                             font.pixelSize: Theme.uiFontSize - 1
+                                            verticalAlignment: Text.AlignVCenter
                                             elide: Text.ElideRight
                                         }
                                         Flow {
+                                            id: badgeFlow
+                                            readonly property int badgeHeight: 16
                                             Layout.fillWidth: true
                                             Layout.minimumWidth: 0
                                             visible: levelBadges.count > 0
-                                            spacing: 5
+                                            spacing: 4
                                             Repeater {
                                                 id: levelBadges
                                                 model: songRow.modelData.difficulties
@@ -384,31 +445,37 @@ Item {
                                                     readonly property color badgeColor: Theme.difficultyColor(modelData.id)
                                                     readonly property string difficultyName: qsTrId("library.difficulty." + modelData.id)
                                                     objectName: "chartLibraryDifficultyBadge"
-                                                    implicitWidth: Math.max(26, implicitContentWidth + 10)
-                                                    implicitHeight: implicitContentHeight + 2
+                                                    implicitWidth: 30
+                                                    implicitHeight: badgeFlow.badgeHeight
                                                     padding: 0
                                                     hoverEnabled: true
                                                     focusPolicy: Qt.StrongFocus
                                                     text: (modelData.level ?? "").trim() || modelData.shortName
                                                     Accessible.name: qsTrId("action.open") + " " + difficultyName
                                                     onClicked: root.openSongAt(songRow.index, modelData.id)
+                                                    ToolTip.visible: badge.hovered && badgeLabel.truncated
+                                                    ToolTip.text: badge.text
                                                     background: Rectangle {
                                                         radius: Theme.smallControlRadius
                                                         color: Qt.rgba(badge.badgeColor.r, badge.badgeColor.g, badge.badgeColor.b,
-                                                            Theme.darkTheme ? (badge.hovered || badge.down ? 0.58 : 0.40)
-                                                                : (badge.hovered || badge.down ? 0.42 : 0.25))
+                                                            Theme.darkTheme ? (badge.hovered || badge.down ? 0.48 : 0.28)
+                                                                : (badge.hovered || badge.down ? 0.35 : 0.18))
                                                         border.width: badge.visualFocus || Theme.darkTheme ? Theme.controlBorderWidth : 0
                                                         border.color: badge.visualFocus ? Theme.colors.accent.focus
-                                                            : Qt.lighter(badge.badgeColor, 1.18)
+                                                            : Qt.alpha(badge.badgeColor, 0.75)
                                                     }
                                                     contentItem: Label {
+                                                        id: badgeLabel
                                                         text: badge.text
                                                         textFormat: Text.PlainText
                                                         horizontalAlignment: Text.AlignHCenter
                                                         verticalAlignment: Text.AlignVCenter
                                                         color: Theme.colors.text.primary
                                                         font.family: Theme.uiFont
-                                                        font.pixelSize: Theme.secondaryFontSize
+                                                        font.pixelSize: Theme.compactFontSize
+                                                        leftPadding: 1
+                                                        rightPadding: 1
+                                                        elide: Text.ElideRight
                                                     }
                                                 }
                                             }

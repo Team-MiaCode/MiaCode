@@ -18,6 +18,7 @@ AbstractButton {
     property int iconHeight: compact ? 14 : 16
     property real cornerRadius: compact ? Theme.compactControlRadius : Theme.controlRadius
     property real highlightOutset: 0
+    property alias backgroundFillsWidth: chrome.fillWidth
     property var stateColors: Theme.colors.buttonState
     property Item keyForwardTarget: null
     readonly property real horizontalInset: chrome.horizontalInset

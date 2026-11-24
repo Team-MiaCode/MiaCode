@@ -5,6 +5,8 @@
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
 
+class QQmlEngine;
+
 namespace miacode::ui {
 
 class ChartLibraryModel : public QObject
@@ -18,6 +20,7 @@ class ChartLibraryModel : public QObject
 
 public:
     explicit ChartLibraryModel(QObject* parent = nullptr);
+    static void registerCoverProvider(QQmlEngine& engine);
     QUrl directory() const { return directory_; }
     QVariantList songs() const { return songs_; }
     bool scanning() const { return scanning_; }

@@ -9,6 +9,10 @@
 #include <QFile>
 #include <QFutureWatcher>
 #include <QHash>
+#include <QImageReader>
+#include <QPainter>
+#include <QQmlEngine>
+#include <QQuickImageProvider>
 #include <QtConcurrentRun>
 #include <algorithm>
 #include <utility>
@@ -16,6 +20,51 @@
 namespace miacode::ui {
 namespace {
 constexpr auto directoryPreference = "chart_library_directory";
+
+class ChartLibraryCoverProvider final : public QQuickImageProvider
+{
+public:
+    ChartLibraryCoverProvider() : QQuickImageProvider(Image) {}
+
+    QImage requestImage(const QString& id, QSize* size, const QSize& requestedSize) override
+    {
+        const qsizetype separator = id.indexOf(u'/');
+        if (separator < 0) return {};
+
+        bool radiusValid = false;
+        const qreal radiusRatio = id.left(separator).toDouble(&radiusValid);
+        const auto path = QByteArray::fromBase64(id.mid(separator + 1).toLatin1(), QByteArray::Base64UrlEncoding);
+        if (!radiusValid || !(radiusRatio >= 0 && radiusRatio <= 0.5) || path.isEmpty()) return {};
+
+        const QSize targetSize = !requestedSize.isEmpty() ? requestedSize : QSize(96, 96);
+        QImageReader reader(QString::fromUtf8(path));
+        const QSize originalSize = reader.size();
+        if (!originalSize.isEmpty()) {
+            const int side = std::min(originalSize.width(), originalSize.height());
+            reader.setClipRect(QRect((originalSize.width() - side) / 2, (originalSize.height() - side) / 2, side, side));
+            reader.setScaledSize(targetSize);
+        }
+        QImage cover = reader.read();
+        if (cover.isNull()) return {};
+        if (cover.size() != targetSize) {
+            const int side = std::min(cover.width(), cover.height());
+            cover = cover.copy((cover.width() - side) / 2, (cover.height() - side) / 2, side, side)
+                .scaled(targetSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        }
+
+        QImage rounded(targetSize, QImage::Format_ARGB32_Premultiplied);
+        rounded.fill(Qt::transparent);
+        QPainter painter(&rounded);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(QBrush(cover));
+        const qreal radius = radiusRatio * targetSize.width();
+        painter.drawRoundedRect(QRectF(rounded.rect()), radius, radius);
+        painter.end();
+        if (size) *size = rounded.size();
+        return rounded;
+    }
+};
 
 struct ScanResult {
     QVariantList songs;
@@ -56,7 +105,8 @@ ScanResult scanLibrary(const QString& path)
             {QStringLiteral("songId"), songId},
             {QStringLiteral("chart"), QUrl::fromLocalFile(chartPath)},
             {QStringLiteral("pathKey"), ChartLibraryModel::chartPathKey(chartPath)},
-            {QStringLiteral("cover"), chart_assets::displayBackgroundImageUrl(cover)},
+            {QStringLiteral("coverKey"), QString::fromLatin1(cover.toUtf8().toBase64(
+                QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals))},
             {QStringLiteral("difficulties"), difficulties},
         });
     }
@@ -83,6 +133,11 @@ ScanResult scanLibrary(const QString& path)
     return result;
 }
 } // namespace
+
+void ChartLibraryModel::registerCoverProvider(QQmlEngine& engine)
+{
+    engine.addImageProvider(QStringLiteral("chartlibrarycover"), new ChartLibraryCoverProvider);
+}
 
 ChartLibraryModel::ChartLibraryModel(QObject* parent) : QObject(parent)
 {
