@@ -16,6 +16,7 @@ Item {
     property bool compact: false
     property bool efficientMode: false
     property bool nativeMaterialActive: false
+    readonly property alias cornerSourceItem: heading
     readonly property bool hasDirectory: library.directory.toString().length > 0
     readonly property bool popupActive: directoryPicker.visible || difficultyMenu.active || songMenu.active
     readonly property real contentMargin: 10

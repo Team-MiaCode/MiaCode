@@ -540,14 +540,16 @@ Item {
             onMediaToolRequested: toolId => root.mediaToolRequested(toolId)
         }
 
-        // Behind the split, so a fractional device pixel at the divider shows
-        // the panel surface instead of the wallpaper. Kept out of the
-        // SplitView background so it cannot intercept handle hover.
+        // Behind the split in opaque mode, so a fractional device pixel at the
+        // divider shows the panel surface instead of the window base. Hidden
+        // when custom wallpaper is active so translucent panes are never
+        // double-tinted over the wallpaper.
         Rectangle {
             x: workspaceSplit.x
             y: workspaceSplit.y
             width: workspaceSplit.width
             height: workspaceSplit.height
+            visible: !Theme.backgroundActive
             color: Theme.surfaceColor(Theme.colors.background.panel)
         }
 
@@ -777,19 +779,23 @@ Item {
 
         CornerMask {
             id: workspaceCorner
+            readonly property bool showingEditorCorner: (root.compact || !root.sidebarPanelShown)
+                && !(root.previewOnLeft && previewHost.visible)
+                && !root.exportVideoActive
             visible: sidebar.visible && !root.preferences.efficientSidebarEnabled
             x: root.compact ? 0 : sidebar.activityBarWidth
             backgroundSource: root.backgroundSource
             backgroundOffset: Qt.point(root.backgroundOffset.x + x, root.backgroundOffset.y)
             panelItem: !root.compact && root.sidebarPanelShown
-                ? sidebar.cornerSourceItem
+                ? (sidebar.libraryActive ? libraryPage.cornerSourceItem : sidebar.cornerSourceItem)
                 : root.previewOnLeft && previewHost.visible
                     ? preview.cornerSourceItem
                     : root.exportVideoActive ? exportVideoPage.cornerSourceItem
                         : editorPane.cornerSourceItem
             panelOffset: Qt.point(0, 0)
-            panelBackingColor: panelItem === editorPane.cornerSourceItem
-                ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
+            panelBackingColor: showingEditorCorner
+                ? editorPane.cornerBackingColor
+                : Theme.surfaceColor(Theme.colors.background.panel)
         }
 
         Rectangle {
