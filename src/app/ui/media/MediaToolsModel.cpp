@@ -65,6 +65,13 @@ QVariantList MediaToolsModel::batchJobs() const
     return list;
 }
 
+void MediaToolsModel::balanceAudioVolume()
+{
+    if (engine() != nullptr) {
+        engine()->balanceAudioVolume();
+    }
+}
+
 void MediaToolsModel::convertTrackTo44100Hz()
 {
     if (engine() != nullptr) {
