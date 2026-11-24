@@ -53,9 +53,12 @@ shasum -a 256 dist/*.zip
 pushes and manual runs build Nightly packages. It also exposes the shared build used
 by [release.yml](../../.github/workflows/release.yml).
 
-The **Release** workflow is triggered manually against the selected ref. It builds the
-same three platforms with `channel: release` and stores the `.7z` packages as Actions
-artifacts for 14 days. Website publication uses the OSS procedure below.
+Pushing a `release/<version>` branch or manually dispatching the **Release** workflow
+builds the same three platforms with `channel: release` and stores the `.7z` packages as
+Actions artifacts for 14 days. Before packaging, CI checks the version in
+`CMakeLists.txt` against the release branch name, the selected tag, or the
+`expected_version` input when manually building from another branch. Website
+publication uses the OSS procedure below.
 
 Both channels use Release compiler optimization. The About dialog displays the
 embedded distribution channel, independently of the compiler configuration and version
@@ -70,7 +73,9 @@ package, configure with `-DMIACODE_RELEASE_CHANNEL=release` and build with
 
 - [ ] Confirm the selected ref carries the intended version in `CMakeLists.txt`.
 - [ ] Add the `## <version>` section to `CHANGELOG.md` for the manifest's `zh_CN` notes.
-- [ ] Run **Release** and download its three platform artifacts.
+- [ ] Build release packages and download the three platform artifacts.
+- [ ] Check out the exact commit that built the release artifacts. Before tagging it,
+      run `python scripts/release/update-manifest.py verify --tag <version>`.
 - [ ] Publish the packages and update manifest through the OSS procedure below.
 
 ## Update Manifest
