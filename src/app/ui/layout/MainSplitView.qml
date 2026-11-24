@@ -624,11 +624,10 @@ Item {
 
         Connections {
             target: root.commands
-            function onLibraryChartOpened(difficultyId) {
-                if (difficultyId > 0)
-                    root.viewState.openDifficultyEditor(difficultyId)
-                else
-                    root.viewState.openMetadataEditor()
+            function onLibraryChartOpened(difficultyId, difficultyCreated) {
+                if (difficultyCreated)
+                    libraryPage.libraryModel.refresh()
+                root.viewState.openDifficultyEditor(difficultyId)
                 if (root.compact && root.libraryActive)
                     root.viewState.compactPanel = ""
             }

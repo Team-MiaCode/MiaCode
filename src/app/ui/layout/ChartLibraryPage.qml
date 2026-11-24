@@ -448,25 +448,33 @@ Item {
                                             Layout.minimumWidth: 0
                                             Layout.minimumHeight: badgeHeight
                                             spacing: 4
+
                                             Repeater {
-                                                id: levelBadges
-                                                model: songRow.modelData.difficulties
+                                                model: songRow.modelData.difficulties.length > 0
+                                                    ? songRow.modelData.difficulties : [null]
                                                 delegate: AbstractButton {
                                                     id: badge
                                                     required property var modelData
-                                                    readonly property color badgeColor: Theme.difficultyColor(modelData.id)
-                                                    readonly property string difficultyName: qsTrId("library.difficulty." + modelData.id)
-                                                    objectName: "chartLibraryDifficultyBadge"
+                                                    readonly property bool createsDifficulty: modelData === null
+                                                    readonly property color badgeColor: createsDifficulty
+                                                        ? Theme.colors.text.secondary : Theme.difficultyColor(modelData.id)
+                                                    readonly property string createLabel: qsTrId("action.new")
+                                                    objectName: createsDifficulty
+                                                        ? "chartLibraryCreateDifficulty" : "chartLibraryDifficultyBadge"
                                                     implicitWidth: 30
                                                     implicitHeight: badgeFlow.badgeHeight
                                                     padding: 0
                                                     hoverEnabled: true
                                                     focusPolicy: Qt.StrongFocus
-                                                    text: (modelData.level ?? "").trim() || modelData.shortName
-                                                    Accessible.name: qsTrId("action.open") + " " + difficultyName
-                                                    onClicked: root.openSongAt(songRow.index, modelData.id)
-                                                    ToolTip.visible: badge.hovered && badgeLabel.truncated
-                                                    ToolTip.text: badge.text
+                                                    text: createsDifficulty ? "" : ((modelData.level ?? "").trim() || modelData.shortName)
+                                                    Accessible.name: createsDifficulty ? createLabel
+                                                        : qsTrId("action.open") + " " + qsTrId("library.difficulty." + modelData.id)
+                                                    Keys.enabled: createsDifficulty
+                                                    Keys.onReturnPressed: animateClick()
+                                                    Keys.onEnterPressed: animateClick()
+                                                    onClicked: root.openSongAt(songRow.index, modelData?.id)
+                                                    ToolTip.visible: badge.hovered && (badge.createsDifficulty || badgeLabel.truncated)
+                                                    ToolTip.text: badge.createsDifficulty ? badge.createLabel : badge.text
                                                     background: Rectangle {
                                                         radius: Theme.smallControlRadius
                                                         color: Qt.rgba(badge.badgeColor.r, badge.badgeColor.g, badge.badgeColor.b,
@@ -489,6 +497,16 @@ Item {
                                                         leftPadding: 1
                                                         rightPadding: 1
                                                         elide: Text.ElideRight
+
+                                                        ControlsImpl.IconImage {
+                                                            anchors.centerIn: parent
+                                                            visible: badge.createsDifficulty
+                                                            width: 12
+                                                            height: width
+                                                            source: badge.createsDifficulty ? Qt.resolvedUrl("icons/add.svg") : ""
+                                                            sourceSize: Theme.iconSourceSize(width, height)
+                                                            color: badgeLabel.color
+                                                        }
                                                     }
                                                 }
                                             }

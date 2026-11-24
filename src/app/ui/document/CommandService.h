@@ -57,7 +57,7 @@ public:
     Q_INVOKABLE QStringList shortcutCommandIds() const;
 
 signals:
-    void libraryChartOpened(int difficultyId);
+    void libraryChartOpened(int difficultyId, bool difficultyCreated);
 
 private:
     bool isCurrentChart(const QUrl& fileUrl) const;

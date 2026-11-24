@@ -47,17 +47,26 @@ bool CommandService::isCurrentChart(const QUrl& fileUrl) const
 
 void CommandService::openLibraryChart(const QUrl& fileUrl, int preferredDifficultyId)
 {
+    const auto activate = [this](int difficultyId) {
+        if (document_->currentDifficultyId() > 0) {
+            emit libraryChartOpened(difficultyId, false);
+            return;
+        }
+        constexpr int masterDifficultyId = 5;
+        if (document_->addDifficulty(masterDifficultyId))
+            emit libraryChartOpened(masterDifficultyId, true);
+    };
+
     if (isCurrentChart(fileUrl)) {
-        document_->requestLeaveCurrentField([this, preferredDifficultyId](bool mayLeave) {
+        document_->requestLeaveCurrentField([this, preferredDifficultyId, activate](bool mayLeave) {
             if (mayLeave)
-                emit libraryChartOpened(preferredDifficultyId > 0 ? preferredDifficultyId
-                    : document_->currentDifficultyId());
+                activate(preferredDifficultyId > 0 ? preferredDifficultyId : document_->currentDifficultyId());
         });
         return;
     }
-    whenDocumentMayBeLeft([this, fileUrl, preferredDifficultyId]() {
+    whenDocumentMayBeLeft([this, fileUrl, preferredDifficultyId, activate]() {
         if (document_->openChartFile(fileUrl, preferredDifficultyId))
-            emit libraryChartOpened(document_->currentDifficultyId());
+            activate(document_->currentDifficultyId());
     });
 }
 
