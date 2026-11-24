@@ -4947,9 +4947,9 @@ Error: %1</translation>
         <source>Follow code: choose whether the timeline follows the current chart-source position in settings.</source>
         <translation>Follow code: choose whether the timeline follows the current chart-source position in settings.</translation>
     </message>
-    <message id="guide.editor.metadata_save">
-        <source>Changes to the level, offset and designer above are saved immediately.</source>
-        <translation>Changes to the level, offset and designer above are saved immediately.</translation>
+    <message id="guide.editor.normalize">
+        <source>Select a passage and use Normalize Chart to tidy its layout.</source>
+        <translation>Select a passage and use Normalize Chart to tidy its layout.</translation>
     </message>
     <message id="guide.editor.measure">
         <source>Start a new measure here and switch to 3/4 time.</source>

@@ -793,7 +793,7 @@ Item {
                 title: qsTrId("guide.editor.title"),
                 columns: 1,
                 features: [
-                    { icon: Qt.resolvedUrl("icons/metadata.svg"), label: qsTrId("guide.editor.metadata_save") },
+                    { icon: Qt.resolvedUrl("icons/wand.svg"), label: qsTrId("guide.editor.normalize") },
                     { kind: "code", sample: "|| 3/4", label: qsTrId("guide.editor.measure") },
                     { kind: "code", sample: "|||", label: qsTrId("guide.editor.comment") },
                     { kind: "code", sample: "|| [A]", label: qsTrId("guide.editor.bookmark") }

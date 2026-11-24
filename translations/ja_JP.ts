@@ -4947,9 +4947,9 @@ Error: %1</source>
         <source>Follow code: choose whether the timeline follows the current chart-source position in settings.</source>
         <translation>コード追従：設定で、譜面コードの現在位置にタイムラインを追従させるか切り替えます。</translation>
     </message>
-    <message id="guide.editor.metadata_save">
-        <source>Changes to the level, offset and designer above are saved immediately.</source>
-        <translation>上部のレベル、オフセット、譜面作者の変更は即時保存されます。</translation>
+    <message id="guide.editor.normalize">
+        <source>Select a passage and use Normalize Chart to tidy its layout.</source>
+        <translation>譜面の一部を選択し、「譜面整理」で書式を整えます。</translation>
     </message>
     <message id="guide.editor.measure">
         <source>Start a new measure here and switch to 3/4 time.</source>
