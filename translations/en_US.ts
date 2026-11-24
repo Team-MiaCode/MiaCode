@@ -5259,6 +5259,10 @@ Error: %1</translation>
         <source>Library folder unavailable</source>
         <translation>Library folder unavailable</translation>
     </message>
+    <message id="library.open_chart_folder_failed">
+        <source>Could not open the chart folder.</source>
+        <translation>Could not open the chart folder.</translation>
+    </message>
     <message id="library.empty">
         <source>No charts found</source>
         <translation>No charts found</translation>

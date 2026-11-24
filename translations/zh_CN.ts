@@ -5259,6 +5259,10 @@ Error: %1</source>
         <source>Library folder unavailable</source>
         <translation>找不到谱库目录</translation>
     </message>
+    <message id="library.open_chart_folder_failed">
+        <source>Could not open the chart folder.</source>
+        <translation>无法打开该曲目的文件夹。</translation>
+    </message>
     <message id="library.empty">
         <source>No charts found</source>
         <translation>没有找到谱面</translation>

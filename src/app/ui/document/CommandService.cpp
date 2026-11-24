@@ -1,19 +1,23 @@
 #include "app/ui/document/CommandService.h"
+#include "app/services/UiRequestService.h"
 #include "app/ui/chrome/ShortcutCommands.h"
 
 #include "app/ui/document/DocumentModel.h"
 
 #include <QDesktopServices>
+#include <QDir>
 #include <QFileInfo>
 
 namespace miacode::ui {
 CommandService::CommandService(
     DocumentModel& document,
     miacode::DocumentBridge*& bridgeSlot,
+    miacode::UiRequestService& uiRequests,
     QObject* parent)
     : QObject(parent)
     , bridgeSlot_(&bridgeSlot)
     , document_(&document)
+    , uiRequests_(uiRequests)
 {
 }
 
@@ -93,8 +97,21 @@ bool CommandService::saveWholeDocument() { return document_->saveWholeDocument()
 bool CommandService::openCurrentFolder()
 {
     const QString path = document_->currentFilePath();
-    return !path.isEmpty()
-        && QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(path).absolutePath()));
+    return !path.isEmpty() && openChartFolder(QUrl::fromLocalFile(path));
+}
+
+bool CommandService::openChartFolder(const QUrl& fileUrl)
+{
+    const QString path = fileUrl.toLocalFile();
+    if (!path.isEmpty()) {
+        const QDir folder = QFileInfo(path).absoluteDir();
+        if (folder.exists() && QDesktopServices::openUrl(QUrl::fromLocalFile(folder.absolutePath()))) {
+            return true;
+        }
+    }
+    uiRequests_.postToast(miacode::NoticeSeverity::Error,
+                         miacode::localizedText("library.open_chart_folder_failed"));
+    return false;
 }
 bool CommandService::saveDocumentAs(const QUrl& fileUrl) { return document_->saveAs(fileUrl); }
 void CommandService::discardDocumentChanges() { document_->discardChanges(); }

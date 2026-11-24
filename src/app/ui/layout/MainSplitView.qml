@@ -619,6 +619,7 @@ Item {
             visible: root.libraryActive
             activeChartPath: root.documentSession.currentFilePath
             onChartRequested: (chartUrl, preferredDifficultyId) => root.commands.openLibraryChart(chartUrl, preferredDifficultyId)
+            onChartFolderRequested: chartUrl => root.commands.openChartFolder(chartUrl)
         }
 
         Connections {

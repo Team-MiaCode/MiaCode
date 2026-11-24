@@ -8,6 +8,8 @@
 
 #include "app/services/DocumentBridge.h"
 
+namespace miacode { class UiRequestService; }
+
 namespace miacode::ui {
 class DocumentModel;
 
@@ -17,6 +19,7 @@ class CommandService final : public QObject
 public:
     CommandService(DocumentModel& document,
                       miacode::DocumentBridge*& bridgeSlot,
+                      miacode::UiRequestService& uiRequests,
                       QObject* parent = nullptr);
 
     // Everything that would discard the open document goes through one guard,
@@ -38,6 +41,7 @@ public:
     Q_INVOKABLE bool saveDocument();
     Q_INVOKABLE bool saveWholeDocument();
     Q_INVOKABLE bool openCurrentFolder();
+    Q_INVOKABLE bool openChartFolder(const QUrl& fileUrl);
     Q_INVOKABLE bool saveDocumentAs(const QUrl& fileUrl);
     Q_INVOKABLE void discardDocumentChanges();
     Q_INVOKABLE void selectDifficulty(int id);
@@ -65,5 +69,6 @@ private:
         return bridgeSlot_ != nullptr ? *bridgeSlot_ : nullptr;
     }
     DocumentModel* document_ = nullptr;
+    miacode::UiRequestService& uiRequests_;
 };
 } // namespace miacode::ui

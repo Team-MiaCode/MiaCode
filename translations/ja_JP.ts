@@ -5259,6 +5259,10 @@ Error: %1</source>
         <source>Library folder unavailable</source>
         <translation>ライブラリフォルダーが見つかりません</translation>
     </message>
+    <message id="library.open_chart_folder_failed">
+        <source>Could not open the chart folder.</source>
+        <translation>この曲のフォルダーを開けませんでした。</translation>
+    </message>
     <message id="library.empty">
         <source>No charts found</source>
         <translation>譜面が見つかりません</translation>

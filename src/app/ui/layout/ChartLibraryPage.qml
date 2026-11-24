@@ -12,6 +12,7 @@ Rectangle {
     color: Theme.surfaceColor(Theme.colors.background.surface)
 
     signal chartRequested(url chart, int preferredDifficultyId)
+    signal chartFolderRequested(url chart)
     required property string activeChartPath
     readonly property alias libraryModel: library
     readonly property string activeChartKey: library.chartPathKey(activeChartPath)
@@ -51,6 +52,12 @@ Rectangle {
         openSongAt(index, selectedDifficulty)
     }
 
+    function showSongMenu(row, x, y) {
+        const point = row.mapToItem(root, x, y)
+        songMenu.chart = row.modelData.chart
+        songMenu.popup(root, point.x, point.y)
+    }
+
     onVisibleChanged: {
         if (visible && !loaded && library.directory.toString().length > 0) {
             loaded = true
@@ -60,6 +67,18 @@ Rectangle {
 
     ChartLibraryModel {
         id: library
+    }
+
+    AppMenu {
+        id: songMenu
+        objectName: "chartLibrarySongMenu"
+        property url chart
+        hugContent: true
+
+        AppMenuItem {
+            text: qsTrId("action.open_folder")
+            onTriggered: root.chartFolderRequested(songMenu.chart)
+        }
     }
 
     FolderDialog {
@@ -205,6 +224,14 @@ Rectangle {
                 keyNavigationEnabled: true
                 Keys.onReturnPressed: root.openCurrentResult()
                 Keys.onEnterPressed: root.openCurrentResult()
+                Keys.onPressed: event => {
+                    const contextMenuKey = event.key === Qt.Key_Menu
+                        || (event.key === Qt.Key_F10 && event.modifiers === Qt.ShiftModifier)
+                    if (contextMenuKey && list.currentItem) {
+                        root.showSongMenu(list.currentItem, 0, list.currentItem.height)
+                        event.accepted = true
+                    }
+                }
                 ScrollBar.vertical: AppScrollBar { id: libraryScrollBar }
 
                 WheelHandler {
@@ -257,6 +284,11 @@ Rectangle {
                     selected: currentChart
                     highlighted: list.activeFocus && ListView.isCurrentItem
                     onClicked: root.openSongAt(index, root.selectedDifficulty)
+                    TapHandler {
+                        acceptedButtons: Qt.RightButton
+                        onTapped: eventPoint =>
+                            root.showSongMenu(songRow, eventPoint.position.x, eventPoint.position.y)
+                    }
                     ToolTip.visible: songRow.hovered && (songName.truncated || artistName.truncated || variantName.truncated)
                     ToolTip.text: [modelData.title, modelData.artist, modelData.variant]
                         .filter(value => value).join("\n")
