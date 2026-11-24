@@ -49,12 +49,12 @@ void CommandService::openLibraryChart(const QUrl& fileUrl, int preferredDifficul
 {
     const auto activate = [this](int difficultyId) {
         if (document_->currentDifficultyId() > 0) {
-            emit libraryChartOpened(difficultyId, false);
+            emit libraryChartOpened(difficultyId);
             return;
         }
         constexpr int masterDifficultyId = 5;
         if (document_->addDifficulty(masterDifficultyId))
-            emit libraryChartOpened(masterDifficultyId, true);
+            emit libraryChartOpened(masterDifficultyId);
     };
 
     if (isCurrentChart(fileUrl)) {

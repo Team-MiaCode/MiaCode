@@ -13,6 +13,7 @@
 #include <QPainter>
 #include <QQmlEngine>
 #include <QQuickImageProvider>
+#include <QSet>
 #include <QtConcurrentRun>
 #include <algorithm>
 #include <utility>
@@ -68,16 +69,27 @@ public:
 
 struct ScanResult {
     QVariantList songs;
+    QStringList watchedPaths;
     bool directoryMissing = false;
 };
 
 ScanResult scanLibrary(const QString& path)
 {
     const QDir root(path);
-    if (!root.exists()) return {{}, true};
     ScanResult result;
+    if (!root.exists()) {
+        result.directoryMissing = true;
+        const QDir parent = QFileInfo(path).absoluteDir();
+        if (parent.exists()) result.watchedPaths.append(parent.absolutePath());
+        return result;
+    }
+
+    result.watchedPaths.append(path);
     for (const QFileInfo& folder : root.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-        QFile chart(QDir(folder.absoluteFilePath()).filePath(QStringLiteral("maidata.txt")));
+        const QString folderPath = folder.absoluteFilePath();
+        result.watchedPaths.append(folderPath);
+        QFile chart(QDir(folderPath).filePath(QStringLiteral("maidata.txt")));
+        if (chart.exists()) result.watchedPaths.append(chart.fileName());
         if (!chart.open(QIODevice::ReadOnly)) continue;
         const auto decoded = ChartWorkspaceFileService::decodeDocumentText(chart.readAll());
         if (!decoded || chart.error() != QFileDevice::NoError) continue;
@@ -144,6 +156,12 @@ ChartLibraryModel::ChartLibraryModel(QObject* parent) : QObject(parent)
     const auto app = PreferenceDocument::loadPreferencesObject().value(QStringLiteral("app")).toObject();
     const QString path = app.value(QLatin1String(directoryPreference)).toString();
     if (!path.isEmpty()) directory_ = QUrl::fromLocalFile(path);
+
+    refreshTimer_.setSingleShot(true);
+    refreshTimer_.setInterval(150);
+    connect(&fileWatcher_, &QFileSystemWatcher::directoryChanged, this, [this] { refreshTimer_.start(); });
+    connect(&fileWatcher_, &QFileSystemWatcher::fileChanged, this, [this] { refreshTimer_.start(); });
+    connect(&refreshTimer_, &QTimer::timeout, this, &ChartLibraryModel::refresh);
 }
 
 QString ChartLibraryModel::chartPathKey(const QString& path)
@@ -173,6 +191,7 @@ void ChartLibraryModel::setDirectory(const QUrl& directory)
         return;
     }
     directory_ = QUrl::fromLocalFile(path);
+    updateWatchedPaths({});
     songs_.clear();
     directoryMissing_ = false;
     auto root = PreferenceDocument::loadPreferencesObject();
@@ -188,6 +207,7 @@ void ChartLibraryModel::setDirectory(const QUrl& directory)
 void ChartLibraryModel::refresh()
 {
     if (directory_.isEmpty()) return;
+    refreshTimer_.stop();
     const quint64 revision = ++scanRevision_;
     if (!scanning_) {
         scanning_ = true;
@@ -198,13 +218,28 @@ void ChartLibraryModel::refresh()
         watcher->deleteLater();
         if (revision != scanRevision_) return;
         auto result = watcher->result();
-        songs_ = std::move(result.songs);
-        directoryMissing_ = result.directoryMissing;
+        updateWatchedPaths(result.watchedPaths);
+        const bool changed = songs_ != result.songs || directoryMissing_ != result.directoryMissing;
         scanning_ = false;
-        emit songsChanged();
+        if (changed) {
+            songs_ = std::move(result.songs);
+            directoryMissing_ = result.directoryMissing;
+            emit songsChanged();
+        }
         emit scanningChanged();
     });
     watcher->setFuture(QtConcurrent::run(scanLibrary, directory_.toLocalFile()));
+}
+
+void ChartLibraryModel::updateWatchedPaths(const QStringList& paths)
+{
+    const QStringList currentPaths = fileWatcher_.directories() + fileWatcher_.files();
+    const QSet<QString> current(currentPaths.begin(), currentPaths.end());
+    const QSet<QString> next(paths.begin(), paths.end());
+    const auto removed = (current - next).values();
+    const auto added = (next - current).values();
+    if (!removed.isEmpty()) fileWatcher_.removePaths(removed);
+    if (!added.isEmpty()) fileWatcher_.addPaths(added);
 }
 
 } // namespace miacode::ui

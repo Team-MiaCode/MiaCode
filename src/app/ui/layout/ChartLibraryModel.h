@@ -1,6 +1,9 @@
 #pragma once
 
+#include <QFileSystemWatcher>
 #include <QObject>
+#include <QStringList>
+#include <QTimer>
 #include <QUrl>
 #include <QVariantList>
 #include <QtQml/qqmlregistration.h>
@@ -37,8 +40,12 @@ signals:
     void scanningChanged();
 
 private:
+    void updateWatchedPaths(const QStringList& paths);
+
     QUrl directory_;
     QVariantList songs_;
+    QFileSystemWatcher fileWatcher_;
+    QTimer refreshTimer_;
     quint64 scanRevision_ = 0;
     bool scanning_ = false;
     bool directoryMissing_ = false;

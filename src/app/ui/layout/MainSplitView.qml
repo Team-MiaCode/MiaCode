@@ -624,9 +624,7 @@ Item {
 
         Connections {
             target: root.commands
-            function onLibraryChartOpened(difficultyId, difficultyCreated) {
-                if (difficultyCreated)
-                    libraryPage.libraryModel.refresh()
+            function onLibraryChartOpened(difficultyId) {
                 root.viewState.openDifficultyEditor(difficultyId)
                 if (root.compact && root.libraryActive)
                     root.viewState.compactPanel = ""

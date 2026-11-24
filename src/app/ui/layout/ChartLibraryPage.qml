@@ -13,7 +13,6 @@ Item {
     signal chartRequested(url chart, int preferredDifficultyId)
     signal chartFolderRequested(url chart)
     required property string activeChartPath
-    readonly property alias libraryModel: library
     readonly property string activeChartKey: library.chartPathKey(activeChartPath)
     readonly property real contentMargin: 10
     property bool loaded: false
@@ -521,7 +520,7 @@ Item {
                 Label {
                     anchors.centerIn: parent
                     width: Math.max(0, parent.width - 16)
-                    visible: library.scanning || songs.count === 0
+                    visible: songs.count === 0
                     text: library.scanning ? qsTrId("library.scanning")
                         : library.directoryMissing ? qsTrId("library.missing_folder")
                         : library.directory.toString().length === 0 ? qsTrId("library.no_directory")
