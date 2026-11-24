@@ -241,7 +241,6 @@ void ScintillaEditorBridge::setDocumentSession(DocumentModel* value)
         connect(value, &DocumentModel::chartTextChanged, this, &ScintillaEditorBridge::synchronizeDocument);
         connect(value, &DocumentModel::documentStateChanged, this, &ScintillaEditorBridge::synchronizeDocument);
         connect(value, &DocumentModel::documentReplaced, this, &ScintillaEditorBridge::synchronizeDocument);
-        connect(value, &DocumentModel::songReleased, this, &ScintillaEditorBridge::releaseSong);
         connect(value, &DocumentModel::syntaxIssuesChanged, this, &ScintillaEditorBridge::refreshDiagnostics);
     }
     synchronizeDocument();
@@ -385,8 +384,7 @@ void ScintillaEditorBridge::synchronizeDocument()
     if (!ready_ || !documentSession_ || synchronizing_ || handlingIme_) return;
     QScopedValueRollback guard(synchronizing_, true);
     const auto generation = documentSession_->documentOpenGeneration();
-    const QString scope = QStringLiteral("%1:difficulty:%2")
-        .arg(documentSession_->activeSongId()).arg(documentSession_->currentDifficultyId());
+    const QString scope = QStringLiteral("difficulty:%1").arg(documentSession_->currentDifficultyId());
     const bool identityChanged = generation_ != generation || scope != document_.scope();
     if (!identityChanged && synchronizedRevision_ == documentSession_->documentRevision()) return;
     if (controller_ && (identityChanged || document_.text() != documentSession_->chartText()))
@@ -402,11 +400,11 @@ void ScintillaEditorBridge::synchronizeDocument()
         QGuiApplication::inputMethod()->reset();
         imeComposing_ = false;
         emit imeComposingChanged();
-        pendingTouchAnchor_ = -1;
+        document_.clear();
+        touchUndoAnchors_.clear();
         generation_ = generation;
     }
     if (identityChanged) {
-        viewportToRestore_.reset();
         reportedAnchor_ = reportedCaret_ = -1;
         wheelRemainder_ = 0;
     }
@@ -836,18 +834,6 @@ void ScintillaEditorBridge::acceptCompletionFromPopup()
     forceActiveFocus();
 }
 void ScintillaEditorBridge::dropDocument(const QString& key)
-{
-    if (documentSession_)
-        dropDocumentScope(QStringLiteral("%1:").arg(documentSession_->activeSongId()) + key);
-}
-
-void ScintillaEditorBridge::releaseSong(qulonglong id)
-{
-    for (int difficulty = 0; difficulty <= 7; ++difficulty)
-        dropDocumentScope(QStringLiteral("%1:difficulty:%2").arg(id).arg(difficulty));
-}
-
-void ScintillaEditorBridge::dropDocumentScope(const QString& key)
 {
     QScopedValueRollback guard(synchronizing_, true);
     const bool current = document_.scope() == key;

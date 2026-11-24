@@ -3417,6 +3417,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Return to Main Window</source>
         <translation>Return to Main Window</translation>
     </message>
+    <message id="preview.window.show">
+        <source>Show Preview Window</source>
+        <translation>Show Preview Window</translation>
+    </message>
     <message id="preview.window.title">
         <source>Preview</source>
         <translation>Preview</translation>
@@ -5240,16 +5244,40 @@ Error: %1</translation>
         <translation>Chart library</translation>
     </message>
     <message id="library.choose_folder">
-        <source>Choose library folder</source>
-        <translation>Choose library folder</translation>
+        <source>Choose folder</source>
+        <translation>Choose folder</translation>
+    </message>
+    <message id="library.no_directory">
+        <source>No library folder selected</source>
+        <translation>No library folder selected</translation>
     </message>
     <message id="library.refresh">
         <source>Refresh</source>
         <translation>Refresh</translation>
     </message>
+    <message id="library.current_editing">
+        <source>Currently editing</source>
+        <translation>Currently editing</translation>
+    </message>
     <message id="library.search">
-        <source>Search songs or artists</source>
-        <translation>Search songs or artists</translation>
+        <source>Search</source>
+        <translation>Search</translation>
+    </message>
+    <message id="library.all_difficulties">
+        <source>All difficulties</source>
+        <translation>All difficulties</translation>
+    </message>
+    <message id="library.source_id">
+        <source>Source song ID</source>
+        <translation>Source song ID</translation>
+    </message>
+    <message id="library.version">
+        <source>Version</source>
+        <translation>Version</translation>
+    </message>
+    <message id="library.genre">
+        <source>Genre</source>
+        <translation>Genre</translation>
     </message>
     <message id="library.scanning">
         <source>Scanning chart library…</source>
@@ -5258,6 +5286,10 @@ Error: %1</translation>
     <message id="library.missing_folder">
         <source>Library folder unavailable</source>
         <translation>Library folder unavailable</translation>
+    </message>
+    <message id="library.open_chart_folder_failed">
+        <source>Could not open the chart folder.</source>
+        <translation>Could not open the chart folder.</translation>
     </message>
     <message id="library.empty">
         <source>No charts found</source>
@@ -5304,8 +5336,8 @@ Error: %1</translation>
         <translation>Utage</translation>
     </message>
     <message id="library.result_count">
-        <source>%1 of %2 songs</source>
-        <translation>%1 of %2 songs</translation>
+        <source>%1 / %2 songs</source>
+        <translation>%1 / %2 songs</translation>
     </message>
     <message id="library.select_song">
         <source>Select a song to see its details</source>

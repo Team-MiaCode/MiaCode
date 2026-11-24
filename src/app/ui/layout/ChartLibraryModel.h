@@ -12,7 +12,6 @@ class ChartLibraryModel : public QObject
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(QUrl directory READ directory NOTIFY directoryChanged)
-    Q_PROPERTY(QString directoryPath READ directoryPath NOTIFY directoryChanged)
     Q_PROPERTY(QVariantList songs READ songs NOTIFY songsChanged)
     Q_PROPERTY(bool scanning READ scanning NOTIFY scanningChanged)
     Q_PROPERTY(bool directoryMissing READ directoryMissing NOTIFY songsChanged)
@@ -20,13 +19,14 @@ class ChartLibraryModel : public QObject
 public:
     explicit ChartLibraryModel(QObject* parent = nullptr);
     QUrl directory() const { return directory_; }
-    QString directoryPath() const;
     QVariantList songs() const { return songs_; }
     bool scanning() const { return scanning_; }
     bool directoryMissing() const { return directoryMissing_; }
 
     Q_INVOKABLE void setDirectory(const QUrl& directory);
     Q_INVOKABLE void refresh();
+    Q_INVOKABLE static QString chartPathKey(const QString& path);
+    Q_INVOKABLE QUrl pickerDirectory(const QString& chartPath) const;
 
 signals:
     void directoryChanged();

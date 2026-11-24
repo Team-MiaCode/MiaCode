@@ -3417,6 +3417,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Return to Main Window</source>
         <translation>メインウィンドウに戻す</translation>
     </message>
+    <message id="preview.window.show">
+        <source>Show Preview Window</source>
+        <translation>プレビューウィンドウを表示</translation>
+    </message>
     <message id="preview.window.title">
         <source>Preview</source>
         <translation>プレビュー</translation>
@@ -5240,16 +5244,40 @@ Error: %1</source>
         <translation>譜面ライブラリ</translation>
     </message>
     <message id="library.choose_folder">
-        <source>Choose library folder</source>
-        <translation>ライブラリフォルダーを選択</translation>
+        <source>Choose folder</source>
+        <translation>フォルダーを選択</translation>
+    </message>
+    <message id="library.no_directory">
+        <source>No library folder selected</source>
+        <translation>譜面ライブラリのフォルダーが未選択です</translation>
     </message>
     <message id="library.refresh">
         <source>Refresh</source>
         <translation>更新</translation>
     </message>
+    <message id="library.current_editing">
+        <source>Currently editing</source>
+        <translation>編集中</translation>
+    </message>
     <message id="library.search">
-        <source>Search songs or artists</source>
-        <translation>曲名またはアーティストで検索</translation>
+        <source>Search</source>
+        <translation>検索</translation>
+    </message>
+    <message id="library.all_difficulties">
+        <source>All difficulties</source>
+        <translation>すべての難易度</translation>
+    </message>
+    <message id="library.source_id">
+        <source>Source song ID</source>
+        <translation>楽曲ID</translation>
+    </message>
+    <message id="library.version">
+        <source>Version</source>
+        <translation>バージョン</translation>
+    </message>
+    <message id="library.genre">
+        <source>Genre</source>
+        <translation>ジャンル</translation>
     </message>
     <message id="library.scanning">
         <source>Scanning chart library…</source>
@@ -5258,6 +5286,10 @@ Error: %1</source>
     <message id="library.missing_folder">
         <source>Library folder unavailable</source>
         <translation>ライブラリフォルダーが見つかりません</translation>
+    </message>
+    <message id="library.open_chart_folder_failed">
+        <source>Could not open the chart folder.</source>
+        <translation>この曲のフォルダーを開けませんでした。</translation>
     </message>
     <message id="library.empty">
         <source>No charts found</source>
@@ -5304,8 +5336,8 @@ Error: %1</source>
         <translation>Utage</translation>
     </message>
     <message id="library.result_count">
-        <source>%1 of %2 songs</source>
-        <translation>%2 曲中 %1 曲</translation>
+        <source>%1 / %2 songs</source>
+        <translation>%1 / %2 曲</translation>
     </message>
     <message id="library.select_song">
         <source>Select a song to see its details</source>

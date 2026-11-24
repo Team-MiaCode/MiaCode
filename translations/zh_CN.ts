@@ -3417,6 +3417,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Return to Main Window</source>
         <translation>返回主窗口</translation>
     </message>
+    <message id="preview.window.show">
+        <source>Show Preview Window</source>
+        <translation>显示预览窗口</translation>
+    </message>
     <message id="preview.window.title">
         <source>Preview</source>
         <translation>预览</translation>
@@ -5240,16 +5244,40 @@ Error: %1</source>
         <translation>谱库</translation>
     </message>
     <message id="library.choose_folder">
-        <source>Choose library folder</source>
-        <translation>选择谱库目录</translation>
+        <source>Choose folder</source>
+        <translation>选择目录</translation>
+    </message>
+    <message id="library.no_directory">
+        <source>No library folder selected</source>
+        <translation>尚未选择谱库目录</translation>
     </message>
     <message id="library.refresh">
         <source>Refresh</source>
         <translation>刷新</translation>
     </message>
+    <message id="library.current_editing">
+        <source>Currently editing</source>
+        <translation>正在编辑</translation>
+    </message>
     <message id="library.search">
-        <source>Search songs or artists</source>
-        <translation>搜索曲名或曲师</translation>
+        <source>Search</source>
+        <translation>搜索</translation>
+    </message>
+    <message id="library.all_difficulties">
+        <source>All difficulties</source>
+        <translation>全部难度</translation>
+    </message>
+    <message id="library.source_id">
+        <source>Source song ID</source>
+        <translation>源曲目 ID</translation>
+    </message>
+    <message id="library.version">
+        <source>Version</source>
+        <translation>版本</translation>
+    </message>
+    <message id="library.genre">
+        <source>Genre</source>
+        <translation>流派</translation>
     </message>
     <message id="library.scanning">
         <source>Scanning chart library…</source>
@@ -5258,6 +5286,10 @@ Error: %1</source>
     <message id="library.missing_folder">
         <source>Library folder unavailable</source>
         <translation>找不到谱库目录</translation>
+    </message>
+    <message id="library.open_chart_folder_failed">
+        <source>Could not open the chart folder.</source>
+        <translation>无法打开该曲目的文件夹。</translation>
     </message>
     <message id="library.empty">
         <source>No charts found</source>
@@ -5304,8 +5336,8 @@ Error: %1</source>
         <translation>Utage</translation>
     </message>
     <message id="library.result_count">
-        <source>%1 of %2 songs</source>
-        <translation>显示 %1 / %2 首</translation>
+        <source>%1 / %2 songs</source>
+        <translation>%1 / %2 首</translation>
     </message>
     <message id="library.select_song">
         <source>Select a song to see its details</source>

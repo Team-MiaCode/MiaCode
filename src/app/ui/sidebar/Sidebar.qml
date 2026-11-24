@@ -11,14 +11,18 @@ Item {
     required property var pages
     property bool compact: false
     property string pendingChartEditor: ""
+    property bool pendingLibrary: false
     readonly property bool efficientMode: preferences.efficientSidebarEnabled
-    readonly property bool libraryActive: pages.activePageId === "chart-library"
-    readonly property bool primarySidebarVisible: !libraryActive && (compact || viewState.sidebarVisible)
+    readonly property bool libraryActive: viewState.activeSidebarView === "library"
+    readonly property bool primarySidebarVisible: compact || viewState.sidebarVisible
+    readonly property int libraryContentWidth: 320
+    readonly property alias libraryHost: libraryContent
     readonly property Item navigationItem: efficientMode ? efficientSidebar : activityBar
     readonly property Item chartSidebarItem: efficientMode
         ? efficientSidebar.navigationContentItem : chartSidebar.navigationContentItem
     readonly property real activityBarWidth: activityBar.width
-    readonly property Item cornerSourceItem: efficientMode ? efficientSidebar.cornerSourceItem
+    readonly property Item cornerSourceItem: libraryActive ? libraryContent
+        : efficientMode ? efficientSidebar.cornerSourceItem
         : root.viewState.activeSidebarView === "export" ? exportSidebar.cornerSourceItem
         : root.viewState.activeSidebarView === "network" ? networkSidebar.cornerSourceItem
         : root.viewState.activeSidebarView === "tools" ? toolsSidebar.cornerSourceItem
@@ -41,23 +45,34 @@ Item {
 
     clip: true
 
+    function showLibrary() {
+        viewState.sidebarVisible = true
+        preferences.sidebarVisible = true
+        viewState.activeSidebarView = "library"
+        const lastEditor = viewState.lastChartEditor()
+        if (documentSession.hasDocument && !viewState.difficultyEditorActive && lastEditor.length > 0)
+            viewState.activateEditor(lastEditor)
+    }
+
     // Activity Bar 只负责功能域导航。再次选择当前功能时，桌面端切换
     // Primary Sidebar；紧凑布局直接关闭当前覆盖层。
     function activateView(viewId) {
         if (viewId === "library") {
-            root.viewState.activeSidebarView = "chart"
-            root.pages.openChartLibrary()
-            if (root.compact)
-                root.viewState.compactPanel = ""
+            if (root.pages.navigationPending)
+                return
+            if (root.pages.overlayActive) {
+                root.pendingLibrary = true
+                if (!root.pages.leaveOverlayPage())
+                    root.pendingLibrary = false
+            } else {
+                root.showLibrary()
+            }
             return
         }
-        const leavingLibrary = root.libraryActive
-        if (leavingLibrary)
-            root.pages.closeChartLibrary(viewId === "chart")
         const pageAlreadyActive = viewId === "export" ? root.pages.activePageId === "export"
             : viewId === "chart" ? !root.pages.overlayActive && !root.viewState.netEditorActive
             : true
-        if (!leavingLibrary && viewState.activeSidebarView === viewId && pageAlreadyActive) {
+        if (viewState.activeSidebarView === viewId && pageAlreadyActive) {
             if (compact) {
                 viewState.compactPanel = ""
                 return
@@ -80,8 +95,6 @@ Item {
         }
 
         viewState.activeSidebarView = viewId
-        if (compact && leavingLibrary && (viewId === "network" || viewId === "tools"))
-            viewState.compactPanel = "sidebar"
         if (!viewState.sidebarVisible) {
             viewState.sidebarVisible = true
             root.preferences.sidebarVisible = true
@@ -96,12 +109,20 @@ Item {
     Connections {
         target: root.pages
         function onOverlayPageLeft() {
+            if (root.pendingLibrary) {
+                root.pendingLibrary = false
+                root.showLibrary()
+                return
+            }
             const key = root.pendingChartEditor
             root.pendingChartEditor = ""
             if (key.length > 0 && root.viewState.containsEditor(key))
                 root.viewState.activateEditor(key)
         }
-        function onNavigationRejected() { root.pendingChartEditor = "" }
+        function onNavigationRejected() {
+            root.pendingLibrary = false
+            root.pendingChartEditor = ""
+        }
     }
 
     ActivityBar {
@@ -113,7 +134,7 @@ Item {
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        activeView: root.libraryActive ? "library" : root.viewState.activeSidebarView
+        activeView: root.viewState.activeSidebarView
         documentAvailable: root.documentSession.hasDocument
         networkActive: root.viewState.netEditorActive
         toolsAvailable: true
@@ -139,6 +160,12 @@ Item {
         anchors.bottom: parent.bottom
         visible: root.primarySidebarVisible
 
+        Item {
+            id: libraryContent
+            anchors.fill: parent
+            visible: root.libraryActive
+        }
+
         ChartFieldSidebar {
             id: chartSidebar
             color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
@@ -153,7 +180,7 @@ Item {
         EfficientSidebar {
             id: efficientSidebar
             anchors.fill: parent
-            visible: root.efficientMode
+            visible: root.efficientMode && !root.libraryActive
             nativeMaterialActive: !root.compact && Theme.nativeMaterialActive
             color: root.compact ? "transparent"
                 : Theme.chromeSurfaceColor(Theme.colors.background.panel, Theme.nativeMaterialActive)

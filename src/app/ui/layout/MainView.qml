@@ -61,7 +61,6 @@ Item {
         + splitView.minimumHeight
     readonly property bool compact: width < splitView.minimumWorkspaceWidth
         + splitView.expandedSidebarWidth
-    property var songDifficultyTabs: ({})
 
     ViewState {
         id: state
@@ -245,7 +244,7 @@ Item {
             state.activeSidebarView = "export"
         else if (page.startsWith("net-"))
             state.activeSidebarView = "network"
-        else if (state.activeSidebarView !== "tools")
+        else if (state.activeSidebarView !== "tools" && state.activeSidebarView !== "library")
             state.activeSidebarView = "chart"
     }
 
@@ -332,7 +331,8 @@ Item {
             Qt.callLater(setupWizard.open)
     }
 
-    onCompactChanged: state.compactPanel = ""
+    onCompactChanged: state.compactPanel = compact && state.activeSidebarView === "library"
+        && state.sidebarVisible && !splitView.previewSurfaceMoving ? "sidebar" : ""
 
     Column {
         anchors.fill: parent
@@ -423,6 +423,7 @@ Item {
                 onSaveWholeDocumentRequested: root.saveWholeDocument()
                 onAudioSettingsRequested: audioSettingsDialog.open()
                 onPreviewSettingsRequested: previewSettingsDialog.open()
+                onShowDetachedPreviewRequested: splitView.showDetachedPreview()
                 onUnavailableFeatureRequested: featureName => root.showUnavailableFeature(featureName)
             }
         }
@@ -435,6 +436,7 @@ Item {
             MainSplitView {
                 id: splitView
                 anchors.fill: parent
+                compactLibraryHost: compactPanelLayer.libraryHost
                 timelineGuideActive: beginnerGuide.visible
                     && beginnerGuide.selectedSection.id === "timeline-options"
                 backgroundSource: root.backgroundSource
@@ -578,21 +580,10 @@ Item {
     Connections {
         target: root.documentSession
 
-        function onSongAboutToBeParked(id) {
-            root.songDifficultyTabs[id] = state.openEditorTabs.filter(key => key.startsWith("difficulty:"))
-        }
-
-        function onSongReleased(id) {
-            delete root.songDifficultyTabs[id]
-        }
-
         function onDocumentReplaced() {
-            if (!root.documentSession.hasDocument)
+            if (!root.documentSession.hasDocument && state.activeSidebarView !== "library")
                 state.activeSidebarView = "chart"
             state.resetEditorTabs(root.documentSession.currentDifficultyId)
-            const saved = root.songDifficultyTabs[root.documentSession.activeSongId]
-            if (saved)
-                state.openEditorTabs = saved.concat(state.openEditorTabs.filter(key => !saved.includes(key)))
             // The projection is queued, so this can run while the incoming
             // document's active difficulty is not set yet. Healing here means a
             // replacement never leaves the editor with no tab at all.
@@ -641,7 +632,8 @@ Item {
             }
             root.commands.selectDifficulty(difficultyId)
             root.pages.ensureDifficultyPageActive(difficultyId)
-            state.activeSidebarView = "chart"
+            if (state.activeSidebarView !== "library")
+                state.activeSidebarView = "chart"
         }
 
         function onEditorPresentationCleared() {
@@ -674,7 +666,8 @@ Item {
             root.pendingDifficultyActivation = 0
             root.commands.selectDifficulty(difficultyId)
             root.pages.ensureDifficultyPageActive(difficultyId)
-            state.activeSidebarView = "chart"
+            if (state.activeSidebarView !== "library")
+                state.activeSidebarView = "chart"
         }
 
         function onNavigationRejected() {

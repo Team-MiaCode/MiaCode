@@ -15,6 +15,7 @@ Item {
     property real cornerRadius: Theme.controlRadius
     property real highlightOutset: Theme.chromeHighlightOutset
     property bool fillBounds: false
+    property bool fillWidth: false
     property var stateColors: Theme.colors.state
     property real contentWidth: width
     property real contentHeight: height
@@ -32,7 +33,7 @@ Item {
         // Keep odd-sized fills centered in baseline units. Rounding here
         // becomes a visible offset after the whole interface is scaled.
         anchors.alignWhenCentered: false
-        width: root.fillBounds ? root.width
+        width: root.fillBounds || root.fillWidth ? root.width
             : Math.min(root.width - 2 * Theme.chromeInsetX,
                        Math.max(Theme.chromeMinSize, root.contentWidth + 2 * Theme.chromePadding))
               + 2 * root.highlightOutset

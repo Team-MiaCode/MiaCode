@@ -3,7 +3,6 @@
 #include "app/services/ChartWorkspaceFileService.h"
 #include "app/services/PreferenceDocument.h"
 #include "core/chart/ChartAssetPaths.h"
-#include "core/chart/document/ChartClockCount.h"
 
 #include <QCollator>
 #include <QDir>
@@ -39,18 +38,25 @@ ScanResult scanLibrary(const QString& path)
         for (int id : document.difficultyIds()) {
             const SimaiDifficultyData* difficulty = document.difficulty(id);
             difficulties.append(QVariantMap{{QStringLiteral("id"), id},
+                {QStringLiteral("shortName"), SimaiDocument::difficultyShortName(id)},
                 {QStringLiteral("level"), difficulty->level}});
         }
+        QString songId;
+        for (const auto& field : document.extraFields) {
+            if (field.key.compare(QLatin1String("shortid"), Qt::CaseInsensitive) == 0)
+                songId = field.value.trimmed();
+        }
+        if (songId.toUInt() > 0)
+            songId = songId.rightJustified(6, u'0');
         const QString cover = chart_assets::resolveBackgroundMediaPath(chartPath, /*includeVideoCandidates=*/false);
-        const QString audio = chart_assets::resolveTrackPath(chartPath);
         result.songs.append(QVariantMap{
             {QStringLiteral("title"), document.title.trimmed().isEmpty() ? folder.fileName() : document.title.trimmed()},
             {QStringLiteral("artist"), document.artist.trimmed()},
             {QStringLiteral("folder"), folder.fileName()},
-            {QStringLiteral("bpm"), chart_clock::wholeBpmFromFields(document.extraFields)},
+            {QStringLiteral("songId"), songId},
             {QStringLiteral("chart"), QUrl::fromLocalFile(chartPath)},
+            {QStringLiteral("pathKey"), ChartLibraryModel::chartPathKey(chartPath)},
             {QStringLiteral("cover"), chart_assets::displayBackgroundImageUrl(cover)},
-            {QStringLiteral("audio"), audio.isEmpty() ? QUrl() : QUrl::fromLocalFile(audio)},
             {QStringLiteral("difficulties"), difficulties},
         });
     }
@@ -85,6 +91,24 @@ ChartLibraryModel::ChartLibraryModel(QObject* parent) : QObject(parent)
     if (!path.isEmpty()) directory_ = QUrl::fromLocalFile(path);
 }
 
+QString ChartLibraryModel::chartPathKey(const QString& path)
+{
+    if (path.isEmpty()) return {};
+    const QFileInfo info(path);
+    const QString canonical = info.canonicalFilePath();
+    return canonical.isEmpty() ? info.absoluteFilePath() : canonical;
+}
+
+QUrl ChartLibraryModel::pickerDirectory(const QString& chartPath) const
+{
+    if (!directory_.isEmpty()) return directory_;
+    const QFileInfo chart(chartPath);
+    if (chartPath.isEmpty() || !chart.isAbsolute()) return {};
+    QDir parent = chart.absoluteDir();
+    parent.cdUp();
+    return QUrl::fromLocalFile(parent.absolutePath());
+}
+
 void ChartLibraryModel::setDirectory(const QUrl& directory)
 {
     if (!directory.isLocalFile()) return;
@@ -104,11 +128,6 @@ void ChartLibraryModel::setDirectory(const QUrl& directory)
     emit directoryChanged();
     emit songsChanged();
     refresh();
-}
-
-QString ChartLibraryModel::directoryPath() const
-{
-    return QDir::toNativeSeparators(directory_.toLocalFile());
 }
 
 void ChartLibraryModel::refresh()

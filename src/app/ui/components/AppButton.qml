@@ -11,6 +11,7 @@ Button {
     property bool emphasized: false
     property bool destructive: false
     property bool selected: false
+    property alias backgroundFillsWidth: chrome.fillWidth
 
     readonly property bool filled: root.emphasized || root.destructive
 
@@ -45,6 +46,7 @@ Button {
     }
 
     background: HoverChrome {
+        id: chrome
         baseColor: !root.enabled ? Theme.colors.background.elevated
                    : root.destructive ? Theme.colors.danger.primary
                    : root.emphasized ? Theme.colors.accent.primary

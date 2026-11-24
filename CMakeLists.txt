@@ -710,7 +710,6 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/editor/EditorPane.qml
     src/app/ui/editor/MetadataDifficultyCard.qml
     src/app/ui/editor/EditorTabBar.qml
-    src/app/ui/editor/SongTabBar.qml
     src/app/ui/editor/SourceEditor.qml
     src/app/ui/editor/CompletionPopup.qml
     src/app/ui/editor/NormalizeOptionsDialog.qml
@@ -782,6 +781,8 @@ set(MIACODE_UI_ICON_FILES
     src/app/ui/resources/icons/sliders-horizontal-fill.svg
     src/app/ui/resources/icons/more-fill.svg
     src/app/ui/resources/icons/folder-open.svg
+    src/app/ui/resources/icons/chart-library.svg
+    src/app/ui/resources/icons/refresh.svg
     src/app/ui/resources/icons/folder-arrow-right.svg
     src/app/ui/resources/icons/globe.svg
     src/app/ui/resources/icons/download.svg

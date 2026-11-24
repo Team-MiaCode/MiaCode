@@ -416,6 +416,14 @@ AppDialog {
                         first: true
 
                         PreferenceCombo {
+                            objectName: "preferencesUiScaleCombo"
+                            label: qsTrId("dialog.preferences.ui_scale")
+                            options: root.preferencesModel.uiScaleOptions
+                            currentValue: root.preferencesModel.uiScalePercent
+                            onPicked: value => root.preferencesModel.uiScalePercent = value
+                        }
+
+                        PreferenceCombo {
                             objectName: "preferencesThemeModeCombo"
                             label: qsTrId("dialog.preferences.theme.mode")
                             options: root.preferencesModel.themeModeOptions
@@ -438,18 +446,11 @@ AppDialog {
                                     root.preferencesModel.lightThemeToken = value
                             }
                         }
-
-                        PreferenceCombo {
-                            objectName: "preferencesUiScaleCombo"
-                            label: qsTrId("dialog.preferences.ui_scale")
-                            options: root.preferencesModel.uiScaleOptions
-                            currentValue: root.preferencesModel.uiScalePercent
-                            onPicked: value => root.preferencesModel.uiScalePercent = value
-                        }
                     }
 
                     PreferenceGroup {
                         title: qsTrId("dialog.preferences.group.workspace")
+                        Layout.topMargin: 6
 
                         PreferenceCombo {
                             objectName: "preferencesLanguageCombo"
@@ -695,6 +696,7 @@ AppDialog {
 
                         PreferenceGroup {
                             title: qsTrId("dialog.preferences.group.input")
+                            Layout.topMargin: 6
 
                             PreferenceCombo {
                                 objectName: "preferencesInputHandlingCombo"

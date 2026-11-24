@@ -12,6 +12,7 @@ Item {
     required property var pages
     property bool compact: false
     property bool pendingMediaToolsMenu: false
+    readonly property alias libraryHost: compactSidebar.libraryHost
     signal settingsRequested()
     signal mediaToolRequested(string toolId)
 
@@ -30,7 +31,8 @@ Item {
         id: sidebarDrawer
         parent: Overlay.overlay
         edge: Qt.LeftEdge
-        width: Math.min(320, root.width - 36)
+        width: Math.min(compactSidebar.libraryActive
+            ? compactSidebar.libraryContentWidth + Theme.activityButtonSize : 320, root.width - 36)
         height: root.height
         y: {
             root.parent.y

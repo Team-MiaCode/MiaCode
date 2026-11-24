@@ -8,6 +8,8 @@
 
 #include "app/services/DocumentBridge.h"
 
+namespace miacode { class UiRequestService; }
+
 namespace miacode::ui {
 class DocumentModel;
 
@@ -17,6 +19,7 @@ class CommandService final : public QObject
 public:
     CommandService(DocumentModel& document,
                       miacode::DocumentBridge*& bridgeSlot,
+                      miacode::UiRequestService& uiRequests,
                       QObject* parent = nullptr);
 
     // Everything that would discard the open document goes through one guard,
@@ -27,6 +30,7 @@ public:
     // These do not return a verdict — the answer arrives from a dialog, so
     // there is none to return yet. The action happens later, or not at all.
     Q_INVOKABLE void openDocument(const QUrl& fileUrl);
+    Q_INVOKABLE void openLibraryChart(const QUrl& fileUrl, int preferredDifficultyId);
     Q_INVOKABLE void openRecentDocument(const QString& path);
     Q_INVOKABLE void closeDocument();
     // 新建: guarded like every other way of leaving the open document, then a
@@ -37,6 +41,7 @@ public:
     Q_INVOKABLE bool saveDocument();
     Q_INVOKABLE bool saveWholeDocument();
     Q_INVOKABLE bool openCurrentFolder();
+    Q_INVOKABLE bool openChartFolder(const QUrl& fileUrl);
     Q_INVOKABLE bool saveDocumentAs(const QUrl& fileUrl);
     Q_INVOKABLE void discardDocumentChanges();
     Q_INVOKABLE void selectDifficulty(int id);
@@ -51,7 +56,11 @@ public:
     // editor, not back to the backend — see DocumentModel::transformChartSelection.
     Q_INVOKABLE QStringList shortcutCommandIds() const;
 
+signals:
+    void libraryChartOpened(int difficultyId);
+
 private:
+    bool isCurrentChart(const QUrl& fileUrl) const;
     void whenDocumentMayBeLeft(std::function<void()> proceed);
 
     miacode::DocumentBridge** bridgeSlot_ = nullptr;
@@ -60,5 +69,6 @@ private:
         return bridgeSlot_ != nullptr ? *bridgeSlot_ : nullptr;
     }
     DocumentModel* document_ = nullptr;
+    miacode::UiRequestService& uiRequests_;
 };
 } // namespace miacode::ui
