@@ -2,6 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=scripts/build/linux-appimage-common.sh
+source "$ROOT_DIR/scripts/build/linux-appimage-common.sh"
+
 BUILD_DIR="${BUILD_DIR:-build-linux-ubuntu}"
 QT_ROOT="${QT_ROOT:-}"
 MIACODE_BUILD_DEV_TOOLS="${MIACODE_BUILD_DEV_TOOLS:-OFF}"
@@ -72,10 +75,11 @@ install_sys_deps() {
       libswscale-dev \
       libswresample-dev \
       libavfilter-dev \
-      libfuse2 || true \
-      fuse || true \
       xz-utils \
       zlib1g-dev
+
+    # FUSE is optional: AppImage can fall back to APPIMAGE_EXTRACT_AND_RUN.
+    $sudo apt-get install -y libfuse2 fuse || true
   else
     echo "apt-get not found, skipping system deps" >&2
   fi
@@ -339,13 +343,7 @@ elif [[ -d "$ROOT_DIR/assets" ]]; then
   cp -R "$ROOT_DIR/assets" "$APPDIR/usr/share/"
 fi
 
-# Copy BASS shared libraries next to the binary (the app checks runtimeFilePath
-# relative to applicationDirPath()) and into the library dir for the dynamic linker.
-for lib in "$BUILD_DIR/bin"/libbass*.so*; do
-  [[ -e "$lib" ]] || continue
-  cp -L "$lib" "$APPDIR/usr/bin/" 2>/dev/null || true
-  cp -L "$lib" "$APPDIR/usr/lib/" 2>/dev/null || true
-done
+deploy_bass_libraries "$BUILD_DIR" "$APPDIR"
 
 for lib in "$BUILD_DIR/bin"/*.so*; do
   [[ -e "$lib" ]] || continue
@@ -424,16 +422,10 @@ exec "$APPDIR/usr/bin/MiaCode" "$@"
 EOF
 chmod +x "$DIST_DIR/AppRun"
 
-"$LINUXDEPLOY_BIN" \
-  --appdir="$APPDIR" \
-  --executable="$APPDIR/usr/bin/MiaCode" \
-  --desktop-file="$APPDIR/usr/share/applications/miacode.desktop" \
-  --icon-file="$APPDIR/usr/share/icons/hicolor/512x512/apps/miacode.png" \
-  --custom-apprun="$DIST_DIR/AppRun" \
-  --plugin qt
-
 # The Qt plugin's QML deployment is best-effort; make sure the modules the UI
-# imports actually made it in, regardless of what the plugin decided to do.
+# imports actually made it in before linuxdeploy scans dependencies. QML modules
+# can contain native plugins whose shared libraries must be picked up by that
+# scan, so copying them afterwards would leave those libraries behind.
 QML_IMPORT_ROOT=""
 if [[ -n "${QT_ROOT:-}" && -d "$QT_ROOT/qml" ]]; then
   QML_IMPORT_ROOT="$QT_ROOT/qml"
@@ -449,6 +441,14 @@ if [[ ! -d "$APPDIR/usr/qml/QtQuick/Controls" ]]; then
   echo "QML modules were not deployed into the AppDir; the AppImage would fail to start" >&2
   exit 1
 fi
+
+"$LINUXDEPLOY_BIN" \
+  --appdir="$APPDIR" \
+  --executable="$APPDIR/usr/bin/MiaCode" \
+  --desktop-file="$APPDIR/usr/share/applications/miacode.desktop" \
+  --icon-file="$APPDIR/usr/share/icons/hicolor/512x512/apps/miacode.png" \
+  --custom-apprun="$DIST_DIR/AppRun" \
+  --plugin qt
 
 package_step "Building AppImage"
 TARGET_APPIMAGE="${DIST_DIR}/${PACKAGE_NAME}.AppImage"

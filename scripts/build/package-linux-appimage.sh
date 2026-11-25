@@ -2,6 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=scripts/build/linux-appimage-common.sh
+source "$ROOT_DIR/scripts/build/linux-appimage-common.sh"
+
 BUILD_DIR="${BUILD_DIR:-$ROOT_DIR/build-linux}"
 QT_ROOT="${QT_ROOT:-}"
 MIACODE_BUILD_DEV_TOOLS="${MIACODE_BUILD_DEV_TOOLS:-OFF}"
@@ -102,7 +105,10 @@ elif [[ -d "$ROOT_DIR/assets" ]]; then
   cp -R "$ROOT_DIR/assets" "$APPDIR/usr/share/"
 fi
 
-# Copy shared libs placed next to binary by CMake (BASS .so)
+# Copy shared libs placed next to binary by CMake, keeping BASS next to the
+# executable as well as in usr/lib.
+deploy_bass_libraries "$BUILD_DIR" "$APPDIR"
+
 for lib in "$BUILD_DIR/bin"/*.so*; do
   [[ -e "$lib" ]] || continue
   cp -L "$lib" "$APPDIR/usr/lib/" 2>/dev/null || true
