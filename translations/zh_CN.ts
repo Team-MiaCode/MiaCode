@@ -4714,7 +4714,7 @@ Error: %1</source>
     </message>
     <message id="net.ui.download_selection_count">
         <source>Download %1 Items</source>
-        <translation>下载 %1 项</translation>
+        <translation>下载 %1</translation>
     </message>
     <message id="net.ui.download_count">
         <source>Download progress %1/%2</source>
