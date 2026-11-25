@@ -1,14 +1,18 @@
 #include "app/ui/net/NetModel.h"
 
-#include <QDateTime>
 #include <QStandardPaths>
 #include <QCoreApplication>
+#include <QDesktopServices>
 #include <QDir>
+#include <QFileInfo>
+#include <QUrl>
 #include <QUuid>
 #include "app/ui/document/DocumentModel.h"
 #include "app/services/net/NetConfiguration.h"
+#include "media_tools/net/NetClient.h"
 #include "media_tools/net/NetQueryRules.h"
 #include <algorithm>
+#include <utility>
 
 namespace miacode::ui {
 namespace {
@@ -36,6 +40,12 @@ NetModel::NetModel(NetService* service, QObject* parent) : QAbstractListModel(pa
     }
 }
 
+NetModel::~NetModel()
+{
+    ++suggestionGeneration_;
+    if (cancelSuggestions_) cancelSuggestions_();
+}
+
 net::NetCallResult NetModel::call(const QString& operation, const QJsonObject& parameters)
 {
     if (!service_ || !api_) return {{}, jobError(QStringLiteral("capability.unavailable"))};
@@ -53,8 +63,9 @@ QVariant NetModel::data(const QModelIndex& index, int role) const
 {
     if (!index.isValid() || index.row() < 0 || index.row() >= charts_.size()) return {};
     const auto chart = charts_[index.row()].toObject();
+    const auto chartId = chart.value(QStringLiteral("chartId")).toString();
     switch (role) {
-    case ChartIdRole: return chart.value(QStringLiteral("chartId")).toString();
+    case ChartIdRole: return chartId;
     case TitleRole: return chart.value(QStringLiteral("title")).toString();
     case ArtistRole: return chart.value(QStringLiteral("artist")).toString();
     case DesignerRole: return chart.value(QStringLiteral("designer")).toString();
@@ -71,11 +82,15 @@ QVariant NetModel::data(const QModelIndex& index, int role) const
         for (const auto& value : chart.value(QStringLiteral("tags")).toArray()) tags.append(value.toString());
         return tags.join(QStringLiteral(", "));
     }
-    case UploadedAtRole:
-        return QDateTime::fromString(chart.value(QStringLiteral("uploadedAtUtc")).toString(), Qt::ISODateWithMs)
-            .toLocalTime().toString(QStringLiteral("yyyy-MM-dd HH:mm"));
-    case SelectedRole: return selected_.contains(chart.value(QStringLiteral("chartId")).toString());
-    case StateRole: return rowStates_.value(chart.value("chartId").toString(), qtTrId("net.pending_download"));
+    case SelectedRole: return selected_.contains(chartId);
+    case StateRole: return rowStates_.value(chartId,
+        qtTrId(downloadFolders_.contains(chartId) ? "net.done_folder" : "net.pending_download"));
+    case DownloadedRole: return downloadFolders_.contains(chartId);
+    case DownloadInProgressRole: {
+        const auto state = chartStates_.value(chartId);
+        return (state == QLatin1String("running") || state == QLatin1String("retry_wait"))
+            && downloading() && downloadChartIds_.contains(chartId);
+    }
     default: return {};
     }
 }
@@ -84,7 +99,8 @@ QHash<int, QByteArray> NetModel::roleNames() const
 {
     return {{ChartIdRole, "chartId"}, {TitleRole, "title"}, {ArtistRole, "artist"},
         {DesignerRole, "designer"}, {UploaderRole, "uploader"}, {LevelsRole, "levels"},
-        {TagsRole, "tags"}, {UploadedAtRole, "uploadedAt"}, {SelectedRole, "selected"}, {StateRole, "itemState"}};
+        {TagsRole, "tags"}, {SelectedRole, "selected"}, {StateRole, "itemState"},
+        {DownloadedRole, "downloaded"}, {DownloadInProgressRole, "downloadInProgress"}};
 }
 
 int NetModel::selectedCount() const
@@ -97,18 +113,40 @@ int NetModel::selectedCount() const
 void NetModel::query(const QVariantMap& parameters)
 {
     if (!service_ || working()) return;
+    clearSuggestions();
     auto values = QJsonObject::fromVariantMap(parameters);
-    setSort(values.value("sort").toString("uploaded_desc"));
-    if (displaySort_.startsWith("status_")) values.insert("sort", "uploaded_desc");
-    for (const auto& key : {QStringLiteral("startDate"), QStringLiteral("endDate")})
-        if (values.value(key).toString().isEmpty()) values.remove(key);
+    setSort(values.value("sort").toString("title_asc"));
+    if (displaySort_.startsWith("status_")) values.insert("sort", "title_asc");
     values.insert(QStringLiteral("providerId"), QStringLiteral("majdata"));
     const auto accepted = call(QStringLiteral("net.queries.create"), values);
-    appendLog(qtTrId("net.ui.query"));
     errorText_.clear();
     if (!accepted.ok()) errorText_ = qtTrId("net.ui.error").arg(accepted.error.value(QStringLiteral("code")).toString());
     else queryJobId_ = accepted.result.toObject().value(QStringLiteral("jobId")).toString();
     emit changed();
+}
+
+void NetModel::requestSuggestions(const QVariantMap& parameters)
+{
+    clearSuggestions();
+    if (!service_ || working()) return;
+    auto values = QJsonObject::fromVariantMap(parameters);
+    values.insert(QStringLiteral("providerId"), QStringLiteral("majdata"));
+    const auto generation = suggestionGeneration_;
+    const QPointer<NetModel> self(this);
+    cancelSuggestions_ = service_->suggest(principal_, values, [self, generation](net::NetTaskResult result) {
+        if (!self || self->suggestionGeneration_ != generation || !result.error.isEmpty()) return;
+        self->suggestions_ = result.result.toArray().toVariantList();
+        emit self->suggestionsChanged();
+    });
+}
+
+void NetModel::clearSuggestions()
+{
+    ++suggestionGeneration_;
+    if (auto cancel = std::exchange(cancelSuggestions_, {})) cancel();
+    if (suggestions_.isEmpty()) return;
+    suggestions_.clear();
+    emit suggestionsChanged();
 }
 
 void NetModel::probe()
@@ -116,8 +154,10 @@ void NetModel::probe()
     if (!service_ || working()) return;
     const auto accepted = call(QStringLiteral("net.probes.create"),
         {{QStringLiteral("providerId"), QStringLiteral("majdata")}});
-    if (accepted.ok()) probeJobId_ = accepted.result.toObject().value(QStringLiteral("jobId")).toString();
-    else errorText_ = qtTrId("net.ui.error").arg(accepted.error.value(QStringLiteral("code")).toString());
+    if (accepted.ok()) {
+        probeJobId_ = accepted.result.toObject().value(QStringLiteral("jobId")).toString();
+        connectionText_ = qtTrId("net.ui.probing");
+    } else connectionText_ = qtTrId("net.ui.error").arg(accepted.error.value(QStringLiteral("code")).toString());
     emit changed();
 }
 
@@ -126,6 +166,7 @@ void NetModel::cancelProbe() { if (probing()) call(QStringLiteral("jobs.cancel")
 
 void NetModel::setSelected(const QString& chartId, bool selected)
 {
+    if (selected && downloadFolders_.contains(chartId)) return;
     if (selected) selected_.insert(chartId);
     else selected_.remove(chartId);
     if (!charts_.isEmpty()) emit dataChanged(index(0), index(charts_.size() - 1), {SelectedRole});
@@ -134,10 +175,12 @@ void NetModel::setSelected(const QString& chartId, bool selected)
 
 void NetModel::selectAll(bool selected)
 {
-    for (const auto& value : charts_) {
-        const auto chartId = value.toObject().value(QStringLiteral("chartId")).toString();
-        if (selected) selected_.insert(chartId);
-        else selected_.remove(chartId);
+    selected_.clear();
+    if (selected) {
+        for (const auto& value : charts_) {
+            const auto chartId = value.toObject().value(QStringLiteral("chartId")).toString();
+            if (!downloadFolders_.contains(chartId)) selected_.insert(chartId);
+        }
     }
     if (!charts_.isEmpty()) emit dataChanged(index(0), index(charts_.size() - 1), {SelectedRole});
     emit changed();
@@ -145,7 +188,7 @@ void NetModel::selectAll(bool selected)
 
 void NetModel::setSort(const QString& sort)
 {
-    const QStringList allowed{"uploaded_desc", "uploaded_asc", "level_desc", "level_asc", "title_asc", "title_desc", "status_asc", "status_desc"};
+    const QStringList allowed{"level_desc", "level_asc", "title_asc", "title_desc", "status_asc", "status_desc"};
     if (working() || !allowed.contains(sort)) return;
     displaySort_ = sort;
     applySort();
@@ -161,7 +204,6 @@ void NetModel::applySort()
         net::NetChartSummary chart;
         chart.id = record.value("chartId").toString();
         chart.title = record.value("title").toString();
-        chart.timestampUtc = QDateTime::fromString(record.value("uploadedAtUtc").toString(), Qt::ISODateWithMs);
         for (const auto& level : record.value("levels").toArray()) chart.levels.append(level.toString());
         records.insert(chart.id, record);
         summaries.append(chart);
@@ -170,9 +212,13 @@ void NetModel::applySort()
     if (displaySort_.startsWith("status_")) {
         const QStringList states{"pending", "running", "retry_wait", "blocked", "succeeded", "failed", "cancelled", "skipped", "outcome_unknown"};
         const bool descending = displaySort_ == QLatin1String("status_desc");
+        const auto rank = [&](const QString& chartId) {
+            return states.indexOf(chartStates_.value(chartId,
+                downloadFolders_.contains(chartId) ? QStringLiteral("succeeded") : QStringLiteral("pending")));
+        };
         std::stable_sort(summaries.begin(), summaries.end(), [&](const auto& a, const auto& b) {
-            const int left = states.indexOf(chartStates_.value(a.id, "pending"));
-            const int right = states.indexOf(chartStates_.value(b.id, "pending"));
+            const auto left = rank(a.id);
+            const auto right = rank(b.id);
             return descending ? left > right : left < right;
         });
     }
@@ -208,7 +254,6 @@ void NetModel::updateJob(const QString& jobId)
         chartStates_.insert(previewChartId_, previewJobId_.isEmpty() ? state : QStringLiteral("running"));
         if (displaySort_.startsWith("status_")) applySort();
         if (!charts_.isEmpty()) emit dataChanged(index(0), index(charts_.size() - 1), {StateRole});
-        appendLog(errorText_.isEmpty() ? statusText_ : errorText_);
         emit changed();
         return;
     }
@@ -225,7 +270,7 @@ void NetModel::updateJob(const QString& jobId)
         const auto result = job.value(QStringLiteral("result")).toObject();
         if (state == QLatin1String("succeeded")) {
             connectionText_ = qtTrId(result.value(QStringLiteral("classification")) == QLatin1String("slow")
-                ? "net.ui.connection_slow" : "net.ui.connection_normal").arg(result.value(QStringLiteral("elapsedMs")).toInt());
+                ? "net.ui.connection_slow" : "net.ui.connection_normal");
         } else connectionText_ = qtTrId("net.ui.error").arg(job.value(QStringLiteral("error")).toObject().value(QStringLiteral("code")).toString());
     }
     emit changed();
@@ -251,9 +296,8 @@ void NetModel::loadQuery(const QString& queryRef)
     selected_.clear();
     rowStates_.clear();
     chartStates_.clear();
-    for (const auto& value : charts_) selected_.insert(value.toObject().value("chartId").toString());
-    statusText_ = qtTrId("net.ui.result_count").arg(charts_.size()).arg(selected_.size());
-    appendLog(statusText_);
+    refreshDownloadFolders();
+    statusText_.clear();
     endResetModel();
     applySort();
 }
@@ -269,6 +313,9 @@ void NetModel::setOutputDirectory(const QString& path) {
     if (normalized == outputDirectory_) return;
     outputDirectory_ = normalized;
     net_configuration::update({{"last_net_batch_output_dir", normalized}});
+    refreshDownloadFolders();
+    if (displaySort_.startsWith("status_")) applySort();
+    if (!charts_.isEmpty()) emit dataChanged(index(0), index(charts_.size() - 1), {DownloadedRole, StateRole, SelectedRole});
     emit changed();
 }
 
@@ -283,29 +330,58 @@ void NetModel::browseOutputDirectory() {
 }
 
 void NetModel::downloadSelected(bool includeVideo, bool createZip) {
-    if (!service_ || working() || !selectedCount()) return;
-    QJsonArray ids;
-    downloadChartIds_.clear();
+    QStringList ids;
     for (const auto& value : charts_) {
         const auto id = value.toObject().value("chartId").toString();
-        if (selected_.contains(id)) { ids.append(id); downloadChartIds_.append(id); }
+        if (selected_.contains(id) && !downloadFolders_.contains(id)) ids.append(id);
     }
+    downloadCharts(std::move(ids), includeVideo, createZip);
+}
+
+void NetModel::activateDownload(const QString& chartId, bool includeVideo, bool createZip)
+{
+    const auto path = downloadFolders_.value(chartId);
+    if (!path.isEmpty()) {
+        const QFileInfo directory(path);
+        if (directory.isDir() && !directory.isSymLink() && QDesktopServices::openUrl(QUrl::fromLocalFile(path))) return;
+        refreshDownloadFolders();
+        errorText_ = qtTrId("net.ui.download_folder_unavailable");
+        if (!charts_.isEmpty()) emit dataChanged(index(0), index(charts_.size() - 1), {DownloadedRole, StateRole, SelectedRole});
+        emit changed();
+        return;
+    }
+    if (std::any_of(charts_.cbegin(), charts_.cend(), [&chartId](const auto& value) {
+        return value.toObject().value(QStringLiteral("chartId")) == chartId;
+    })) downloadCharts({chartId}, includeVideo, createZip);
+}
+
+void NetModel::refreshDownloadFolders()
+{
+    QHash<QString, QString> titlesById;
+    for (const auto& value : charts_) {
+        const auto chart = value.toObject();
+        titlesById.insert(chart.value(QStringLiteral("chartId")).toString(), chart.value(QStringLiteral("title")).toString());
+    }
+    downloadFolders_ = net::findDownloadedChartFolders(outputDirectory_, titlesById);
+    for (auto it = downloadFolders_.cbegin(); it != downloadFolders_.cend(); ++it) selected_.remove(it.key());
+}
+
+void NetModel::downloadCharts(QStringList ids, bool includeVideo, bool createZip)
+{
+    if (!service_ || working() || ids.isEmpty()) return;
     if (QDir::isAbsolutePath(outputDirectory_)) QDir().mkpath(outputDirectory_);
     const auto grant = service_->grantDirectory(principal_, outputDirectory_);
-    const auto accepted = call("net.downloads.create", {{"providerId", "majdata"}, {"chartIds", ids},
+    const auto accepted = call("net.downloads.create", {{"providerId", "majdata"}, {"chartIds", QJsonArray::fromStringList(ids)},
         {"destination", QJsonObject{{"kind", "directory_grant"}, {"grantRef", grant}}},
         {"includeVideo", includeVideo}, {"createZip", createZip}, {"conflictPolicy", "rename"}});
     errorText_.clear();
     if (!accepted.ok()) errorText_ = qtTrId("net.ui.error").arg(accepted.error.value("code").toString());
     else {
         downloadJobId_ = accepted.result.toObject().value("jobId").toString();
+        downloadChartIds_ = std::move(ids);
         downloadCreatesZip_ = createZip;
-        progress_ = 0;
-        progressText_.clear();
-        progressItemId_.clear();
         paused_ = false;
         statusText_.clear();
-        appendLog(qtTrId("net.start_download_queue_selected_1").arg(ids.size()));
         updateDownload();
         return;
     }
@@ -329,7 +405,6 @@ void NetModel::preview(const QString& chartId, bool includeVideo) {
         previewJobId_ = accepted.result.toObject().value("jobId").toString();
         rowStates_.insert(chartId, qtTrId("net.online_preview_loading"));
         statusText_ = qtTrId("net.online_preview_loading");
-        appendLog(statusText_);
         emit dataChanged(index(0), index(charts_.size() - 1), {StateRole});
     }
     emit changed();
@@ -349,19 +424,14 @@ void NetModel::resumeDownload() {
     emit changed();
 }
 
-void NetModel::appendLog(const QString& text) {
-    if (text.isEmpty()) return;
-    logs_.append(QDateTime::currentDateTime().toString("HH:mm:ss") + "  " + text);
-    if (logs_.size() > 1000) logs_.removeFirst();
-}
-
 void NetModel::updateDownload() {
     const auto job = service_->jobs().snapshot(downloadJobId_, principal_);
     const auto items = service_->jobs().items(downloadJobId_, principal_);
-    int completed = 0;
-    double fraction = 0;
+    const auto counts = job.value(QStringLiteral("counts")).toObject();
+    const int completed = counts.value(QStringLiteral("succeeded")).toInt() + counts.value(QStringLiteral("failed")).toInt();
+    progressText_ = qtTrId("net.ui.download_count").arg(completed).arg(downloadChartIds_.size());
+    progress_ = -1;
     bool stateChanged = false;
-    progressText_.clear();
     for (const auto& value : items) {
         const auto item = value.toObject();
         const int order = item.value("inputOrder").toInt();
@@ -372,13 +442,12 @@ void NetModel::updateDownload() {
             : phase == QLatin1String("image") ? QStringLiteral("bg.jpg") : phase == QLatin1String("chart") ? QStringLiteral("maidata.txt")
             : phase == QLatin1String("video") ? QStringLiteral("pv.mp4") : QString{};
         QString text;
-        if (state == QLatin1String("succeeded")) { text = qtTrId("net.done_folder"); ++completed; }
+        if (state == QLatin1String("succeeded")) text = qtTrId("net.done_folder");
         else if (state == QLatin1String("failed")) {
             const auto error = item.value("error").toObject();
             text = qtTrId("net.failed_1").arg(error.value("code").toString()) + downloadHttpStatus(error);
-            ++completed;
         }
-        else if (state == QLatin1String("cancelled")) { text = qtTrId("net.download_canceled"); ++completed; }
+        else if (state == QLatin1String("cancelled")) text = qtTrId("net.download_canceled");
         else if (state == QLatin1String("blocked")) text = qtTrId("net.paused") + downloadHttpStatus(item.value("error").toObject());
         else if (state == QLatin1String("retry_wait")) {
             const auto error = item.value("error").toObject();
@@ -387,58 +456,56 @@ void NetModel::updateDownload() {
             if (!code.isEmpty())
                 text += QStringLiteral(" (%1)").arg(code);
             text += downloadHttpStatus(error);
-            progressText_ = text;
         }
         else if (state == QLatin1String("running")) {
             if (!resourceName.isEmpty()) text = qtTrId("net.downloading_1_2").arg(resourceName);
             else if (phase == QLatin1String("publish")) {
                 text = downloadCreatesZip_ ? qtTrId("net.packaging_zip") : qtTrId("net.saving_download");
             } else text = qtTrId("net.preparing_download");
-            const auto bytes = item.value("bytesReceived").toString().toLongLong();
-            const auto total = item.value("bytesTotal").toString().toLongLong();
-            const QString itemId = item.value("itemId").toString();
-            if (progressItemId_ != itemId) { progressItemId_ = itemId; downloadItemTimer_.start(); }
-            progressText_ = text;
-            if (!resourceName.isEmpty() && bytes == 0) {
-                progressText_ = qtTrId("net.waiting_for_download_1").arg(resourceName);
-            } else if (!resourceName.isEmpty()) {
-                const auto received = bytes < 1024 * 1024 ? QStringLiteral("%1 KiB").arg(bytes / 1024.0, 0, 'f', 1)
-                    : QStringLiteral("%1 MiB").arg(bytes / 1048576.0, 0, 'f', 1);
-                progressText_ = qtTrId("net.downloading_1").arg(received);
-                if (total > 0) progressText_ += QStringLiteral(" / %1 MiB").arg(total / 1048576.0, 0, 'f', 1);
-                const auto elapsed = downloadItemTimer_.elapsed();
-                if (elapsed > 0) {
-                    const double speed = bytes * 1000.0 / elapsed / 1024.0;
-                    progressText_ += speed < 1024.0 ? QStringLiteral(" (%1 KiB/s)").arg(speed, 0, 'f', 1)
-                        : QStringLiteral(" (%1 MiB/s)").arg(speed / 1024.0, 0, 'f', 2);
-                }
+            const auto file = item.value(QStringLiteral("fileProgress")).toObject();
+            const auto total = file.value(QStringLiteral("bytesTotal")).toString().toLongLong();
+            if (total > 0) {
+                const auto bytes = file.value(QStringLiteral("bytesReceived")).toString().toLongLong();
+                progress_ = qBound(0.0, static_cast<double>(bytes) / total, 1.0);
             }
-            if (phase == QLatin1String("publish")) fraction = 0.9;
-            else if (total > 0) fraction = 0.9 * qBound(0.0, double(bytes) / total, 1.0);
         } else text = qtTrId("net.pending_download");
         const auto id = downloadChartIds_[order];
+        if (state == QLatin1String("succeeded") && chartStates_.value(id) != state) {
+            for (const auto& value : item.value(QStringLiteral("artifacts")).toArray()) {
+                const auto artifact = value.toObject();
+                if (artifact.value(QStringLiteral("kind")) != QLatin1String("directory")) continue;
+                const auto path = service_->directoryArtifactPath(principal_, artifact.value(QStringLiteral("artifactRef")).toString());
+                if (!path.isEmpty() && QFileInfo(path).absolutePath() == QFileInfo(outputDirectory_).canonicalFilePath()) {
+                    downloadFolders_.insert(id, path);
+                    selected_.remove(id);
+                }
+                break;
+            }
+        }
         if (chartStates_.value(id) != state) { chartStates_.insert(id, state); stateChanged = true; }
-        if (rowStates_.value(id) != text) { rowStates_.insert(id, text); appendLog(id + "  " + text); }
+        if (rowStates_.value(id) != text) rowStates_.insert(id, text);
     }
-    if (job.value("state") == QLatin1String("cancelling")) progressText_ = qtTrId("net.cancelling_download");
-    else if (progressText_.isEmpty() && job.value("state") == QLatin1String("queued")) progressText_ = qtTrId("net.pending_download");
-    progress_ = items.isEmpty() ? 0 : (completed + fraction) / items.size();
-    paused_ = job.value("state") == QLatin1String("blocked");
+    const auto state = job.value(QStringLiteral("state")).toString();
+    const auto error = job.value(QStringLiteral("error")).toObject();
+    paused_ = state == QLatin1String("blocked");
     if (paused_) {
-        const auto error = job.value("error").toObject();
         errorText_ = qtTrId("net.ui.error").arg(error.value("code").toString()) + downloadHttpStatus(error);
     }
-    if (JobRegistry::isTerminal(job.value("state").toString())) {
-        const auto counts = job.value("counts").toObject();
-        statusText_ = qtTrId("net.download_complete_1_succeeded_2").arg(counts.value("succeeded").toInt()).arg(counts.value("failed").toInt());
-        if (job.value("state") == QLatin1String("cancelled")) statusText_ = qtTrId("net.download_canceled");
-        appendLog(statusText_);
+    if (JobRegistry::isTerminal(state)) {
+        QString summary;
+        if (state == QLatin1String("cancelled")) summary = qtTrId("net.download_canceled");
+        else if (!error.isEmpty()) summary = qtTrId("net.ui.error").arg(error.value("code").toString()) + downloadHttpStatus(error);
+        else summary = qtTrId("net.download_complete_1_succeeded_2")
+            .arg(counts.value("succeeded").toInt()).arg(counts.value("failed").toInt());
         downloadJobId_.clear();
         paused_ = false;
+        progress_ = -1;
         progressText_.clear();
+        errorText_.clear();
+        emit downloadFinished(summary, state == QLatin1String("failed") || state == QLatin1String("partial"));
     }
     if (stateChanged && displaySort_.startsWith("status_")) applySort();
-    if (!charts_.isEmpty()) emit dataChanged(index(0), index(charts_.size() - 1), {StateRole});
+    if (!charts_.isEmpty()) emit dataChanged(index(0), index(charts_.size() - 1), {StateRole, DownloadedRole, DownloadInProgressRole, SelectedRole});
     emit changed();
 }
 

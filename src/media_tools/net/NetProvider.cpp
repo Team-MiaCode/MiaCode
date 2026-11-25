@@ -9,6 +9,7 @@
 #include <QUrlQuery>
 #include <QStandardPaths>
 #include <QDir>
+#include <QSet>
 
 namespace miacode::net {
 namespace {
@@ -31,6 +32,45 @@ QJsonObject summary(const NetChartSummary& chart)
         {QStringLiteral("uploadedAtUtc"), chart.timestampUtc.toUTC().toString(Qt::ISODateWithMs)},
         {QStringLiteral("remoteVersion"), chart.hash.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(chart.hash)}};
 }
+
+QJsonArray searchSuggestions(const QString& search, const QList<NetChartSummary>& charts)
+{
+    constexpr int limit = 8;
+    const bool uploaderOnly = search.startsWith(QLatin1String("uploader:"), Qt::CaseInsensitive);
+    const bool tagOnly = search.startsWith(QLatin1String("tag:"), Qt::CaseInsensitive);
+    const QString keyword = (uploaderOnly || tagOnly) ? search.mid(search.indexOf(':') + 1).trimmed() : search;
+    if (keyword.isEmpty()) return {};
+
+    QSet<QString> seen;
+    QJsonArray prefixes, matches;
+    const auto add = [&](const QString& kind, const QString& label, const QString& prefix = {}) {
+        const QString text = label.trimmed();
+        if (!text.contains(keyword, Qt::CaseInsensitive)) return;
+        const QString key = kind + QChar(0) + text.toCaseFolded();
+        if (seen.contains(key)) return;
+        auto& group = text.startsWith(keyword, Qt::CaseInsensitive) ? prefixes : matches;
+        if (group.size() >= limit) return;
+        seen.insert(key);
+        group.append(QJsonObject{{"label", text}, {"kind", kind}, {"value", prefix + text}});
+    };
+    for (const auto& chart : charts) {
+        if (!uploaderOnly && !tagOnly) {
+            add(QStringLiteral("title"), chart.title);
+            add(QStringLiteral("artist"), chart.artist);
+            add(QStringLiteral("designer"), chart.designer);
+        }
+        if (!tagOnly) add(QStringLiteral("uploader"), chart.uploader, QStringLiteral("uploader:"));
+        if (!uploaderOnly) {
+            for (const auto& tag : chart.publicTags) add(QStringLiteral("tag"), tag, QStringLiteral("tag:"));
+        }
+        if (prefixes.size() == limit) break;
+    }
+    for (const auto& match : matches) {
+        if (prefixes.size() == limit) break;
+        prefixes.append(match);
+    }
+    return prefixes;
+}
 }
 
 class NetQueryOperation final : public QObject {
@@ -41,6 +81,7 @@ public:
     {
         const auto& values = task_.parameters;
         request_.providerId = values.value(QStringLiteral("providerId")).toString(QStringLiteral("majdata"));
+        request_.search = values.value(QStringLiteral("search")).toString().trimmed();
         request_.uploader = values.value(QStringLiteral("uploader")).toString();
         request_.tag = values.value(QStringLiteral("tag")).toString();
         request_.title = values.value(QStringLiteral("title")).toString();
@@ -62,12 +103,19 @@ public:
     {
         if (!active()) return;
         const auto& parameters = task_.parameters;
-        const bool probe = task_.operation == QLatin1String("net.probes.create");
+        const bool probe = isProbe();
+        const bool suggest = isSuggestion();
         QString invalid = probe ? QString{} : validateNetQuery(request_);
         if (request_.providerId != QLatin1String("majdata")) invalid = QStringLiteral("capability.unavailable");
         if (!probe && ((parameters.contains(QStringLiteral("startDate")) && !request_.startDate.isValid())
             || (parameters.contains(QStringLiteral("endDate")) && !request_.endDate.isValid()))) invalid = QStringLiteral("request.invalid");
         if (!invalid.isEmpty()) { finish({{}, failure(invalid)}); return; }
+        const QStringList operators{QStringLiteral("id:"), QStringLiteral("hash:"),
+            QStringLiteral("tag:"), QStringLiteral("uploader:")};
+        if (suggest && (request_.search.isEmpty() || operators.contains(request_.search, Qt::CaseInsensitive))) {
+            finish({QJsonArray{}, {}});
+            return;
+        }
         if (!probe) {
             if (const auto cached = provider_.cache_.find(request_)) {
                 skippedRows_ = cached->skippedRows;
@@ -87,6 +135,9 @@ public:
     }
 
 private:
+    bool isProbe() const { return task_.operation == QLatin1String("net.probes.create"); }
+    bool isSuggestion() const { return task_.operation == QLatin1String("net.queries.suggest"); }
+
     void finish(NetTaskResult result)
     {
         if (!done_) return;
@@ -99,20 +150,25 @@ private:
     void finishQuery(const QList<NetChartSummary>& candidates)
     {
         const auto filtered = filterAndSortNetCharts(candidates, request_);
-        finish({provider_.storeQuery(task_.principal, filtered, skippedRows_), {}});
+        if (isSuggestion()) finish({searchSuggestions(request_.search, filtered), {}});
+        else finish({provider_.storeQuery(task_.principal, filtered, skippedRows_), {}});
     }
     void fetch()
     {
         if (!active() || cancelled_) return;
         NetHttpRequest http;
+        const bool probe = isProbe();
         http.url = QUrl(provider_.baseUrl_.toString() + QStringLiteral("/maichart/list"));
         QUrlQuery query;
         query.addQueryItem(QStringLiteral("sort"), QString());
-        query.addQueryItem(QStringLiteral("search"), searches_[searchIndex_]);
+        if (probe || isSuggestion()) query.addQueryItem(QStringLiteral("page"), QStringLiteral("0"));
+        const auto search = QUrl::toPercentEncoding(searches_[searchIndex_], QByteArrayLiteral(":"));
+        query.addQueryItem(QStringLiteral("search"), QString::fromLatin1(search));
         http.url.setQuery(query);
         http.headers = {{QByteArrayLiteral("Referer"), request_.uploader.isEmpty()
             ? QByteArrayLiteral("https://majdata.net/") : netUserSpaceReferer(request_.uploader).toUtf8()}};
-        http.timeoutMs = task_.operation == QLatin1String("net.probes.create") ? 8000 : 60000;
+        http.timeoutMs = probe || isSuggestion() ? 8000 : 60000;
+        http.freshConnection = probe && networkRetries_ > 0;
         QPointer<NetQueryOperation> self(this);
         cancelHttp_ = provider_.transport_.request(http, [self](NetHttpResponse response) {
             if (self && self->active()) self->receive(std::move(response));
@@ -121,10 +177,13 @@ private:
     void receive(NetHttpResponse response)
     {
         cancelHttp_ = {};
-        const bool probe = task_.operation == QLatin1String("net.probes.create");
+        const bool probe = isProbe();
         if (!response.error.isEmpty()) {
             const QString code = response.error.value(QStringLiteral("code")).toString();
-            if (!probe && !cancelled_ && code == QLatin1String("upstream.network") && networkRetries_++ == 0) {
+            const bool transient = code == QLatin1String("upstream.network")
+                || (probe && code == QLatin1String("upstream.timeout"));
+            if (!isSuggestion() && !cancelled_ && transient && networkRetries_ == 0) {
+                ++networkRetries_;
                 if (event_) event_({-1, QStringLiteral("retry_wait"), QStringLiteral("query_retry"), {}, {}, {}});
                 QTimer::singleShot(1000, this, [this] {
                     if (!active()) return;
@@ -156,7 +215,7 @@ private:
             fetch();
             return;
         }
-        provider_.cache_.insert(request_, candidates_, skippedRows_);
+        if (!isSuggestion()) provider_.cache_.insert(request_, candidates_, skippedRows_);
         finishQuery(candidates_);
     }
     NetProvider& provider_;
@@ -205,7 +264,8 @@ NetEnginePort::Cancel NetProvider::execute(NetTaskRequest request, Event event, 
         return executeUploadOperation(std::move(request), std::move(event), std::move(done));
     if (request.operation == QLatin1String("net.downloads.create") || request.operation == QLatin1String("net.previews.prepare"))
         return executeResources(std::move(request), std::move(event), std::move(done));
-    if (request.operation == QLatin1String("net.queries.create") || request.operation == QLatin1String("net.probes.create")) {
+    if (request.operation == QLatin1String("net.queries.create") || request.operation == QLatin1String("net.probes.create")
+        || request.operation == QLatin1String("net.queries.suggest")) {
         auto* operation = new NetQueryOperation(*this, std::move(request), std::move(event), std::move(done));
         QTimer::singleShot(0, operation, [operation] { operation->start(); });
         QPointer<NetQueryOperation> weak(operation);

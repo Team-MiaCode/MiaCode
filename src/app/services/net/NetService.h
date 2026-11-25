@@ -17,6 +17,8 @@ public:
                              const QJsonObject& parameters, const QString& idempotencyKey = {});
     net::NetCallResult call(const QString& principal, const QString& operation,
                             const QJsonObject& parameters = {});
+    net::NetEnginePort::Cancel suggest(const QString& principal, const QJsonObject& input,
+                                       net::NetEnginePort::Done done);
     JobRegistry& jobs() { return jobs_; }
     bool supports(const QString& operation) const {
         if (operation == QLatin1String("document.snapshot")) return static_cast<bool>(documentSnapshot_);
@@ -27,6 +29,7 @@ public:
     void setDocumentSnapshotHandler(std::function<QJsonObject()> handler) { documentSnapshot_ = std::move(handler); }
     QString grantDirectory(const QString& principal, const QString& path) { return engine_.grantDirectory(principal, path); }
     QString previewPath(const QString& principal, const QString& reference) const { return engine_.previewPath(principal, reference); }
+    QString directoryArtifactPath(const QString& principal, const QString& reference) const { return engine_.directoryArtifactPath(principal, reference); }
     QString uploadMaterialPath(const QString& principal, const QString& planRef, const QString& itemId) const { return engine_.uploadMaterialPath(principal, planRef, itemId); }
     static QString kindForOperation(const QString& operation);
 

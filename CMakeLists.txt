@@ -618,6 +618,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/net/NetPageButton.qml
     src/app/ui/net/NetUploadPage.qml
     src/app/ui/net/NetResultTable.qml
+    src/app/ui/net/NetSearchField.qml
     src/app/ui/components/AppDateField.qml
     src/app/ui/components/PreviewPositionCard.qml
     src/app/ui/components/SidebarModeCard.qml

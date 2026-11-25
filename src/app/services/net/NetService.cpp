@@ -163,6 +163,15 @@ void NetService::launch(const JobToken& token, net::NetTaskRequest request)
     jobs_.setCancelHandler(token, std::move(cancel));
 }
 
+net::NetEnginePort::Cancel NetService::suggest(const QString& principal, const QJsonObject& input,
+                                              net::NetEnginePort::Done done)
+{
+    const auto validation = api::ApiCatalog::validate(QStringLiteral("net.queries.create"), input);
+    if (!validation.ok() || validation.parameters.value(QStringLiteral("search")).toString().isEmpty()) return {};
+    return engine_.execute({principal, QStringLiteral("net.queries.suggest"), validation.parameters, {}},
+                           {}, std::move(done));
+}
+
 net::NetCallResult NetService::call(const QString& principal, const QString& operation,
                                    const QJsonObject& input)
 {

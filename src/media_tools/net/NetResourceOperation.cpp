@@ -164,6 +164,7 @@ private:
         stopping_ = false;
         nextResource_ = 0;
         firstUnfinishedResource_ = 0;
+        displayedResource_ = -1;
         activeSlots_ = 0;
         emitItem("running", "download");
         fetchAvailable();
@@ -220,25 +221,30 @@ private:
     }
     void reportResourceProgress() {
         if (preview_) return;
+        const auto running = [](const ResourceTransfer& transfer) {
+            return transfer.entry.isEmpty() && transfer.attempt > 0 && transfer.retryError.isEmpty();
+        };
         qint64 received = 0;
         qint64 total = 0;
         bool totalKnown = true;
-        int displayIndex = firstUnfinishedResource_;
+        int displayIndex = displayedResource_ >= 0 && running(transfers_[displayedResource_])
+            ? displayedResource_ : firstUnfinishedResource_;
         for (int index = 0; index < transfers_.size(); ++index) {
             const auto& transfer = transfers_[index];
             received += transfer.received;
             if (transfer.total < 0) totalKnown = false;
             else total += transfer.total;
-            const auto& displayed = transfers_[displayIndex];
-            if (transfer.entry.isEmpty() && transfer.attempt > 0 && transfer.retryError.isEmpty()
-                && (displayed.attempt == 0 || !displayed.retryError.isEmpty())) {
-                displayIndex = index;
-            }
+            if (!running(transfers_[displayIndex]) && running(transfer)) displayIndex = index;
         }
+        displayedResource_ = displayIndex;
         const auto& displayed = transfers_[displayIndex];
-        const QJsonObject progress{{"bytesReceived", QString::number(received)},
+        QJsonObject progress{{"bytesReceived", QString::number(received)},
             {"bytesTotal", totalKnown ? QJsonValue(QString::number(total)) : QJsonValue::Null},
             {"attempt", displayed.attempt}};
+        if (running(displayed)) {
+            progress.insert("fileProgress", QJsonObject{{"bytesReceived", QString::number(displayed.received)},
+                {"bytesTotal", displayed.total >= 0 ? QJsonValue(QString::number(displayed.total)) : QJsonValue::Null}});
+        }
         emitItem(displayed.retryError.isEmpty() ? "running" : "retry_wait", resources[displayIndex].kind, displayed.retryError, progress);
     }
     void fetchResource(int index) {
@@ -466,7 +472,7 @@ private:
     QJsonObject chart_, stopError_;
     QString root_, cacheKey_, blockedResource_;
     int chartIndex_ = -1, succeeded_ = 0, failed_ = 0;
-    int nextResource_ = 0, firstUnfinishedResource_ = 0, activeSlots_ = 0, inFlight_ = 0;
+    int nextResource_ = 0, firstUnfinishedResource_ = 0, displayedResource_ = -1, activeSlots_ = 0, inFlight_ = 0;
     bool stopping_ = false, cancelsIssued_ = false, publishing_ = false;
     bool preview_ = false;
 };
@@ -505,9 +511,13 @@ QString NetProvider::previewPath(const QString& principal, const QString& refere
     const auto found = previews_.constFind(reference);
     return found != previews_.cend() && found->principal == principal && found->expiresAt > clock_.elapsed() ? found->path : QString{};
 }
+QString NetProvider::directoryArtifactPath(const QString& principal, const QString& reference) const {
+    const auto found = artifacts_.constFind(reference);
+    return found != artifacts_.cend() && found->directory && found->principal == principal ? found->path : QString{};
+}
 QJsonObject NetProvider::registerArtifact(const QString& principal, const QString& path, bool directory) {
     const QString artifact = ref("artifact_");
-    artifacts_.insert(artifact, {principal, path});
+    artifacts_.insert(artifact, {principal, path, directory});
     return {{"artifactRef", artifact}, {"kind", directory ? "directory" : "file"},
         {"displayName", QFileInfo(path).fileName()}, {"contentType", directory ? QJsonValue::Null : QJsonValue("application/zip")},
         {"bytes", directory ? QJsonValue::Null : QJsonValue(QString::number(QFileInfo(path).size()))}, {"expiresAt", expires()}};

@@ -260,6 +260,43 @@ QString chartDirectoryPathForTitle(const QString& outputDirectory, const QString
     return QDir(outputDirectory).filePath(stem);
 }
 
+QHash<QString, QString> findDownloadedChartFolders(const QString& outputDirectory, const QHash<QString, QString>& titlesById)
+{
+    QHash<QString, QString> folders;
+    if (titlesById.isEmpty() || !QDir::isAbsolutePath(outputDirectory)) return folders;
+
+    QHash<QString, QString> legacyIdsByFolder;
+    for (auto it = titlesById.cbegin(); it != titlesById.cend(); ++it) {
+        const auto path = chartDirectoryPathForTitle(outputDirectory, it.value(), it.key());
+        legacyIdsByFolder.insert(QFileInfo(path).fileName(), it.key());
+    }
+    const auto entries = QDir(outputDirectory).entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::NoSymLinks, QDir::Time);
+    for (const auto& entry : entries) {
+        if (entry.fileName().startsWith(QLatin1String(".miacode-net-"))) continue;
+        const QDir folder(entry.absoluteFilePath());
+        const QFileInfo manifestInfo(folder.filePath(QStringLiteral("manifest.json")));
+        QString chartId;
+        if (manifestInfo.isFile() && !manifestInfo.isSymLink()) {
+            constexpr qint64 maxManifestBytes = 64 * 1024;
+            QFile manifest(manifestInfo.filePath());
+            if (manifestInfo.size() <= maxManifestBytes && manifest.open(QIODevice::ReadOnly)) {
+                const auto metadata = QJsonDocument::fromJson(manifest.read(maxManifestBytes)).object();
+                if (metadata.value(QStringLiteral("providerId")) == QLatin1String("majdata"))
+                    chartId = metadata.value(QStringLiteral("chartId")).toString();
+            }
+        } else if (!manifestInfo.exists() && !manifestInfo.isSymLink()) {
+            chartId = legacyIdsByFolder.value(entry.fileName());
+        }
+        if (!titlesById.contains(chartId) || folders.contains(chartId)) continue;
+        if (QFileInfo(folder.filePath(QStringLiteral("maidata.txt"))).isFile()
+            && QFileInfo(folder.filePath(QStringLiteral("track.mp3"))).isFile()
+            && QFileInfo(folder.filePath(QStringLiteral("bg.jpg"))).isFile()) {
+            folders.insert(chartId, entry.absoluteFilePath());
+        }
+    }
+    return folders;
+}
+
 QString uniqueZipPathForTitle(const QString& outputDirectory, const QString& title)
 {
     const QString stem = miacode::zip_export::sanitizedZipStem(title);

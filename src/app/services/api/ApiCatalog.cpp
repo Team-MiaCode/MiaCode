@@ -196,7 +196,8 @@ Validation ApiCatalog::validate(const QString& operationId, const QJsonObject& p
                        QStringLiteral("$"), true, field)) return {{}, invalid(field)};
     auto values = normalized.toObject();
     if (operationId == QLatin1String("net.queries.create")) {
-        if (values.value(QStringLiteral("uploader")).toString().isEmpty()
+        if (values.value(QStringLiteral("search")).toString().isEmpty()
+            && values.value(QStringLiteral("uploader")).toString().isEmpty()
             && values.value(QStringLiteral("tag")).toString().isEmpty()
             && values.value(QStringLiteral("title")).toString().isEmpty()) return {{}, invalid(QStringLiteral("$.title"))};
         if (values.contains(QStringLiteral("startDate")) != values.contains(QStringLiteral("endDate"))) return {{}, invalid(QStringLiteral("$.endDate"))};
