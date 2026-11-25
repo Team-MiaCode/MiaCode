@@ -75,10 +75,11 @@ install_sys_deps() {
       libswscale-dev \
       libswresample-dev \
       libavfilter-dev \
-      libfuse2 || true \
-      fuse || true \
       xz-utils \
       zlib1g-dev
+
+    # FUSE is optional: AppImage can fall back to APPIMAGE_EXTRACT_AND_RUN.
+    $sudo apt-get install -y libfuse2 fuse || true
   else
     echo "apt-get not found, skipping system deps" >&2
   fi
