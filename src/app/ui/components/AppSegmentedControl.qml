@@ -43,6 +43,7 @@ Item {
     readonly property real segmentWidth: tabs.length > 0
         ? Math.max(0, (track.width - 2 * root.trackPadding - Math.max(0, tabs.length - 1) * segmentRow.spacing) / tabs.length)
         : 0
+    readonly property bool rightToLeft: segmentRow.effectiveLayoutDirection === Qt.RightToLeft
 
     implicitHeight: Theme.controlMinHeight
     implicitWidth: Math.max(120, tabs.length * 76 + 2 * trackPadding)
@@ -75,8 +76,11 @@ Item {
         // Sliding active pill with concentric corner radius.
         Rectangle {
             id: thumb
+            readonly property int visualIndex: root.rightToLeft
+                ? root.tabs.length - 1 - root.currentIndex
+                : root.currentIndex
             visible: root.currentIndex >= 0 && root.segmentWidth > 0
-            x: root.trackPadding + Math.max(0, root.currentIndex) * (root.segmentWidth + segmentRow.spacing)
+            x: root.trackPadding + Math.max(0, visualIndex) * (root.segmentWidth + segmentRow.spacing)
             y: root.trackPadding
             width: root.segmentWidth
             height: Math.max(0, parent.height - 2 * root.trackPadding)
@@ -127,7 +131,7 @@ Item {
                     Keys.onPressed: event => {
                         if (event.key !== Qt.Key_Left && event.key !== Qt.Key_Right)
                             return
-                        const step = (event.key === Qt.Key_Right ? 1 : -1) * (root.mirrored ? -1 : 1)
+                        const step = (event.key === Qt.Key_Right ? 1 : -1) * (root.rightToLeft ? -1 : 1)
                         root.selectIndex((segment.index + step + root.tabs.length) % root.tabs.length)
                         event.accepted = true
                     }
