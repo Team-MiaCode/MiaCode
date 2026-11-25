@@ -49,11 +49,12 @@ Rectangle {
                 text: qsTrId("dialog.unsaved_field_changes.field.metadata")
                 iconSource: Qt.resolvedUrl("icons/metadata.svg")
                 filledIconSource: Qt.resolvedUrl("icons/metadata-fill.svg")
-                selected: root.viewState.metadataEditorActive
+                selected: root.viewState.metadataEditorActive && (!root.pages || !root.pages.overlayActive)
                 onClicked: {
-                    if (root.pages && root.pages.overlayActive)
-                        root.pages.leaveOverlayPage()
-                    root.viewState.activeSidebarView = "chart"
+                    if (root.pages && root.pages.overlayActive) {
+                        root.viewState.requestMetadataEditorFromOverlay()
+                        return
+                    }
                     root.viewState.openMetadataEditor()
                 }
             }
@@ -64,7 +65,7 @@ Rectangle {
                 text: qsTrId("qml.latency_calibration")
                 iconSource: Qt.resolvedUrl("icons/metronome.svg")
                 filledIconSource: Qt.resolvedUrl("icons/metronome-fill.svg")
-                selected: root.viewState.latencyEditorActive
+                selected: root.viewState.latencyEditorActive && (!root.pages || !root.pages.overlayActive)
                 onClicked: root.pages.openLatencyPage()
             }
 
@@ -74,6 +75,7 @@ Rectangle {
                 viewState: root.viewState
                 documentSession: root.documentSession
                 commands: root.commands
+                overlayActive: root.pages ? root.pages.overlayActive : false
             }
         }
 

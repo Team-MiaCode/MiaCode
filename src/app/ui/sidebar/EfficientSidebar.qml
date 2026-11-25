@@ -64,8 +64,10 @@ Rectangle {
                 enabled: root.documentSession.hasDocument
                 selected: root.viewState.metadataEditorActive && !root.pages.overlayActive
                 onClicked: {
-                    if (root.pages.overlayActive)
-                        root.pages.leaveOverlayPage()
+                    if (root.pages.overlayActive) {
+                        root.viewState.requestMetadataEditorFromOverlay()
+                        return
+                    }
                     root.viewState.openMetadataEditor()
                 }
             }

@@ -12,8 +12,6 @@ Item {
     property bool compact: false
     property real expandedContentWidth: 0
     property bool contentRevealed: compact || viewState.sidebarVisible
-    property string pendingChartEditor: ""
-    property bool pendingLibrary: false
     readonly property bool efficientMode: preferences.efficientSidebarEnabled
     readonly property bool libraryActive: viewState.activeSidebarView === "library"
     readonly property bool primarySidebarVisible: compact || contentRevealed
@@ -59,18 +57,13 @@ Item {
             preferences.sidebarVisible = true
         }
         viewState.activeSidebarView = "library"
-        const lastEditor = viewState.lastChartEditor()
-        if (documentSession.hasDocument && !viewState.difficultyEditorActive && lastEditor.length > 0)
-            viewState.activateEditor(lastEditor)
     }
 
-    // Activity Bar 只负责功能域导航。再次选择当前功能时，桌面端切换
-    // Primary Sidebar；紧凑布局直接关闭当前覆盖层。
+    // Activity Bar 只负责功能域导航，与右侧编辑器标签解耦。再次选择当前功能时，
+    // 桌面端切换 Primary Sidebar；紧凑布局关闭当前覆盖层。
     function activateView(viewId) {
         if (viewId === "library") {
-            if (root.pages.navigationPending)
-                return
-            if (!root.efficientMode && viewState.activeSidebarView === "library" && !root.pages.overlayActive) {
+            if (!root.efficientMode && viewState.activeSidebarView === "library") {
                 if (compact) {
                     viewState.compactPanel = ""
                     return
@@ -79,17 +72,11 @@ Item {
                 root.preferences.sidebarVisible = viewState.sidebarVisible
                 return
             }
-            if (root.pages.overlayActive) {
-                root.pendingLibrary = true
-                if (!root.pages.leaveOverlayPage())
-                    root.pendingLibrary = false
-            } else {
-                root.showLibrary()
-            }
+            root.showLibrary()
             return
         }
         const pageAlreadyActive = viewId === "export" ? root.pages.activePageId === "export"
-            : viewId === "chart" ? !root.pages.overlayActive && !root.viewState.netEditorActive
+            : viewId === "chart" ? !root.pages.overlayActive
             : true
         if (viewState.activeSidebarView === viewId && pageAlreadyActive) {
             if (compact) {
@@ -101,46 +88,27 @@ Item {
             return
         }
 
-        if (viewId === "chart" && root.documentSession.hasDocument) {
-            const lastChartEditor = root.viewState.lastChartEditor()
-            if (root.pages.overlayActive) {
-                root.pendingChartEditor = lastChartEditor
-                root.pages.rememberEditorReturnTarget(lastChartEditor)
-                if (!root.pages.leaveOverlayPage())
-                    root.pendingChartEditor = ""
-            } else if (lastChartEditor.length > 0) {
-                root.viewState.activateEditor(lastChartEditor)
+        if (viewId === "export") {
+            if (root.pages.activePageId === "export") {
+                viewState.activeSidebarView = "export"
+                if (!root.compact && !viewState.sidebarVisible) {
+                    viewState.sidebarVisible = true
+                    root.preferences.sidebarVisible = true
+                }
+            } else if (root.documentSession.hasDocument) {
+                root.pages.rememberEditorReturnTarget(root.viewState.activeEditorKey)
+                root.pages.openVideoExportPage()
             }
+            return
         }
+
+        if (viewId === "chart" && root.pages.overlayActive)
+            root.pages.leaveOverlayPage()
 
         viewState.activeSidebarView = viewId
         if (!root.compact && !viewState.sidebarVisible) {
             viewState.sidebarVisible = true
             root.preferences.sidebarVisible = true
-        }
-
-        if (viewId === "export" && root.documentSession.hasDocument) {
-            root.pages.rememberEditorReturnTarget(root.viewState.activeEditorKey)
-            root.pages.openVideoExportPage()
-        }
-    }
-
-    Connections {
-        target: root.pages
-        function onOverlayPageLeft() {
-            if (root.pendingLibrary) {
-                root.pendingLibrary = false
-                root.showLibrary()
-                return
-            }
-            const key = root.pendingChartEditor
-            root.pendingChartEditor = ""
-            if (key.length > 0 && root.viewState.containsEditor(key))
-                root.viewState.activateEditor(key)
-        }
-        function onNavigationRejected() {
-            root.pendingLibrary = false
-            root.pendingChartEditor = ""
         }
     }
 

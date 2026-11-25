@@ -454,7 +454,8 @@ Item {
             root.pages.openLatencyPage()
             return
         }
-        if (key === viewState.metadataEditorKey && root.pages.activePageId === "latency"
+        if (key === viewState.metadataEditorKey
+                && (root.pages.activePageId === "latency" || root.pages.activePageId.startsWith("net-"))
                 && !root.pages.activateMetadataPage())
             return
         viewState.activateEditor(key)

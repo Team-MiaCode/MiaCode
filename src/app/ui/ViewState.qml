@@ -2,6 +2,7 @@ import QtQuick
 
 QtObject {
     signal difficultyEditorActivationRequested(int difficultyId)
+    signal metadataEditorActivationRequested()
     signal applicationEditorActivationRequested(string key)
     signal editorPresentationCleared()
     // A closed tab is a view that no longer exists; whatever it accumulated —
@@ -137,6 +138,10 @@ QtObject {
 
     function openMetadataEditor() {
         openEditor(metadataEditorKey)
+    }
+
+    function requestMetadataEditorFromOverlay() {
+        metadataEditorActivationRequested()
     }
 
     function openLatencyEditor() {

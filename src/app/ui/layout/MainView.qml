@@ -233,17 +233,22 @@ Item {
         }
     }
 
-    // PageHost is the authority for overlay navigation. Keep the activity bar
-    // projection in step with it even when a page is opened by a runtime signal
-    // (for example, exporting a selection from the source editor).
+    // PageHost owns full-workspace overlay navigation (export). Keep the
+    // sidebar projection synced only with the export overlay so switching
+    // editor tabs (including Majdata Net tabs) never hijacks library/tools views.
     function syncSidebarViewToPage() {
         const page = root.pages.activePageId
-        if (page === "export")
-            state.activeSidebarView = "export"
-        else if (page.startsWith("net-"))
-            state.activeSidebarView = "network"
-        else if (state.activeSidebarView !== "tools" && state.activeSidebarView !== "library")
+        if (page === "export") {
+            if (!root.preferences.efficientSidebarEnabled) {
+                state.activeSidebarView = "export"
+                if (!root.compact && !state.sidebarVisible) {
+                    state.sidebarVisible = true
+                    root.preferences.sidebarVisible = true
+                }
+            }
+        } else if (state.activeSidebarView === "export") {
             state.activeSidebarView = "chart"
+        }
     }
 
     function editText(operation) {
@@ -597,7 +602,7 @@ Item {
         target: root.documentSession
 
         function onDocumentReplaced() {
-            if (!root.documentSession.hasDocument && state.activeSidebarView !== "library")
+            if (!root.documentSession.hasDocument && state.activeSidebarView === "export")
                 state.activeSidebarView = "chart"
             state.resetEditorTabs(root.documentSession.currentDifficultyId)
             // The projection is queued, so this can run while the incoming
@@ -636,11 +641,24 @@ Item {
                 root.pages.activateMetadataPage()
         }
 
+        function onMetadataEditorActivationRequested() {
+            if (root.pages.overlayActive) {
+                pendingDifficultyActivation = 0
+                pendingMetadataActivation = true
+                root.pages.rememberEditorReturnTarget(state.metadataEditorKey)
+                if (!root.pages.leaveOverlayPage())
+                    pendingMetadataActivation = false
+                return
+            }
+            state.openMetadataEditor()
+        }
+
         function onDifficultyEditorActivationRequested(difficultyId) {
             if (root.pages.overlayActive) {
                 // Overlay exit may need an asynchronous unsaved-field answer.
                 // Keep the requested difficulty until the page host confirms
                 // the exit; selecting it here would bypass a cancellation.
+                pendingMetadataActivation = false
                 pendingDifficultyActivation = difficultyId
                 if (!root.pages.leaveOverlayPage())
                     pendingDifficultyActivation = 0
@@ -648,7 +666,7 @@ Item {
             }
             root.commands.selectDifficulty(difficultyId)
             root.pages.ensureDifficultyPageActive(difficultyId)
-            if (state.activeSidebarView !== "library")
+            if (state.activeSidebarView === "export")
                 state.activeSidebarView = "chart"
         }
 
@@ -658,6 +676,7 @@ Item {
     }
 
     property int pendingDifficultyActivation: 0
+    property bool pendingMetadataActivation: false
 
     Connections {
         target: root.pages
@@ -676,19 +695,27 @@ Item {
         }
 
         function onOverlayPageLeft() {
+            if (root.pendingMetadataActivation) {
+                root.pendingMetadataActivation = false
+                state.openMetadataEditor()
+                if (state.activeSidebarView === "export")
+                    state.activeSidebarView = "chart"
+                return
+            }
             if (root.pendingDifficultyActivation <= 0)
                 return
             const difficultyId = root.pendingDifficultyActivation
             root.pendingDifficultyActivation = 0
             root.commands.selectDifficulty(difficultyId)
             root.pages.ensureDifficultyPageActive(difficultyId)
-            if (state.activeSidebarView !== "library")
+            if (state.activeSidebarView === "export")
                 state.activeSidebarView = "chart"
         }
 
         function onNavigationRejected() {
             state.cancelApplicationEditorActivation()
             root.pendingDifficultyActivation = 0
+            root.pendingMetadataActivation = false
             root.syncSidebarViewToPage()
         }
     }
