@@ -37,9 +37,9 @@ namespace miacode::cover_export {
 // export does per output frame; cf. VideoExportQuickRenderBackend::bootstrap +
 // applyExportFrameTick — only playheadSeconds changes frame to frame.)
 //
-// Layers: kPreviewExportOverlayRenderLayers (everything EXCEPT the song-
-// background media), captured over transparent, so the playfield (outline ring +
-// notes + judge) composites cleanly as a layer over the cover's own background.
+// Layers: kPreviewCoverRenderLayers excludes song-background media and judgement
+// effects. The outline ring and notes are captured over transparent so they
+// composite cleanly as a layer over the cover's own background.
 //
 // GUI-thread only; not thread-safe.
 class SceneFrameRenderer

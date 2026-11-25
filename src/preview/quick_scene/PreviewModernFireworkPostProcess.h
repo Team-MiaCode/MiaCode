@@ -7,8 +7,8 @@
 class QQuickWindow;
 class QSGTexture;
 
-inline constexpr int kFireworkStarCount = 32;
-struct FireworkStarState {
+inline constexpr int kModernFireworkStarCount = 32;
+struct ModernFireworkStarState {
     float x = 0.0f;
     float y = 0.0f;
     float radius = 0.0f;
@@ -16,15 +16,15 @@ struct FireworkStarState {
 };
 
 // Render-thread owner of the composition, local stars and separable bloom targets.
-class PreviewFireworkPostProcess final : public QSGNode
+class PreviewModernFireworkPostProcess final : public QSGNode
 {
 public:
-    explicit PreviewFireworkPostProcess(QQuickWindow* window);
-    ~PreviewFireworkPostProcess() override;
+    explicit PreviewModernFireworkPostProcess(QQuickWindow* window);
+    ~PreviewModernFireworkPostProcess() override;
     QSGNode* sourceRoot() const;
     QSGTexture* starTexture() const;
     void update(const QRectF& rect, const QRectF& stageBounds, float clipRadius, float exitScale, float smoothBlendStart,
-                const std::array<FireworkStarState, kFireworkStarCount>& stars);
+                const std::array<ModernFireworkStarState, kModernFireworkStarCount>& stars);
     void preprocess() override;
 private:
     struct Data;

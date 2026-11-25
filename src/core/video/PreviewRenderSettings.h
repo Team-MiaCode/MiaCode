@@ -50,6 +50,21 @@ enum class PreviewTapJudgeTextDistance {
     Outer = 2,
 };
 
+enum class PreviewFireworkStyle {
+    Standard = 0,
+    Modern = 1,
+};
+
+inline const char* fireworkStyleToken(PreviewFireworkStyle style)
+{
+    return style == PreviewFireworkStyle::Modern ? "modern" : "standard";
+}
+
+inline PreviewFireworkStyle fireworkStyleFromToken(const QString& token)
+{
+    return token == QLatin1String("modern") ? PreviewFireworkStyle::Modern : PreviewFireworkStyle::Standard;
+}
+
 enum class PreviewJudgeEffectStyle {
     Standard = 0,
     Starry = 1,

@@ -1,19 +1,23 @@
 #include "app/ui/document/CommandService.h"
+#include "app/services/UiRequestService.h"
 #include "app/ui/chrome/ShortcutCommands.h"
 
 #include "app/ui/document/DocumentModel.h"
 
 #include <QDesktopServices>
+#include <QDir>
 #include <QFileInfo>
 
 namespace miacode::ui {
 CommandService::CommandService(
     DocumentModel& document,
     miacode::DocumentBridge*& bridgeSlot,
+    miacode::UiRequestService& uiRequests,
     QObject* parent)
     : QObject(parent)
     , bridgeSlot_(&bridgeSlot)
     , document_(&document)
+    , uiRequests_(uiRequests)
 {
 }
 
@@ -31,7 +35,39 @@ void CommandService::whenDocumentMayBeLeft(std::function<void()> proceed)
 
 void CommandService::openDocument(const QUrl& fileUrl)
 {
-    whenDocumentMayBeLeft([this, fileUrl]() { document_->openFile(fileUrl); });
+    if (isCurrentChart(fileUrl)) return;
+    whenDocumentMayBeLeft([this, fileUrl]() { document_->openChartFile(fileUrl); });
+}
+
+bool CommandService::isCurrentChart(const QUrl& fileUrl) const
+{
+    const QString selectedPath = QFileInfo(fileUrl.toLocalFile()).canonicalFilePath();
+    return !selectedPath.isEmpty() && selectedPath == QFileInfo(document_->currentFilePath()).canonicalFilePath();
+}
+
+void CommandService::openLibraryChart(const QUrl& fileUrl, int preferredDifficultyId)
+{
+    const auto activate = [this](int difficultyId) {
+        if (document_->currentDifficultyId() > 0) {
+            emit libraryChartOpened(difficultyId);
+            return;
+        }
+        constexpr int masterDifficultyId = 5;
+        if (document_->addDifficulty(masterDifficultyId))
+            emit libraryChartOpened(masterDifficultyId);
+    };
+
+    if (isCurrentChart(fileUrl)) {
+        document_->requestLeaveCurrentField([this, preferredDifficultyId, activate](bool mayLeave) {
+            if (mayLeave)
+                activate(preferredDifficultyId > 0 ? preferredDifficultyId : document_->currentDifficultyId());
+        });
+        return;
+    }
+    whenDocumentMayBeLeft([this, fileUrl, preferredDifficultyId, activate]() {
+        if (document_->openChartFile(fileUrl, preferredDifficultyId))
+            activate(document_->currentDifficultyId());
+    });
 }
 
 void CommandService::openRecentDocument(const QString& path)
@@ -39,8 +75,9 @@ void CommandService::openRecentDocument(const QString& path)
     if (path.trimmed().isEmpty()) {
         return;
     }
-    whenDocumentMayBeLeft(
-        [this, path]() { document_->openFile(QUrl::fromLocalFile(path)); });
+    const auto fileUrl = QUrl::fromLocalFile(path);
+    if (isCurrentChart(fileUrl)) return;
+    whenDocumentMayBeLeft([this, fileUrl]() { document_->openFile(fileUrl); });
 }
 
 void CommandService::newDocument()
@@ -69,8 +106,21 @@ bool CommandService::saveWholeDocument() { return document_->saveWholeDocument()
 bool CommandService::openCurrentFolder()
 {
     const QString path = document_->currentFilePath();
-    return !path.isEmpty()
-        && QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(path).absolutePath()));
+    return !path.isEmpty() && openChartFolder(QUrl::fromLocalFile(path));
+}
+
+bool CommandService::openChartFolder(const QUrl& fileUrl)
+{
+    const QString path = fileUrl.toLocalFile();
+    if (!path.isEmpty()) {
+        const QDir folder = QFileInfo(path).absoluteDir();
+        if (folder.exists() && QDesktopServices::openUrl(QUrl::fromLocalFile(folder.absolutePath()))) {
+            return true;
+        }
+    }
+    uiRequests_.postToast(miacode::NoticeSeverity::Error,
+                         miacode::localizedText("library.open_chart_folder_failed"));
+    return false;
 }
 bool CommandService::saveDocumentAs(const QUrl& fileUrl) { return document_->saveAs(fileUrl); }
 void CommandService::discardDocumentChanges() { document_->discardChanges(); }

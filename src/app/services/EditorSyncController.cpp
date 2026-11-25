@@ -235,12 +235,12 @@ bool EditorSyncController::seekPreviewToEditorLocation(
 }
 
 bool EditorSyncController::requestSelectionRangeExport(
-    int difficultyId, qulonglong revision, int selectionStart, int selectionEnd)
+    int difficultyId, qulonglong revision, int selectionStart, int selectionEnd, bool asGif)
 {
     if (!readinessAccepts(difficultyId, revision)) {
         return false;
     }
-    pendingSelectionRangeExport_ = {difficultyId, revision, selectionStart, selectionEnd};
+    pendingSelectionRangeExport_ = {difficultyId, revision, selectionStart, selectionEnd, asGif};
     selectionRangeExportPending_ = true;
     scheduleSelectionRangeExportDelivery();
     return true;
@@ -404,8 +404,13 @@ void EditorSyncController::scheduleSelectionRangeExportDelivery()
         if (!readinessAccepts(request.difficultyId, request.revision)) {
             return;
         }
-        emit selectionRangeExportRequested(
-            request.difficultyId, request.selectionStart, request.selectionEnd);
+        if (request.asGif) {
+            emit selectionRangeGifExportRequested(
+                request.difficultyId, request.selectionStart, request.selectionEnd);
+        } else {
+            emit selectionRangeExportRequested(
+                request.difficultyId, request.selectionStart, request.selectionEnd);
+        }
     }, Qt::QueuedConnection);
 }
 

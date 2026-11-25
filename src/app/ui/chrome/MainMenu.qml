@@ -23,6 +23,7 @@ Item {
     property bool documentAvailable: true
     property bool editorCommandsEnabled: true
     property bool chartCommandsEnabled: true
+    property bool playbackCommandsEnabled: true
     property bool toolCommandsEnabled: true
     property bool nativeMenuMode: false
     // Re-read each time the menu opens rather than kept live: the list only
@@ -78,6 +79,13 @@ Item {
         if (root._activeMenu && root._activeMenu.visible)
             root._activeMenu.close()
         root._activeMenu = null
+    }
+
+    // Close the menu tree before a tool opens its modal dialog. Otherwise the
+    // parent of the triggering submenu stays open behind the dialog.
+    function requestMediaTool(toolId) {
+        root.closeActiveMenu()
+        root.commands.mediaToolRequested(toolId)
     }
 
     function toggleAnchoredMenu(menu, anchor) {
@@ -292,6 +300,7 @@ Item {
         height: 0
 
         AppMenu {
+            retainBackdrop: true
             id: fileMenu
             title: root.menuTitle(qsTrId("menu.file"))
             // 新建 / 打开 keep v1's Ctrl+Shift+N / Ctrl+Shift+O rather than the
@@ -319,6 +328,7 @@ Item {
                 onTriggered: root.commands.openRequested()
             }
             AppMenu {
+                retainBackdrop: true
                 id: recentMenu
                 title: qsTrId("cover.open_recent")
                 enabled: root.commandsEnabled
@@ -349,6 +359,7 @@ Item {
                 }
             }
             AppMenu {
+                retainBackdrop: true
                 id: restoreBackupMenu
                 title: qsTrId("qml.restore_backup")
                 enabled: root.commandsEnabled
@@ -411,6 +422,7 @@ Item {
         }
 
         AppMenu {
+            retainBackdrop: true
             id: editMenu
             title: root.menuTitle(qsTrId("metadata.edit_e"))
             AppMenuAction {
@@ -454,7 +466,7 @@ Item {
                 text: qsTrId("metadata.find")
                 shortcut: StandardKey.Find
                 shortcutText: root.shortcuts.standardDisplayText(StandardKey.Find)
-                enabled: root.commandsEnabled && root.editorCommandsEnabled
+                enabled: root.commandsEnabled && root.commands.canFind
                 onTriggered: root.commands.findRequested()
             }
             AppMenuAction {
@@ -466,19 +478,21 @@ Item {
             }
             AppMenuAction {
                 text: qsTrId("qml.select_current_line")
-                enabled: root.commandsEnabled && root.editorCommandsEnabled
+                enabled: root.commandsEnabled && root.commands.canFind
                 onTriggered: root.commands.selectCurrentLineRequested()
             }
-        }
-
-        AppMenu {
-            id: toolsMenu
-            title: root.menuTitle(qsTrId("menu.tools"))
+            AppMenuSeparator {}
             AppMenuAction {
                 text: qsTrId("dialog.unsaved_field_changes.field.metadata")
                 enabled: root.commandsEnabled && root.toolCommandsEnabled
                 onTriggered: root.commands.metadataRequested()
             }
+        }
+
+        AppMenu {
+            retainBackdrop: true
+            id: toolsMenu
+            title: root.menuTitle(qsTrId("menu.tools"))
             AppMenuAction {
                 text: qsTrId("qml.latency_calibration")
                 enabled: root.commandsEnabled && root.toolCommandsEnabled
@@ -488,12 +502,12 @@ Item {
             AudioProcessingMenu {
                 enabled: root.commandsEnabled && root.documentAvailable
                 documentAvailable: root.documentAvailable
-                onToolRequested: toolId => root.commands.mediaToolRequested(toolId)
+                onToolRequested: toolId => root.requestMediaTool(toolId)
             }
             VideoProcessingMenu {
                 enabled: root.commandsEnabled && root.documentAvailable
                 documentAvailable: root.documentAvailable
-                onToolRequested: toolId => root.commands.mediaToolRequested(toolId)
+                onToolRequested: toolId => root.requestMediaTool(toolId)
             }
         }
 
@@ -507,6 +521,7 @@ Item {
         }
 
         AppMenu {
+            retainBackdrop: true
             id: adjustMenu
             objectName: "adjustMenu"
             title: root.menuTitle(qsTrId("menu.transform"))
@@ -577,6 +592,7 @@ Item {
             }
 
             AppMenu {
+                retainBackdrop: true
                 id: adjustMoreMenu
                 objectName: "adjustMoreMenu"
                 enabled: root.commandsEnabled && root.chartCommandsEnabled
@@ -606,6 +622,7 @@ Item {
         }
 
         AppMenu {
+            retainBackdrop: true
             id: previewMenu
             title: root.menuTitle(qsTrId("metadata.preview_p"))
             // The native menu owns these bindings on macOS so Cocoa can render
@@ -616,7 +633,7 @@ Item {
                     ? root.shortcuts.sequence("preview.speed_down", "Ctrl+O")
                     : ""
                 shortcutText: root.shortcuts.displayText("preview.speed_down", "Ctrl+O")
-                enabled: root.commandsEnabled && root.chartCommandsEnabled
+                enabled: root.commandsEnabled && root.playbackCommandsEnabled
                 onTriggered: root.commands.previewRateStepRequested(-1)
             }
             AppMenuAction {
@@ -625,7 +642,7 @@ Item {
                     ? root.shortcuts.sequence("preview.speed_up", "Ctrl+P")
                     : ""
                 shortcutText: root.shortcuts.displayText("preview.speed_up", "Ctrl+P")
-                enabled: root.commandsEnabled && root.chartCommandsEnabled
+                enabled: root.commandsEnabled && root.playbackCommandsEnabled
                 onTriggered: root.commands.previewRateStepRequested(1)
             }
             AppMenuSeparator {}
@@ -649,6 +666,7 @@ Item {
         }
 
         AppMenu {
+            retainBackdrop: true
             id: extrasMenu
             title: root.menuTitle(qsTrId("menu.extras"))
             // Cocoa guesses action roles from the leading word (About / Config /
@@ -672,6 +690,7 @@ Item {
 
     // Overflowed top-level AppMenus are inserted via addMenu() as submenus.
     AppMenu {
+        retainBackdrop: true
         id: overflowMenu
     }
 }

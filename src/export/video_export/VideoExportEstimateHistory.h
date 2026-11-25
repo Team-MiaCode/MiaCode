@@ -13,8 +13,8 @@ struct ExportEstimateProfile {
     int outputHeight = 0;
     int fps = 0;
     double durationSeconds = 0.0;
-    VideoExportPreset preset = VideoExportPreset::HighQuality;
-    VideoExportSizePreset sizePreset = VideoExportSizePreset::Standard;
+    VideoRateMode rateMode = VideoRateMode::Quality;
+    VideoQualityLevel qualityLevel = VideoQualityLevel::Standard;
     VideoExportOutputMode outputMode = VideoExportOutputMode::Mp4;
 };
 

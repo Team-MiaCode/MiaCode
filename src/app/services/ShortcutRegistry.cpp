@@ -49,6 +49,13 @@ QStringList parseStringList(const QJsonValue& value)
     return values;
 }
 
+// An empty stored shortcut is an explicit unbinding, not a missing one.
+bool isUnbound(const QJsonObject& object)
+{
+    const QJsonValue value = object.value(QStringLiteral("shortcut"));
+    return value.isString() && value.toString().trimmed().isEmpty();
+}
+
 QString parseShortcutObject(const QJsonObject& object)
 {
     if (object.contains(QStringLiteral("shortcut"))) {
@@ -219,6 +226,18 @@ bool ShortcutRegistry::setUserShortcutText(const QString& id, const QString& sho
     return true;
 }
 
+bool ShortcutRegistry::unbindUserShortcut(const QString& id)
+{
+    if (!editableShortcutIds_.contains(id)) {
+        return false;
+    }
+    const PendingShortcut change{QString(), false};
+    pendingChanges_.insert(id, change);
+    applyRuntimeShortcut(id, change);
+    saveUserOverrides();
+    return true;
+}
+
 bool ShortcutRegistry::resetUserShortcut(const QString& id)
 {
     if (!editableShortcutIds_.contains(id)) {
@@ -295,7 +314,7 @@ void ShortcutRegistry::mergeJsonObject(const QJsonObject& root)
                 defaultShortcutTexts_.value(it.key()),
             });
         }
-        if (!parsed.isEmpty()) {
+        if (!parsed.isEmpty() || isUnbound(actionObject)) {
             shortcutTexts_.insert(it.key(), parsed);
             shortcuts_.insert(it.key(), QKeySequence(parsed, QKeySequence::PortableText));
             if (actionObject.contains(QStringLiteral("shortcut"))) {
@@ -308,7 +327,7 @@ void ShortcutRegistry::mergeJsonObject(const QJsonObject& root)
     for (auto it = contextual.constBegin(); it != contextual.constEnd(); ++it) {
         const QJsonObject shortcutObject = it.value().toObject();
         const QString parsed = parseShortcutObject(shortcutObject);
-        if (parsed.isEmpty()) {
+        if (parsed.isEmpty() && !isUnbound(shortcutObject)) {
             continue;
         }
         if (!defaultShortcuts_.contains(it.key()) && shortcutObject.contains(QStringLiteral("default"))) {

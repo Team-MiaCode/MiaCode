@@ -197,10 +197,12 @@ Item {
         spacing: 5
         layoutDirection: root.transportMirrored ? Qt.RightToLeft : Qt.LeftToRight
 
+        // Transport clicks leave keyboard focus where it is, usually the chart editor.
         IconButton {
             id: stopButton
             Layout.preferredWidth: implicitWidth
             Layout.preferredHeight: implicitHeight
+            focusPolicy: Qt.TabFocus
             iconSource: Qt.resolvedUrl("icons/stop.svg")
             tooltip: qsTrId("preview.stop")
             onClicked: root.previewSession.stop()
@@ -209,6 +211,7 @@ Item {
             id: playButton
             Layout.preferredWidth: implicitWidth
             Layout.preferredHeight: implicitHeight
+            focusPolicy: Qt.TabFocus
             iconSource: Qt.resolvedUrl(root.previewSession.playing ? "icons/pause.svg" : "icons/play.svg")
             tooltip: root.previewSession.playing ? qsTrId("preview.pause") : qsTrId("preview.play")
             onClicked: root.previewSession.playing = !root.previewSession.playing
@@ -238,6 +241,7 @@ Item {
                         > root.exportSession.exportStartSeconds
             Layout.preferredWidth: implicitWidth
             Layout.preferredHeight: implicitHeight
+            focusPolicy: Qt.TabFocus
             iconSource: Qt.resolvedUrl("icons/range-play.svg")
             filledIconSource: Qt.resolvedUrl("icons/range-play-active.svg")
             active: root.exportSession.rangePlaybackEnabled

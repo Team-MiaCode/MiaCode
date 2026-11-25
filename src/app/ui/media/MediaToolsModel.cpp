@@ -65,6 +65,13 @@ QVariantList MediaToolsModel::batchJobs() const
     return list;
 }
 
+void MediaToolsModel::balanceAudioVolume()
+{
+    if (engine() != nullptr) {
+        engine()->balanceAudioVolume();
+    }
+}
+
 void MediaToolsModel::convertTrackTo44100Hz()
 {
     if (engine() != nullptr) {
@@ -195,6 +202,11 @@ void MediaToolsModel::startBatchCompression()
     miacode::UiRequestService* const requests = uiRequests_;
     miacode::JobProgressService* const jobProgress = jobProgress_;
     if (requests == nullptr || jobProgress == nullptr || batchRunning_ || jobs_.isEmpty()) {
+        return;
+    }
+    if (jobProgress->active()) {
+        requests->postToast(miacode::NoticeSeverity::Information,
+            miacode::localizedText("job_progress.busy"));
         return;
     }
     const bool hasCompressibleVideo = std::any_of(

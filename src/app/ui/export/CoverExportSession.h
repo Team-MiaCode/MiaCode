@@ -162,10 +162,13 @@ public:
     Q_INVOKABLE void setLayerLocked(const QString& key, bool locked);
     Q_INVOKABLE void setActiveLayerOpacity(double opacity);
     Q_INVOKABLE void setActiveLayerSizeFraction(double sizeFraction);
+    Q_INVOKABLE void setActiveLayerRotation(double degrees);
     Q_INVOKABLE void setActiveLayerCenter(double nx, double ny);
     Q_INVOKABLE void setActiveLayerText(const QString& text);
+    Q_INVOKABLE void setActiveLayerFontPath(const QString& path);
     Q_INVOKABLE void setActiveLayerTextColor(const QString& color);
     Q_INVOKABLE void setActiveLayerTextBold(bool bold);
+    Q_INVOKABLE void setActiveLayerTextEffect(const QString& property, const QVariant& value);
     Q_INVOKABLE void setActiveLayerFrameSeconds(double seconds);
     Q_INVOKABLE void previewActiveLayerFrameSeconds(double seconds);
     Q_INVOKABLE void commitActiveLayerFrameSeconds();

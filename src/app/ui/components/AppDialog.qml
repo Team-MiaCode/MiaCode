@@ -7,6 +7,7 @@ Dialog {
     id: root
 
     property bool reservesPlainSpace: true
+    property bool blocksWorkbenchShortcuts: true
     property real preferredWidth: 460
     property real preferredHeight: Theme.dialogCompactHeight
     property Item body

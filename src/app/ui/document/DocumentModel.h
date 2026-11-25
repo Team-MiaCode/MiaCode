@@ -178,7 +178,9 @@ public:
 
     // Fresh values for every open, shared by the shell and save-before-leave.
     Q_INVOKABLE QVariantMap fileDialogLocation(bool saveMode) const;
+    Q_INVOKABLE QStringList openFileNameFilters() const;
     Q_INVOKABLE bool openFile(const QUrl& fileUrl);
+    bool openChartFile(const QUrl& fileUrl, int preferredDifficultyId = 0);
     QJsonObject documentIdentity() const;
     net::NetEnginePort::Cancel openNetPreview(const QString& path, const QJsonObject& expected,
                                              net::NetEnginePort::Done done);
@@ -267,7 +269,7 @@ signals:
     void bookmarksChanged();
 
 private:
-    bool openFileWithOrigin(const QUrl& fileUrl, ChartDocumentOrigin origin);
+    bool openFileWithOrigin(const QUrl& fileUrl, ChartDocumentOrigin origin, int preferredDifficultyId = 0);
     mutable QString workspaceId_;
     enum class WorkspaceCommitKind {
         Incremental,
@@ -357,8 +359,8 @@ private:
     // a never-saved chart wrote nothing and said nothing: the file service
     // refused an empty path and the prompt just went away.
     void createChartBesideAudio(const QString& audioPath, bool overwriteExisting = false);
-    void ensureTrackCopyThenCreate(const QString& audioPath, const QString& targetPath);
-    void createEmptyDocumentAt(const QString& targetPath, const QString& sourceAudioPath);
+    bool ensureTrackCopyThenCreate(const QString& audioPath, const QString& targetPath);
+    bool createEmptyDocumentAt(const QString& targetPath, const QString& sourceAudioPath);
     void handleDroppedAudio(const QString& audioPath, std::function<void()> finished);
     void leaveThenCreateDroppedChart(const QString& audioPath, bool overwriteExisting,
                                      std::function<void()> finished);

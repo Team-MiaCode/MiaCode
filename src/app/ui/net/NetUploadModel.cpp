@@ -44,7 +44,7 @@ QVariant NetUploadModel::data(const QModelIndex& index, int role) const {
     case FilesRole: {
         QStringList names;
         for (const auto& value : row.value("files").toArray()) names.append(value.toObject().value("displayName").toString());
-        return names.join(" / ");
+        return names.join('\n');
     }
     default: return {};
     }

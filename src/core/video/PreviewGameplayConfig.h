@@ -189,7 +189,9 @@ inline constexpr double kJudgeEffectTouchDurationSeconds = 0.25;
 inline constexpr double kJudgeEffectFireworkTouchTriggerDelaySeconds = 0.0;
 inline constexpr double kJudgeEffectFireworkSpreadSeconds = 7.0 / 30.0;
 inline constexpr double kJudgeEffectFireworkSpreadAnimationTime = 0.20;
-inline constexpr double kJudgeEffectFireworkDurationSeconds = 1.10;
+inline constexpr double kModernFireworkDurationSeconds = 1.10;
+inline constexpr double kStandardFireworkDurationSeconds = 1.50;
+inline constexpr double kFireworkMaxDurationSeconds = kStandardFireworkDurationSeconds;
 
 inline constexpr double judgeEffectFireworkAnimationTime(double elapsedSeconds)
 {

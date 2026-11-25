@@ -9,6 +9,7 @@ MenuItem {
     id: root
 
     property bool compact: false
+    hoverEnabled: true
 
     implicitHeight: compact ? Theme.compactControlHeight : Theme.menuRowHeight
     // Reserve the same 14 px icon slot for submenu arrows and checkmarks.
@@ -42,7 +43,7 @@ MenuItem {
     readonly property color labelColor: {
         if (!root.enabled)
             return Theme.colors.text.disabled
-        if (root.highlighted || root.checked)
+        if (root.hovered || (root.highlighted && root.visualFocus) || root.checked)
             return Theme.colors.text.active
         return Theme.colors.text.secondary
     }
@@ -101,7 +102,7 @@ MenuItem {
         cornerRadius: root.compact ? Theme.compactControlRadius : Theme.controlRadius
         stateColors: Theme.colors.popupState
         selected: root.checked
-        hovered: root.highlighted || root.hovered
+        hovered: root.hovered || (root.highlighted && root.visualFocus)
         pressed: root.down
         focused: root.visualFocus
     }

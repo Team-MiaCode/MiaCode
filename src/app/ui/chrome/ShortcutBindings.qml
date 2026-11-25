@@ -19,9 +19,25 @@ Item {
     required property var shortcuts
     required property var commands
     required property var previewSession
+    property var timelineStateBridge: null
+    property var inputContext: null
+    readonly property string zoomInGesture: timelineStateBridge && shortcuts.revision >= 0
+        ? shortcuts.gestureText("timeline.zoom_in", "Ctrl+WheelUp") : ""
+    readonly property string zoomOutGesture: timelineStateBridge && shortcuts.revision >= 0
+        ? shortcuts.gestureText("timeline.zoom_out", "Ctrl+WheelDown") : ""
+
+    function syncTimelineGestures() {
+        if (timelineStateBridge)
+            timelineStateBridge.setZoomWheelShortcuts([zoomInGesture], [zoomOutGesture])
+    }
+    onZoomInGestureChanged: syncTimelineGestures()
+    onZoomOutGestureChanged: syncTimelineGestures()
+    onTimelineStateBridgeChanged: syncTimelineGestures()
+    Component.onCompleted: syncTimelineGestures()
     // Transforms edit the chart, so they are inert without one.
     property bool commandsEnabled: true
     property bool chartCommandsEnabled: true
+    property bool chartNormalizationEnabled: false
     property bool playbackCommandsEnabled: true
     property bool menuOwnsChartTransformShortcuts: false
     property bool menuOwnsPreviewRateShortcuts: false
@@ -31,6 +47,35 @@ Item {
     // that nothing ever synced from here, so every transform found an empty
     // selection and silently did nothing.
     signal chartTransformRequested(string opId)
+    signal chartNormalizationRequested()
+
+    Shortcut {
+        sequence: root.shortcuts.revision >= 0
+            ? root.shortcuts.sequence("editor.normalize_chart") : ""
+        enabled: root.commandsEnabled && root.chartNormalizationEnabled
+            && !root.shortcuts.captureActive && sequence !== ""
+        context: Qt.WindowShortcut
+        autoRepeat: false
+        onActivated: root.chartNormalizationRequested()
+    }
+
+    Shortcut {
+        sequence: root.timelineStateBridge && root.shortcuts.revision >= 0
+            ? root.shortcuts.sequence("timeline.zoom_in") : ""
+        enabled: root.commandsEnabled && root.chartCommandsEnabled
+            && !root.shortcuts.captureActive && sequence !== ""
+        context: Qt.WindowShortcut
+        onActivated: root.timelineStateBridge.stepZoomIn()
+    }
+
+    Shortcut {
+        sequence: root.timelineStateBridge && root.shortcuts.revision >= 0
+            ? root.shortcuts.sequence("timeline.zoom_out") : ""
+        enabled: root.commandsEnabled && root.chartCommandsEnabled
+            && !root.shortcuts.captureActive && sequence !== ""
+        context: Qt.WindowShortcut
+        onActivated: root.timelineStateBridge.stepZoomOut()
+    }
 
     Instantiator {
         model: root.commands.shortcutCommandIds()
@@ -40,7 +85,8 @@ Item {
             sequence: root.shortcuts.revision >= 0
                 ? root.shortcuts.sequence(modelData)
                 : ""
-            enabled: root.chartCommandsEnabled
+            enabled: root.commandsEnabled && root.chartCommandsEnabled
+                     && !root.shortcuts.captureActive
                      && !root.menuOwnsChartTransformShortcuts
                      && sequence !== ""
             context: Qt.WindowShortcut
@@ -48,46 +94,12 @@ Item {
         }
     }
 
-    // Preview commands bind straight to the preview session instead of going
-    // through the backend command table.
-    // Runtime owns the stop/start decision, including pending startup.
-    Shortcut {
-        sequence: root.shortcuts.revision >= 0
-            ? root.shortcuts.sequence("preview.stop_or_play", "Ctrl+Shift+C")
-            : ""
-        enabled: root.playbackCommandsEnabled && sequence !== ""
-        context: Qt.ApplicationShortcut
-        onActivated: root.previewSession.stopOrPlay()
-    }
-
-    Shortcut {
-        sequence: root.shortcuts.revision >= 0
-            ? root.shortcuts.sequence("preview.play_pause_global", "Ctrl+Shift+X")
-            : ""
-        enabled: root.playbackCommandsEnabled && sequence !== ""
-        context: Qt.ApplicationShortcut
-        onActivated: root.previewSession.togglePlayback()
-    }
-
-    Shortcut {
-        sequence: root.shortcuts.revision >= 0
-            ? root.shortcuts.sequence("preview.speed_down", "Ctrl+O")
-            : ""
-        enabled: root.playbackCommandsEnabled
-                 && !root.menuOwnsPreviewRateShortcuts
-                 && sequence !== ""
-        context: Qt.WindowShortcut
-        onActivated: root.previewSession.adjustRate(-1)
-    }
-
-    Shortcut {
-        sequence: root.shortcuts.revision >= 0
-            ? root.shortcuts.sequence("preview.speed_up", "Ctrl+P")
-            : ""
-        enabled: root.playbackCommandsEnabled
-                 && !root.menuOwnsPreviewRateShortcuts
-                 && sequence !== ""
-        context: Qt.WindowShortcut
-        onActivated: root.previewSession.adjustRate(1)
+    PreviewShortcuts {
+        shortcuts: root.shortcuts
+        previewSession: root.previewSession
+        inputContext: root.inputContext
+        commandsEnabled: root.commandsEnabled
+        playbackCommandsEnabled: root.playbackCommandsEnabled
+        menuOwnsPreviewRateShortcuts: root.menuOwnsPreviewRateShortcuts
     }
 }

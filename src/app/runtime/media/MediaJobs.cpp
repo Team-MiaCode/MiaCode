@@ -38,15 +38,6 @@
 
 using namespace miacode::runtime::shared;
 
-miacode::runtime::MediaJobsHost::MediaJobsHost(
-    Session& session,
-    RuntimeContext::Ui& ui,
-    RuntimeContext::State& state)
-    : session_(session)
-    , ui_(ui)
-    , state_(state)
-{}
-
 QString miacode::runtime::MediaJobsHost::resolveLatencyDetectorTrackPath() const
 {
     if (session_.currentFilePath_.isEmpty()) {
@@ -81,10 +72,6 @@ void miacode::runtime::MediaJobsHost::releasePreviewMediaForFileOperation()
     // the host left the post-op preview blank, "压缩后视频不加载").
     // See project_pv_file_lock_release.
     session_.releasePreviewStageMediaDecoderForFileOperation();
-    for (int i = 0; i < 8; ++i) {
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
-        QThread::msleep(25);
-    }
 }
 
 void miacode::runtime::MediaJobsHost::reloadPreviewMediaAfterFileOperation(bool reloadTrack)
@@ -123,9 +110,6 @@ void miacode::runtime::MediaJobsHost::reloadPreviewMediaAfterFileOperation(bool 
         qMax(0.0, session_.pauseSecond_),
         session_.applicationServices_.workspace().document().videoPath
     );
-    for (int i = 0; i < 4; ++i) {
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
-    }
 }
 
 void miacode::runtime::MediaJobsHost::showMediaOperationCompleteDialog(

@@ -4,6 +4,7 @@
 #include <QMetaObject>
 #include <QObject>
 #include <QFont>
+#include <QRectF>
 #include <QSize>
 #include <QString>
 #include <QStringList>
@@ -44,6 +45,7 @@ public:
 
     void setQuickViewportSize(const QSize& viewportSize);
     int timelineTop() const;
+    QRectF noteViewportRect() const;
 
     void clear();
     void setTimelineData(const TimelineRenderSnapshot& snapshot);
@@ -72,7 +74,7 @@ public:
     Q_INVOKABLE void stepZoomOut();
     QStringList zoomInWheelShortcuts() const;
     QStringList zoomOutWheelShortcuts() const;
-    void setZoomWheelShortcuts(const QStringList& zoomInShortcuts, const QStringList& zoomOutShortcuts);
+    Q_INVOKABLE void setZoomWheelShortcuts(const QStringList& zoomInShortcuts, const QStringList& zoomOutShortcuts);
     double viewportCenterSecond();
     QSize viewportSize() const;
     void setZoomScaleAnchored(double scale, double anchorSecond);
@@ -82,8 +84,6 @@ public:
     void setWaveformBrightness(double brightness);
     double measureLineBrightness() const;
     void setMeasureLineBrightness(double brightness);
-    double waveformPhaseCompensationSeconds() const;
-    void setWaveformPhaseCompensationSeconds(double seconds);
     void cycleZoomPreset(double anchorSecond);
     void stepZoomPreset(int deltaSteps, double anchorSecond);
     void setPlaybackEntrySeconds(double second);
@@ -100,7 +100,9 @@ public:
     // Relay for TimelineQuickItem's per-frame afterAnimating hook. The item owns the window
     // binding; the bridge is what MainWindow already holds, so the tick is republished here
     // rather than making MainWindow reach for a QML-instantiated item pointer.
-    void notifyRenderCadenceTick();
+    void notifyRenderCadenceTick(double presentationLeadSeconds = 0.0);
+    // Measured from this window's completed frames; zero while playback is paused.
+    double presentationLeadSeconds() const;
     // True while preview playback is driving the timeline. The item uses this to keep the
     // render loop spinning (QQuickWindow::update) so afterAnimating keeps arriving; without
     // it the cadence would depend on whether an update() issued during afterAnimating also
@@ -177,7 +179,7 @@ private:
     double contentScale_ = 1.0;
     double waveformBrightness_ = miacode::timeline::kTimelineWaveformBrightnessDefault;
     double measureLineBrightness_ = miacode::timeline::kTimelineMeasureLineBrightnessDefault;
-    double waveformPhaseCompensationSeconds_ = 0.0;
+    double presentationLeadSeconds_ = 0.0;
     double playbackEntrySeconds_ = 0.0;
     double playheadUpperLimitSeconds_ = -1.0;
     double playheadSeconds_ = 0.0;

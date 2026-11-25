@@ -114,6 +114,15 @@ void applyId3Metadata(SimaiDocument& document, const QString& audioPath)
     }
 }
 
+miacode::LocalizedText audioFileNameFilter()
+{
+    QStringList patterns;
+    for (const QString& extension : miacode::chart_assets::supportedTrackFileExtensions()) {
+        patterns << QStringLiteral("*.%1").arg(extension);
+    }
+    return miacode::localizedText("document.audio_files_filter").arg(patterns.join(QLatin1Char(' ')));
+}
+
 QString uniqueChartFolder(const QString& parentDirectory, const QString& folder)
 {
     QString target = QDir(parentDirectory).filePath(folder);
@@ -1013,21 +1022,22 @@ void DocumentModel::createDocumentFromPickedAudio()
     if (requests == nullptr || fileService_ == nullptr) {
         return;
     }
-    QStringList patterns;
-    for (const QString& extension : miacode::chart_assets::supportedTrackFileExtensions()) {
-        patterns << QStringLiteral("*.%1").arg(extension);
-    }
     miacode::FileRequest request;
     request.title = miacode::localizedText("document.choose_audio");
     request.startPath = miacode::file_dialog_preferences::recentDirectory(
         miacode::file_dialog_preferences::Purpose::NewChartAudio,
         fileDialogLocation(false).value(QStringLiteral("folder")).toUrl().toLocalFile());
-    request.nameFilters = {
-        miacode::localizedText("document.audio_files_filter").arg(patterns.join(QLatin1Char(' '))),
-        miacode::localizedText("qml.all_files"),
-    };
+    request.nameFilters = {audioFileNameFilter()};
     requests->requestFile(request, [this](const QString& audioPath) {
         if (!audioPath.trimmed().isEmpty()) {
+            if (!miacode::chart_assets::isSupportedTrackFilePath(audioPath)) {
+                if (uiRequests_ != nullptr) {
+                    uiRequests_->postNotice(miacode::NoticeSeverity::Error,
+                        miacode::localizedText("document.new_failed"),
+                        miacode::localizedText("track_metadata.unsupported_media_file"));
+                }
+                return;
+            }
             miacode::file_dialog_preferences::rememberFile(
                 miacode::file_dialog_preferences::Purpose::NewChartAudio, audioPath);
             createChartBesideAudio(QDir::cleanPath(audioPath));
@@ -1227,7 +1237,7 @@ void DocumentModel::createChartBesideAudio(const QString& audioPath, bool overwr
         });
 }
 
-void DocumentModel::ensureTrackCopyThenCreate(
+bool DocumentModel::ensureTrackCopyThenCreate(
     const QString& audioPath, const QString& targetPath)
 {
     miacode::UiRequestService* const requests = uiRequests_;
@@ -1238,8 +1248,7 @@ void DocumentModel::ensureTrackCopyThenCreate(
     // Already named track.<ext>: nothing to copy, and copying would mean
     // copying a file onto itself.
     if (audioInfo.fileName().compare(trackName, Qt::CaseInsensitive) == 0) {
-        createEmptyDocumentAt(targetPath, audioPath);
-        return;
+        return createEmptyDocumentAt(targetPath, audioPath);
     }
 
     const QString trackPath = audioInfo.absoluteDir().filePath(trackName);
@@ -1250,7 +1259,7 @@ void DocumentModel::ensureTrackCopyThenCreate(
                     miacode::NoticeSeverity::Error, miacode::localizedText("document.new_failed"),
                     miacode::localizedText("document.cannot_replace").arg(QDir::toNativeSeparators(trackPath)));
             }
-            return;
+            return false;
         }
         if (!QFile::copy(audioPath, trackPath)) {
             if (requests != nullptr) {
@@ -1258,7 +1267,7 @@ void DocumentModel::ensureTrackCopyThenCreate(
                     miacode::NoticeSeverity::Error, miacode::localizedText("document.new_failed"),
                     miacode::localizedText("document.cannot_write").arg(QDir::toNativeSeparators(trackPath)));
             }
-            return;
+            return false;
         }
         // The engine resolves a track by trying track.mp3, .wav, .flac, .ogg in
         // that order, so a copy landing on a later extension while an earlier
@@ -1273,15 +1282,14 @@ void DocumentModel::ensureTrackCopyThenCreate(
                 miacode::localizedText("document.existing_track_preferred")
                     .arg(QFileInfo(resolved).fileName(), QFileInfo(trackPath).fileName()));
         }
-        createEmptyDocumentAt(targetPath, audioPath);
+        return createEmptyDocumentAt(targetPath, audioPath);
     };
 
     if (!QFileInfo::exists(trackPath)) {
-        copyThenCreate();
-        return;
+        return copyThenCreate();
     }
     if (requests == nullptr) {
-        return;
+        return false;
     }
     requests->requestConfirmation(
         miacode::localizedText("document.file_already_exists"),
@@ -1293,13 +1301,14 @@ void DocumentModel::ensureTrackCopyThenCreate(
                 copyThenCreate();
             }
         });
+    return true;
 }
 
-void DocumentModel::createEmptyDocumentAt(const QString& targetPath, const QString& sourceAudioPath)
+bool DocumentModel::createEmptyDocumentAt(const QString& targetPath, const QString& sourceAudioPath)
 {
     miacode::UiRequestService* const requests = uiRequests_;
     if (fileService_ == nullptr) {
-        return;
+        return false;
     }
     SimaiDocument document = SimaiDocument::createEmpty();
     applyId3Metadata(document, sourceAudioPath);
@@ -1310,17 +1319,18 @@ void DocumentModel::createEmptyDocumentAt(const QString& targetPath, const QStri
                 miacode::localizedText("document.file_already_exists"),
                 miacode::localizedText("document.cannot_write_file").arg(QDir::toNativeSeparators(targetPath)));
         }
-        return;
+        return false;
     }
     // Written, then opened the same way any chart is: the workspace parses it
     // and takes the fresh file as its save point, so a new document starts
     // clean rather than dirty-on-arrival.
     if (!openFile(QUrl::fromLocalFile(targetPath))) {
-        return;
+        return false;
     }
     if (bridge() != nullptr) {
         bridge()->noteRecentDocument(targetPath);
     }
+    return true;
 }
 
 void DocumentModel::closeDocument()
@@ -1389,8 +1399,26 @@ QVariantMap DocumentModel::fileDialogLocation(bool saveMode) const
             {QStringLiteral("file"), QUrl::fromLocalFile(path)}};
 }
 
+QStringList DocumentModel::openFileNameFilters() const
+{
+    return {qtTrId("qml.simai_files_txt_simai")};
+}
+
+bool DocumentModel::openChartFile(const QUrl& fileUrl, int preferredDifficultyId)
+{
+    return openFileWithOrigin(fileUrl, ChartDocumentOrigin::Local, preferredDifficultyId);
+}
+
 bool DocumentModel::openFile(const QUrl& fileUrl)
 {
+    const QString path = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
+    const QFileInfo info(path);
+    if (miacode::chart_assets::isSupportedTrackFilePath(path)) {
+        const QString chartPath = info.absoluteDir().filePath(QStringLiteral("maidata.txt"));
+        if (QFileInfo::exists(chartPath))
+            return openFileWithOrigin(QUrl::fromLocalFile(chartPath), ChartDocumentOrigin::Local);
+        return ensureTrackCopyThenCreate(path, chartPath);
+    }
     return openFileWithOrigin(fileUrl, ChartDocumentOrigin::Local);
 }
 
@@ -1435,13 +1463,13 @@ net::NetEnginePort::Cancel DocumentModel::openNetPreview(const QString& path, co
     return [finish, failure] { finish({{}, failure("job.cancelled")}); };
 }
 
-bool DocumentModel::openFileWithOrigin(const QUrl& fileUrl, ChartDocumentOrigin origin)
+bool DocumentModel::openFileWithOrigin(const QUrl& fileUrl, ChartDocumentOrigin origin, int preferredDifficultyId)
 {
     const QString path = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
     if (fileService_ == nullptr) return false;
     miacode::ChartWorkspaceFileResult result;
     if (!runWorkspaceMutation([&] {
-            result = fileService_->open(path, origin);
+            result = fileService_->open(path, origin, preferredDifficultyId);
             return result.accepted;
         })) {
         uiRequests_->postNotice(miacode::NoticeSeverity::Error,
@@ -2115,19 +2143,28 @@ miacode::editor::SimaiTextEditResult DocumentModel::transformChartSelection(
     result.transaction.anchor = anchor;
     result.transaction.position = position;
 
-    const int begin = qBound(0, qMin(anchor, position), text.size());
-    const int end = qBound(begin, qMax(anchor, position), text.size());
-    if (begin >= end) {
-        // Chart transforms target the selected range.
-        result.error = QStringLiteral("no_selection");
-        return result;
-    }
-
     const auto specs = miacode::ui::chartTransformSpecs();
     const auto spec = std::find_if(specs.cbegin(), specs.cend(),
                                    [&opId](const miacode::ui::ChartTransformSpec& candidate) {
                                        return candidate.id == opId;
                                    });
+    const auto postSubdivisionFailure = [&](const char* reasonKey, bool partial) {
+        if (uiRequests_ == nullptr || spec == specs.cend() || !spec->subdivisionStep) return;
+        uiRequests_->postToast(miacode::NoticeSeverity::Error,
+            miacode::localizedText(partial ? "toast.operation_partially_failed" : "toast.operation_failed")
+                .arg(miacode::localizedText(spec->labelKey.toUtf8().constData()),
+                     miacode::localizedText(reasonKey)));
+    };
+
+    const int begin = qBound(0, qMin(anchor, position), text.size());
+    const int end = qBound(begin, qMax(anchor, position), text.size());
+    if (begin >= end) {
+        // Chart transforms target the selected range.
+        result.error = QStringLiteral("no_selection");
+        postSubdivisionFailure("toast.selection_required", false);
+        return result;
+    }
+
     if (spec == specs.cend()) {
         result.error = QStringLiteral("unknown_transform");
         return result;
@@ -2136,7 +2173,23 @@ miacode::editor::SimaiTextEditResult DocumentModel::transformChartSelection(
     const QString selected = text.mid(begin, end - begin);
     int changed = 0;
     QString replacement;
-    if (spec->apply) {
+    if (spec->subdivisionStep) {
+        const auto transformed = miacode::chart_transform::transformSubdivisionSelection(
+            selected, {text.left(begin), text.mid(end)}, *spec->subdivisionStep);
+        replacement = transformed.text;
+        changed = transformed.changedCount;
+        if (transformed.skippedCount > 0) {
+            const bool partial = replacement != selected;
+            postSubdivisionFailure(
+                transformed.failure == miacode::chart_transform::SubdivisionFailure::SubdivisionLimit
+                    ? "toast.subdivision_limit" : "toast.subdivision_incompatible", partial);
+            miacode::debug_log::appendLine(miacode::debug_log::Channel::Operation,
+                QStringLiteral("Subdivision"),
+                QStringLiteral("operation=%1 changed=%2 skipped=%3 reason=%4")
+                    .arg(opId).arg(changed).arg(transformed.skippedCount).arg(int(transformed.failure)),
+                false, miacode::debug_log::Level::Warn);
+        }
+    } else if (spec->apply) {
         replacement = spec->apply(selected, {text.left(begin), text.mid(end)}, &changed);
     } else {
         const QString transformedFull =

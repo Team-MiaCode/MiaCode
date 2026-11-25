@@ -63,7 +63,6 @@ private:
 #endif
 #ifdef Q_OS_MACOS
     void refreshMaterialAfterPresentation();
-    void setMacOsAlwaysOnTop(bool enabled);
 #endif
     bool extendDwmFrame() const;
     void observeMacOsWindow(QWindow* window);

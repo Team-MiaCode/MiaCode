@@ -7,6 +7,13 @@
 
 namespace miacode::chart_transform::detail {
 
+void recordSkippedSubdivision(SubdivisionTransformResult* result, SubdivisionFailure failure)
+{
+    if (result == nullptr) return;
+    ++result->skippedCount;
+    if (result->failure == SubdivisionFailure::None) result->failure = failure;
+}
+
 bool isLineBreakChar(QChar ch)
 {
     return ch == QChar('\n')
@@ -310,7 +317,8 @@ bool hasCompressibleCommaRun(const QString& chunk, int factor)
     return flush();
 }
 
-QString raiseSubdivisionCore(const QString& input, int* changedCount)
+QString raiseSubdivisionCore(const QString& input, int* changedCount,
+                             SubdivisionTransformResult* diagnostics = nullptr)
 {
     int changed = 0;
     QString output;
@@ -359,6 +367,8 @@ QString raiseSubdivisionCore(const QString& input, int* changedCount)
                     ++changed;
                 } else {
                     output.append(signature);
+                    if (denominator > (std::numeric_limits<int>::max() / 2))
+                        recordSkippedSubdivision(diagnostics, SubdivisionFailure::SubdivisionLimit);
                 }
                 i = close;
                 continue;
@@ -663,7 +673,8 @@ QStringList splitSubdivisionChunks(const QString& input)
     return chunks;
 }
 
-QString lowerSubdivisionCore(const QString& input, int* changedCount)
+QString lowerSubdivisionCore(const QString& input, int* changedCount,
+                             SubdivisionTransformResult* diagnostics = nullptr)
 {
     int changed = 0;
     QString output;
@@ -674,6 +685,8 @@ QString lowerSubdivisionCore(const QString& input, int* changedCount)
             output.append(lowerSubdivisionChunk(chunk, &changed));
         } else {
             output.append(chunk);
+            if (diagnostics != nullptr && remainingChunkHasChartContent(chunk, 0))
+                recordSkippedSubdivision(diagnostics, SubdivisionFailure::IncompatibleGrid);
         }
     }
     if (changedCount != nullptr) {
@@ -771,7 +784,8 @@ bool validateRaiseSubdivisionHalfStepChunk(const QString& chunk)
     return !slotHasContent || ((slot % 2) == 0);
 }
 
-QString raiseSubdivisionHalfStepChunk(const QString& chunk, bool tripleFallback, int* changed)
+QString raiseSubdivisionHalfStepChunk(const QString& chunk, bool tripleFallback, int* changed,
+                                      SubdivisionTransformResult* diagnostics = nullptr)
 {
     if (!tripleFallback && !hasCompressibleCommaRun(chunk, 2)) {
         return chunk;
@@ -864,6 +878,8 @@ QString raiseSubdivisionHalfStepChunk(const QString& chunk, bool tripleFallback,
                 }
             } else {
                 output.append(signature);
+                if (denominator > (std::numeric_limits<int>::max() / 3))
+                    recordSkippedSubdivision(diagnostics, SubdivisionFailure::SubdivisionLimit);
             }
             i = close;
             continue;
@@ -1292,8 +1308,9 @@ int borrowedSubdivisionIndex(const QString& lead, const QString& core)
 QString rewriteSubdivisionSelection(
     const QString& input,
     const SelectionContext& context,
-    QString (*rewriteCore)(const QString&, int*),
-    int* changedCount)
+    QString (*rewriteCore)(const QString&, int*, SubdivisionTransformResult*),
+    int* changedCount,
+    SubdivisionTransformResult* diagnostics = nullptr)
 {
     const SelectionEdgeSplit split = splitSelectionEdges(input);
     const QString lead = context.before + split.prefix;
@@ -1306,7 +1323,7 @@ QString rewriteSubdivisionSelection(
         core.insert(borrowAt, borrowed);
     }
     int changed = 0;
-    core = rewriteCore(core, &changed);
+    core = rewriteCore(core, &changed, diagnostics);
     // Every rewrite changes the number in a signature it steps, so a borrowed
     // {N} still in place means its run could not be stepped losslessly. That
     // run keeps its grid, and the signature was never needed.
@@ -1323,7 +1340,8 @@ QString rewriteSubdivisionSelection(
         input, output, context.after, changed, borrowedKept ? governing : 0);
 }
 
-QString raiseSubdivisionHalfStepCore(const QString& input, int* changedCount)
+QString raiseSubdivisionHalfStepCore(const QString& input, int* changedCount,
+                                     SubdivisionTransformResult* diagnostics = nullptr)
 {
     int changed = 0;
     QString output;
@@ -1332,7 +1350,7 @@ QString raiseSubdivisionHalfStepCore(const QString& input, int* changedCount)
     for (const QString& chunk : chunks) {
         if (validateRaiseSubdivisionHalfStepChunk(chunk)) {
             // Lossless x1.5: an even subdivision whose occupied slots are all even-aligned.
-            output.append(raiseSubdivisionHalfStepChunk(chunk, /*tripleFallback=*/false, &changed));
+            output.append(raiseSubdivisionHalfStepChunk(chunk, /*tripleFallback=*/false, &changed, diagnostics));
             continue;
         }
         // x1.5 is not representable losslessly (odd subdivision, or notes on odd slots). Triple
@@ -1341,9 +1359,13 @@ QString raiseSubdivisionHalfStepCore(const QString& input, int* changedCount)
         int denominator = 0;
         if (leadingSubdivisionDenominator(chunk, &denominator)
             && denominator <= (std::numeric_limits<int>::max() / 3)) {
-            output.append(raiseSubdivisionHalfStepChunk(chunk, /*tripleFallback=*/true, &changed));
+            output.append(raiseSubdivisionHalfStepChunk(chunk, /*tripleFallback=*/true, &changed, diagnostics));
         } else {
             output.append(chunk);
+            if (diagnostics != nullptr && remainingChunkHasChartContent(chunk, 0))
+                recordSkippedSubdivision(diagnostics,
+                    denominator > (std::numeric_limits<int>::max() / 3)
+                        ? SubdivisionFailure::SubdivisionLimit : SubdivisionFailure::IncompatibleGrid);
         }
     }
     if (changedCount != nullptr) {
@@ -1352,7 +1374,8 @@ QString raiseSubdivisionHalfStepCore(const QString& input, int* changedCount)
     return output;
 }
 
-QString lowerSubdivisionHalfStepCore(const QString& input, int* changedCount)
+QString lowerSubdivisionHalfStepCore(const QString& input, int* changedCount,
+                                     SubdivisionTransformResult* diagnostics = nullptr)
 {
     int changed = 0;
     QString output;
@@ -1363,6 +1386,8 @@ QString lowerSubdivisionHalfStepCore(const QString& input, int* changedCount)
             output.append(lowerSubdivisionHalfStepChunk(chunk, &changed));
         } else {
             output.append(chunk);
+            if (diagnostics != nullptr && remainingChunkHasChartContent(chunk, 0))
+                recordSkippedSubdivision(diagnostics, SubdivisionFailure::IncompatibleGrid);
         }
     }
     if (changedCount != nullptr) {
@@ -1376,6 +1401,28 @@ QString lowerSubdivisionHalfStepCore(const QString& input, int* changedCount)
 namespace miacode::chart_transform {
 
 using namespace detail;
+
+SubdivisionTransformResult transformSubdivisionSelection(
+    const QString& input, const SelectionContext& context, SubdivisionStep step)
+{
+    MC_OP("miacode::chart_transform::transformSubdivisionSelection");
+    SubdivisionTransformResult result;
+    switch (step) {
+    case SubdivisionStep::Raise:
+        result.text = rewriteSubdivisionSelection(input, context, &raiseSubdivisionCore, &result.changedCount, &result);
+        break;
+    case SubdivisionStep::Lower:
+        result.text = rewriteSubdivisionSelection(input, context, &lowerSubdivisionCore, &result.changedCount, &result);
+        break;
+    case SubdivisionStep::RaiseHalfStep:
+        result.text = rewriteSubdivisionSelection(input, context, &raiseSubdivisionHalfStepCore, &result.changedCount, &result);
+        break;
+    case SubdivisionStep::LowerHalfStep:
+        result.text = rewriteSubdivisionSelection(input, context, &lowerSubdivisionHalfStepCore, &result.changedCount, &result);
+        break;
+    }
+    return result;
+}
 
 QString raiseSubdivisionForSelection(const QString& input, int* changedCount)
 {

@@ -20,6 +20,12 @@ Item {
     required property var netUpload
 
     readonly property Item sourceEditorItem: sourceEditor
+    readonly property var inputContext: editorInput
+    EditorInputContext {
+        id: editorInput
+        window: root.Window.window
+        typingTarget: sourceEditor.inputItem
+    }
     readonly property Item difficultyFieldsItem: difficultyHeader
     readonly property bool sourceVisible: viewState.difficultyEditorActive
     readonly property bool canUndo: sourceVisible && sourceEditor.canUndo
@@ -41,6 +47,11 @@ Item {
     signal openRequested()
     signal completionSettingsRequested(string group)
     readonly property Item cornerSourceItem: tabs.visible ? tabs : null
+    readonly property color cornerBackingColor: tabs.visible
+        ? "transparent"
+        : (root.documentSession.hasDocument || root.viewState.netEditorActive
+            ? Theme.surfaceColor(Theme.colors.background.surface)
+            : Theme.surfaceColor(Theme.colors.background.panel))
 
     function undo() {
         if (sourceVisible)
@@ -199,6 +210,7 @@ Item {
 
     EditorTabBar {
         id: tabs
+        objectName: "workspaceTabBar"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
@@ -228,7 +240,6 @@ Item {
         anchors.bottom: parent.bottom
         visible: root.viewState.activeEditorKey === root.viewState.netDownloadEditorKey
         net: root.net
-        onCloseRequested: tabs.requestCloseTab(root.viewState.netDownloadEditorKey)
     }
 
     NetUploadPage {
@@ -238,7 +249,6 @@ Item {
         anchors.bottom: parent.bottom
         visible: root.pages.netUploadEnabled && root.viewState.activeEditorKey === root.viewState.netUploadEditorKey
         uploadModel: root.netUpload
-        onCloseRequested: tabs.requestCloseTab(root.viewState.netUploadEditorKey)
     }
 
     component DifficultyHeaderField: Item {
@@ -607,6 +617,14 @@ Item {
                     outlined: true
                     property bool userEdited: false
 
+                    function commitPendingEdit() {
+                        if (userEdited) {
+                            root.documentSession.metadataExtraText = text
+                            // Rejected input stays in the model as a dirty draft.
+                            userEdited = false
+                        }
+                    }
+
                     Layout.fillWidth: true
                     Layout.preferredHeight: 150
                     text: root.documentSession.metadataExtraText
@@ -616,11 +634,8 @@ Item {
                             extraFieldsEdit.userEdited = true
                     }
                     onActiveFocusChanged: {
-                        if (!activeFocus && extraFieldsEdit.userEdited) {
-                            root.documentSession.metadataExtraText = text
-                            // The model retains rejected input and owns its dirty state.
-                            extraFieldsEdit.userEdited = false
-                        }
+                        if (!activeFocus)
+                            commitPendingEdit()
                     }
                 }
                 Label {
@@ -639,7 +654,7 @@ Item {
     Connections {
         target: root.documentSession
         function onEditingFinishedRequested() {
-            root.forceActiveFocus()
+            editorInput.commitPendingEdits(root)
         }
         function onMetadataChanged() {
             if (extraFieldsEdit.activeFocus)

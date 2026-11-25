@@ -35,6 +35,13 @@ Slider {
     implicitHeight: Theme.controlMinHeight
     padding: 0
 
+    // Focused sliders own arrow adjustment before application shortcuts run.
+    Keys.onShortcutOverride: function(event) {
+        if (root.horizontal && event.modifiers === Qt.NoModifier
+                && (event.key === Qt.Key_Left || event.key === Qt.Key_Right))
+            event.accepted = true
+    }
+
     background: Item {
         implicitWidth: 200
         implicitHeight: Theme.controlMinHeight

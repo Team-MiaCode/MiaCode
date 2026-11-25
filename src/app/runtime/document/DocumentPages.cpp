@@ -245,6 +245,16 @@ bool miacode::runtime::DocumentSessionHost::switchToWelcomePage()
     return true;
 }
 
+bool miacode::runtime::DocumentSessionHost::enterApplicationPage()
+{
+    // Audition pages own temporary scenes; restore the chart before leaving.
+    if (state_.activeOutlineKey_ == QLatin1String("latency")
+        || state_.activeOutlineKey_ == QLatin1String("export")) {
+        return switchToMetadataField();
+    }
+    return true;
+}
+
 bool miacode::runtime::DocumentSessionHost::clearEditorPresentation()
 {
     if (auto* sandbox = session_.latencySandboxController(); sandbox != nullptr) {

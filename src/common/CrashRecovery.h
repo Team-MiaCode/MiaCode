@@ -49,7 +49,9 @@
 // scans `sessions/` ONCE and treats a marker as abandoned only if its
 // owning process is no longer alive (OpenProcess + WaitForSingleObject,
 // with a creation-time match to reject recycled PIDs). Live peers' markers
-// are left untouched; each process only ever writes/deletes its own.
+// and markers whose owner cannot be queried are left untouched. Only the
+// process that removes an abandoned marker may claim its recovery; each
+// process otherwise only writes/deletes its own marker.
 // An abandoned marker for chart X ⇒ a prior session died without a clean
 // shutdown while X was open ⇒ the chart-open recovery prompt for X may also
 // offer the autosave-latest snapshot, not just the crash-handler file. The

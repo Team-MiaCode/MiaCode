@@ -14,7 +14,8 @@ Column {
     property bool overlayActive: false
     property bool flatNavigation: false
     property var rowStateColors: Theme.colors.listState
-    readonly property bool sectionExpanded: flatNavigation || viewState.difficultySectionExpanded
+    readonly property bool sectionExpanded: true
+    readonly property bool popupActive: addDifficultyMenu.active || removeDifficultyDialog.visible
 
     spacing: root.flatNavigation ? 2 : 0
     width: parent ? parent.width : implicitWidth
@@ -54,36 +55,22 @@ Column {
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             visible: root.flatNavigation
+            stateColors: root.rowStateColors
             iconSource: Qt.resolvedUrl("icons/remove.svg")
             tooltip: qsTrId("qml.delete_current_difficulty")
             enabled: root.documentSession.currentDifficultyId > 0
             onClicked: removeDifficultyDialog.open()
         }
 
-        ChromeRow {
+        Item {
             id: sectionButton
             visible: !root.flatNavigation
             anchors.left: parent.left
             anchors.right: actions.left
             anchors.verticalCenter: parent.verticalCenter
             height: parent.height
-            leftPadding: 8
-            onClicked: {
-                root.viewState.difficultySectionExpanded
-                    = !root.viewState.difficultySectionExpanded
-            }
-
-            contentItem: Item {
-                FoldIndicator {
-                    id: sectionFoldIndicator
-                    anchors.left: parent.left
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    expanded: root.viewState.difficultySectionExpanded
-                }
-
                 Text {
-                    anchors.left: sectionFoldIndicator.right
+                    anchors.left: parent.left
                     anchors.leftMargin: 8
                     anchors.right: parent.right
                     anchors.top: parent.top
@@ -95,13 +82,6 @@ Column {
                     font.bold: true
                     verticalAlignment: Text.AlignVCenter
                 }
-            }
-
-            Tooltip {
-                visible: sectionButton.hovered
-                text: root.viewState.difficultySectionExpanded
-                    ? qsTrId("qml.collapse_difficulties") : qsTrId("qml.expand_difficulties")
-            }
         }
 
         Row {

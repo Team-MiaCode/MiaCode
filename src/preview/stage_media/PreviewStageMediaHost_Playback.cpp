@@ -130,8 +130,8 @@ void PreviewStageMediaHost::preparePlaybackStart(double seconds, quint64 transac
 void PreviewStageMediaHost::commitPreparedPlaybackStart(double currentTimelineSecond)
 {
     initializeBackendObjects();
+    transportPlaying_ = true;
     if (mediaKind_ != MediaKind::Video || player_ == nullptr) {
-        transportPlaying_ = true;
         return;
     }
 
@@ -431,6 +431,12 @@ void PreviewStageMediaHost::syncPlayback(double seconds)
     }
 
     lastTimelineSecond_ = qMax(0.0, seconds);
+    // Only an explicit start may resume a paused or naturally ended PV.
+    if (!transportPlaying_ || staleEndOfMediaResumePending_
+        || player_->mediaStatus() == QAVPlayer::EndOfMedia) {
+        updateClockDelta();
+        return;
+    }
     if (!videoPlaybackPendingStart_) {
         if (!videoPlaybackActive_) {
             startPlayback(seconds);
@@ -489,21 +495,23 @@ void PreviewStageMediaHost::syncPlayback(double seconds)
 
 void PreviewStageMediaHost::pausePlayback()
 {
+    transportPlaying_ = false;
+    // Cancel a recovery before pause() can release another seek acknowledgement.
+    staleEndOfMediaResumePending_ = false;
+    ++staleEndOfMediaResumeSerial_;
     if (mediaKind_ == MediaKind::Video && player_ != nullptr) {
         observedPlayheadSecond_ = currentPlaybackSecond();
     }
     recordPvMemoryBoundary(PvMemoryBoundary::Pause);
     if (mediaKind_ == MediaKind::Video && player_ != nullptr) {
         sealPendingVideoFrameDelivery();
-        player_->pause();
+        // QAVPlayer::pause() seeks to zero after EOF; keep the final frame instead.
+        if (player_->mediaStatus() != QAVPlayer::EndOfMedia) {
+            player_->pause();
+        }
     }
     // 暂停保留执行中的 seek 及其超时确认，上层等待完成后提交最新目标。
-    // A stale-EndOfMedia recovery seek may still be in flight; its `seeked` handler
-    // would otherwise resume playback and undo this pause.
-    staleEndOfMediaResumePending_ = false;
-    ++staleEndOfMediaResumeSerial_;
     videoPlaybackActive_ = false;
-    transportPlaying_ = false;
     videoPlaybackPendingStart_ = false;
     videoPlaybackActiveElapsed_.invalidate();
     preparedPlaybackPending_ = false;

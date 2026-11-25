@@ -6,6 +6,7 @@
 namespace miacode::preview::scene {
 
 struct PreviewJudgeFireworkLayerState {
+    quint32 randomSeed = 0;
     bool active = false;
     bool drawFirework = false;
     bool warmup = false;
@@ -31,6 +32,7 @@ struct PreviewJudgeFireworkLayerState {
     qreal colorBallBigAlpha = 0.0;
     qreal colorBallRadius = 0.0;
     qreal colorBallBigRadius = 0.0;
+    qreal haloRadius = 0.0;
     qreal fallbackColorBallRadius = 0.0;
     qreal fallbackColorBallAlpha = 0.0;
     const QImage* colorBallImage = nullptr;

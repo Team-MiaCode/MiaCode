@@ -38,17 +38,14 @@ ListView {
         return row + (item && y > item.y + item.height / 2 ? 1 : 0)
     }
 
-    function detail(layer) {
-        let value = ""
+    function layerValue(layer) {
         if (layer.kind === "image")
-            value = String(layer.imagePath).split(/[\\/]/).pop()
-        else if (layer.kind === "text")
-            value = String(layer.text).replace(/\s+/g, " ")
-        else if (layer.kind === "chartFrame")
-            value = layer.frameSeconds.toFixed(2) + " s"
-        const state = layer.visible ? Math.round(layer.opacity * 100) + "%"
-                                    : qsTrId("cover.layer_hidden")
-        return value.length > 0 ? value + " · " + state : state
+            return String(layer.imagePath).split(/[\\/]/).pop()
+        if (layer.kind === "text")
+            return String(layer.text).replace(/\s+/g, " ")
+        if (layer.kind === "chartFrame")
+            return layer.frameSeconds.toFixed(2) + " s"
+        return ""
     }
 
     model: root.orderedLayers
@@ -87,6 +84,9 @@ ListView {
         id: row
         required property var modelData
         required property int index
+        readonly property string detailValue: root.layerValue(modelData)
+        readonly property string stateText: modelData.visible ? Math.round(modelData.opacity * 100) + "%"
+            : qsTrId("cover.layer_hidden")
         readonly property Item previewSource: root.composerItem
             ? root.composerItem.layerPreviewItem(row.modelData.key, root.composerItem.layerPreviewRevision)
             : null
@@ -96,7 +96,7 @@ ListView {
         selected: !!root.session && root.session.activeLayerKey === row.modelData.key
         onClicked: root.selectLayer(row.modelData.key)
         Accessible.name: root.layerName(row.modelData)
-        Accessible.description: root.detail(row.modelData)
+        Accessible.description: detailValue.length > 0 ? detailValue + "\n" + stateText : stateText
 
         contentItem: RowLayout {
             spacing: 8
@@ -132,13 +132,29 @@ ListView {
                     font.pixelSize: Theme.uiFontSize
                     elide: Text.ElideRight
                 }
-                Text {
+                RowLayout {
                     Layout.fillWidth: true
-                    text: root.detail(row.modelData)
-                    color: Theme.colors.text.secondary
-                    font.family: Theme.uiFont
-                    font.pixelSize: Theme.captionFontSize
-                    elide: Text.ElideRight
+                    spacing: 8
+
+                    Text {
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        visible: text.length > 0
+                        text: row.detailValue
+                        textFormat: Text.PlainText
+                        color: Theme.colors.text.secondary
+                        font.family: Theme.uiFont
+                        font.pixelSize: Theme.captionFontSize
+                        elide: Text.ElideRight
+                    }
+
+                    Text {
+                        Layout.fillWidth: row.detailValue.length === 0
+                        text: row.stateText
+                        color: Theme.colors.text.secondary
+                        font.family: Theme.uiFont
+                        font.pixelSize: Theme.captionFontSize
+                    }
                 }
             }
             DragHandler {

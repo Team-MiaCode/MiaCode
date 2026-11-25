@@ -8,6 +8,7 @@ AppDialog {
     id: root
 
     required property var preferencesModel
+    required property var previewSettings
     required property var shortcuts
     required property var preferences
     required property var appBackground
@@ -94,6 +95,7 @@ AppDialog {
     footer: null
 
     property int currentPageIndex: 0
+    property int versionTapCount: 0
     property string capturingId: ""
 
     Binding {
@@ -102,6 +104,7 @@ AppDialog {
         value: root.visible && root.capturingId.length > 0
     }
     property var shortcutRows: []
+    property string shortcutNotice: ""
     // The map is built in C++ with qtTrId, so QML retranslation cannot see its
     // dependencies. Read languageToken first to rebuild it after a switch.
     readonly property var aboutInfo: {
@@ -127,6 +130,7 @@ AppDialog {
             completionCustomizer.expanded = false
     }
     onAboutToShow: {
+        root.versionTapCount = 0
         root.capturingId = ""
         completionCustomizer.expanded = false
         root.refreshShortcuts()
@@ -161,6 +165,23 @@ AppDialog {
             Object.assign({group: root.shortcutGroup(row.id)}, row))
         shortcutList.contentY = Math.max(
             0, Math.min(keepY, Math.max(0, shortcutList.contentHeight - shortcutList.height)))
+    }
+
+    function shortcutLabel(row) {
+        return qsTrId(row.labelKey) || row.labelFallback
+    }
+
+    // Assigning a binding takes it from other commands; name where it moved from and to.
+    function applyShortcutChange(id, change) {
+        const before = root.shortcutRows
+        change()
+        root.refreshShortcuts()
+        const released = root.shortcutRows.filter(row => row.shortcutText.length === 0
+            && before.some(old => old.id === row.id && old.shortcutText.length > 0))
+        const target = root.shortcutRows.find(row => row.id === id)
+        root.shortcutNotice = released.length === 0 || !target ? ""
+            : qsTrId("qml.shortcut_moved").arg(target.shortcutText)
+                .arg(released.map(root.shortcutLabel).join(" / ")).arg(root.shortcutLabel(target))
     }
 
     component PreferenceGroup: SettingsSection {
@@ -395,37 +416,41 @@ AppDialog {
                         first: true
 
                         PreferenceCombo {
+                            objectName: "preferencesUiScaleCombo"
+                            label: qsTrId("dialog.preferences.ui_scale")
+                            options: root.preferencesModel.uiScaleOptions
+                            currentValue: root.preferencesModel.uiScalePercent
+                            onPicked: value => root.preferencesModel.uiScalePercent = value
+                        }
+
+                        PreferenceCombo {
                             objectName: "preferencesThemeModeCombo"
                             label: qsTrId("dialog.preferences.theme.mode")
                             options: root.preferencesModel.themeModeOptions
                             currentValue: root.preferencesModel.themeModeToken
-                            onPicked: function(value) { root.preferencesModel.themeModeToken = value }
+                            onPicked: value => root.preferencesModel.themeModeToken = value
                         }
 
                         ThemePicker {
-                            objectName: "preferencesLightThemeCombo"
-                            darkPalette: false
-                            visible: root.preferencesModel.themeModeToken !== "dark"
-                            label: qsTrId("dialog.preferences.theme.light_palette")
+                            id: palettePicker
+                            objectName: "preferencesThemePicker"
+                            darkPalette: Theme.darkTheme
+                            label: ""
                             options: root.preferencesModel.themePaletteOptions
-                            currentValue: root.preferencesModel.lightThemeToken
-                            onPicked: function(value) { root.preferencesModel.lightThemeToken = value }
+                            currentValue: darkPalette ? root.preferencesModel.darkThemeToken
+                                : root.preferencesModel.lightThemeToken
+                            onPicked: value => {
+                                if (palettePicker.darkPalette)
+                                    root.preferencesModel.darkThemeToken = value
+                                else
+                                    root.preferencesModel.lightThemeToken = value
+                            }
                         }
-
-                        ThemePicker {
-                            objectName: "preferencesDarkThemeCombo"
-                            darkPalette: true
-                            visible: root.preferencesModel.themeModeToken !== "light"
-                            label: qsTrId("dialog.preferences.theme.dark_palette")
-                            options: root.preferencesModel.themePaletteOptions
-                            currentValue: root.preferencesModel.darkThemeToken
-                            onPicked: function(value) { root.preferencesModel.darkThemeToken = value }
-                        }
-
                     }
 
                     PreferenceGroup {
                         title: qsTrId("dialog.preferences.group.workspace")
+                        Layout.topMargin: 6
 
                         PreferenceCombo {
                             objectName: "preferencesLanguageCombo"
@@ -438,20 +463,44 @@ AppDialog {
                             }
                         }
 
-                        PreferenceCombo {
-                            objectName: "preferencesSidebarModeCombo"
-                            label: qsTrId("dialog.preferences.sidebar_mode")
-                            options: root.preferencesModel.sidebarModeOptions
-                            currentValue: root.preferences.efficientSidebarEnabled
-                            onPicked: value => root.preferences.efficientSidebarEnabled = value
-                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 5
 
-                        PreferenceCombo {
-                            objectName: "preferencesUiScaleCombo"
-                            label: qsTrId("dialog.preferences.ui_scale")
-                            options: root.preferencesModel.uiScaleOptions
-                            currentValue: root.preferencesModel.uiScalePercent
-                            onPicked: value => root.preferencesModel.uiScalePercent = value
+                            Text {
+                                Layout.preferredWidth: root.settingsLabelWidth
+                                Layout.alignment: Qt.AlignTop
+                                Layout.topMargin: Math.round((Theme.controlMinHeight - implicitHeight) / 2)
+                                text: qsTrId("dialog.preferences.sidebar_mode")
+                                color: Theme.colors.text.secondary
+                                font.family: Theme.uiFont
+                                font.pixelSize: Theme.uiFontSize
+                                wrapMode: Text.WordWrap
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Layout.topMargin: Theme.chromeInsetY
+                                spacing: 12
+
+                                SidebarModeCard {
+                                    objectName: "preferencesStandardSidebarCard"
+                                    Layout.fillWidth: true
+                                    Layout.maximumWidth: 200
+                                    classic: false
+                                    selected: !root.preferences.efficientSidebarEnabled
+                                    onClicked: root.preferences.efficientSidebarEnabled = false
+                                }
+                                SidebarModeCard {
+                                    objectName: "preferencesClassicSidebarCard"
+                                    Layout.fillWidth: true
+                                    Layout.maximumWidth: 200
+                                    classic: true
+                                    selected: root.preferences.efficientSidebarEnabled
+                                    onClicked: root.preferences.efficientSidebarEnabled = true
+                                }
+                                Item { Layout.fillWidth: true }
+                            }
                         }
 
                         RowLayout {
@@ -555,6 +604,7 @@ AppDialog {
                                 id: fontSearch
                                 objectName: "preferencesFontSearch"
                                 Layout.fillWidth: true
+                                leadingIcon: Qt.resolvedUrl("icons/search.svg")
                                 placeholderText: qsTrId("dialog.preferences.font.search")
                                 Accessible.name: placeholderText
                             }
@@ -570,7 +620,6 @@ AppDialog {
                                     }
                                     currentValue: root.preferencesModel.editorFontFamily
                                     fontFamilyRole: "family"
-                                    defaultFontFamily: Theme.codeFont.family
                                     onPicked: function(value) { root.preferencesModel.editorFontFamily = value }
                                 }
                                 AppButton {
@@ -581,12 +630,7 @@ AppDialog {
                                 }
                             }
 
-                            Rectangle {
-                                Layout.fillWidth: true
-                                implicitHeight: fontPreview.implicitHeight + 24
-                                radius: Theme.controlRadius
-                                color: Theme.colors.background.surface
-                                border.color: Theme.colors.border.normal
+                            FontSamplePane {
                                 FontMetrics {
                                     id: fontPreviewMetrics
                                     font: Theme.codeFont
@@ -594,11 +638,22 @@ AppDialog {
                                 Text {
                                     id: fontPreview
                                     objectName: "preferencesFontPreview"
-                                    x: 12
-                                    y: 12
-                                    width: parent.width - 24
-                                    text: "(180){4}1,2,3,4,\n1-5[4:1],2h[8:1],B1,\n|| " + qsTrId("dialog.preferences.font.sample")
-                                    textFormat: Text.PlainText
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    text: {
+                                        const keyword = Theme.colors.syntax.keyword
+                                        const beat = Theme.colors.syntax.beat || keyword
+                                        const note = Theme.colors.syntax.note || Theme.colors.text.editor
+                                        const duration = Theme.colors.syntax.duration
+                                        const comment = Theme.colors.syntax.comment
+                                        const sample = qsTrId("dialog.preferences.font.sample")
+                                            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                                        return "<font color='" + keyword + "'>(180)</font><font color='" + beat + "'>{4}</font><font color='" + note + "'>1</font>,<font color='" + note + "'>2</font>,<font color='" + note + "'>3</font>,<font color='" + note + "'>4</font>,<br>"
+                                            + "<font color='" + note + "'>1-5</font><font color='" + duration + "'>[4:1]</font>,<font color='" + note + "'>2h</font>"
+                                            + "<font color='" + duration + "'>[8:1]</font>,<font color='" + note + "'>3b</font>,<br>"
+                                            + "<font color='" + comment + "'>|| " + sample + "</font>"
+                                    }
+                                    textFormat: Text.StyledText
                                     font: Theme.codeFont
                                     lineHeightMode: Text.FixedHeight
                                     lineHeight: fontPreviewMetrics.height + Theme.codeBlockSpacing
@@ -635,6 +690,7 @@ AppDialog {
 
                         PreferenceGroup {
                             title: qsTrId("dialog.preferences.group.input")
+                            Layout.topMargin: 6
 
                             PreferenceCombo {
                                 objectName: "preferencesInputHandlingCombo"
@@ -642,6 +698,13 @@ AppDialog {
                                 options: root.preferencesModel.inputHandlingOptions
                                 currentValue: root.preferencesModel.editorInputHandlingMode
                                 onPicked: function(value) { root.preferencesModel.editorInputHandlingMode = value }
+                            }
+
+                            PreferenceSwitch {
+                                objectName: "preferencesTouchPadAuthoringSwitch"
+                                text: root.previewSettings.labels.touchPadAuthoringShortcut || ""
+                                checked: root.previewSettings.values.touchPadAuthoringShortcut === true
+                                onToggled: root.previewSettings.setValue("touchPadAuthoringShortcut", checked)
                             }
 
                             PreferenceSwitch {
@@ -887,12 +950,17 @@ AppDialog {
                         }
                         ScrollBar.vertical: AppScrollBar {}
 
+                        Keys.onShortcutOverride: function(event) {
+                            if (root.capturingId.length > 0)
+                                event.accepted = true
+                        }
                         Keys.onPressed: function(event) {
                             if (root.capturingId.length === 0)
                                 return
                             event.accepted = true
                             if (event.key === Qt.Key_Escape) {
                                 root.capturingId = ""
+                                root.shortcutNotice = ""
                                 return
                             }
                             if (event.key === Qt.Key_Control || event.key === Qt.Key_Shift
@@ -901,9 +969,18 @@ AppDialog {
                             const text = root.shortcuts.shortcutTextForKeyEvent(event.key, event.modifiers)
                             if (text.length === 0)
                                 return
-                            root.shortcuts.setShortcutText(root.capturingId, text)
+                            // File/edit keys stay with their menu commands; keep recording.
+                            const owner = root.shortcuts.reservedShortcutOwner(text)
+                            if (owner.length > 0) {
+                                const target = root.shortcutRows.find(row => row.id === root.capturingId)
+                                root.shortcutNotice = qsTrId("qml.shortcut_reserved")
+                                    .arg(root.shortcuts.nativeText(text)).arg(qsTrId(owner))
+                                    .arg(target ? root.shortcutLabel(target) : "")
+                                return
+                            }
+                            const id = root.capturingId
                             root.capturingId = ""
-                            root.refreshShortcuts()
+                            root.applyShortcutChange(id, () => root.shortcuts.setShortcutText(id, text))
                         }
 
                         // The row is NOT one big button: the reset button sits beside
@@ -922,6 +999,7 @@ AppDialog {
                                 selected: root.capturingId === shortcutRow.modelData.id
                                 onClicked: {
                                     root.capturingId = shortcutRow.modelData.id
+                                    root.shortcutNotice = ""
                                     shortcutList.forceActiveFocus()
                                 }
                                 contentItem: RowLayout {
@@ -942,6 +1020,7 @@ AppDialog {
                                         text: root.capturingId === shortcutRow.modelData.id
                                               ? qsTrId("qml.recording")
                                               : shortcutRow.modelData.shortcutText
+                                                || qsTrId("qml.shortcut_unassigned")
                                         color: shortcutRow.modelData.isDefault
                                                ? Theme.colors.text.secondary
                                                : Theme.colors.accent.primary
@@ -954,21 +1033,34 @@ AppDialog {
                             AppButton {
                                 text: qsTrId("qml.restore_defaults")
                                 enabled: !shortcutRow.modelData.isDefault
-                                onClicked: {
-                                    root.shortcuts.resetShortcut(shortcutRow.modelData.id)
-                                    root.refreshShortcuts()
-                                }
+                                onClicked: root.applyShortcutChange(shortcutRow.modelData.id,
+                                    () => root.shortcuts.resetShortcut(shortcutRow.modelData.id))
                             }
                         }
                     }
 
-                    AppButton {
-                        objectName: "preferencesResetShortcutsButton"
-                        Layout.alignment: Qt.AlignRight
-                        text: qsTrId("qml.restore_all_defaults")
-                        onClicked: {
-                            root.shortcuts.resetAllShortcuts()
-                            root.refreshShortcuts()
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 12
+
+                        Text {
+                            objectName: "preferencesShortcutNotice"
+                            Layout.fillWidth: true
+                            text: root.shortcutNotice
+                            wrapMode: Text.Wrap
+                            color: Theme.colors.text.secondary
+                            font.family: Theme.uiFont
+                            font.pixelSize: Theme.secondaryFontSize
+                        }
+
+                        AppButton {
+                            objectName: "preferencesResetShortcutsButton"
+                            text: qsTrId("qml.restore_all_defaults")
+                            onClicked: {
+                                root.shortcutNotice = ""
+                                root.shortcuts.resetAllShortcuts()
+                                root.refreshShortcuts()
+                            }
                         }
                     }
                 }
@@ -989,16 +1081,28 @@ AppDialog {
                         ColumnLayout {
                             spacing: 2
                             Text {
-                                text: "MiaCode"
+                                text: Theme.brandDisplayText
+                                textFormat: Text.StyledText
+                                Accessible.name: Theme.brandName
                                 color: Theme.colors.text.active
                                 font.family: Theme.uiFont
                                 font.pixelSize: Theme.uiFontSize + 6
                                 font.bold: true
                             }
-                            Text {
+                            ChromeRow {
                                 objectName: "aboutVersion"
                                 text: "v" + root.aboutInfo.version
-                                color: Theme.colors.text.secondary
+                                leftPadding: Theme.chromePadding
+                                rightPadding: Theme.chromePadding
+                                implicitHeight: Theme.controlMinHeight
+                                Accessible.name: text
+                                onClicked: {
+                                    root.versionTapCount += 1
+                                    if (root.versionTapCount >= 10) {
+                                        root.versionTapCount = 0
+                                        Theme.miaMiaCode = true
+                                    }
+                                }
                             }
                             Text {
                                 objectName: "aboutUpdateHint"

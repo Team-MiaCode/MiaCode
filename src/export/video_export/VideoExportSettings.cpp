@@ -1,6 +1,5 @@
 #include "export/video_export/VideoExportSettings.h"
 
-#include "export/video_export/VideoExportRuntimePolicy.h"
 
 #include <QRegularExpression>
 #include <QtNumeric>
@@ -36,48 +35,34 @@ int normalizedVideoExportFps(int requested)
     return closestOption(requested, kVideoExportFpsOptions, true);
 }
 
-QString videoExportPreferencePresetToken(VideoExportPreset preset)
+namespace {
+
+VideoEncodingSettings encodingFromPreferences(const QJsonObject& settings, VideoEncodingSettings encoding)
 {
-    return preset == VideoExportPreset::Fast
-        ? QStringLiteral("fast")
-        : QStringLiteral("high_quality");
+    if (settings.contains(QStringLiteral("rate_mode"))) {
+        encoding.mode = videoRateModeFromToken(settings.value(QStringLiteral("rate_mode")).toString(), encoding.mode);
+        encoding.quality = videoQualityLevelFromToken(
+            settings.value(QStringLiteral("quality_level")).toString(), encoding.quality);
+        encoding.sizeLimitMb = settings.value(QStringLiteral("size_limit_mb")).toInt(encoding.sizeLimitMb);
+        encoding.videoBitrateKbps =
+            settings.value(QStringLiteral("video_bitrate_kbps")).toInt(encoding.videoBitrateKbps);
+        return normalizedVideoEncodingSettings(encoding);
+    }
+    // Earlier versions stored a quality preset plus a size preset; both become a
+    // quality level. Saving writes the new keys and drops these.
+    const QString sizePreset = settings.value(QStringLiteral("size_preset")).toString().trimmed().toLower();
+    const QString preset = settings.value(QStringLiteral("preset")).toString().trimmed().toLower();
+    if (!sizePreset.isEmpty() && sizePreset != QLatin1String("standard")) {
+        encoding.quality = VideoQualityLevel::Small;
+    } else if (preset == QLatin1String("fast")) {
+        encoding.quality = VideoQualityLevel::Standard;
+    } else if (!preset.isEmpty()) {
+        encoding.quality = VideoQualityLevel::High;
+    }
+    return encoding;
 }
 
-VideoExportPreset videoExportPresetFromPreference(const QJsonValue& value, VideoExportPreset fallback)
-{
-    if (!value.isString()) {
-        return fallback;
-    }
-    const QString token = value.toString().trimmed();
-    if (token.compare(QStringLiteral("high_quality"), Qt::CaseInsensitive) == 0
-        || token.compare(QStringLiteral("high_compression"), Qt::CaseInsensitive) == 0) {
-        return VideoExportPreset::HighQuality;
-    }
-    if (token.compare(QStringLiteral("fast"), Qt::CaseInsensitive) == 0) {
-        return VideoExportPreset::Fast;
-    }
-    return fallback;
-}
-
-VideoExportSizePreset videoExportSizePresetFromPreference(
-    const QJsonValue& value,
-    VideoExportSizePreset fallback)
-{
-    const QString token = value.toString().trimmed();
-    if (token.compare(QStringLiteral("compact"), Qt::CaseInsensitive) == 0) {
-        return VideoExportSizePreset::Compact;
-    }
-    if (token.compare(QStringLiteral("ultra_compact"), Qt::CaseInsensitive) == 0) {
-        return VideoExportSizePreset::UltraCompact;
-    }
-    if (token.compare(QStringLiteral("ultra_compact_with_pv"), Qt::CaseInsensitive) == 0) {
-        return VideoExportSizePreset::UltraCompactWithPv;
-    }
-    if (token.compare(QStringLiteral("standard"), Qt::CaseInsensitive) == 0) {
-        return VideoExportSizePreset::Standard;
-    }
-    return fallback;
-}
+}  // namespace
 
 void applyVideoExportPreferences(const QJsonObject& settings, VideoExportTask* task)
 {
@@ -95,16 +80,13 @@ void applyVideoExportPreferences(const QJsonObject& settings, VideoExportTask* t
     task->audioBitrateKbps = normalizedVideoExportAudioBitrateKbps(
         settings.value(QStringLiteral("audio_bitrate_kbps")).toInt(task->audioBitrateKbps));
     task->outputMode = videoExportOutputModeFromToken(settings.value(QStringLiteral("output_mode")).toString());
-    task->preset = videoExportPresetFromPreference(settings.value(QStringLiteral("preset")), task->preset);
-    task->sizePreset = videoExportSizePresetFromPreference(
-        settings.value(QStringLiteral("size_preset")), task->sizePreset);
+    task->encoding = encodingFromPreferences(settings, task->encoding);
     task->clockCountEnabled = settings.value(QStringLiteral("clock_count_enabled"))
                                   .toBool(task->clockCountEnabled);
-    task->intro.enabled = settings.value(QStringLiteral("add_intro")).toBool(task->intro.enabled);
-    task->intro.pvPreview = settings.value(QStringLiteral("intro_style"))
-                                .toString(task->intro.pvPreview ? QStringLiteral("pv_preview")
-                                                                : QStringLiteral("classic"))
-        == QStringLiteral("pv_preview");
+    // Intro selection belongs to one export, not to saved preferences.
+    task->intro.enabled = true;
+    task->intro.pvPreview = false;
+    task->intro.pvPreviewStartSeconds = 0.0;
     task->intro.pvPreviewBrightness = qBound(
         0.0, settings.value(QStringLiteral("intro_pv_brightness")).toDouble(task->intro.pvPreviewBrightness), 1.0);
     task->intro.backgroundMode = settings.value(QStringLiteral("intro_background_mode"))
@@ -137,12 +119,15 @@ void appendVideoExportPreferences(QJsonObject* settings, const VideoExportTask& 
     settings->insert(QStringLiteral("fps"), task.fps);
     settings->insert(QStringLiteral("audio_bitrate_kbps"), task.audioBitrateKbps);
     settings->insert(QStringLiteral("output_mode"), videoExportOutputModeToken(task.outputMode));
-    settings->insert(QStringLiteral("preset"), videoExportPreferencePresetToken(task.preset));
-    settings->insert(QStringLiteral("size_preset"), videoExportSizePresetToken(task.sizePreset));
+    settings->insert(QStringLiteral("rate_mode"), videoRateModeToken(task.encoding.mode));
+    settings->insert(QStringLiteral("quality_level"), videoQualityLevelToken(task.encoding.quality));
+    settings->insert(QStringLiteral("size_limit_mb"), task.encoding.sizeLimitMb);
+    settings->insert(QStringLiteral("video_bitrate_kbps"), task.encoding.videoBitrateKbps);
+    settings->remove(QStringLiteral("preset"));
+    settings->remove(QStringLiteral("size_preset"));
     settings->insert(QStringLiteral("clock_count_enabled"), task.clockCountEnabled);
-    settings->insert(QStringLiteral("add_intro"), task.intro.enabled);
-    settings->insert(QStringLiteral("intro_style"),
-                     task.intro.pvPreview ? QStringLiteral("pv_preview") : QStringLiteral("classic"));
+    settings->remove(QStringLiteral("add_intro"));
+    settings->remove(QStringLiteral("intro_style"));
     settings->insert(QStringLiteral("intro_pv_brightness"), task.intro.pvPreviewBrightness);
     settings->insert(QStringLiteral("intro_background_mode"), task.intro.backgroundMode);
     settings->insert(QStringLiteral("intro_background_custom_path"), task.intro.customBackgroundPath.trimmed());
@@ -226,12 +211,12 @@ void copyVideoExportUserSettings(const VideoExportTask& source, VideoExportTask*
     target->fps = source.fps;
     target->audioBitrateKbps = source.audioBitrateKbps;
     target->outputMode = source.outputMode;
-    target->preset = source.preset;
-    target->sizePreset = source.sizePreset;
+    target->encoding = source.encoding;
     target->backgroundBrightnessOuter = source.backgroundBrightnessOuter;
     target->backgroundBrightnessInner = source.backgroundBrightnessInner;
     target->layoutSquareScale = source.layoutSquareScale;
     target->fireworkBrightness = source.fireworkBrightness;
+    target->fireworkStyle = source.fireworkStyle;
     target->smoothBrightness = source.smoothBrightness;
     target->backgroundScaleMode = source.backgroundScaleMode;
     target->tapFlowSpeed = source.tapFlowSpeed;
@@ -242,6 +227,7 @@ void copyVideoExportUserSettings(const VideoExportTask& source, VideoExportTask*
     target->clockCountEnabled = source.clockCountEnabled;
     target->intro.enabled = source.intro.enabled;
     target->intro.pvPreview = source.intro.pvPreview;
+    target->intro.pvPreviewStartSeconds = source.intro.pvPreviewStartSeconds;
     target->intro.pvPreviewBrightness = source.intro.pvPreviewBrightness;
     target->intro.backgroundMode = source.intro.backgroundMode;
     target->intro.customBackgroundPath = source.intro.customBackgroundPath;

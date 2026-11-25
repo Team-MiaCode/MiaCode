@@ -3,6 +3,58 @@
 <TS version="2.1" language="en_US">
 <context>
     <name></name>
+    <message id="job_progress.busy">
+        <source>Please wait for the current task to finish.</source>
+        <translation>Please wait for the current task to finish.</translation>
+    </message>
+    <message id="export.gif.action">
+        <source>Export selected range as GIF</source>
+        <translation>Export selected range as GIF</translation>
+    </message>
+    <message id="export.gif.title">
+        <source>Export GIF</source>
+        <translation>Export GIF</translation>
+    </message>
+    <message id="export.gif.exporting">
+        <source>Exporting GIF...</source>
+        <translation>Exporting GIF...</translation>
+    </message>
+    <message id="export.gif.completed">
+        <source>GIF generated and copied to the clipboard.</source>
+        <translation>GIF generated and copied to the clipboard.</translation>
+    </message>
+    <message id="export.gif.clipboard_unavailable">
+        <source>The GIF clipboard cache is unavailable.</source>
+        <translation>The GIF clipboard cache is unavailable.</translation>
+    </message>
+    <message id="export.gif.clipboard_failed">
+        <source>Could not copy the GIF to the clipboard.</source>
+        <translation>Could not copy the GIF to the clipboard.</translation>
+    </message>
+    <message id="export.gif.failed">
+        <source>GIF export failed: %1</source>
+        <translation>GIF export failed: %1</translation>
+    </message>
+    <message id="toast.operation_failed">
+        <source>%1 failed: %2.</source>
+        <translation>%1 failed: %2.</translation>
+    </message>
+    <message id="toast.operation_partially_failed">
+        <source>%1 partially failed: %2.</source>
+        <translation>%1 partially failed: %2.</translation>
+    </message>
+    <message id="toast.selection_required">
+        <source>Select the chart text whose subdivision you want to adjust</source>
+        <translation>Select the chart text whose subdivision you want to adjust</translation>
+    </message>
+    <message id="toast.subdivision_incompatible">
+        <source>The selected chart cannot be adjusted by this subdivision ratio</source>
+        <translation>The selected chart cannot be adjusted by this subdivision ratio</translation>
+    </message>
+    <message id="toast.subdivision_limit">
+        <source>The subdivision value exceeds the supported range</source>
+        <translation>The subdivision value exceeds the supported range</translation>
+    </message>
     <message id="setup.completion_hint">
         <source>Customize completion candidates in Preferences.</source>
         <translation>Customize completion candidates in Preferences.</translation>
@@ -160,6 +212,10 @@ Classic mode: All functions are on one page, similar to the layout in earlier ve
     <message id="action.later">
         <source>Later</source>
         <translation>Later</translation>
+    </message>
+    <message id="action.filter">
+        <source>Filter</source>
+        <translation>Filter</translation>
     </message>
     <message id="action.new">
         <source>New</source>
@@ -895,6 +951,10 @@ Classic mode: All functions are on one page, similar to the layout in earlier ve
         <source>Reset to default…</source>
         <translation>Reset to default…</translation>
     </message>
+    <message id="cover.rotation">
+        <source>Rotation</source>
+        <translation>Rotation</translation>
+    </message>
     <message id="cover.save_cover_layout">
         <source>Save cover layout</source>
         <translation>Save cover layout</translation>
@@ -1317,6 +1377,34 @@ Failed: %2</translation>
         <source>Default</source>
         <translation>Default</translation>
     </message>
+    <message id="dialog.preferences.theme.default_dark">
+        <source>Default Dark</source>
+        <translation>Default Dark</translation>
+    </message>
+    <message id="dialog.preferences.theme.default_light">
+        <source>Default Light</source>
+        <translation>Default Light</translation>
+    </message>
+    <message id="dialog.preferences.theme.legacy_dark">
+        <source>Classic Dark</source>
+        <translation>Classic Dark</translation>
+    </message>
+    <message id="dialog.preferences.theme.legacy_light">
+        <source>Classic Light</source>
+        <translation>Classic Light</translation>
+    </message>
+    <message id="dialog.preferences.theme.catppuccin_mocha">
+        <source>Catppuccin Mocha</source>
+        <translation>Mocha</translation>
+    </message>
+    <message id="dialog.preferences.theme.catppuccin_latte">
+        <source>Catppuccin Latte</source>
+        <translation>Latte</translation>
+    </message>
+    <message id="dialog.preferences.theme.nord">
+        <source>Nord</source>
+        <translation>Nord</translation>
+    </message>
     <message id="dialog.preferences.theme.light">
         <source>Light</source>
         <translation>Light</translation>
@@ -1530,12 +1618,12 @@ Failed: %2</translation>
         <translation>Audition</translation>
     </message>
     <message id="dialog.render_settings.music.default_intro_sound">
-        <source>Default intro sound</source>
-        <translation>Default intro sound</translation>
+        <source>Default</source>
+        <translation>Default</translation>
     </message>
     <message id="dialog.render_settings.music.intro_sound">
-        <source>Intro sound</source>
-        <translation>Intro sound</translation>
+        <source>Intro music</source>
+        <translation>Intro music</translation>
     </message>
     <message id="dialog.render_settings.preview.canvas_frame_rate">
         <source>Preview Refresh Rate</source>
@@ -1620,6 +1708,18 @@ Failed: %2</translation>
     <message id="dialog.render_settings.video.skin.standard">
         <source>SD</source>
         <translation>SD</translation>
+    </message>
+    <message id="dialog.skin_settings.firework">
+        <source>Firework effect</source>
+        <translation>Firework effect</translation>
+    </message>
+    <message id="dialog.skin_settings.firework.modern">
+        <source>Modern</source>
+        <translation>Modern</translation>
+    </message>
+    <message id="dialog.skin_settings.firework.standard">
+        <source>Standard</source>
+        <translation>Standard</translation>
     </message>
     <message id="dialog.render_settings.video.firework_brightness">
         <source>Firework brightness</source>
@@ -1801,6 +1901,10 @@ Restore the backup from %1?</translation>
         <source>Failed to send export snapshot to worker.</source>
         <translation>Failed to send export snapshot to worker.</translation>
     </message>
+    <message id="dialog.video_export.estimated_size">
+        <source>Estimated size: %1</source>
+        <translation>Estimated size: %1</translation>
+    </message>
     <message id="dialog.video_export.error.disk_full_temp">
         <source>%1 is out of space. Export writes the video to the system temp folder (%2) first.</source>
         <translation>%1 is out of space. Export writes the video to the system temp folder (%2) first.</translation>
@@ -1824,6 +1928,10 @@ Restore the backup from %1?</translation>
     <message id="dialog.video_export.error.render_failed">
         <source>Rendering the export frames failed.</source>
         <translation>Rendering the export frames failed.</translation>
+    </message>
+    <message id="dialog.video_export.error.size_limit_too_small">
+        <source>The size limit cannot hold this export&apos;s audio. Raise the limit or lower the audio bitrate.</source>
+        <translation>The size limit cannot hold this export&apos;s audio. Raise the limit or lower the audio bitrate.</translation>
     </message>
     <message id="dialog.video_export.error.audio_failed">
         <source>Could not generate the export audio track.</source>
@@ -1901,18 +2009,6 @@ Restore the backup from %1?</translation>
         <source>Show bottom-left timestamp</source>
         <translation>Show bottom-left timestamp</translation>
     </message>
-    <message id="dialog.video_export.preset">
-        <source>Export Quality</source>
-        <translation>Export Quality</translation>
-    </message>
-    <message id="dialog.video_export.preset.fast">
-        <source>Fast</source>
-        <translation>Fast</translation>
-    </message>
-    <message id="dialog.video_export.preset.high_quality">
-        <source>High Quality</source>
-        <translation>High Quality</translation>
-    </message>
     <message id="preview.stop">
         <source>Stop</source>
         <translation>Stop</translation>
@@ -1989,6 +2085,22 @@ Restore the backup from %1?</translation>
         <source>Worker ready...</source>
         <translation>Worker ready...</translation>
     </message>
+    <message id="dialog.video_export.quality_level">
+        <source>Quality</source>
+        <translation>Quality</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.high">
+        <source>High</source>
+        <translation>High</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.small">
+        <source>Compact</source>
+        <translation>Compact</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.standard">
+        <source>Standard</source>
+        <translation>Standard</translation>
+    </message>
     <message id="dialog.video_export.range.end">
         <source>End</source>
         <translation>End</translation>
@@ -1997,33 +2109,37 @@ Restore the backup from %1?</translation>
         <source>Start</source>
         <translation>Start</translation>
     </message>
+    <message id="dialog.video_export.rate_mode">
+        <source>Export strategy</source>
+        <translation>Export strategy</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.bitrate">
+        <source>Bitrate</source>
+        <translation>Bitrate</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.file_size">
+        <source>Size limit</source>
+        <translation>Size limit</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.quality">
+        <source>Quality first</source>
+        <translation>Quality first</translation>
+    </message>
     <message id="dialog.video_export.resolution">
         <source>Resolution</source>
         <translation>Resolution</translation>
     </message>
-    <message id="dialog.video_export.size_preset">
-        <source>File size</source>
-        <translation>File size</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.compact">
-        <source>Smaller</source>
-        <translation>Smaller</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.standard">
-        <source>Standard</source>
-        <translation>Standard</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.ultra_compact">
-        <source>Smallest (No PV)</source>
-        <translation>Smallest (No PV)</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.ultra_compact_with_pv">
-        <source>Smallest (With PV)</source>
-        <translation>Smallest (With PV)</translation>
+    <message id="dialog.video_export.size_limit">
+        <source>Size limit</source>
+        <translation>Size limit</translation>
     </message>
     <message id="dialog.video_export.title">
         <source>Export Video</source>
         <translation>Export Video</translation>
+    </message>
+    <message id="dialog.video_export.video_bitrate">
+        <source>Video bitrate</source>
+        <translation>Video bitrate</translation>
     </message>
     <message id="document.all_difficulties_share_this_designer">
         <source>All difficulties share this designer</source>
@@ -2393,9 +2509,37 @@ File: </translation>
         <source>%1 was not found next to the current chart.</source>
         <translation>%1 was not found next to the current chart.</translation>
     </message>
+    <message id="media_tools.volume_balance">
+        <source>Volume Balance</source>
+        <translation>Volume Balance</translation>
+    </message>
+    <message id="media_tools.volume_balance_analyze_failed">
+        <source>Could not measure the audio loudness.</source>
+        <translation>Could not measure the audio loudness.</translation>
+    </message>
+    <message id="media_tools.volume_balance_confirm">
+        <source>Replace %1 with the processed audio?</source>
+        <translation>Replace %1 with the processed audio?</translation>
+    </message>
+    <message id="media_tools.volume_balance_missing_track">
+        <source>No chart audio found.</source>
+        <translation>No chart audio found.</translation>
+    </message>
+    <message id="media_tools.volume_balance_track_changed">
+        <source>The audio file changed during processing.</source>
+        <translation>The audio file changed during processing.</translation>
+    </message>
+    <message id="media_tools.volume_balance_unchanged">
+        <source>No adjustment needed.</source>
+        <translation>No adjustment needed.</translation>
+    </message>
+    <message id="media_tools.volume_balance_saved">
+        <source>Processing complete.</source>
+        <translation>Processing complete.</translation>
+    </message>
     <message id="media_tools.audio_processing_track">
         <source>Audio Processing track.mp3</source>
-        <translation>Audio Processing track.mp3</translation>
+        <translation>Audio Processing</translation>
     </message>
     <message id="media_tools.audio_video_processing">
         <source>Audio/Video Processing</source>
@@ -2601,6 +2745,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
 
 The file may be open in preview, a media player, File Explorer preview pane, or another program.</translation>
     </message>
+    <message id="media_tools.recovery_files_1">
+        <source>Files preserved for recovery: %1</source>
+        <translation>Files preserved for recovery: %1</translation>
+    </message>
     <message id="media_tools.failed_to_stage_original_file">
         <source>Failed to stage original file for replacement: %1
 
@@ -2678,8 +2826,8 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>Analyzing audio alignment...</translation>
     </message>
     <message id="media_tools.video_audio_missing">
-        <source>The background video has no audio stream to align.</source>
-        <translation>The background video has no audio stream to align.</translation>
+        <source>The background video has no audio stream and cannot be automatically aligned; no files were changed.</source>
+        <translation>The background video has no audio stream and cannot be automatically aligned; no files were changed.</translation>
     </message>
     <message id="media_tools.video_alignment_cancelled">
         <source>Audio alignment canceled.</source>
@@ -2771,7 +2919,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="media_tools.video_processing_pv">
         <source>Video Processing pv.mp4</source>
-        <translation>Video Processing pv.mp4</translation>
+        <translation>Video Processing</translation>
     </message>
     <message id="menu.clear_elements">
         <source>Clear Elements</source>
@@ -2948,6 +3096,22 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="net.packaging_zip">
         <source>Packaging ZIP...</source>
         <translation>Packaging ZIP...</translation>
+    </message>
+    <message id="net.cancelling_download">
+        <source>Cancelling download…</source>
+        <translation>Cancelling download…</translation>
+    </message>
+    <message id="net.waiting_for_download_1">
+        <source>Waiting for server response: %1</source>
+        <translation>Waiting for server response: %1</translation>
+    </message>
+    <message id="net.preparing_download">
+        <source>Preparing download…</source>
+        <translation>Preparing download…</translation>
+    </message>
+    <message id="net.saving_download">
+        <source>Saving downloaded files…</source>
+        <translation>Saving downloaded files…</translation>
     </message>
     <message id="net.paused">
         <source>Paused</source>
@@ -3257,6 +3421,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Return to Main Window</source>
         <translation>Return to Main Window</translation>
     </message>
+    <message id="preview.window.show">
+        <source>Show Preview Window</source>
+        <translation>Show Preview Window</translation>
+    </message>
     <message id="preview.window.title">
         <source>Preview</source>
         <translation>Preview</translation>
@@ -3386,8 +3554,8 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>Chart</translation>
     </message>
     <message id="qml.chart_designer_1">
-        <source> · Chart Designer: %1</source>
-        <translation> · Chart Designer: %1</translation>
+        <source>Chart Designer: %1</source>
+        <translation>Chart Designer: %1</translation>
     </message>
     <message id="qml.choose_a_folder_to_scan">
         <source>Choose a folder to scan</source>
@@ -3781,6 +3949,18 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Set as local default</source>
         <translation>Set as local default</translation>
     </message>
+    <message id="qml.shortcut_moved">
+        <source>Moved shortcut %1 from %2 to %3.</source>
+        <translation>Moved shortcut %1 from %2 to %3.</translation>
+    </message>
+    <message id="qml.shortcut_reserved">
+        <source>Shortcut %1 is used by %2 and can't be assigned to %3.</source>
+        <translation>Shortcut %1 is used by %2 and can't be assigned to %3.</translation>
+    </message>
+    <message id="qml.shortcut_unassigned">
+        <source>Not set</source>
+        <translation>Not set</translation>
+    </message>
     <message id="qml.show_all_open_editors">
         <source>Show all open editors</source>
         <translation>Show all open editors</translation>
@@ -3944,6 +4124,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="shortcut.preview.play_pause_global">
         <source>Play/Pause Preview</source>
         <translation>Play/Pause Preview</translation>
+    </message>
+    <message id="shortcut.preview.play_pause_non_text">
+        <source>Play/Pause Preview (Outside Editor)</source>
+        <translation>Play/Pause Preview (Outside Editor)</translation>
     </message>
     <message id="shortcut.preview.speed_down">
         <source>Playback Speed -</source>
@@ -4145,6 +4329,10 @@ Error: %1</translation>
         <source>Muri</source>
         <translation>Muri</translation>
     </message>
+    <message id="validation.muri.issue_heading">
+        <source>%1 (%2)</source>
+        <translation>%1 (%2)</translation>
+    </message>
     <message id="validation.muri.alert.warning">
         <source>Warning</source>
         <translation>Warning</translation>
@@ -4232,6 +4420,14 @@ Error: %1</translation>
     <message id="video_export.intro_audition_stop">
         <source>Stop</source>
         <translation>Stop</translation>
+    </message>
+    <message id="video_export.intro_music_copy_failed">
+        <source>Could not copy the audio into the intro music folder.</source>
+        <translation>Could not copy the audio into the intro music folder.</translation>
+    </message>
+    <message id="video_export.intro_music_import">
+        <source>Import audio…</source>
+        <translation>Import audio…</translation>
     </message>
     <message id="video_export.intro_music_segment">
         <source>Music segment</source>
@@ -4322,6 +4518,14 @@ Error: %1</translation>
         <translation>Timeline</translation>
     </message>
 
+    <message id="net.ui.query_options">
+        <source>Search options</source>
+        <translation>Search options</translation>
+    </message>
+    <message id="net.ui.queue_hint">
+        <source>Choose a chart folder and add it to the queue.</source>
+        <translation>Choose a chart folder and add it to the queue.</translation>
+    </message>
     <message id="net.ui.download_page">
         <source>Majdata Net</source>
         <translation>Chart download</translation>
@@ -4688,8 +4892,8 @@ Error: %1</translation>
         <translation>Status: descending</translation>
     </message>
     <message id="guide.page_one">
-        <source>Getting started · Page 1</source>
-        <translation>Getting started · Page 1</translation>
+        <source>Getting started, page 1</source>
+        <translation>Getting started, page 1</translation>
     </message>
     <message id="guide.exit">
         <source>Exit guide</source>
@@ -4783,9 +4987,9 @@ Error: %1</translation>
         <source>Follow code: choose whether the timeline follows the current chart-source position in settings.</source>
         <translation>Follow code: choose whether the timeline follows the current chart-source position in settings.</translation>
     </message>
-    <message id="guide.editor.metadata_save">
-        <source>Changes to the level, offset and designer above are saved immediately.</source>
-        <translation>Changes to the level, offset and designer above are saved immediately.</translation>
+    <message id="guide.editor.normalize">
+        <source>Select a passage and use Normalize Chart to tidy its layout.</source>
+        <translation>Select a passage and use Normalize Chart to tidy its layout.</translation>
     </message>
     <message id="guide.editor.measure">
         <source>Start a new measure here and switch to 3/4 time.</source>
@@ -4843,6 +5047,12 @@ Error: %1</translation>
         <source>Custom candidates</source>
         <translation>Custom candidates</translation>
     </message>
+    <message id="preferences.completion.help">
+        <source>"Duration" sets the completion list shown when typing [.
+"Beat subdivision" sets the completion list shown when typing {.</source>
+        <translation>"Duration" sets the completion list shown when typing [.
+"Beat subdivision" sets the completion list shown when typing {.</translation>
+    </message>
     <message id="preferences.completion.expand">
         <source>Expand custom candidates</source>
         <translation>Expand custom candidates</translation>
@@ -4866,6 +5076,18 @@ Error: %1</translation>
     <message id="preferences.completion.division_hint">
         <source>Enter subdivision</source>
         <translation>Enter subdivision</translation>
+    </message>
+    <message id="preferences.completion.duration_suffix">
+        <source>Custom continuation</source>
+        <translation>Custom continuation</translation>
+    </message>
+    <message id="preferences.completion.duration_suffix_hint">
+        <source>Enter a suffix</source>
+        <translation>Enter a suffix</translation>
+    </message>
+    <message id="preferences.completion.invalid_duration_suffix">
+        <source>Enter a valid duration suffix</source>
+        <translation>Enter a valid duration suffix</translation>
     </message>
     <message id="preferences.completion.reorder">
         <source>Drag to reorder; use Up or Down when focused</source>
@@ -4943,6 +5165,7 @@ Error: %1</translation>
         <source>Search installed fonts…</source>
         <translation>Search installed fonts…</translation>
     </message>
+    <message id="dialog.preferences.font.default_suffix"><source>Default</source><translation>Default</translation></message>
     <message id="dialog.preferences.font.default">
         <source>Default font</source>
         <translation>Default font</translation>
@@ -4964,8 +5187,8 @@ Error: %1</translation>
         <translation>Midnight</translation>
     </message>
     <message id="dialog.preferences.theme.forest">
-        <source>Forest</source>
-        <translation>Forest</translation>
+        <source>Si-callion</source>
+        <translation>Si-callion</translation>
     </message>
     <message id="dialog.preferences.theme.paper">
         <source>Warm Paper</source>
@@ -4978,6 +5201,155 @@ Error: %1</translation>
     <message id="dialog.preferences.theme.comment_sample">
         <source>Comment</source>
         <translation>Comment</translation>
+    </message>
+    <message id="dialog.preferences.theme.yuzu"><source>Yuzu</source><translation>Yuzu</translation></message>
+    <message id="dialog.preferences.theme.sky"><source>Sky Blue</source><translation>Sky Blue</translation></message>
+    <message id="dialog.preferences.theme.dracula"><source>Dracula</source><translation>Dracula</translation></message>
+    <message id="dialog.preferences.theme.tokyo_night"><source>Tokyo Night</source><translation>Tokyo Night</translation></message>
+    <message id="dialog.preferences.theme.noah"><source>Noa</source><translation>Noa</translation></message>
+    <message id="cover.text_stroke">
+        <source>Text outline</source>
+        <translation>Text outline</translation>
+    </message>
+    <message id="cover.text_stroke_color">
+        <source>Outline color</source>
+        <translation>Outline color</translation>
+    </message>
+    <message id="color_picker.open">
+        <source>Pick color</source>
+        <translation>Pick color</translation>
+    </message>
+    <message id="cover.text_stroke_width">
+        <source>Outline width</source>
+        <translation>Outline width</translation>
+    </message>
+    <message id="cover.text_shadow">
+        <source>Text shadow</source>
+        <translation>Text shadow</translation>
+    </message>
+    <message id="cover.text_shadow_color">
+        <source>Shadow color</source>
+        <translation>Shadow color</translation>
+    </message>
+    <message id="cover.text_shadow_opacity">
+        <source>Shadow opacity</source>
+        <translation>Shadow opacity</translation>
+    </message>
+    <message id="cover.text_shadow_blur">
+        <source>Shadow blur</source>
+        <translation>Shadow blur</translation>
+    </message>
+    <message id="cover.text_shadow_x">
+        <source>Shadow X offset</source>
+        <translation>Shadow X offset</translation>
+    </message>
+    <message id="cover.text_shadow_y">
+        <source>Shadow Y offset</source>
+        <translation>Shadow Y offset</translation>
+    </message>
+    <message id="library.title">
+        <source>Chart library</source>
+        <translation>Chart library</translation>
+    </message>
+    <message id="library.choose_folder">
+        <source>Choose folder</source>
+        <translation>Choose folder</translation>
+    </message>
+    <message id="library.no_directory">
+        <source>No library folder selected</source>
+        <translation>No library folder selected</translation>
+    </message>
+    <message id="library.refresh">
+        <source>Refresh</source>
+        <translation>Refresh</translation>
+    </message>
+    <message id="library.current_editing">
+        <source>Currently editing</source>
+        <translation>Currently editing</translation>
+    </message>
+    <message id="library.search">
+        <source>Search</source>
+        <translation>Search</translation>
+    </message>
+    <message id="library.all_difficulties">
+        <source>All difficulties</source>
+        <translation>All difficulties</translation>
+    </message>
+    <message id="library.source_id">
+        <source>Source song ID</source>
+        <translation>Source song ID</translation>
+    </message>
+    <message id="library.version">
+        <source>Version</source>
+        <translation>Version</translation>
+    </message>
+    <message id="library.genre">
+        <source>Genre</source>
+        <translation>Genre</translation>
+    </message>
+    <message id="library.scanning">
+        <source>Scanning chart library…</source>
+        <translation>Scanning chart library…</translation>
+    </message>
+    <message id="library.missing_folder">
+        <source>Library folder unavailable</source>
+        <translation>Library folder unavailable</translation>
+    </message>
+    <message id="library.open_chart_folder_failed">
+        <source>Could not open the chart folder.</source>
+        <translation>Could not open the chart folder.</translation>
+    </message>
+    <message id="library.empty">
+        <source>No charts found</source>
+        <translation>No charts found</translation>
+    </message>
+    <message id="library.audition">
+        <source>Listen</source>
+        <translation>Listen</translation>
+    </message>
+    <message id="library.pause">
+        <source>Pause</source>
+        <translation>Pause</translation>
+    </message>
+    <message id="library.untitled">
+        <source>Untitled chart</source>
+        <translation>Untitled chart</translation>
+    </message>
+    <message id="library.difficulty.1">
+        <source>Easy</source>
+        <translation>Easy</translation>
+    </message>
+    <message id="library.difficulty.2">
+        <source>Basic</source>
+        <translation>Basic</translation>
+    </message>
+    <message id="library.difficulty.3">
+        <source>Advanced</source>
+        <translation>Advanced</translation>
+    </message>
+    <message id="library.difficulty.4">
+        <source>Expert</source>
+        <translation>Expert</translation>
+    </message>
+    <message id="library.difficulty.5">
+        <source>Master</source>
+        <translation>Master</translation>
+    </message>
+    <message id="library.difficulty.6">
+        <source>Re:Master</source>
+        <translation>Re:Master</translation>
+    </message>
+    <message id="library.difficulty.7">
+        <source>Utage</source>
+        <translation>Utage</translation>
+    </message>
+    <message id="library.result_count">
+        <source>%1 / %2 songs</source>
+        <translation>%1 / %2 songs</translation>
+    </message>
+    <message id="library.select_song">
+        <source>Select a song to see its details</source>
+        <translation>Select a song to see its details</translation>
     </message>
 </context>
 <context>

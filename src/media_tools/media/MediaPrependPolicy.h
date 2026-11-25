@@ -11,6 +11,8 @@ namespace miacode::media {
 inline constexpr double kPvPrependContainerAllowanceRatio = 1.02;
 inline constexpr double kPvPrependOutputToleranceRatio = 1.02;
 
+QStringList audioEncoderArguments(const QString& suffix, bool highPrecision = false);
+
 QStringList makeAudioPrependArguments(
     const QString& inputPath,
     const QString& outputPath,

@@ -61,7 +61,7 @@
 #endif
 #include "export/video_export/VideoExportControllerInternal.h"
 
-// VideoExportEncoder.cpp — memory probe, x264/bitrate/runtime-config selection, ffmpeg/ffprobe resolution, encoder runtime probe, and encoder selection.
+// VideoExportEncoder.cpp — memory probe, runtime config, ffmpeg/ffprobe resolution, encoder runtime probe, and encoder selection.
 //
 // Definitions extracted verbatim from the original VideoExportController.cpp
 // during the god-file split. All helpers live in the shared
@@ -129,9 +129,6 @@ ExportRuntimeConfig loadExportRuntimeConfig()
         miacode::debug_options::envIntValue("MIACODE_EXPORT_ENCODER_THREADS", -1);
     config.filterThreadsOverride =
         miacode::debug_options::envIntValue("MIACODE_EXPORT_FILTER_THREADS", -1);
-    config.x264PresetOverride = qEnvironmentVariable("MIACODE_EXPORT_X264_PRESET").trimmed();
-    config.x264CrfOverride = miacode::debug_options::envIntValue("MIACODE_EXPORT_X264_CRF", -1);
-    config.x264BframesOverride = miacode::debug_options::envIntValue("MIACODE_EXPORT_X264_BFRAMES", -1);
 
     const std::optional<bool> gpuRenderOverride =
         miacode::debug_options::envOptionalFlagValue("MIACODE_EXPORT_ENABLE_GPU_RENDER");
@@ -202,6 +199,11 @@ QString resolveFfmpegExecutable()
 {
 #ifdef Q_OS_WIN
     const QString ffmpegName = QStringLiteral("ffmpeg.exe");
+#if defined(Q_PROCESSOR_ARM_64)
+    const QString windowsExportDir = QStringLiteral("third_party/ffmpeg/windows/winarm64/");
+#else
+    const QString windowsExportDir = QStringLiteral("third_party/ffmpeg/windows/win64/");
+#endif
 #else
     const QString ffmpegName = QStringLiteral("ffmpeg");
 #endif
@@ -215,6 +217,11 @@ QString resolveFfmpegExecutable()
         appDir.filePath(ffmpegName),
         appDir.filePath(QStringLiteral("ffmpeg/%1").arg(ffmpegName)),
         appDir.filePath(QStringLiteral("../Resources/%1").arg(ffmpegName)),
+#ifdef Q_OS_WIN
+        // Development builds use the architecture-specific export binary before PATH.
+        appDir.filePath(QStringLiteral("../../") + windowsExportDir + ffmpegName),
+        appDir.filePath(QStringLiteral("../../../") + windowsExportDir + ffmpegName),
+#endif
         appDir.filePath(QStringLiteral("../../third_party/ffmpeg/windows/%1").arg(ffmpegName)),
         appDir.filePath(QStringLiteral("../../third_party/ffmpeg/macos/%1").arg(ffmpegName)),
         appDir.filePath(QStringLiteral("../../third_party/ffmpeg/linux/%1").arg(ffmpegName)),
@@ -336,13 +343,10 @@ bool probeHardwareEncoderRuntime(
     if (candidate.needsVaapiHwUpload) {
         args << QStringLiteral("-vf") << QStringLiteral("format=nv12,hwupload");
     } else {
-        args << QStringLiteral("-pix_fmt") << QStringLiteral("yuv420p");
+        args << QStringLiteral("-pix_fmt") << candidate.pixelFormat;
     }
     args << QStringLiteral("-c:v") << candidate.codec;
-    if (candidate.explicitBframes >= 0) {
-        args << QStringLiteral("-bf") << QString::number(candidate.explicitBframes);
-    }
-    args << candidate.extraArgs;
+    args << candidate.codecArgs;
     args << QStringLiteral("-f") << QStringLiteral("null") << QStringLiteral("-");
 
     probe.start(ffmpegPath, args, QIODevice::ReadOnly);
@@ -386,6 +390,7 @@ bool probeHardwareEncoderRuntime(
 
 VideoEncoderConfig chooseVideoEncoder(
     const QString& ffmpegPath,
+    const VideoRatePlan& plan,
     int outputWidth,
     int outputHeight,
     int fps,
@@ -419,28 +424,27 @@ VideoEncoderConfig chooseVideoEncoder(
         QStringLiteral("hevc_nvenc"), QStringLiteral("hevc_qsv"),
         QStringLiteral("hevc_amf"), QStringLiteral("hevc_mf")
     };
-    const auto makeCandidate = [](const QString& codec, bool hardware) {
-        VideoEncoderConfig candidate;
-        candidate.codec = codec;
-        candidate.isHardware = hardware;
-        candidate.explicitBframes = codec.startsWith(QStringLiteral("h264")) ? 0 : -1;
-        if (codec.endsWith(QLatin1String("_videotoolbox"))) {
-            candidate.extraArgs << QStringLiteral("-allow_sw") << QStringLiteral("0");
+    const QStringList softwareCodecs{
+        QStringLiteral("libx264"), QStringLiteral("libopenh264"), QStringLiteral("mpeg4")};
+    // A quality plan may fall back to its reference bitrate; other plans have no fallback.
+    QList<VideoRateControl> controls{plan.control};
+    if (plan.control == VideoRateControl::ConstantQuality) {
+        controls.append(VideoRateControl::AverageBitrate);
+    }
+    const auto configure = [&plan](const QString& codec, VideoRateControl control) {
+        std::optional<VideoEncoderConfig> config = configureVideoEncoder(codec, control, plan);
+        if (config && config->needsVaapiHwUpload) {
+            config->vaapiDevicePath = resolveVaapiDevicePath();
         }
-        if (codec.endsWith(QLatin1String("_mf"))) {
-            candidate.extraArgs << QStringLiteral("-hw_encoding") << QStringLiteral("1");
-        }
-        if (codec.endsWith(QLatin1String("_vaapi"))) {
-            candidate.needsVaapiHwUpload = true;
-            candidate.vaapiDevicePath = resolveVaapiDevicePath();
-        }
-        return candidate;
+        return config;
     };
+
     QStringList attempts;
     const auto selected = [&](const VideoEncoderConfig& candidate, const QString& selection) {
         if (probeLog) {
-            *probeLog = QStringLiteral("encoder_probe selected=%1 hw=%2 selection=%3 size=%4x%5 runtime=%6")
-                .arg(candidate.codec).arg(candidate.isHardware ? 1 : 0).arg(selection)
+            *probeLog = QStringLiteral("encoder_probe selected=%1 hw=%2 rate=%3 selection=%4 size=%5x%6 runtime=%7")
+                .arg(candidate.codec).arg(candidate.isHardware ? 1 : 0)
+                .arg(videoRateControlToken(candidate.rateControl), selection)
                 .arg(outputWidth).arg(outputHeight)
                 .arg(truncateForLog(attempts.join(QLatin1Char(';')), 2400));
         }
@@ -450,14 +454,18 @@ VideoEncoderConfig chooseVideoEncoder(
     // An explicit diagnostic override selects one codec without automatic routing.
     const QString forced = exportConfig.forcedEncoder.toLower();
     if (!forced.isEmpty()) {
-        const bool hardware = hardwareCodecs.contains(forced);
-        const bool supported = hardware || forced == QLatin1String("libx264")
-            || forced == QLatin1String("libopenh264") || forced == QLatin1String("mpeg4");
-        if (!supported || !hasEncoderToken(available, forced)) {
+        if (!hasEncoderToken(available, forced)) {
             if (probeLog) *probeLog = QStringLiteral("encoder_probe forced=%1 unavailable").arg(forced);
             return {};
         }
-        return selected(makeCandidate(forced, hardware), QStringLiteral("explicit"));
+        for (const VideoRateControl control : controls) {
+            if (const auto config = configure(forced, control)) {
+                return selected(*config, QStringLiteral("explicit"));
+            }
+        }
+        if (probeLog) *probeLog = QStringLiteral("encoder_probe forced=%1 cannot_carry rate=%2")
+            .arg(forced, videoRateControlToken(plan.control));
+        return {};
     }
 
     QStringList hardwareCandidates;
@@ -467,26 +475,38 @@ VideoEncoderConfig chooseVideoEncoder(
     const int preferred = hardwareCandidates.indexOf(preferredHardwareEncoder().toLower());
     if (preferred > 0) hardwareCandidates.move(preferred, 0);
     for (const QString& codec : hardwareCandidates) {
-        const auto candidate = makeCandidate(codec, true);
-        QString detail;
-        if (exportConfig.skipEncoderRuntimeProbe
-            || probeHardwareEncoderRuntime(ffmpegPath, candidate, outputWidth, outputHeight, fps, &detail)) {
-            rememberPreferredHardwareEncoder(codec);
-            attempts.append(QStringLiteral("%1:%2").arg(codec, exportConfig.skipEncoderRuntimeProbe
-                ? QStringLiteral("probe_skipped") : QStringLiteral("ready")));
-            return selected(candidate, QStringLiteral("hardware"));
+        for (const VideoRateControl control : controls) {
+            const std::optional<VideoEncoderConfig> candidate = configure(codec, control);
+            const QString attempt = QStringLiteral("%1/%2").arg(codec, videoRateControlToken(control));
+            if (!candidate) {
+                attempts.append(QStringLiteral("%1:unsupported").arg(attempt));
+                continue;
+            }
+            QString detail;
+            if (exportConfig.skipEncoderRuntimeProbe
+                || probeHardwareEncoderRuntime(ffmpegPath, *candidate, outputWidth, outputHeight, fps, &detail)) {
+                rememberPreferredHardwareEncoder(codec);
+                attempts.append(QStringLiteral("%1:%2").arg(attempt, exportConfig.skipEncoderRuntimeProbe
+                    ? QStringLiteral("probe_skipped") : QStringLiteral("ready")));
+                return selected(*candidate, QStringLiteral("hardware"));
+            }
+            attempts.append(QStringLiteral("%1:unavailable(%2)").arg(attempt, truncateForLog(detail, 180)));
         }
-        attempts.append(QStringLiteral("%1:unavailable(%2)").arg(codec, truncateForLog(detail, 180)));
     }
 
     // Software encoding is reached after every hardware candidate is unavailable.
-    for (const QString& codec : {QStringLiteral("libx264"), QStringLiteral("libopenh264"), QStringLiteral("mpeg4")}) {
-        if (hasEncoderToken(available, codec)) {
-            return selected(makeCandidate(codec, false), QStringLiteral("software_fallback"));
+    for (const QString& codec : softwareCodecs) {
+        if (!hasEncoderToken(available, codec)) {
+            continue;
+        }
+        for (const VideoRateControl control : controls) {
+            if (const auto candidate = configure(codec, control)) {
+                return selected(*candidate, QStringLiteral("software_fallback"));
+            }
         }
     }
-    if (probeLog) *probeLog = QStringLiteral("encoder_probe no_available_encoder runtime=%1")
-        .arg(truncateForLog(attempts.join(QLatin1Char(';')), 2400));
+    if (probeLog) *probeLog = QStringLiteral("encoder_probe no_available_encoder rate=%1 runtime=%2")
+        .arg(videoRateControlToken(plan.control), truncateForLog(attempts.join(QLatin1Char(';')), 2400));
     return {};
 }
 

@@ -15,9 +15,10 @@ ColumnLayout {
     })
     signal picked(string value)
     Layout.fillWidth: true
-    spacing: 8
+    spacing: 6
 
     Text {
+        visible: text.length > 0
         text: root.label
         color: Theme.colors.text.secondary
         font.family: Theme.uiFont
@@ -26,37 +27,42 @@ ColumnLayout {
 
     GridLayout {
         Layout.fillWidth: true
-        columns: width >= 720 ? 4 : 2
+        columns: 4
         uniformCellWidths: true
-        columnSpacing: 8
-        rowSpacing: 8
+        columnSpacing: 6
+        rowSpacing: 6
 
         Repeater {
             model: root.paletteOptions
             delegate: AbstractButton {
                 id: tile
                 required property var modelData
+                readonly property bool compact: width < 132
                 readonly property bool selected: root.currentValue === modelData.value
                 readonly property var previewColors: (Theme.themeCatalog[modelData.value] || Theme.themeCatalog.dark).colors
                 Layout.fillWidth: true
-                Layout.minimumWidth: 100
-                implicitHeight: 108
-                padding: 8
+                Layout.minimumWidth: 0
+                Layout.preferredWidth: 144
+                implicitHeight: compact ? 92 : 84
+                padding: 6
                 hoverEnabled: true
                 objectName: "themeTile_" + modelData.value
                 Accessible.role: Accessible.RadioButton
                 Accessible.name: modelData.label
                 Accessible.checked: selected
+                ToolTip.visible: tile.hovered && themeLabel.truncated
+                ToolTip.text: modelData.label
                 onClicked: root.picked(modelData.value)
 
                 background: Rectangle {
                     radius: Theme.controlRadius
-                    color: tile.hovered ? Theme.colors.buttonState.hover : Theme.colors.background.elevated
+                    color: tile.previewColors.background.activityBar
                     border.width: tile.selected || tile.visualFocus ? 2 : 1
-                    border.color: tile.selected || tile.visualFocus ? Theme.colors.accent.primary : Theme.colors.border.normal
+                    border.color: tile.selected || tile.visualFocus || tile.hovered
+                        ? tile.previewColors.accent.primary : tile.previewColors.border.normal
                 }
                 contentItem: ColumnLayout {
-                    spacing: 6
+                    spacing: 4
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
@@ -64,31 +70,50 @@ ColumnLayout {
                         color: tile.previewColors.background.surface
                         clip: true
                         Rectangle {
-                            width: 15
-                            height: parent.height
-                            color: tile.previewColors.background.panel
+                            width: parent.width
+                            height: 3
+                            color: tile.previewColors.background.titleBar
+                        }
+                        Rectangle {
+                            width: 8
+                            y: 3
+                            height: parent.height - y
+                            color: tile.previewColors.background.activityBar
                             Rectangle {
-                                width: 3
-                                height: 14
-                                y: 8
+                                width: 2
+                                height: 10
+                                y: 6
                                 color: tile.previewColors.accent.primary
                             }
                         }
                         Column {
-                            x: 24
-                            y: 7
-                            width: parent.width - x - 8
-                            spacing: 3
+                            id: sample
+                            readonly property int fontSize: tile.compact ? 10 : 11
+                            x: tile.compact ? 11 : 14
+                            y: tile.compact ? 4 : 5
+                            width: parent.width - x - (tile.compact ? 3 : 6)
+                            spacing: tile.compact ? 1 : 2
                             Text {
-                                text: "(180){4}"
+                                width: parent.width
+                                textFormat: Text.StyledText
+                                wrapMode: Text.WrapAnywhere
+                                maximumLineCount: tile.compact ? 3 : 2
+                                elide: Text.ElideRight
+                                text: {
+                                    const syntax = tile.previewColors.syntax
+                                    const note = syntax.note || tile.previewColors.text.editor
+                                    const beat = syntax.beat || syntax.keyword
+                                    return "<font color='" + syntax.keyword + "'>(180)</font>"
+                                        + "<font color='" + beat + "'>{4}</font>"
+                                        + "<font color='" + note + "'>1</font>,"
+                                        + "<font color='" + note + "'>2x-5</font>"
+                                        + "<font color='" + syntax.duration + "'>[8:1]</font>,"
+                                        + "<font color='" + note + "'>3b</font>,"
+                                        + "<font color='" + note + "'>4h</font>"
+                                        + "<font color='" + syntax.duration + "'>[4:1]</font>,"
+                                }
                                 font.family: Theme.codeFont.family
-                                font.pixelSize: 12
-                                color: tile.previewColors.syntax.keyword
-                            }
-                            Text {
-                                text: "1,2,3,4,"
-                                font.family: Theme.codeFont.family
-                                font.pixelSize: 12
+                                font.pixelSize: sample.fontSize
                                 color: tile.previewColors.text.editor
                             }
                             Text {
@@ -97,7 +122,7 @@ ColumnLayout {
                                 text: "|| " + qsTrId("dialog.preferences.theme.comment_sample")
                                 elide: Text.ElideRight
                                 font.family: Theme.codeFont.family
-                                font.pixelSize: 11
+                                font.pixelSize: sample.fontSize
                                 color: tile.previewColors.syntax.comment
                             }
                         }
@@ -105,10 +130,11 @@ ColumnLayout {
                     RowLayout {
                         Layout.fillWidth: true
                         Text {
+                            id: themeLabel
                             Layout.fillWidth: true
                             objectName: "themeLabel_" + tile.modelData.value
                             text: tile.modelData.label
-                            color: Theme.colors.text.active
+                            color: tile.previewColors.text.chrome
                             font.family: Theme.uiFont
                             font.pixelSize: Theme.secondaryFontSize
                             elide: Text.ElideRight
@@ -118,7 +144,7 @@ ColumnLayout {
                             height: 7
                             radius: 4
                             visible: tile.selected
-                            color: Theme.colors.accent.primary
+                            color: tile.previewColors.accent.primary
                         }
                     }
                 }

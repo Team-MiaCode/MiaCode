@@ -17,8 +17,13 @@ QtObject {
     property string failure: ""
     property int netActivations: 0
     property int difficultyActivations: 0
+    property bool confirmNetActivations: true
     property Mia.ViewState state: Mia.ViewState {
-        onApplicationEditorActivationRequested: function(key) { root.netActivations++ }
+        onApplicationEditorActivationRequested: function(key) {
+            root.netActivations++
+            if (root.confirmNetActivations)
+                confirmApplicationEditor(key)
+        }
         onDifficultyEditorActivationRequested: function(id) { root.difficultyActivations++ }
     }
     function require(condition, message) { if (!condition && !failure) failure = message }
@@ -53,6 +58,37 @@ QtObject {
         state.closeEditor(state.netDownloadEditorKey)
         require(!state.hasActiveEditor && state.openEditorTabs.length === 0, "Closing last tab clears presentation")
         require(root.netActivations >= 4, "User Net activations reach the page host")
+
+        state.resetEditorTabs(3)
+        root.confirmNetActivations = false
+        state.openEditor(state.netDownloadEditorKey)
+        require(state.activeEditorKey === "difficulty:3" && state.openEditorTabs.length === 1,
+                "Pending Net navigation retains the active chart and tab list")
+        state.cancelApplicationEditorActivation()
+        require(state.activeEditorKey === "difficulty:3", "Rejected navigation retains the active chart")
+        state.confirmApplicationEditor(state.netDownloadEditorKey)
+        state.openEditor(state.netUploadEditorKey)
+        require(state.activeEditorKey === state.netDownloadEditorKey && !state.containsEditor(state.netUploadEditorKey),
+                "Pending upload navigation retains download")
+        state.confirmApplicationEditor(state.netUploadEditorKey)
+        state.closeEditor(state.netUploadEditorKey)
+        require(state.pendingApplicationCloseKey === state.netUploadEditorKey
+                && state.containsEditor(state.netUploadEditorKey) && state.activeEditorKey === state.netUploadEditorKey,
+                "Closing to another Net tab waits for its navigation decision")
+        state.cancelApplicationEditorActivation()
+        require(state.containsEditor(state.netUploadEditorKey) && state.activeEditorKey === state.netUploadEditorKey,
+                "Rejected close retains the current tab")
+        state.closeEditor(state.netUploadEditorKey)
+        state.confirmApplicationEditor(state.netDownloadEditorKey)
+        require(!state.containsEditor(state.netUploadEditorKey) && state.activeEditorKey === state.netDownloadEditorKey,
+                "Confirmed close activates download and removes upload")
+        state.activateEditor("difficulty:3")
+        state.closeEditor("difficulty:3")
+        require(state.containsEditor("difficulty:3") && state.activeEditorKey === "difficulty:3",
+                "Closing the chart to Net retains its view until confirmation")
+        state.resetEditorTabs(4)
+        require(state.pendingApplicationCloseKey.length === 0 && state.activeEditorKey === "difficulty:4",
+                "Document replacement releases a pending close")
         return failure.length === 0
     }
 }

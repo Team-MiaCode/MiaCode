@@ -9,6 +9,7 @@ Item {
     id: root
 
     required property Item backgroundSource
+    required property Item compactLibraryHost
     required property point backgroundOffset
     required property var viewState
     required property var documentSession
@@ -26,10 +27,23 @@ Item {
     required property var net
     required property var netUpload
     property bool compact: false
+    property bool drawerLibraryActive: false
+    property bool peekDismissOnPress: false
     property bool timelineGuideActive: false
     property string documentTitle: ""
     property real sidebarDragWidth: 0
     property bool sidebarResizing: false
+    property bool sidebarAnimationReady: false
+    property bool suppressSidebarAnimation: false
+    readonly property real targetSidebarContentWidth: root.compact
+        ? 0
+        : root.viewState.sidebarVisible
+            ? (root.sidebarResizing ? root.sidebarDragWidth : root.preferences.sidebarWidth)
+            : 0
+    property real animatedSidebarContentWidth: targetSidebarContentWidth
+    readonly property bool sidebarPanelShown: animatedSidebarContentWidth > 0.5
+    readonly property bool sidebarAnimating: Math.abs(animatedSidebarContentWidth - targetSidebarContentWidth) > 0.5
+    readonly property bool libraryPopupActive: libraryPage.popupActive
     readonly property Item navigationItem: sidebar.navigationItem
     readonly property Item chartSidebarItem: sidebar.chartSidebarItem
     readonly property Item sourceEditorItem: editorPane.sourceEditorItem
@@ -45,7 +59,7 @@ Item {
     property bool previewSurfaceMoving: false
     readonly property rect activityBarMaterialRect: Qt.rect(0, 0,
         root.compact ? 0 : root.preferences.efficientSidebarEnabled
-            ? sidebar.width + sidebarToggle.width : sidebar.activityBarWidth,
+            ? sidebar.width : sidebar.activityBarWidth,
         horizontalSplit.height)
     readonly property real minimumEditorWidth: Math.max(editorPane.minimumWidth,
         bottomPanel.minimumWidth)
@@ -53,13 +67,14 @@ Item {
     readonly property real minimumWorkspaceWidth: root.previewDetached
         ? minimumEditorWidth
         : Math.max(620, minimumEditorWidth + preview.minimumWidth + Theme.splitDividerThickness)
-    readonly property real expandedSidebarWidth:
-        sidebar.activityBarWidth + root.preferences.sidebarWidth + Theme.splitDividerThickness
-        + (root.preferences.efficientSidebarEnabled ? 20 : 0)
+    readonly property real sidebarChromeWidth: Theme.splitDividerThickness
+        + (root.preferences.efficientSidebarEnabled ? 0 : Theme.activityButtonSize)
+    readonly property real expandedSidebarWidth: root.preferences.sidebarWidth + root.sidebarChromeWidth
     readonly property real minimumHeight: Math.max(
         editorHost.SplitView.minimumHeight + (root.bottomPanelEffectivelyVisible
             ? bottomPanel.minimumHeight + Theme.splitDividerThickness : 0),
         root.previewDetached ? 0 : preview.minimumHeight)
+    readonly property var inputContext: editorPane.inputContext
     readonly property bool canUndo: editorPane.canUndo
     readonly property bool canRedo: editorPane.canRedo
     readonly property bool canCut: editorPane.canCut
@@ -75,6 +90,9 @@ Item {
         && root.viewState.bottomPanelVisible && root.timelineSession.panelVisible
     readonly property bool exportVideoActive:
         root.pages.activePageId === "export"
+    readonly property bool libraryActive: root.viewState.activeSidebarView === "library"
+    readonly property bool previewOnLeft: root.preferencesModel.previewOnLeft
+    onPreviewOnLeftChanged: root.syncWorkspacePanelOrder()
     readonly property real previewEditorAvailableWidth:
         Math.max(1, workspaceSplit.width - (previewHost.visible ? Theme.splitDividerThickness : 0))
     signal openRequested()
@@ -83,6 +101,31 @@ Item {
     signal audioSettingsRequested()
     signal previewSettingsRequested()
     signal mediaToolRequested(string toolId)
+    signal workspacePressed()
+
+    Behavior on animatedSidebarContentWidth {
+        enabled: root.sidebarAnimationReady
+            && !root.sidebarResizing
+            && !root.compact
+            && !root.suppressSidebarAnimation
+        NumberAnimation {
+            duration: 180
+            easing.type: Easing.OutCubic
+        }
+    }
+
+    Component.onCompleted: Qt.callLater(() => { root.sidebarAnimationReady = true })
+    onCompactChanged: {
+        root.suppressSidebarAnimation = true
+        Qt.callLater(() => { root.suppressSidebarAnimation = false })
+    }
+
+    function dockSidebarWithoutAnimation() {
+        root.suppressSidebarAnimation = true
+        root.viewState.sidebarVisible = true
+        root.preferences.sidebarVisible = true
+        Qt.callLater(() => { root.suppressSidebarAnimation = false })
+    }
 
     function showMediaToolsMenu() {
         sidebar.showMediaToolsMenu()
@@ -91,7 +134,8 @@ Item {
     ResizeSnapState {
         id: sidebarSnap
         minimumSize: root.preferences.sidebarMinimumContentWidth
-        maximumSize: root.preferences.sidebarMaximumContentWidth
+        maximumSize: Math.min(root.preferences.sidebarMaximumContentWidth,
+            Math.max(minimumSize, Math.floor(root.width - root.minimumWorkspaceWidth - root.sidebarChromeWidth)))
         targets: [{ size: root.preferences.sidebarDefaultWidth }]
         alignmentTolerance: 0.5 / root.Screen.devicePixelRatio
     }
@@ -167,11 +211,16 @@ Item {
     function toggleRenderModeMenu() {
         if (!preview.renderModeMenuAvailable)
             return
-        if (root.previewDetached) {
-            detachedPreviewWindow.raise()
-            detachedPreviewWindow.requestActivate()
-        }
+        if (root.previewDetached)
+            root.showDetachedPreview()
         preview.toggleRenderModeMenu()
+    }
+
+    function showDetachedPreview() {
+        if (detachedPreviewWindow.visibility === Window.Minimized)
+            detachedPreviewWindow.windowChrome.showRestored()
+        detachedPreviewWindow.raise()
+        detachedPreviewWindow.requestActivate()
     }
 
     function detachPreview() {
@@ -179,8 +228,7 @@ Item {
         root.previewSurfaceMoving = true
         root.preferences.previewDetached = true
         detachedPreviewWindow.windowChrome.showRestored()
-        detachedPreviewWindow.raise()
-        detachedPreviewWindow.requestActivate()
+        root.showDetachedPreview()
         Qt.callLater(root.finishPreviewMove)
     }
 
@@ -216,10 +264,9 @@ Item {
 
     function resizeSidebar(contentWidth) {
         sidebarSnap.update(contentWidth)
-        root.sidebarDragWidth = Math.max(root.preferences.sidebarMinimumContentWidth,
-            Math.min(root.preferences.sidebarMaximumContentWidth,
-                     sidebarSnap.snapped ? sidebarSnap.targetSize : contentWidth))
-        root.viewState.sidebarVisible = contentWidth >= root.preferences.sidebarMinimumContentWidth / 2
+        root.sidebarDragWidth = Math.max(sidebarSnap.minimumSize,
+            Math.min(sidebarSnap.maximumSize, sidebarSnap.targetSize))
+        root.viewState.sidebarVisible = contentWidth >= sidebarSnap.minimumSize / 2
     }
 
     function persistPreviewWidthRatio(finalWidth) {
@@ -233,27 +280,23 @@ Item {
     }
 
     function syncWorkspacePanelOrder() {
-        const targetPreviewIndex = root.preferencesModel.previewOnLeft ? 0 : 1
+        if (!workspaceSplit || workspaceSplit.count !== 2)
+            return
+        const targetPreviewIndex = root.previewOnLeft ? 0 : 1
         const currentPreviewIndex = workspaceSplit.itemAt(0) === previewHost ? 0 : 1
         if (currentPreviewIndex !== targetPreviewIndex)
             workspaceSplit.moveItem(currentPreviewIndex, targetPreviewIndex)
     }
 
-    Connections {
-        target: root.preferencesModel
-        function onInterfaceChanged() {
-            root.syncWorkspacePanelOrder()
-        }
-    }
-
     PreviewPane {
         id: preview
+        objectName: "workspacePreviewPane"
         parent: root.previewDetached ? detachedPreviewContent : previewHost
         anchors.fill: parent
         documentAvailable: root.documentSession.hasDocument
-        surfaceActive: !root.previewSurfaceMoving && (root.previewDetached || !root.viewState.netEditorActive)
+        surfaceActive: !root.previewSurfaceMoving
         detached: root.previewDetached
-        transportMirrored: root.preferencesModel.previewOnLeft && !root.previewDetached
+        transportMirrored: root.previewOnLeft
         previewSession: root.previewSession
         preferences: root.preferences
         exportSession: root.pages.exportSession
@@ -290,6 +333,8 @@ Item {
             Math.ceil((preview.minimumHeight + detachedTitleBar.height + detachedToolBar.height) * Theme.uiScale))
         flags: {
             let value = Qt.Window
+            if (Qt.platform.os !== "windows" && alwaysOnTop)
+                value |= Qt.WindowStaysOnTopHint
             if (root.Window.window.platform.captionButtons) {
                 value |= Qt.CustomizeWindowHint
                         | Qt.WindowTitleHint
@@ -446,17 +491,29 @@ Item {
 
         Shortcut {
             sequences: [StandardKey.Close]
+            enabled: root.Window.window.windowCommandsEnabled
             onActivated: detachedPreviewWindow.close()
+        }
+
+        PreviewShortcuts {
+            shortcuts: root.Window.window.applicationContext.shortcuts
+            previewSession: root.previewSession
+            inputContext: root.Window.window.inputContext
+            commandsEnabled: root.Window.window.windowCommandsEnabled
+                && root.Window.window.workbenchCommandsAllowed
+            playbackCommandsEnabled: root.Window.window.playbackCommandsEnabled
         }
 
         UiScaleShortcuts {
             shortcuts: root.Window.window.applicationContext.shortcuts
             preferencesModel: root.preferencesModel
+            commandsEnabled: root.Window.window.windowCommandsEnabled
         }
 
         Shortcut {
             sequence: "Escape"
-            enabled: detachedPreviewWindow.visibility === Window.FullScreen
+            enabled: root.Window.window.windowCommandsEnabled
+                && detachedPreviewWindow.visibility === Window.FullScreen
             onActivated: detachedPreviewWindow.windowChrome.showRestored()
         }
     }
@@ -473,36 +530,40 @@ Item {
             preferences: root.preferences
             commands: root.commands
             pages: root.pages
-            compact: false
-            visible: !root.compact && (!root.preferences.efficientSidebarEnabled || root.viewState.sidebarVisible)
-            width: visible ? sidebar.activityBarWidth + (root.viewState.sidebarVisible
-                ? (root.sidebarResizing ? root.sidebarDragWidth : root.preferences.sidebarWidth) : 0) : 0
+            compact: root.compact
+            expandedContentWidth: root.sidebarResizing ? root.sidebarDragWidth : root.preferences.sidebarWidth
+            contentRevealed: root.sidebarPanelShown
+            visible: !root.compact && (!root.preferences.efficientSidebarEnabled || root.sidebarPanelShown)
+            width: visible ? sidebar.activityBarWidth + root.animatedSidebarContentWidth : 0
             height: parent.height
             onSettingsRequested: root.settingsRequested()
             onMediaToolRequested: toolId => root.mediaToolRequested(toolId)
         }
 
-        // Behind the split, so a fractional device pixel at the divider shows
-        // the panel surface instead of the wallpaper. Kept out of the
-        // SplitView background so it cannot intercept handle hover.
+        // Behind the split in opaque mode, so a fractional device pixel at the
+        // divider shows the panel surface instead of the window base. Hidden
+        // when custom wallpaper is active so translucent panes are never
+        // double-tinted over the wallpaper.
         Rectangle {
             x: workspaceSplit.x
             y: workspaceSplit.y
             width: workspaceSplit.width
             height: workspaceSplit.height
+            visible: !Theme.backgroundActive
             color: Theme.surfaceColor(Theme.colors.background.panel)
         }
 
         SplitView {
             id: workspaceSplit
             orientation: Qt.Horizontal
-            x: sidebar.width + sidebarHandle.width + sidebarToggle.width
+            x: sidebar.width + sidebarHandle.width
             width: parent.width - x
             height: parent.height
             Component.onCompleted: root.syncWorkspacePanelOrder()
 
             handle: SplitHandle {
                 verticalDivider: true
+                snapped: previewWidthSnap.constrained
                 onReleased: previewWidthSnap.finishDrag(true)
             }
 
@@ -519,6 +580,7 @@ Item {
 
                 handle: SplitHandle {
                     verticalDivider: false
+                    snapped: bottomPanelSnap.constrained && !bottomPanelSnap.lineConstrained
                     onReleased: bottomPanelSnap.finishDrag(true)
                 }
 
@@ -581,11 +643,55 @@ Item {
 
             Item {
                 id: previewHost
-                visible: !root.previewDetached && !root.viewState.netEditorActive
+                visible: !root.previewDetached
                 SplitView.minimumWidth: previewWidthSnap.constrained
                     ? previewWidthSnap.targetSize : previewWidthSnap.minimumSize
                 SplitView.maximumWidth: previewWidthSnap.constrained
                     ? previewWidthSnap.targetSize : previewWidthSnap.maximumSize
+            }
+        }
+
+        // Passively observe workspace presses above workspaceSplit while the
+        // floating drawer is open so clicking the editor dismisses it without
+        // swallowing the click (and never adds an extra SplitView pane).
+        Item {
+            x: workspaceSplit.x
+            y: workspaceSplit.y
+            width: workspaceSplit.width
+            height: workspaceSplit.height
+            z: 10
+            visible: root.peekDismissOnPress
+
+            PointHandler {
+                enabled: root.peekDismissOnPress
+                acceptedButtons: Qt.AllButtons
+                onActiveChanged: {
+                    if (active)
+                        root.workspacePressed()
+                }
+            }
+        }
+
+        ChartLibraryPage {
+            id: libraryPage
+            objectName: "chartLibraryPage"
+            parent: root.compact || root.drawerLibraryActive ? root.compactLibraryHost : sidebar.libraryHost
+            anchors.fill: parent
+            visible: root.libraryActive
+            compact: root.compact || root.drawerLibraryActive
+            efficientMode: root.preferences.efficientSidebarEnabled
+            nativeMaterialActive: !compact && root.preferences.efficientSidebarEnabled && Theme.nativeMaterialActive
+            activeChartPath: root.documentSession.currentFilePath
+            onChartRequested: (chartUrl, preferredDifficultyId) => root.commands.openLibraryChart(chartUrl, preferredDifficultyId)
+            onChartFolderRequested: chartUrl => root.commands.openChartFolder(chartUrl)
+        }
+
+        Connections {
+            target: root.commands
+            function onLibraryChartOpened(difficultyId) {
+                root.viewState.openDifficultyEditor(difficultyId)
+                if (root.compact && root.libraryActive)
+                    root.viewState.compactPanel = ""
             }
         }
 
@@ -595,7 +701,7 @@ Item {
             y: workspaceSplit.y
             splitView: workspaceSplit
             resizedItem: previewHost
-            resizeDirection: root.preferencesModel.previewOnLeft ? 1 : -1
+            resizeDirection: root.previewOnLeft ? 1 : -1
             minimumSize: root.previewEditorAvailableWidth * root.preferences.previewMinimumWidthRatio
             maximumSize: root.previewEditorAvailableWidth * root.preferences.previewMaximumWidthRatio
             targets: [{ size: root.previewEditorAvailableWidth * root.preferences.previewDefaultWidthRatio }]
@@ -673,19 +779,23 @@ Item {
 
         CornerMask {
             id: workspaceCorner
+            readonly property bool showingEditorCorner: (root.compact || !root.sidebarPanelShown)
+                && !(root.previewOnLeft && previewHost.visible)
+                && !root.exportVideoActive
             visible: sidebar.visible && !root.preferences.efficientSidebarEnabled
             x: root.compact ? 0 : sidebar.activityBarWidth
             backgroundSource: root.backgroundSource
             backgroundOffset: Qt.point(root.backgroundOffset.x + x, root.backgroundOffset.y)
-            panelItem: !root.compact && root.viewState.sidebarVisible
-                ? sidebar.cornerSourceItem
-                : root.preferencesModel.previewOnLeft && previewHost.visible
+            panelItem: !root.compact && root.sidebarPanelShown
+                ? (sidebar.libraryActive ? libraryPage.cornerSourceItem : sidebar.cornerSourceItem)
+                : root.previewOnLeft && previewHost.visible
                     ? preview.cornerSourceItem
                     : root.exportVideoActive ? exportVideoPage.cornerSourceItem
                         : editorPane.cornerSourceItem
             panelOffset: Qt.point(0, 0)
-            panelBackingColor: panelItem === editorPane.cornerSourceItem
-                ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
+            panelBackingColor: showingEditorCorner
+                ? editorPane.cornerBackingColor
+                : Theme.surfaceColor(Theme.colors.background.panel)
         }
 
         Rectangle {
@@ -707,52 +817,17 @@ Item {
             enabled: false
         }
 
-        Rectangle {
-            id: sidebarToggle
-            x: sidebar.width
-            y: 1 / root.Screen.devicePixelRatio
-            width: visible ? 20 : 0
-            height: parent.height - y
-            visible: !root.compact && root.preferences.efficientSidebarEnabled
-            color: Theme.chromeSurfaceColor(Theme.colors.background.panel)
-
-            IconButton {
-                id: sidebarToggleButton
-                objectName: "efficientSidebarToggleButton"
-                anchors.centerIn: parent
-                width: parent.width
-                height: 32
-                iconWidth: 14
-                iconHeight: 14
-                Accessible.name: tooltip
-                background: Rectangle {
-                    radius: Theme.compactControlRadius
-                    color: Theme.overlayColor(sidebarToggleButton.down
-                        ? Theme.chromeStateColors.pressed
-                        : sidebarToggleButton.hovered || sidebarToggleButton.visualFocus
-                            ? Theme.chromeStateColors.hover : "transparent")
-                }
-                iconSource: root.viewState.sidebarVisible
-                    ? Qt.resolvedUrl("icons/chevron-left.svg")
-                    : Qt.resolvedUrl("icons/chevron-right.svg")
-                tooltip: root.viewState.sidebarVisible
-                    ? qsTrId("qml.close_sidebar") : qsTrId("qml.open_sidebar")
-                onClicked: {
-                    root.viewState.sidebarVisible = !root.viewState.sidebarVisible
-                    root.preferences.sidebarVisible = root.viewState.sidebarVisible
-                }
-            }
-        }
-
         SplitHandle {
             id: sidebarHandle
             verticalDivider: true
-            x: sidebar.width + sidebarToggle.width
-            width: visible && (root.viewState.sidebarVisible || root.preferences.efficientSidebarEnabled)
-                ? Theme.splitDividerThickness : 0
+            x: sidebar.width
+            width: visible && root.sidebarPanelShown ? Theme.splitDividerThickness : 0
             height: parent.height
-            visible: !root.compact
-            showDivider: root.viewState.sidebarVisible || root.preferences.efficientSidebarEnabled
+            // In collapsed efficient mode, keep the left edge free for hover-peek
+            // instead of showing a split resize cursor on the editor edge.
+            visible: !root.compact && (!root.preferences.efficientSidebarEnabled || root.sidebarPanelShown)
+            showDivider: root.sidebarPanelShown
+            snapped: sidebarSnap.snapped
             handlePressed: sidebarDrag.pressed
             handleHovered: sidebarDrag.containsMouse
 
@@ -787,6 +862,52 @@ Item {
                     root.persistSidebarWidth()
                     sidebarSnap.end()
                     root.sidebarResizing = false
+                }
+            }
+        }
+
+        // Passive hover zone straddling the split divider center so the
+        // floating collapse pill appears on approach without blocking scroll or clicks.
+        Item {
+            id: efficientCollapseZone
+            readonly property bool available: !root.compact
+                && root.preferences.efficientSidebarEnabled
+                && root.viewState.sidebarVisible
+                && !root.sidebarAnimating
+            readonly property bool reveal: available
+                && !root.sidebarResizing
+                && !sidebarDrag.pressed
+                && (edgeHover.hovered || sidebarDrag.containsMouse
+                    || efficientCollapsePill.hovered || efficientCollapsePill.visualFocus)
+
+            x: sidebarHandle.x + sidebarHandle.width / 2 - width / 2
+            y: Math.round((parent.height - height) / 2)
+            width: 36
+            height: 96
+            z: 5
+            visible: available
+
+            HoverHandler {
+                id: edgeHover
+            }
+
+            SidebarEdgePill {
+                id: efficientCollapsePill
+                buttonObjectName: "efficientSidebarCollapseButton"
+                anchors.centerIn: parent
+                iconSource: Qt.resolvedUrl("icons/chevron-left.svg")
+                tooltip: qsTrId("qml.close_sidebar")
+                interactive: efficientCollapseZone.reveal
+                opacity: efficientCollapseZone.reveal ? 1 : 0
+                visible: opacity > 0.01
+
+                Behavior on opacity {
+                    NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+                }
+
+                onClicked: {
+                    root.viewState.sidebarVisible = false
+                    root.preferences.sidebarVisible = false
                 }
             }
         }

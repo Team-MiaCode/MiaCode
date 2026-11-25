@@ -155,7 +155,6 @@ public:
     qint64 previewCanvasTargetFrameIntervalNs() const;
     qint64 targetFrameIntervalNsForFrameRateMode(PreviewCanvasFrameRateMode mode) const;
     qint64 timelineTargetFrameIntervalNs() const;
-    void refreshTimelineWaveformPhaseCompensation();
     void resetQtPreviewFixedFramePacing();
     void scheduleNextQtPreviewTick();
     void requestNextDisplayRefreshPreviewFrame();
@@ -269,6 +268,7 @@ public:
     double durationSeconds() const;
     double lowerBoundSeconds() const;
     void togglePlayback() override;
+    void pausePlayback();
     void stopOrPlay() override;
     void setPlaybackRangeEnabled(bool enabled, double startSecond, double endSecond) override;
     void stop() override;

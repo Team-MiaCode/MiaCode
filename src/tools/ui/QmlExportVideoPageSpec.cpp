@@ -1,5 +1,6 @@
 #include <QCoreApplication>
 #include <QDir>
+#include <QFont>
 #include <QGuiApplication>
 #include <QQmlComponent>
 #include <QVariantMap>
@@ -99,10 +100,17 @@ ApplicationWindow {
         property var fpsOptions: [30, 60, 120]
         property int audioBitrateKbps: 192
         property var audioBitrateOptions: [128, 192, 320]
-        property int presetIndex: 1
-        property var presetOptions: ["Fast", "High quality"]
-        property int sizePresetIndex: 0
-        property var sizePresetOptions: ["Standard"]
+        property int rateModeIndex: 0
+        property var rateModeOptions: [{ value: 0, label: "Quality first" }]
+        property int qualityLevelIndex: 1
+        property var qualityLevelOptions: [{ value: 1, label: "Standard" }]
+        property int sizeLimitMb: 100
+        property int sizeLimitMinMb: 5
+        property int sizeLimitMaxMb: 1000
+        property real videoBitrateMbps: 8
+        property real videoBitrateMinMbps: 0.1
+        property real videoBitrateMaxMbps: 100
+        property real estimatedSizeBytes: 96600000
         property bool showObjectStatsHud: false
         property bool showChartInfoHud: false
         property bool clockCountEnabled: false
@@ -120,6 +128,17 @@ ApplicationWindow {
         property string introFontDisplayPath: ""
         property string introFontBodyPath: ""
         property int introFontImportRequests: 0
+        property bool introPvPreview: false
+        property string introSoundLabel: "Intro music"
+        property var introSoundOptions: [
+            { label: "Default", fileName: "" },
+            { label: "jingle.ogg", fileName: "jingle.ogg" }
+        ]
+        property int introSoundIndex: 0
+        property int introSoundImportRequests: 0
+        property int introSoundAuditionRequests: 0
+        property int introSoundFolderRequests: 0
+        property int introSoundRefreshRequests: 0
         property real exportStartSeconds: 60.0
         property real exportEndSeconds: 180.0
         property real retainedExportDurationSeconds: 120.0
@@ -157,6 +176,10 @@ ApplicationWindow {
         function browseOutputPath() {}
         function browseIntroBackground() {}
         function importIntroFont() { introFontImportRequests += 1 }
+        function importIntroSound() { introSoundImportRequests += 1 }
+        function auditionIntroSound() { introSoundAuditionRequests += 1 }
+        function openIntroSoundDirectory() { introSoundFolderRequests += 1 }
+        function refreshIntroSoundOptions() { introSoundRefreshRequests += 1 }
         function resetIntroFonts() {
             introFontDisplayPath = ""
             introFontBodyPath = ""
@@ -412,14 +435,61 @@ bool verifyRealExportPageControls(QTextStream& err)
         return false;
     }
 
-    // The intro's sound selection is hidden for now and its volume lives in the
-    // audio settings under the global volume, so the page offers neither.
+    // The classic intro picks its opening music in one row; import and open-folder
+    // are the combo's trailing entries and the volume stays in the audio settings.
+    QObject* introSoundCombo = root->findChild<QObject*>(QStringLiteral("introSoundCombo"));
+    QObject* introSoundAudition = root->findChild<QObject*>(QStringLiteral("introSoundAuditionButton"));
     ok &= require(
-        root->findChild<QObject*>(QStringLiteral("introSoundCombo")) == nullptr
+        introSoundCombo != nullptr && introSoundAudition != nullptr
             && root->findChild<QObject*>(QStringLiteral("introSoundImportButton")) == nullptr
-            && root->findChild<QObject*>(QStringLiteral("introSoundVolumeSlider")) == nullptr,
-        QStringLiteral("the export page offers no intro sound or intro volume controls"),
+            && root->findChild<QObject*>(QStringLiteral("introSoundVolumeSlider")) == nullptr
+            && introSoundCombo->property("count").toInt() == 4,
+        QStringLiteral("the export page offers one intro music row without a volume slider"),
         err);
+    if (introSoundCombo != nullptr && introSoundAudition != nullptr) {
+        introSoundCombo->setProperty("currentIndex", 1);
+        QMetaObject::invokeMethod(introSoundCombo, "activated", Q_ARG(int, 1));
+        ok &= require(session->property("introSoundIndex").toInt() == 1,
+                      QStringLiteral("choosing a library entry selects that intro music"),
+                      err);
+        introSoundCombo->setProperty("currentIndex", 2);
+        QMetaObject::invokeMethod(introSoundCombo, "activated", Q_ARG(int, 2));
+        QCoreApplication::processEvents();
+        ok &= require(session->property("introSoundImportRequests").toInt() == 1
+                          && session->property("introSoundIndex").toInt() == 1
+                          && introSoundCombo->property("currentIndex").toInt() == 1,
+                      QStringLiteral("the import entry opens the picker and keeps the current selection"),
+                      err);
+        introSoundCombo->setProperty("currentIndex", 3);
+        QMetaObject::invokeMethod(introSoundCombo, "activated", Q_ARG(int, 3));
+        QCoreApplication::processEvents();
+        ok &= require(session->property("introSoundFolderRequests").toInt() == 1
+                          && session->property("introSoundIndex").toInt() == 1
+                          && introSoundCombo->property("currentIndex").toInt() == 1,
+                      QStringLiteral("the open-folder entry opens the music folder and keeps the current selection"),
+                      err);
+        QObject* introSoundPopup = introSoundCombo->property("popup").value<QObject*>();
+        if (introSoundPopup != nullptr) {
+            QMetaObject::invokeMethod(introSoundPopup, "open");
+            QCoreApplication::processEvents();
+            QMetaObject::invokeMethod(introSoundPopup, "close");
+            QCoreApplication::processEvents();
+        }
+        ok &= require(session->property("introSoundRefreshRequests").toInt() >= 1,
+                      QStringLiteral("opening the intro music list rescans the music folder"),
+                      err);
+        QMetaObject::invokeMethod(introSoundAudition, "clicked");
+        ok &= require(session->property("introSoundAuditionRequests").toInt() == 1,
+                      QStringLiteral("the audition button plays the selected intro music"),
+                      err);
+        session->setProperty("introPvPreview", true);
+        QCoreApplication::processEvents();
+        auto* introSoundRow = qobject_cast<QQuickItem*>(introSoundCombo->parent());
+        ok &= require(introSoundRow != nullptr && !introSoundRow->isVisible(),
+                      QStringLiteral("the PV preview style hides the intro music row"),
+                      err);
+        session->setProperty("introPvPreview", false);
+    }
 
     displayFontCombo->setProperty("currentIndex", 1);
     QMetaObject::invokeMethod(displayFontCombo, "activated", Q_ARG(int, 1));
@@ -429,6 +499,14 @@ bool verifyRealExportPageControls(QTextStream& err)
         session->property("introFontDisplayPath").toString() == QStringLiteral("/fonts/example.ttf")
             && session->property("introFontBodyPath").toString() == QStringLiteral("/fonts/example.ttf"),
         QStringLiteral("the title and body card-font selectors write independently to the session"),
+        err);
+    const auto* titleSample = root->findChild<QObject*>(QStringLiteral("introDisplayFontSample"));
+    const auto* bodySample = root->findChild<QObject*>(QStringLiteral("introBodyFontSample"));
+    ok &= require(
+        titleSample != nullptr && bodySample != nullptr
+            && titleSample->property("font").value<QFont>().family() == QStringLiteral("Example Font")
+            && bodySample->property("font").value<QFont>().family() == QStringLiteral("Example Font"),
+        QStringLiteral("intro font samples apply the selected families"),
         err);
 
     QMetaObject::invokeMethod(introFontImportButton, "clicked");

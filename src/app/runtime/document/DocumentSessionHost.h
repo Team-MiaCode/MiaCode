@@ -154,6 +154,7 @@ public:
     bool enterMetadataPage() override;
     bool enterLatencyPage() override;
     bool enterExportPage() override;
+    bool enterApplicationPage() override;
     bool clearEditorPresentation() override;
     void packChartAsZip() override;
     void openPreferences() override;

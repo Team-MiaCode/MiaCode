@@ -1,13 +1,13 @@
 import QtQuick
-import QtQuick.Controls
 import MiaCode.UI
 
-// Keyboard playback-rate changes appear over the timeline panel.
-// The shared popup surface lets input reach the panel underneath.
+// Playback-rate changes stay readable as the note viewport shrinks.
+// The visual item leaves pointer input to the timeline underneath.
 Item {
     id: root
 
     required property var previewSession
+    property rect noteViewportRect: Qt.rect(0, 0, root.width, root.height)
     // Keep the notification visible briefly after the latest rate change.
     property int holdMilliseconds: 900
 
@@ -41,49 +41,94 @@ Item {
         onTriggered: root.showing = false
     }
 
-    AppDropdownPanel {
+    Item {
         id: card
-        parent: root
-        x: (root.width - width) / 2
-        y: (root.height - height) / 2
-        width: Math.min(Math.max(1, root.width - 16), Math.max(196, body.implicitWidth + 48))
-        height: Math.min(Math.max(1, root.height - 16), Math.max(96, body.implicitHeight + 36))
-        visible: root.showing && root.visible
+
+        readonly property real noteViewportScale: Math.min(1,
+            Math.max(0, root.noteViewportRect.width - 16) / width,
+            Math.max(0, root.noteViewportRect.height - 16) / height)
+        readonly property real panelScale: Math.min(1,
+            Math.max(0, root.width - 16) / width,
+            Math.max(0, root.height - 16) / height)
+
+        x: {
+            const halfWidth = width * scale / 2
+            const centerX = root.noteViewportRect.x + root.noteViewportRect.width / 2
+            return Math.max(8 + halfWidth,
+                Math.min(centerX, root.width - 8 - halfWidth)) - width / 2
+        }
+        y: {
+            const halfHeight = height * scale / 2
+            const centerY = root.noteViewportRect.y + root.noteViewportRect.height / 2
+            return Math.max(8 + halfHeight,
+                Math.min(centerY, root.height - 8 - halfHeight)) - height / 2
+        }
+        width: Math.max(196, body.implicitWidth + 48)
+        height: Math.max(96, body.implicitHeight + 36)
+        transformOrigin: Item.Center
+        // Preserve the readable size until the whole panel needs to shrink it.
+        scale: Math.min(panelScale, Math.max(0.8, noteViewportScale))
+        visible: opacity > 0 && scale > 0
+            && root.noteViewportRect.width > 0 && root.noteViewportRect.height > 0
+        opacity: 0
         enabled: false
-        modal: false
-        dim: false
         focus: false
-        closePolicy: Popup.NoAutoClose
-        padding: Theme.panelPadding
+        state: root.showing ? "shown" : ""
 
-        contentItem: Item {
-            implicitWidth: body.implicitWidth
-            implicitHeight: body.implicitHeight
+        states: State {
+            name: "shown"
+            PropertyChanges {
+                target: card
+                opacity: 1
+            }
+        }
 
-            Column {
-                id: body
-                anchors.centerIn: parent
-                spacing: 6
+        transitions: [
+            Transition {
+                to: "shown"
+                PropertyAction { property: "opacity"; value: 1 }
+            },
+            FadeTransition {
+                from: "shown"
+                to: ""
+                appearing: false
+                initialOpacity: card.opacity
+            }
+        ]
 
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: qsTrId("timeline.playback_speed")
-                    color: Theme.colors.text.primary
-                    font.family: Theme.uiFont
-                    font.pixelSize: Theme.uiFontSize + 1
-                    font.weight: Font.DemiBold
-                    horizontalAlignment: Text.AlignHCenter
-                }
+        FloatingCard {
+            anchors.fill: parent
+            cornerRadius: Theme.popupRadius
+            tintColor: Theme.colors.background.elevated
+            opacity: 0.75
+        }
 
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: root.percent + "%"
-                    color: Theme.colors.text.heading
-                    font.family: Theme.uiFont
-                    font.pixelSize: Theme.uiFontSize * 2
-                    font.weight: Font.Bold
-                    horizontalAlignment: Text.AlignHCenter
-                }
+        Column {
+            id: body
+            anchors.centerIn: parent
+            anchors.alignWhenCentered: false
+            spacing: 6
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.alignWhenCentered: false
+                text: qsTrId("timeline.playback_speed")
+                color: Theme.colors.text.primary
+                font.family: Theme.uiFont
+                font.pixelSize: Theme.uiFontSize + 1
+                font.weight: Font.DemiBold
+                horizontalAlignment: Text.AlignHCenter
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.alignWhenCentered: false
+                text: root.percent + "%"
+                color: Theme.colors.text.heading
+                font.family: Theme.uiFont
+                font.pixelSize: Theme.uiFontSize * 2
+                font.weight: Font.Bold
+                horizontalAlignment: Text.AlignHCenter
             }
         }
     }

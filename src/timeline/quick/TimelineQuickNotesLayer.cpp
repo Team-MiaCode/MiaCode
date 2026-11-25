@@ -8,6 +8,8 @@
 #include <QSGTransformNode>
 #include <QTransform>
 
+#include <utility>
+
 #include "timeline/quick/TimelineQuickLayerUtils.h"
 #include "timeline/quick/TimelineQuickTextureCache.h"
 
@@ -122,30 +124,27 @@ void appendHoldSpanBatched(
         const qreal bodyStartX = leftCapX + parts.leftCap.logicalSize.width();
         const qreal bodyWidth = qMax<qreal>(0.0, rightCapX - bodyStartX);
 
-        // Body slice — emit first so caps render visually adjacent.
-        // Bodies, left caps, and right caps are 3 distinct textures so
-        // they'll naturally split into 3 batches; emitting body first
-        // matches the legacy QSG order.
+        // The shared atlas keeps body-before-cap order in one texture batch.
         if (bodyWidth > 0.0) {
             batch.appendQuad(
                 parts.bodySlice.texture,
                 QRectF(bodyStartX,
                        snapToPhysicalPixel(capY, dpr),
                        bodyWidth,
-                       parts.bodySlice.logicalSize.height()));
+                       parts.bodySlice.logicalSize.height()), parts.bodySlice.uvRect);
         }
         batch.appendQuad(
             parts.leftCap.texture,
             QRectF(leftCapX,
                    snapToPhysicalPixel(capY, dpr),
                    parts.leftCap.logicalSize.width(),
-                   parts.leftCap.logicalSize.height()));
+                   parts.leftCap.logicalSize.height()), parts.leftCap.uvRect);
         batch.appendQuad(
             parts.rightCap.texture,
             QRectF(rightCapX,
                    snapToPhysicalPixel(capY, dpr),
                    parts.rightCap.logicalSize.width(),
-                   parts.rightCap.logicalSize.height()));
+                   parts.rightCap.logicalSize.height()), parts.rightCap.uvRect);
         return;
     }
 
@@ -237,15 +236,25 @@ QSGNode* TimelineQuickNotesLayer::updateNode(
         ? window->effectiveDevicePixelRatio()
         : 1.0;
 
-    // Firework bands — translucent rect overlays drawn UNDER all
-    // sprites. Volume is small (a handful per chart at most), so
-    // batching them isn't worth the extra material kind. Keep the
-    // legacy QSGOpacityNode + QSGSimpleRectNode pattern.
-    for (const auto& rect : state.fireworkBands) {
+    if (!state.fireworkBands.isEmpty()) {
+        // Each palette color occupies its own horizontal stripe within a lane.
+        // Grouping matching colors retains source-over for overlapping bands
+        // while sharing one opacity root across the complete firework layer.
+        QHash<QRgb, QVector<const miacode::timeline::TimelineSceneRect*>> groups;
+        QVector<QRgb> order;
+        for (const auto& rect : state.fireworkBands) {
+            const QRgb color = rect.color.rgba();
+            if (!groups.contains(color)) order.append(color);
+            groups[color].append(&rect);
+        }
         auto* opacity = new QSGOpacityNode();
         opacity->setOpacity(0.55f);
-        opacity->appendChildNode(buildTimelineRectNode(rect));
         bodyRoot->appendChildNode(opacity);
+        TimelineQuickFlatColorBatchBuilder batch(opacity);
+        for (QRgb color : order) {
+            for (const auto* rect : std::as_const(groups[color])) batch.appendRect(rect->color, rect->rect);
+        }
+        batch.flush();
     }
 
     // Track sprites + hold spans + touch-hold lines + note sprites.
@@ -281,9 +290,7 @@ QSGNode* TimelineQuickNotesLayer::updateNode(
             trackBatch.flush();
         }
 
-        // Phase 2: hold spans — ORDERED. Bodies, left caps, right caps
-        // are distinct textures within a hold; cap-over-body order
-        // matters at the seams.
+        // Phase 2: hold spans retain body-before-cap order at the seams.
         {
             TimelineQuickSpriteBatchBuilder holdBatch(bodyRoot);
             for (const auto& holdSpan : state.holdSpans) {

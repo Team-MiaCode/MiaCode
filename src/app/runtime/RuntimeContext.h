@@ -19,6 +19,7 @@
 #include "core/chart/transform/ChartNormalization.h"
 #include "app/services/PlaybackControl.h"
 #include "core/chart/model/TimelineData.h"
+#include "editor/SimaiCompletionCatalog.h"
 #include "timeline/TimelineQuickModel.h"
 #include "core/analysis/TimelineSlowRefresh.h"
 #include "export/video_export/VideoExportSnapshot.h"

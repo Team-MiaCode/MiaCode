@@ -1,0 +1,5 @@
+<!-- Filled counterpart of chart-library.svg. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
+  <path fill="#212121" fill-rule="evenodd" d="M4.5 5H12a2.25 2.25 0 0 1 2.25 2.25V16A2.25 2.25 0 0 1 12 18.25H4.5A2.25 2.25 0 0 1 2.25 16V7.25A2.25 2.25 0 0 1 4.5 5ZM6 8.3a.7.7 0 0 0 0 1.4h4.5a.7.7 0 0 0 0-1.4H6Zm0 3a.7.7 0 0 0 0 1.4h4.5a.7.7 0 0 0 0-1.4H6Z"/>
+  <path d="M6.5 3h9A1.5 1.5 0 0 1 17 4.5v10" stroke="#212121" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

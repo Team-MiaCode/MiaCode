@@ -93,6 +93,7 @@ public:
     void saveProjectAudioPreferences() const;
 
 private:
+    quint64 invalidatedMediaWarmupGeneration_ = 0;
     Session& session_;
     RuntimeContext::Ui& ui_;
     RuntimeContext::State& state_;

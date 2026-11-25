@@ -12,6 +12,7 @@
 #include "app/ui/preview/NoteImageProvider.h"
 #include "app/ui/export/CoverExportWindow.h"
 #include "app/ui/export/ExportSession.h"
+#include "app/ui/export/AnimatedImageClipboardService.h"
 #include "app/ui/chrome/WindowChrome.h"
 #include "app/ui/chrome/ShortcutModel.h"
 #include "app/platform/PlatformDiagnostics.h"
@@ -24,6 +25,7 @@
 #include "app/ui/preferences/LocaleService.h"
 #include "app/ui/drop/ChartDropBridge.h"
 #include "app/ui/document/DocumentModel.h"
+#include "app/ui/layout/ChartLibraryModel.h"
 #include "app/ui/layout/PageHost.h"
 #include "app/ui/dialogs/NativeFolderPicker.h"
 #include "common/DebugLog.h"
@@ -143,6 +145,8 @@ bool Bootstrap::start(const QString& startupOpenTarget)
                 });
             return session;
         });
+    applicationServices_->setAnimatedImageClipboard(
+        new AnimatedImageClipboardService(applicationServices_.get()));
     backend_ = std::make_unique<Session>(*applicationServices_);
     backend_->setBackendActive(true);
     appendUiRuntimeLog(QStringLiteral("backend_ready"));
@@ -184,6 +188,7 @@ bool Bootstrap::start(const QString& startupOpenTarget)
     engine_->addImportPath(QCoreApplication::applicationDirPath() + QStringLiteral("/qml"));
     registerNoteImageProvider(
         engine_.get(), static_cast<PreviewModel*>(applicationContext_->preview()));
+    ChartLibraryModel::registerCoverProvider(*engine_);
 
     windowChrome_ = std::make_unique<WindowChrome>(this);
     if (auto* settings = qobject_cast<WorkbenchSettings*>(applicationContext_->preferences())) {

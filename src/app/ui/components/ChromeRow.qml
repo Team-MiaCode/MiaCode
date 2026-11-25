@@ -8,6 +8,7 @@ ItemDelegate {
 
     property bool selected: false
     property alias stateColors: chrome.stateColors
+    property alias highlightFillsBounds: chrome.fillBounds
 
     readonly property bool chromeSelected: root.selected || root.highlighted
 
@@ -20,6 +21,7 @@ ItemDelegate {
         family: Theme.uiFont,
         pixelSize: Theme.uiFontSize
     })
+    property int labelRenderType: Text.QtRendering
 
     leftPadding: Theme.rowPaddingX
     rightPadding: Theme.rowPaddingX
@@ -35,6 +37,7 @@ ItemDelegate {
                : (root.chromeSelected || root.hovered || root.visualFocus) ? Theme.colors.text.active
                : Theme.colors.text.secondary
         font: root.labelFont
+        renderType: root.labelRenderType
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
     }

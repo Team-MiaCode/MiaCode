@@ -3,6 +3,7 @@
 #include <QMetaObject>
 
 #include <utility>
+#include <cmath>
 
 using namespace miacode::preview_audio;
 
@@ -562,6 +563,22 @@ void QtPreviewSfxRuntime::pauseBackgroundTrack()
 double QtPreviewSfxRuntime::backgroundPlaybackSecond() const
 {
     return lastSnapshot().backgroundPlaybackSecond;
+}
+
+double QtPreviewSfxRuntime::audiblePlaybackSecond(double fallbackSecond, double playbackRate) const
+{
+    const PreviewAudioSnapshot snapshot = lastSnapshot();
+    if (!snapshot.backgroundTrackRunning || !std::isfinite(snapshot.backgroundPlaybackSecond)
+        || snapshot.backgroundSampledAtNs <= 0
+        || snapshot.identity.generation != playbackGeneration_.load(std::memory_order_acquire)
+        || snapshot.identity.assetGeneration != assetGeneration_.load(std::memory_order_acquire)
+        || snapshot.identity.transactionId != transactionId_.load(std::memory_order_acquire)) {
+        return fallbackSecond;
+    }
+    const auto nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+    const double elapsed = qMax<qint64>(0, nowNs - snapshot.backgroundSampledAtNs) / 1000000000.0;
+    return snapshot.backgroundPlaybackSecond + elapsed * qMax(0.0, playbackRate);
 }
 
 bool QtPreviewSfxRuntime::audition(const QString& kind, double gain)

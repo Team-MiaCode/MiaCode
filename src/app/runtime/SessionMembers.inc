@@ -83,7 +83,6 @@
         QByteArray videoExportWorkerStdoutBuffer_;
         QByteArray videoExportWorkerStderrBuffer_;
         VideoExportSnapshot videoExportWorkerSnapshot_;
-        QString videoExportWorkerJobId_;
         QString videoExportWorkerOutputPath_;
         QString videoExportWorkerExportLogPath_;
         QString videoExportWorkerFatalLogPath_;
@@ -377,6 +376,7 @@
         double previewBackgroundBrightnessInner_ = miacode::preview_video::kBackgroundBrightnessInnerDefault;
         double previewLayoutSquareScale_ = miacode::preview_video::kLayoutSquareScaleDefault;
         double previewFireworkBrightness_ = miacode::preview_video::kFireworkBrightnessDefault;
+        PreviewFireworkStyle previewFireworkStyle_ = PreviewFireworkStyle::Standard;
         bool previewSmoothBrightness_ = miacode::preview_video::kSmoothBrightnessDefault;
         // The preview appearance values that used to live here now belong to
         // miacode::PreviewAppearanceState (owned by ApplicationServices).
@@ -452,8 +452,7 @@
         // empty-pair backspace, the bracket suggestion popup, and the 'h' hold-
         // duration suggestions. Was three separate toggles before they merged.
         bool editorAutoCompletionEnabled_ = true;
-        QStringList editorCompletionDurationCandidates_;
-        QStringList editorCompletionDivisionCandidates_;
+        miacode::editor::SimaiCompletionConfig editorCompletionConfig_ = miacode::editor::defaultCompletionConfig();
         // beta51+ — "禁止中文輸入法輸入" preference. On by default (user-voted
         // default): the editor is for chart notation, so blocking the IME
         // candidate window avoids accidental CJK composition on first launch.
@@ -517,7 +516,6 @@
     QByteArray& videoExportWorkerStdoutBuffer_ = state_.videoExportWorkerStdoutBuffer_;
     QByteArray& videoExportWorkerStderrBuffer_ = state_.videoExportWorkerStderrBuffer_;
     VideoExportSnapshot& videoExportWorkerSnapshot_ = state_.videoExportWorkerSnapshot_;
-    QString& videoExportWorkerJobId_ = state_.videoExportWorkerJobId_;
     QString& videoExportWorkerOutputPath_ = state_.videoExportWorkerOutputPath_;
     QString& videoExportWorkerExportLogPath_ = state_.videoExportWorkerExportLogPath_;
     QString& videoExportWorkerFatalLogPath_ = state_.videoExportWorkerFatalLogPath_;
@@ -693,6 +691,7 @@
     double& previewBackgroundBrightnessInner_ = state_.previewBackgroundBrightnessInner_;
     double& previewLayoutSquareScale_ = state_.previewLayoutSquareScale_;
     double& previewFireworkBrightness_ = state_.previewFireworkBrightness_;
+    PreviewFireworkStyle& previewFireworkStyle_ = state_.previewFireworkStyle_;
     bool& previewSmoothBrightness_ = state_.previewSmoothBrightness_;
     PreviewOutlineVariant& previewOutlineVariant_ = previewAppearanceValues_.outlineVariant;
     bool& previewOutlineVariantUsesAutoSelection_ = state_.previewOutlineVariantUsesAutoSelection_;

@@ -473,8 +473,9 @@ quint64 ownProcessCreationTime()
     return 0;
 }
 
-// True iff a process with `pid` is currently running AND (when a non-zero
-// creation time was recorded) its creation time matches `storedCreation`.
+// Preserve the marker unless its owner is known to have exited or its
+// creation time differs from `storedCreation`. An inaccessible process
+// can still be a live peer running with different permissions.
 // The creation-time match defends against PID reuse across reboots: a dead
 // instance's PID may have been recycled by an unrelated live process, which
 // must NOT count as "the marker's owner is still alive".
@@ -488,13 +489,15 @@ bool processIsLive(qint64 pid, quint64 storedCreation)
         FALSE,
         static_cast<DWORD>(pid));
     if (handle == nullptr) {
-        // No such process (or unopenable) — for a same-user GUI marker this
-        // means the owner is gone.
-        return false;
+        return ::GetLastError() != ERROR_INVALID_PARAMETER;
     }
-    bool live = false;
+    bool live = true;
+    const DWORD waitResult = ::WaitForSingleObject(handle, 0);
+    if (waitResult == WAIT_OBJECT_0) {
+        live = false;
+    }
     // WAIT_TIMEOUT => the process object is non-signaled => still running.
-    if (::WaitForSingleObject(handle, 0) == WAIT_TIMEOUT) {
+    if (waitResult == WAIT_TIMEOUT) {
         if (storedCreation == 0) {
             live = true;  // nothing to compare against; assume live.
         } else {
@@ -590,11 +593,17 @@ QSet<QString>& abandonedSessionCharts()
                 // A concurrent, still-running instance — not abandoned.
                 continue;
             }
+            // Only the process that removes the marker may claim recovery.
+            if (!file.remove()) {
+                logCrashRecovery("session_marker_claim_failed",
+                                 QStringLiteral("path=%1 err=%2")
+                                     .arg(entry.absoluteFilePath(), file.errorString()));
+                continue;
+            }
             // Owner is gone: this marker is a genuine abnormal-exit remnant.
             if (!chart.isEmpty()) {
                 result.insert(QDir::cleanPath(chart));
             }
-            file.remove();
             logCrashRecovery("abandoned_session_marker_found",
                              QStringLiteral("chart=%1 pid=%2")
                                  .arg(chart)

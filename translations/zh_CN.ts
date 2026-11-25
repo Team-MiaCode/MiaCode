@@ -3,6 +3,58 @@
 <TS version="2.1" language="zh_CN">
 <context>
     <name></name>
+    <message id="job_progress.busy">
+        <source>Please wait for the current task to finish.</source>
+        <translation>请等待当前任务结束。</translation>
+    </message>
+    <message id="export.gif.action">
+        <source>Export selected range as GIF</source>
+        <translation>导出所选区间为 GIF</translation>
+    </message>
+    <message id="export.gif.title">
+        <source>Export GIF</source>
+        <translation>导出 GIF</translation>
+    </message>
+    <message id="export.gif.exporting">
+        <source>Exporting GIF...</source>
+        <translation>正在导出 GIF…</translation>
+    </message>
+    <message id="export.gif.completed">
+        <source>GIF generated and copied to the clipboard.</source>
+        <translation>已生成 GIF 并复制到剪贴板。</translation>
+    </message>
+    <message id="export.gif.clipboard_unavailable">
+        <source>The GIF clipboard cache is unavailable.</source>
+        <translation>GIF 剪贴板缓存无法使用。</translation>
+    </message>
+    <message id="export.gif.clipboard_failed">
+        <source>Could not copy the GIF to the clipboard.</source>
+        <translation>GIF 复制到剪贴板失败。</translation>
+    </message>
+    <message id="export.gif.failed">
+        <source>GIF export failed: %1</source>
+        <translation>GIF 生成失败：%1</translation>
+    </message>
+    <message id="toast.operation_failed">
+        <source>%1 failed: %2.</source>
+        <translation>%1失败，%2。</translation>
+    </message>
+    <message id="toast.operation_partially_failed">
+        <source>%1 partially failed: %2.</source>
+        <translation>%1部分失败，%2。</translation>
+    </message>
+    <message id="toast.selection_required">
+        <source>Select the chart text whose subdivision you want to adjust</source>
+        <translation>请选择需要调整分音的谱面</translation>
+    </message>
+    <message id="toast.subdivision_incompatible">
+        <source>The selected chart cannot be adjusted by this subdivision ratio</source>
+        <translation>选中片段无法按此分音比例调整</translation>
+    </message>
+    <message id="toast.subdivision_limit">
+        <source>The subdivision value exceeds the supported range</source>
+        <translation>分音数值超出支持范围</translation>
+    </message>
     <message id="setup.completion_hint">
         <source>Customize completion candidates in Preferences.</source>
         <translation>可在首选项中自定义补全候选列表。</translation>
@@ -160,6 +212,10 @@ Classic mode: All functions are on one page, similar to the layout in earlier ve
     <message id="action.later">
         <source>Later</source>
         <translation>以后再说</translation>
+    </message>
+    <message id="action.filter">
+        <source>Filter</source>
+        <translation>筛选</translation>
     </message>
     <message id="action.new">
         <source>New</source>
@@ -895,6 +951,10 @@ Classic mode: All functions are on one page, similar to the layout in earlier ve
         <source>Reset to default…</source>
         <translation>重置为默认布局…</translation>
     </message>
+    <message id="cover.rotation">
+        <source>Rotation</source>
+        <translation>旋转</translation>
+    </message>
     <message id="cover.save_cover_layout">
         <source>Save cover layout</source>
         <translation>保存封面布局</translation>
@@ -1317,6 +1377,34 @@ Failed: %2</source>
         <source>Default</source>
         <translation>默认</translation>
     </message>
+    <message id="dialog.preferences.theme.default_dark">
+        <source>Default Dark</source>
+        <translation>默认深色</translation>
+    </message>
+    <message id="dialog.preferences.theme.default_light">
+        <source>Default Light</source>
+        <translation>默认浅色</translation>
+    </message>
+    <message id="dialog.preferences.theme.legacy_dark">
+        <source>Classic Dark</source>
+        <translation>经典深色</translation>
+    </message>
+    <message id="dialog.preferences.theme.legacy_light">
+        <source>Classic Light</source>
+        <translation>经典浅色</translation>
+    </message>
+    <message id="dialog.preferences.theme.catppuccin_mocha">
+        <source>Catppuccin Mocha</source>
+        <translation>摩卡</translation>
+    </message>
+    <message id="dialog.preferences.theme.catppuccin_latte">
+        <source>Catppuccin Latte</source>
+        <translation>拿铁</translation>
+    </message>
+    <message id="dialog.preferences.theme.nord">
+        <source>Nord</source>
+        <translation>北境</translation>
+    </message>
     <message id="dialog.preferences.theme.light">
         <source>Light</source>
         <translation>浅色</translation>
@@ -1530,12 +1618,12 @@ Failed: %2</source>
         <translation>试听</translation>
     </message>
     <message id="dialog.render_settings.music.default_intro_sound">
-        <source>Default intro sound</source>
-        <translation>默认片头音效</translation>
+        <source>Default</source>
+        <translation>默认</translation>
     </message>
     <message id="dialog.render_settings.music.intro_sound">
-        <source>Intro sound</source>
-        <translation>片头音效</translation>
+        <source>Intro music</source>
+        <translation>片头音乐</translation>
     </message>
     <message id="dialog.render_settings.preview.canvas_frame_rate">
         <source>Preview Refresh Rate</source>
@@ -1620,6 +1708,18 @@ Failed: %2</source>
     <message id="dialog.render_settings.video.skin.standard">
         <source>SD</source>
         <translation>SD</translation>
+    </message>
+    <message id="dialog.skin_settings.firework">
+        <source>Firework effect</source>
+        <translation>烟花效果</translation>
+    </message>
+    <message id="dialog.skin_settings.firework.modern">
+        <source>Modern</source>
+        <translation>现代</translation>
+    </message>
+    <message id="dialog.skin_settings.firework.standard">
+        <source>Standard</source>
+        <translation>标准</translation>
     </message>
     <message id="dialog.render_settings.video.firework_brightness">
         <source>Firework brightness</source>
@@ -1801,6 +1901,10 @@ Restore the backup from %1?</source>
         <source>Failed to send export snapshot to worker.</source>
         <translation>无法将导出快照发送给导出子进程。</translation>
     </message>
+    <message id="dialog.video_export.estimated_size">
+        <source>Estimated size: %1</source>
+        <translation>预计体积：%1</translation>
+    </message>
     <message id="dialog.video_export.error.disk_full_temp">
         <source>%1 is out of space. Export writes the video to the system temp folder (%2) first.</source>
         <translation>%1空间不足。导出会先在系统临时目录（%2）生成视频。</translation>
@@ -1824,6 +1928,10 @@ Restore the backup from %1?</source>
     <message id="dialog.video_export.error.render_failed">
         <source>Rendering the export frames failed.</source>
         <translation>导出画面渲染失败。</translation>
+    </message>
+    <message id="dialog.video_export.error.size_limit_too_small">
+        <source>The size limit cannot hold this export&apos;s audio. Raise the limit or lower the audio bitrate.</source>
+        <translation>体积上限装不下本次导出的音频，请调高上限或降低音频码率。</translation>
     </message>
     <message id="dialog.video_export.error.audio_failed">
         <source>Could not generate the export audio track.</source>
@@ -1901,18 +2009,6 @@ Restore the backup from %1?</source>
         <source>Show bottom-left timestamp</source>
         <translation>显示左下角时间戳</translation>
     </message>
-    <message id="dialog.video_export.preset">
-        <source>Export Quality</source>
-        <translation>导出质量</translation>
-    </message>
-    <message id="dialog.video_export.preset.fast">
-        <source>Fast</source>
-        <translation>快速</translation>
-    </message>
-    <message id="dialog.video_export.preset.high_quality">
-        <source>High Quality</source>
-        <translation>高质量</translation>
-    </message>
     <message id="preview.stop">
         <source>Stop</source>
         <translation>停止</translation>
@@ -1989,6 +2085,22 @@ Restore the backup from %1?</source>
         <source>Worker ready...</source>
         <translation>后台已就绪...</translation>
     </message>
+    <message id="dialog.video_export.quality_level">
+        <source>Quality</source>
+        <translation>画质</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.high">
+        <source>High</source>
+        <translation>高</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.small">
+        <source>Compact</source>
+        <translation>精简</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.standard">
+        <source>Standard</source>
+        <translation>标准</translation>
+    </message>
     <message id="dialog.video_export.range.end">
         <source>End</source>
         <translation>结束</translation>
@@ -1997,33 +2109,37 @@ Restore the backup from %1?</source>
         <source>Start</source>
         <translation>开始</translation>
     </message>
+    <message id="dialog.video_export.rate_mode">
+        <source>Export strategy</source>
+        <translation>导出策略</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.bitrate">
+        <source>Bitrate</source>
+        <translation>指定码率</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.file_size">
+        <source>Size limit</source>
+        <translation>限制体积</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.quality">
+        <source>Quality first</source>
+        <translation>画质优先</translation>
+    </message>
     <message id="dialog.video_export.resolution">
         <source>Resolution</source>
         <translation>分辨率</translation>
     </message>
-    <message id="dialog.video_export.size_preset">
-        <source>File size</source>
-        <translation>文件体积</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.compact">
-        <source>Smaller</source>
-        <translation>较小</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.standard">
-        <source>Standard</source>
-        <translation>标准</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.ultra_compact">
-        <source>Smallest (No PV)</source>
-        <translation>极小（无 PV）</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.ultra_compact_with_pv">
-        <source>Smallest (With PV)</source>
-        <translation>极小（带 PV）</translation>
+    <message id="dialog.video_export.size_limit">
+        <source>Size limit</source>
+        <translation>体积上限</translation>
     </message>
     <message id="dialog.video_export.title">
         <source>Export Video</source>
         <translation>导出视频</translation>
+    </message>
+    <message id="dialog.video_export.video_bitrate">
+        <source>Video bitrate</source>
+        <translation>视频码率</translation>
     </message>
     <message id="document.all_difficulties_share_this_designer">
         <source>All difficulties share this designer</source>
@@ -2393,9 +2509,37 @@ File: </source>
         <source>%1 was not found next to the current chart.</source>
         <translation>当前谱面目录缺少 %1。</translation>
     </message>
+    <message id="media_tools.volume_balance">
+        <source>Volume Balance</source>
+        <translation>音量平衡</translation>
+    </message>
+    <message id="media_tools.volume_balance_analyze_failed">
+        <source>Could not measure the audio loudness.</source>
+        <translation>音频响度测量失败。</translation>
+    </message>
+    <message id="media_tools.volume_balance_confirm">
+        <source>Replace %1 with the processed audio?</source>
+        <translation>处理后会替换 %1，是否继续？</translation>
+    </message>
+    <message id="media_tools.volume_balance_missing_track">
+        <source>No chart audio found.</source>
+        <translation>当前谱面缺少音轨。</translation>
+    </message>
+    <message id="media_tools.volume_balance_track_changed">
+        <source>The audio file changed during processing.</source>
+        <translation>处理期间音轨文件发生变化。</translation>
+    </message>
+    <message id="media_tools.volume_balance_unchanged">
+        <source>No adjustment needed.</source>
+        <translation>无需调整。</translation>
+    </message>
+    <message id="media_tools.volume_balance_saved">
+        <source>Processing complete.</source>
+        <translation>处理完成。</translation>
+    </message>
     <message id="media_tools.audio_processing_track">
         <source>Audio Processing track.mp3</source>
-        <translation>音频处理 track.mp3</translation>
+        <translation>音频处理</translation>
     </message>
     <message id="media_tools.audio_video_processing">
         <source>Audio/Video Processing</source>
@@ -2403,7 +2547,7 @@ File: </source>
     </message>
     <message id="media_tools.align_pv_to_audio">
         <source>Auto-align Video to Track Audio</source>
-        <translation>自动对齐曲目音频</translation>
+        <translation>自动对齐音频</translation>
     </message>
     <message id="media_tools.background_mp4_video">
         <source>background .mp4 video</source>
@@ -2523,7 +2667,7 @@ File: </source>
     </message>
     <message id="media_tools.black_screen">
         <source>black screen</source>
-        <translation>黑幕</translation>
+        <translation>空白画面</translation>
     </message>
     <message id="media_tools.canceled">
         <source>Canceled.</source>
@@ -2601,6 +2745,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
 
 文件可能正在被预览、播放器、资源管理器预览窗格或其他程序占用。</translation>
     </message>
+    <message id="media_tools.recovery_files_1">
+        <source>Files preserved for recovery: %1</source>
+        <translation>用于恢复的文件已保留在：%1</translation>
+    </message>
     <message id="media_tools.failed_to_stage_original_file">
         <source>Failed to stage original file for replacement: %1
 
@@ -2671,15 +2819,15 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="media_tools.prepend_pv_black_screen">
         <source>Add Intro Black Screen</source>
-        <translation>添加片头黑幕</translation>
+        <translation>添加片头空白</translation>
     </message>
     <message id="media_tools.analyzing_audio_alignment">
         <source>Analyzing audio alignment...</source>
         <translation>正在分析音频对齐...</translation>
     </message>
     <message id="media_tools.video_audio_missing">
-        <source>The background video has no audio stream to align.</source>
-        <translation>背景视频没有可用于对齐的音轨。</translation>
+        <source>The background video has no audio stream and cannot be automatically aligned; no files were changed.</source>
+        <translation>背景视频没有音轨，无法自动对齐；未修改文件。</translation>
     </message>
     <message id="media_tools.video_alignment_cancelled">
         <source>Audio alignment canceled.</source>
@@ -2771,7 +2919,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="media_tools.video_processing_pv">
         <source>Video Processing pv.mp4</source>
-        <translation>视频处理 pv.mp4</translation>
+        <translation>视频处理</translation>
     </message>
     <message id="menu.clear_elements">
         <source>Clear Elements</source>
@@ -2948,6 +3096,22 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="net.packaging_zip">
         <source>Packaging ZIP...</source>
         <translation>正在打包 ZIP...</translation>
+    </message>
+    <message id="net.cancelling_download">
+        <source>Cancelling download…</source>
+        <translation>正在取消下载…</translation>
+    </message>
+    <message id="net.waiting_for_download_1">
+        <source>Waiting for server response: %1</source>
+        <translation>等待服务器响应：%1</translation>
+    </message>
+    <message id="net.preparing_download">
+        <source>Preparing download…</source>
+        <translation>正在准备下载…</translation>
+    </message>
+    <message id="net.saving_download">
+        <source>Saving downloaded files…</source>
+        <translation>正在保存下载文件…</translation>
     </message>
     <message id="net.paused">
         <source>Paused</source>
@@ -3257,6 +3421,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Return to Main Window</source>
         <translation>返回主窗口</translation>
     </message>
+    <message id="preview.window.show">
+        <source>Show Preview Window</source>
+        <translation>显示预览窗口</translation>
+    </message>
     <message id="preview.window.title">
         <source>Preview</source>
         <translation>预览</translation>
@@ -3386,8 +3554,8 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>谱面</translation>
     </message>
     <message id="qml.chart_designer_1">
-        <source> · Chart Designer: %1</source>
-        <translation> · 谱师：%1</translation>
+        <source>Chart Designer: %1</source>
+        <translation>谱师：%1</translation>
     </message>
     <message id="qml.choose_a_folder_to_scan">
         <source>Choose a folder to scan</source>
@@ -3527,7 +3695,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="qml.insert_a_black_screen_of_the_specified_duration_at_the_beginning">
         <source>Insert a black screen of the specified duration at the beginning of the background video and automatically back up the original file.</source>
-        <translation>在背景视频开头插入指定时长的黑幕，并自动备份原文件。</translation>
+        <translation>在背景视频开头插入指定时长的空白，并自动备份原文件。</translation>
     </message>
     <message id="qml.insert_blank_audio_of_the_specified_duration_at_the_beginning_of">
         <source>Insert blank audio of the specified duration at the beginning of track.mp3 and automatically back up the original file.</source>
@@ -3699,7 +3867,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="qml.prepend_black_screen">
         <source>Prepend black screen</source>
-        <translation>视频前置黑幕</translation>
+        <translation>视频前置空白</translation>
     </message>
     <message id="qml.prepend_blank_audio">
         <source>Prepend blank audio</source>
@@ -3780,6 +3948,18 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="qml.set_as_local_default">
         <source>Set as local default</source>
         <translation>设为本地默认</translation>
+    </message>
+    <message id="qml.shortcut_moved">
+        <source>Moved shortcut %1 from %2 to %3.</source>
+        <translation>组合键“%1”已从“%2”转移到“%3”。</translation>
+    </message>
+    <message id="qml.shortcut_reserved">
+        <source>Shortcut %1 is used by %2 and can't be assigned to %3.</source>
+        <translation>组合键“%1”已用于“%2”，不能分配给“%3”。</translation>
+    </message>
+    <message id="qml.shortcut_unassigned">
+        <source>Not set</source>
+        <translation>未设置</translation>
     </message>
     <message id="qml.show_all_open_editors">
         <source>Show all open editors</source>
@@ -3944,6 +4124,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="shortcut.preview.play_pause_global">
         <source>Play/Pause Preview</source>
         <translation>播放/暂停预览</translation>
+    </message>
+    <message id="shortcut.preview.play_pause_non_text">
+        <source>Play/Pause Preview (Outside Editor)</source>
+        <translation>播放/暂停预览（编辑器外）</translation>
     </message>
     <message id="shortcut.preview.speed_down">
         <source>Playback Speed -</source>
@@ -4145,6 +4329,10 @@ Error: %1</source>
         <source>Muri</source>
         <translation>无理</translation>
     </message>
+    <message id="validation.muri.issue_heading">
+        <source>%1 (%2)</source>
+        <translation>%1（%2）</translation>
+    </message>
     <message id="validation.muri.alert.warning">
         <source>Warning</source>
         <translation>警告</translation>
@@ -4232,6 +4420,14 @@ Error: %1</source>
     <message id="video_export.intro_audition_stop">
         <source>Stop</source>
         <translation>停止</translation>
+    </message>
+    <message id="video_export.intro_music_copy_failed">
+        <source>Could not copy the audio into the intro music folder.</source>
+        <translation>无法将音频复制到片头音乐文件夹。</translation>
+    </message>
+    <message id="video_export.intro_music_import">
+        <source>Import audio…</source>
+        <translation>导入音频…</translation>
     </message>
     <message id="video_export.intro_music_segment">
         <source>Music segment</source>
@@ -4322,6 +4518,14 @@ Error: %1</source>
         <translation>时间轴</translation>
     </message>
 
+    <message id="net.ui.query_options">
+        <source>Search options</source>
+        <translation>筛选选项</translation>
+    </message>
+    <message id="net.ui.queue_hint">
+        <source>Choose a chart folder and add it to the queue.</source>
+        <translation>选择谱面文件夹，添加到上传队列。</translation>
+    </message>
     <message id="net.ui.download_page">
         <source>Majdata Net</source>
         <translation>谱面下载</translation>
@@ -4688,8 +4892,8 @@ Error: %1</source>
         <translation>状态：降序</translation>
     </message>
     <message id="guide.page_one">
-        <source>Getting started · Page 1</source>
-        <translation>新手指引 · 第 1 页</translation>
+        <source>Getting started, page 1</source>
+        <translation>新手指引第 1 页</translation>
     </message>
     <message id="guide.exit">
         <source>Exit guide</source>
@@ -4783,9 +4987,9 @@ Error: %1</source>
         <source>Follow code: choose whether the timeline follows the current chart-source position in settings.</source>
         <translation>代码跟随：在设置中切换是否跟随当前谱面代码位置。</translation>
     </message>
-    <message id="guide.editor.metadata_save">
-        <source>Changes to the level, offset and designer above are saved immediately.</source>
-        <translation>修改上方的等级、延迟与谱师信息会立即保存。</translation>
+    <message id="guide.editor.normalize">
+        <source>Select a passage and use Normalize Chart to tidy its layout.</source>
+        <translation>选中一段谱面，点击「谱面整理」让排版更整齐。</translation>
     </message>
     <message id="guide.editor.measure">
         <source>Start a new measure here and switch to 3/4 time.</source>
@@ -4843,6 +5047,12 @@ Error: %1</source>
         <source>Custom candidates</source>
         <translation>自定义候选</translation>
     </message>
+    <message id="preferences.completion.help">
+        <source>"Duration" sets the completion list shown when typing [.
+"Beat subdivision" sets the completion list shown when typing {.</source>
+        <translation>“时值”为设置输入[时的自动补全列表。
+“节拍”为设置输入{时的自动补全列表。</translation>
+    </message>
     <message id="preferences.completion.expand">
         <source>Expand custom candidates</source>
         <translation>展开自定义候选</translation>
@@ -4857,7 +5067,7 @@ Error: %1</source>
     </message>
     <message id="preferences.completion.division">
         <source>Beat subdivision</source>
-        <translation>节拍细分</translation>
+        <translation>节拍</translation>
     </message>
     <message id="preferences.completion.duration_hint">
         <source>Enter duration</source>
@@ -4866,6 +5076,18 @@ Error: %1</source>
     <message id="preferences.completion.division_hint">
         <source>Enter subdivision</source>
         <translation>输入节拍细分</translation>
+    </message>
+    <message id="preferences.completion.duration_suffix">
+        <source>Custom continuation</source>
+        <translation>自定义后续</translation>
+    </message>
+    <message id="preferences.completion.duration_suffix_hint">
+        <source>Enter a suffix</source>
+        <translation>输入后续</translation>
+    </message>
+    <message id="preferences.completion.invalid_duration_suffix">
+        <source>Enter a valid duration suffix</source>
+        <translation>请输入有效的时值后续</translation>
     </message>
     <message id="preferences.completion.reorder">
         <source>Drag to reorder; use Up or Down when focused</source>
@@ -4943,6 +5165,7 @@ Error: %1</source>
         <source>Search installed fonts…</source>
         <translation>搜索已安装字体…</translation>
     </message>
+    <message id="dialog.preferences.font.default_suffix"><source>Default</source><translation>默认</translation></message>
     <message id="dialog.preferences.font.default">
         <source>Default font</source>
         <translation>默认字体</translation>
@@ -4964,8 +5187,8 @@ Error: %1</source>
         <translation>午夜蓝</translation>
     </message>
     <message id="dialog.preferences.theme.forest">
-        <source>Forest</source>
-        <translation>森林绿</translation>
+        <source>Si-callion</source>
+        <translation>小葱</translation>
     </message>
     <message id="dialog.preferences.theme.paper">
         <source>Warm Paper</source>
@@ -4978,6 +5201,155 @@ Error: %1</source>
     <message id="dialog.preferences.theme.comment_sample">
         <source>Comment</source>
         <translation>注释</translation>
+    </message>
+    <message id="dialog.preferences.theme.yuzu"><source>Yuzu</source><translation>柚子</translation></message>
+    <message id="dialog.preferences.theme.sky"><source>Sky Blue</source><translation>天蓝</translation></message>
+    <message id="dialog.preferences.theme.dracula"><source>Dracula</source><translation>德古拉</translation></message>
+    <message id="dialog.preferences.theme.tokyo_night"><source>Tokyo Night</source><translation>东京之夜</translation></message>
+    <message id="dialog.preferences.theme.noah"><source>Noa</source><translation>诺亚</translation></message>
+    <message id="cover.text_stroke">
+        <source>Text outline</source>
+        <translation>文字描边</translation>
+    </message>
+    <message id="cover.text_stroke_color">
+        <source>Outline color</source>
+        <translation>描边颜色</translation>
+    </message>
+    <message id="color_picker.open">
+        <source>Pick color</source>
+        <translation>选择颜色</translation>
+    </message>
+    <message id="cover.text_stroke_width">
+        <source>Outline width</source>
+        <translation>描边宽度</translation>
+    </message>
+    <message id="cover.text_shadow">
+        <source>Text shadow</source>
+        <translation>文字阴影</translation>
+    </message>
+    <message id="cover.text_shadow_color">
+        <source>Shadow color</source>
+        <translation>阴影颜色</translation>
+    </message>
+    <message id="cover.text_shadow_opacity">
+        <source>Shadow opacity</source>
+        <translation>阴影不透明度</translation>
+    </message>
+    <message id="cover.text_shadow_blur">
+        <source>Shadow blur</source>
+        <translation>阴影模糊</translation>
+    </message>
+    <message id="cover.text_shadow_x">
+        <source>Shadow X offset</source>
+        <translation>阴影水平偏移</translation>
+    </message>
+    <message id="cover.text_shadow_y">
+        <source>Shadow Y offset</source>
+        <translation>阴影垂直偏移</translation>
+    </message>
+    <message id="library.title">
+        <source>Chart library</source>
+        <translation>谱库</translation>
+    </message>
+    <message id="library.choose_folder">
+        <source>Choose folder</source>
+        <translation>选择目录</translation>
+    </message>
+    <message id="library.no_directory">
+        <source>No library folder selected</source>
+        <translation>尚未选择谱库目录</translation>
+    </message>
+    <message id="library.refresh">
+        <source>Refresh</source>
+        <translation>刷新</translation>
+    </message>
+    <message id="library.current_editing">
+        <source>Currently editing</source>
+        <translation>正在编辑</translation>
+    </message>
+    <message id="library.search">
+        <source>Search</source>
+        <translation>搜索</translation>
+    </message>
+    <message id="library.all_difficulties">
+        <source>All difficulties</source>
+        <translation>全部难度</translation>
+    </message>
+    <message id="library.source_id">
+        <source>Source song ID</source>
+        <translation>源曲目 ID</translation>
+    </message>
+    <message id="library.version">
+        <source>Version</source>
+        <translation>版本</translation>
+    </message>
+    <message id="library.genre">
+        <source>Genre</source>
+        <translation>流派</translation>
+    </message>
+    <message id="library.scanning">
+        <source>Scanning chart library…</source>
+        <translation>正在读取谱库…</translation>
+    </message>
+    <message id="library.missing_folder">
+        <source>Library folder unavailable</source>
+        <translation>找不到谱库目录</translation>
+    </message>
+    <message id="library.open_chart_folder_failed">
+        <source>Could not open the chart folder.</source>
+        <translation>无法打开该曲目的文件夹。</translation>
+    </message>
+    <message id="library.empty">
+        <source>No charts found</source>
+        <translation>没有找到谱面</translation>
+    </message>
+    <message id="library.audition">
+        <source>Listen</source>
+        <translation>试听</translation>
+    </message>
+    <message id="library.pause">
+        <source>Pause</source>
+        <translation>暂停</translation>
+    </message>
+    <message id="library.untitled">
+        <source>Untitled chart</source>
+        <translation>未命名谱面</translation>
+    </message>
+    <message id="library.difficulty.1">
+        <source>Easy</source>
+        <translation>Easy</translation>
+    </message>
+    <message id="library.difficulty.2">
+        <source>Basic</source>
+        <translation>Basic</translation>
+    </message>
+    <message id="library.difficulty.3">
+        <source>Advanced</source>
+        <translation>Advanced</translation>
+    </message>
+    <message id="library.difficulty.4">
+        <source>Expert</source>
+        <translation>Expert</translation>
+    </message>
+    <message id="library.difficulty.5">
+        <source>Master</source>
+        <translation>Master</translation>
+    </message>
+    <message id="library.difficulty.6">
+        <source>Re:Master</source>
+        <translation>Re:Master</translation>
+    </message>
+    <message id="library.difficulty.7">
+        <source>Utage</source>
+        <translation>Utage</translation>
+    </message>
+    <message id="library.result_count">
+        <source>%1 / %2 songs</source>
+        <translation>%1 / %2 首</translation>
+    </message>
+    <message id="library.select_song">
+        <source>Select a song to see its details</source>
+        <translation>选择一首歌曲查看详情</translation>
     </message>
 </context>
 <context>

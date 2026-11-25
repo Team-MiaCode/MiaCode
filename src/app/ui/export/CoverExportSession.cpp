@@ -439,7 +439,6 @@ void CoverExportSession::selectLayerKey(const QString& key)
     syncPlaybackFromActiveLayer();
     rebindLiveChartScene();
     emit activeChartFrameSecondsChanged();
-    emit inputsChanged();
 }
 
 bool CoverExportSession::renderChartFrame(miacode::cover_export::CoverLayer* layer,
@@ -773,17 +772,14 @@ void CoverExportSession::requestFont(bool displayFont, bool textLayerFont)
                         miacode::localizedText(result.failure == miacode::video_export::FontImportFailure::CopyFailed ? "card_font.copy_failed" : "card_font.invalid_font"));
             return;
         }
+        emit fontLibraryChanged();
         if (textLayerFont) {
-            if (auto* layer = activeCoverLayer(); layer != nullptr && layer->kind() == QStringLiteral("text")) {
-                layer->setFontPath(result.path);
-                persistComposition();
-            }
+            setActiveLayerFontPath(result.path);
         } else if (displayFont) {
             setCardFontDisplayPath(result.path);
         } else {
             setCardFontBodyPath(result.path);
         }
-        emit fontLibraryChanged();
     });
 }
 
@@ -833,6 +829,10 @@ void CoverExportSession::setActiveLayerSizeFraction(double sizeFraction)
 {
     if (auto* layer = activeCoverLayer()) { layer->setSizeFraction(qBound(0.05, sizeFraction, 2.0)); persistComposition(); }
 }
+void CoverExportSession::setActiveLayerRotation(double degrees)
+{
+    if (auto* layer = activeCoverLayer()) { layer->setRotation(degrees); persistComposition(); }
+}
 void CoverExportSession::setActiveLayerCenter(double nx, double ny)
 {
     if (auto* layer = activeCoverLayer()) {
@@ -847,12 +847,31 @@ void CoverExportSession::setActiveLayerText(const QString& text)
         layer->setText(text); persistComposition();
     }
 }
+void CoverExportSession::setActiveLayerFontPath(const QString& path)
+{
+    if (auto* layer = activeCoverLayer(); layer != nullptr && layer->kind() == QStringLiteral("text")) {
+        layer->setFontPath(path);
+        persistComposition();
+    }
+}
 void CoverExportSession::setActiveLayerTextColor(const QString& color)
 {
     if (auto* layer = activeCoverLayer(); layer != nullptr && layer->kind() == QStringLiteral("text")) {
         layer->setTextColor(color); persistComposition();
     }
 }
+void CoverExportSession::setActiveLayerTextEffect(const QString& property, const QVariant& value)
+{
+    auto* layer = activeCoverLayer();
+    if (!layer || layer->kind() != QStringLiteral("text")) return;
+    static const QStringList properties = {"textStrokeEnabled", "textStrokeColor", "textStrokeWidth",
+        "textShadowEnabled", "textShadowColor", "textShadowOpacity", "textShadowBlur",
+        "textShadowOffsetX", "textShadowOffsetY"};
+    if (!properties.contains(property)) return;
+    layer->setProperty(property.toUtf8().constData(), value);
+    persistComposition();
+}
+
 void CoverExportSession::setActiveLayerTextBold(bool bold)
 {
     if (auto* layer = activeCoverLayer(); layer != nullptr && layer->kind() == QStringLiteral("text")) {
@@ -953,7 +972,7 @@ void CoverExportSession::bindLiveChartScene(QObject* scene)
         return;
     }
     lastLiveChartScene_ = liveScene;
-    liveScene->setLayerFlags(miacode::preview::scene::kPreviewExportOverlayRenderLayers);
+    liveScene->setLayerFlags(miacode::preview::scene::kPreviewCoverRenderLayers);
     liveScene->setFrameState(
         frameRenderer_ != nullptr && chartFrameAvailable_ ? frameRenderer_->frameState() : nullptr);
     sceneBinder_->setFrameState(

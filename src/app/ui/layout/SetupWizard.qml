@@ -94,7 +94,10 @@ AppDialog {
             objectName: "setupLightTheme"
             visible: root.step === 1 && root.preferencesModel.themeModeToken !== "dark"
             label: qsTrId("dialog.preferences.theme.light_palette")
-            options: root.preferencesModel.themePaletteOptions
+            options: root.preferencesModel.themePaletteOptions.filter(option => {
+                const theme = Theme.themeCatalog[option.value]
+                return theme && !theme.dark
+            })
             currentValue: root.preferencesModel.lightThemeToken
             onPicked: value => root.preferencesModel.lightThemeToken = value
         }
@@ -102,7 +105,10 @@ AppDialog {
             objectName: "setupDarkTheme"
             visible: root.step === 1 && root.preferencesModel.themeModeToken !== "light"
             label: qsTrId("dialog.preferences.theme.dark_palette")
-            options: root.preferencesModel.themePaletteOptions
+            options: root.preferencesModel.themePaletteOptions.filter(option => {
+                const theme = Theme.themeCatalog[option.value]
+                return theme && theme.dark
+            })
             currentValue: root.preferencesModel.darkThemeToken
             onPicked: value => root.preferencesModel.darkThemeToken = value
         }

@@ -1,4 +1,4 @@
-#include "preview/quick_scene/PreviewFireworkPostProcess.h"
+#include "preview/quick_scene/PreviewModernFireworkPostProcess.h"
 
 #include <QQuickWindow>
 #include <QSGGeometryNode>
@@ -33,10 +33,10 @@ class Shader final : public QSGMaterialShader
 public:
     explicit Shader(bool stars)
     {
-        setShaderFileName(VertexStage, QStringLiteral(":/src/preview/quick_scene/shaders/PreviewFireworkPost.vert.qsb"));
+        setShaderFileName(VertexStage, QStringLiteral(":/src/preview/quick_scene/shaders/PreviewModernFireworkPost.vert.qsb"));
         setShaderFileName(FragmentStage, stars
-            ? QStringLiteral(":/src/preview/quick_scene/shaders/PreviewFireworkStar.frag.qsb")
-            : QStringLiteral(":/src/preview/quick_scene/shaders/PreviewFireworkPost.frag.qsb"));
+            ? QStringLiteral(":/src/preview/quick_scene/shaders/PreviewModernFireworkStar.frag.qsb")
+            : QStringLiteral(":/src/preview/quick_scene/shaders/PreviewModernFireworkPost.frag.qsb"));
     }
     bool updateUniformData(RenderState&, QSGMaterial*, QSGMaterial*) override;
     void updateSampledImage(RenderState&, int, QSGTexture**, QSGMaterial*, QSGMaterial*) override;
@@ -92,7 +92,7 @@ void Shader::updateSampledImage(RenderState& state, int binding, QSGTexture** te
 class Quad final : public QSGGeometryNode
 {
 public:
-    explicit Quad(bool stars = false) : geometry(attributes(), stars ? kFireworkStarCount * 6 : 6), material(stars)
+    explicit Quad(bool stars = false) : geometry(attributes(), stars ? kModernFireworkStarCount * 6 : 6), material(stars)
     {
         geometry.setDrawingMode(QSGGeometry::DrawTriangles);
         geometry.setVertexDataPattern(QSGGeometry::DynamicPattern);
@@ -137,7 +137,7 @@ QSGLayer* makeLayer(QQuickWindow* window, QSGNode* root)
     return layer;
 }
 }
-struct PreviewFireworkPostProcess::Data
+struct PreviewModernFireworkPostProcess::Data
 {
     QQuickWindow* window;
     QSGRootNode sourceRoot;
@@ -178,16 +178,16 @@ struct PreviewFireworkPostProcess::Data
         delete starsLayer;
     }
 };
-PreviewFireworkPostProcess::PreviewFireworkPostProcess(QQuickWindow* window) : d(new Data(window))
+PreviewModernFireworkPostProcess::PreviewModernFireworkPostProcess(QQuickWindow* window) : d(new Data(window))
 {
     appendChildNode(d->output);
     setFlag(UsePreprocess);
 }
-PreviewFireworkPostProcess::~PreviewFireworkPostProcess() { delete d; }
-QSGNode* PreviewFireworkPostProcess::sourceRoot() const { return &d->sourceRoot; }
-QSGTexture* PreviewFireworkPostProcess::starTexture() const { return d->starsLayer; }
-void PreviewFireworkPostProcess::update(const QRectF& sourceBounds, const QRectF& stageBounds, float clipRadius, float exitScale, float smoothBlendStart,
-    const std::array<FireworkStarState, kFireworkStarCount>& stars)
+PreviewModernFireworkPostProcess::~PreviewModernFireworkPostProcess() { delete d; }
+QSGNode* PreviewModernFireworkPostProcess::sourceRoot() const { return &d->sourceRoot; }
+QSGTexture* PreviewModernFireworkPostProcess::starTexture() const { return d->starsLayer; }
+void PreviewModernFireworkPostProcess::update(const QRectF& sourceBounds, const QRectF& stageBounds, float clipRadius, float exitScale, float smoothBlendStart,
+    const std::array<ModernFireworkStarState, kModernFireworkStarCount>& stars)
 {
     const QRectF rect = sourceBounds.intersected(stageBounds);
     const qreal dpr = d->window->effectiveDevicePixelRatio();
@@ -210,7 +210,7 @@ void PreviewFireworkPostProcess::update(const QRectF& sourceBounds, const QRectF
     static const float palette[5][3] = {{1,82.f/255,20.f/255},{245.f/255,72.f/255,148.f/255},{0,162.f/255,242.f/255},{186.f/255,242.f/255,0},{1,216.f/255,0}};
     auto* vertices = reinterpret_cast<Vertex*>(d->stars->geometry.vertexData());
     int count = 0;
-    for (int slot = 0; slot < kFireworkStarCount; ++slot) {
+    for (int slot = 0; slot < kModernFireworkStarCount; ++slot) {
         const auto& star = stars[slot];
         if (star.alpha <= 0 || star.radius <= 0) continue;
         const int index = slot % 12, batch = slot / 12;
@@ -222,11 +222,11 @@ void PreviewFireworkPostProcess::update(const QRectF& sourceBounds, const QRectF
         ++count;
     }
     // Keep the allocation stable; unused quads have zero area and coverage.
-    std::memset(vertices + count*6, 0, sizeof(Vertex)*(kFireworkStarCount-count)*6);
+    std::memset(vertices + count*6, 0, sizeof(Vertex)*(kModernFireworkStarCount-count)*6);
     d->stars->geometry.markVertexDataDirty();
     d->stars->markDirty(DirtyGeometry);
 }
-void PreviewFireworkPostProcess::preprocess()
+void PreviewModernFireworkPostProcess::preprocess()
 {
     d->starsLayer->updateTexture();
     d->sourceLayer->updateTexture();

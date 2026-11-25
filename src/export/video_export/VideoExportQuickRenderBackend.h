@@ -43,6 +43,7 @@ public:
     void setBackgroundBrightnessInner(double brightness);
     void setLayoutSquareScale(double scale);
     void setFireworkBrightness(double brightness);
+    void setFireworkStyle(PreviewFireworkStyle style);
     void setSmoothBrightness(bool smooth);
     void setOutlineVariant(PreviewOutlineVariant variant);
     void setBackgroundScaleMode(PreviewBackgroundScaleMode mode);
@@ -62,6 +63,8 @@ public:
     // falling back D3D11→OpenGL, shutdownOffscreenRenderer first, then switch
     // and re-initialize (both sessions carry the same bootstrapped state).
     void setRenderSessionBackend(ExportQuickRenderSessionBackend backend);
+    bool initializeExportRenderer(const QSurfaceFormat& requestedFormat,
+                                  QOpenGLContext* shareContext, QString* errorMessage);
     ExportQuickRenderSessionBackend renderSessionBackend() const { return sessionBackend_; }
     bool initializeOffscreenRenderer(
         const QSurfaceFormat& requestedFormat = QSurfaceFormat(),

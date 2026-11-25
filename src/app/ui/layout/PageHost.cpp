@@ -140,7 +140,7 @@ bool PageHost::resumeChartOrMetadata()
     }
     bool restored = false;
     if (resumeEditorKeyExplicit_ && resumeEditorKey_.startsWith(QStringLiteral("net-"))) {
-        restored = pages->clearEditorPresentation();
+        restored = pages->enterApplicationPage();
     } else if (resumeEditorKeyExplicit_ && resumeEditorKey_ == QLatin1String("latency")) {
         restored = pages->enterLatencyPage();
     } else if (resumeEditorKeyExplicit_ && resumeEditorKey_.isEmpty()) {
@@ -273,7 +273,7 @@ bool PageHost::openNetPage(const QString& page)
         return true;
     }
     return requestPageSwitch([this, page] {
-        if (router() == nullptr || !router()->clearEditorPresentation()) return false;
+        if (router() == nullptr || !router()->enterApplicationPage()) return false;
         activePageId_ = page;
         emit activePageIdChanged();
         emit netPageActivated(page);

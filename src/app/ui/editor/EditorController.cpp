@@ -70,8 +70,9 @@ QString EditorController::completionGroup() const
 
 void EditorController::setCompletionConfig(const miacode::editor::SimaiCompletionConfig& config)
 {
-    if (completionConfig_ == config) return;
-    completionConfig_ = config;
+    const auto normalized = miacode::editor::normalizeCompletionConfig(config);
+    if (completionConfig_ == normalized) return;
+    completionConfig_ = normalized;
     closeCompletion();
 }
 
@@ -138,7 +139,7 @@ miacode::editor::SimaiTextEditResult EditorController::acceptCompletion(const QS
     auto result = untouched(text, anchor, position);
     updateCompletion(text, position);
     if (!completion_.active || completionIndex_ < 0 || completionIndex_ >= visibleCandidates_.size()) return result;
-    const int start = qBound(0, completion_.startPosition, text.size());
+    const int start = qBound(0, completion_.startPosition + completionReplacementOffset_, text.size());
     int end = qBound(start, position, text.size());
     const QString candidate = visibleCandidates_.at(completionIndex_);
     // Catalog candidates include their closing glyph. When policy inserted a
@@ -185,6 +186,7 @@ void EditorController::setDifficulty(int difficultyId)
 void EditorController::setCompletion(const miacode::editor::SimaiCompletionSession& completion)
 {
     completion_ = completion;
+    completionReplacementOffset_ = 0;
     visibleCandidates_ = completion.candidates;
     completionIndex_ = visibleCandidates_.isEmpty() ? -1 : 0;
     emit completionChanged();
@@ -197,15 +199,16 @@ void EditorController::filterCompletion(const QString& text, int position)
     const QString prefix = text.mid(start, position - start);
     const QChar closing = miacode::editor::closingBracketFor(completion_.opening);
     if (prefix.contains(QLatin1Char('\n')) || (!closing.isNull() && prefix.contains(closing))) { closeCompletion(); return; }
-    QStringList candidates;
     const QString selected = completionIndex_ >= 0 && completionIndex_ < visibleCandidates_.size()
         ? visibleCandidates_.at(completionIndex_) : QString();
-    for (const QString& candidate : completion_.candidates) {
-        if (candidate.startsWith(prefix)) candidates.append(candidate);
-    }
-    if (candidates.isEmpty()) { closeCompletion(); return; }
-    visibleCandidates_ = candidates;
-    const int selectedIndex = candidates.indexOf(selected);
+    const bool insideSquareBrackets = completion_.opening == QLatin1Char('[')
+        && start > 0 && text.at(start - 1) == QLatin1Char('[');
+    const auto match = miacode::editor::matchCompletionCandidates(
+        completion_.candidates, prefix, completionConfig_, insideSquareBrackets);
+    if (match.candidates.isEmpty()) { closeCompletion(); return; }
+    completionReplacementOffset_ = match.replacementOffset;
+    visibleCandidates_ = match.candidates;
+    const int selectedIndex = visibleCandidates_.indexOf(selected);
     completionIndex_ = selectedIndex >= 0 ? selectedIndex : 0;
     emit completionChanged();
 }
@@ -238,6 +241,7 @@ void EditorController::closeCompletion()
 {
     if (!completion_.active && visibleCandidates_.isEmpty() && completionIndex_ == -1) return;
     completion_ = {};
+    completionReplacementOffset_ = 0;
     visibleCandidates_.clear();
     completionIndex_ = -1;
     emit completionChanged();

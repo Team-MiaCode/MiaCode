@@ -37,7 +37,8 @@ public:
     // Unsupported extensions fail before reading, with unsupported_file_type.
     // Chart-body validation issues are returned on `issues` and do not fail
     // the open: an empty or invalid inote is still a loaded document.
-    ChartWorkspaceFileResult open(const QString& path, ChartDocumentOrigin origin = ChartDocumentOrigin::Local) const;
+    ChartWorkspaceFileResult open(const QString& path, ChartDocumentOrigin origin = ChartDocumentOrigin::Local,
+                                  int preferredDifficultyId = 0) const;
     // Write an empty chart at `path`, creating its folder if needed. The
     // workspace is untouched — the caller opens the file afterwards, so a new
     // document arrives through the same door as any other and starts on a real

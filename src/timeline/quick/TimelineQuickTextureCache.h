@@ -5,6 +5,7 @@
 #include <QHash>
 #include <QImage>
 #include <QPixmap>
+#include <QRectF>
 #include <QSize>
 #include <QSizeF>
 #include <QString>
@@ -15,9 +16,29 @@
 class QQuickWindow;
 class QSGTexture;
 
+struct TimelineQuickNoteTextureKey {
+    QString spriteType;
+    QSize targetSize;
+    int rotationTenths = 0;
+    int dprPercent = 100;
+    bool mirrorX = false;
+
+    bool operator==(const TimelineQuickNoteTextureKey& other) const
+    {
+        return spriteType == other.spriteType && targetSize == other.targetSize
+            && rotationTenths == other.rotationTenths && dprPercent == other.dprPercent
+            && mirrorX == other.mirrorX;
+    }
+    friend size_t qHash(const TimelineQuickNoteTextureKey& key, size_t seed = 0)
+    {
+        return qHashMulti(seed, key.spriteType, key.targetSize, key.rotationTenths, key.dprPercent, key.mirrorX);
+    }
+};
+
 struct TimelineQuickTextureHandle {
     QSGTexture* texture = nullptr;
     QSizeF logicalSize;
+    QRectF uvRect = QRectF(0, 0, 1, 1);
 
     bool isValid() const
     {
@@ -107,6 +128,9 @@ private:
     miacode::timeline::TimelineNoteAssetSet noteAssets_;
     QString skinDirectory_;
     QHash<QString, QSGTexture*> textures_;
+    // Non-owning lookups share the texture cache's skin and DPR lifetime.
+    QHash<TimelineQuickNoteTextureKey, QSGTexture*> noteTextureLookup_;
+    mutable QHash<QPair<QString, qreal>, qreal> holdScaleLookup_;
     // Per-key upload size, so selective removal (removeTextureKeysMatching, used by the
     // theme invalidation) can decrement the running total instead of letting it drift.
     QHash<QString, qint64> textureBytesByKey_;

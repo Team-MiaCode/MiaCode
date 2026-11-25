@@ -11,14 +11,17 @@ RowLayout {
     required property string label
     property var options: []
     property var currentValue
+    property string valueRole: "value"
     property int labelWidth: 120
     property string fontFamilyRole: ""
-    property string defaultFontFamily: Theme.uiFont
+    property alias comboObjectName: combo.objectName
     signal picked(var value)
 
     function indexOfValue(value) {
+        if (!root.options)
+            return 0
         for (let i = 0; i < root.options.length; ++i) {
-            if (root.options[i].value === value)
+            if (root.options[i][root.valueRole] === value)
                 return i
         }
         return 0
@@ -35,12 +38,13 @@ RowLayout {
         wrapMode: Text.WordWrap
     }
     AppComboBox {
+        id: combo
         Layout.fillWidth: true
         textRole: "label"
         model: root.options
         fontFamilyRole: root.fontFamilyRole
-        defaultFontFamily: root.defaultFontFamily
+        Accessible.name: root.label
         currentIndex: root.indexOfValue(root.currentValue)
-        onActivated: function(index) { root.picked(root.options[index].value) }
+        onActivated: function(index) { root.picked(root.options[index][root.valueRole]) }
     }
 }

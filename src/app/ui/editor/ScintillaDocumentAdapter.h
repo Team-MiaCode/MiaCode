@@ -2,6 +2,8 @@
 
 #include <scintillaquick/scintillaquick_item.h>
 #include <QHash>
+#include <QVector>
+#include <optional>
 
 namespace miacode::ui {
 
@@ -16,6 +18,7 @@ public:
     void clear();
     void drop(const QString& scope);
     void refresh();
+    void undo();
     void applyChange(int position, int removedUtf16, const QByteArray& inserted);
     int lineCount() const { return editor_.send(SCI_GETLINECOUNT); }
     int lineStart(int line) const { return editor_.send(SCI_INDEXPOSITIONFROMLINE, line, SC_LINECHARACTERINDEX_UTF16); }
@@ -28,18 +31,34 @@ public:
     const QString& scope() const { return scope_; }
 
 private:
+    struct Selection {
+        int anchor;
+        int caret;
+    };
     struct Document {
         sptr_t pointer = 0;
         int anchor = 0;
         int caret = 0;
         int topPosition = 0;
         int xOffset = 0;
+        QHash<int, Selection> undoSelections;
     };
     void saveViewport();
+    void preparePositionIndex() const;
+    struct PositionCheckpoint {
+        int utf16 = 0;
+        int byte = 0;
+    };
+    mutable QVector<PositionCheckpoint> positionIndex_;
+    mutable bool positionIndexValid_ = false;
     ScintillaQuick_item& editor_;
     QHash<QString, Document> documents_;
     QString scope_;
     QString text_;
     bool viewportPending_ = false;
+    QMetaObject::Connection undoSelectionConnection_;
+    std::optional<Selection> selectionToRestore_;
+    // Positive container tokens belong to touch-authoring preview anchors.
+    int nextSelectionToken_ = -1;
 };
 }

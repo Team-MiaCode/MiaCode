@@ -18,17 +18,6 @@ AppTabPages {
             root.previewSettings.setValue(key, value)
     }
 
-    function fontIndexForPath(options, path) {
-        const target = path || ""
-        if (!options)
-            return 0
-        for (let index = 0; index < options.length; ++index) {
-            if ((options[index].path || "") === target)
-                return index
-        }
-        return 0
-    }
-
     function flowSpeedLabel(speed) {
         const oneDecimal = Math.round(speed * 10) / 10
         return Math.abs(speed - oneDecimal) < 0.001 ? speed.toFixed(1) : speed.toFixed(2)
@@ -55,14 +44,6 @@ AppTabPages {
             to: 100
             value: root.values.brightnessInner || 0
             onMoved: function(v) { root.put("brightnessInner", Math.round(v)) }
-        }
-        LabeledSlider {
-            objectName: "previewFireworkBrightnessSlider"
-            label: root.labels.fireworkBrightness || ""
-            from: 50
-            to: 120
-            value: root.values.fireworkBrightness ?? 100
-            onMoved: function(v) { root.put("fireworkBrightness", Math.round(v)) }
         }
         LabeledSlider {
             objectName: "previewLayoutSquareScaleSlider"
@@ -92,12 +73,6 @@ AppTabPages {
             text: root.labels.showTimestamp || ""
             checked: root.values.showTimestamp === true
             onToggled: root.put("showTimestamp", checked)
-        }
-        AppSwitch {
-            objectName: "previewTouchPadAuthoringSwitch"
-            text: root.labels.touchPadAuthoringShortcut || ""
-            checked: root.values.touchPadAuthoringShortcut === true
-            onToggled: root.put("touchPadAuthoringShortcut", checked)
         }
         AppSwitch {
             objectName: "previewForceLabeledJudgeLineSwitch"
@@ -240,6 +215,22 @@ AppTabPages {
             }
         }
 
+        LabeledCombo {
+            objectName: "previewFireworkStyleCombo"
+            label: root.labels.fireworkStyle || ""
+            options: root.previewSettings ? root.previewSettings.fireworkStyleOptions : []
+            currentValue: root.values.fireworkStyle ?? 0
+            onPicked: function(value) { root.put("fireworkStyle", value) }
+        }
+        LabeledSlider {
+            objectName: "previewFireworkBrightnessSlider"
+            label: root.labels.fireworkBrightness || ""
+            from: 50
+            to: 120
+            value: root.values.fireworkBrightness ?? 100
+            onMoved: function(v) { root.put("fireworkBrightness", Math.round(v)) }
+        }
+
         RowLayout {
             Layout.fillWidth: true
             Text {
@@ -290,45 +281,28 @@ AppTabPages {
                 }
             }
 
-            RowLayout {
-                Layout.fillWidth: true
-                Text {
-                    font.family: Theme.uiFont
-                    font.pixelSize: Theme.uiFontSize
-                    text: qsTrId("cover.font")
-                    color: Theme.colors.text.secondary
-                    Layout.preferredWidth: 120
-                }
-                AppComboBox {
-                    id: previewHudFontCombo
-                    objectName: "previewHudFontCombo"
-                    Layout.fillWidth: true
-                    model: root.previewSettings ? root.previewSettings.fontLibraryOptions : []
-                    textRole: "label"
-                    fontFamilyRole: "family"
-                    currentIndex: root.fontIndexForPath(model, root.previewSettings ? root.previewSettings.hudFontPath : "")
-                    Accessible.name: qsTrId("dialog.video_export.option.hud_font")
-                    onActivated: if (root.previewSettings) root.previewSettings.hudFontPath = model[currentIndex].path
-                }
+            LabeledCombo {
+                comboObjectName: "previewHudFontCombo"
+                label: qsTrId("dialog.video_export.option.hud_font")
+                options: root.previewSettings ? root.previewSettings.fontLibraryOptions : []
+                valueRole: "path"
+                fontFamilyRole: "family"
+                currentValue: root.previewSettings ? root.previewSettings.hudFontPath : ""
+                onPicked: value => { if (root.previewSettings) root.previewSettings.hudFontPath = value }
             }
 
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: previewHudFontSample.implicitHeight + 20
-                radius: Theme.controlRadius
-                color: Theme.overlayColor(Theme.colors.background.surface)
+            FontSamplePane {
                 Text {
-                    id: previewHudFontSample
-                    anchors.fill: parent
-                    anchors.margins: 10
+                    objectName: "previewHudFontSample"
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
                     text: root.previewSettings ? root.previewSettings.hudFontSample : ""
+                    textFormat: Text.PlainText
+                    renderType: Text.NativeRendering
                     color: Theme.colors.text.primary
-                    font.family: root.previewSettings ? root.previewSettings.hudFont.family : Theme.uiFont
-                    font.weight: root.previewSettings ? root.previewSettings.hudFont.weight : Font.Normal
-                    font.pixelSize: Theme.uiFontSize
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    elide: Text.ElideRight
+                    font: root.previewSettings ? root.previewSettings.hudFont
+                        : Qt.font({ family: Theme.uiFont, pixelSize: Theme.uiFontSize })
+                    wrapMode: Text.Wrap
                 }
             }
 

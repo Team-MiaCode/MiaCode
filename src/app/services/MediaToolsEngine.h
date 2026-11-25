@@ -9,7 +9,8 @@ class MediaToolsEngine
 public:
     virtual ~MediaToolsEngine() = default;
 
-    // The two conversions run as jobs and report through JobProgressService.
+    // Media processing jobs report through JobProgressService.
+    virtual void balanceAudioVolume() = 0;
     virtual void convertTrackTo44100Hz() = 0;
     virtual void compressBackgroundVideo() = 0;
     virtual void alignBackgroundVideoToTrack() = 0;

@@ -113,6 +113,7 @@ QVariantMap PreviewSettingsModel::labels() const
         {QStringLiteral("brightnessOuter"), text("dialog.render_settings.video.brightness_outer")},
         {QStringLiteral("brightnessInner"), text("dialog.render_settings.video.brightness_inner")},
         {QStringLiteral("fireworkBrightness"), text("dialog.render_settings.video.firework_brightness")},
+        {QStringLiteral("fireworkStyle"), text("dialog.skin_settings.firework")},
         {QStringLiteral("layoutSquareScale"), text("dialog.render_settings.video.layout_square_scale")},
         {QStringLiteral("scaleMode"), text("dialog.render_settings.video.scale_mode")},
         {QStringLiteral("smoothBrightness"), text("dialog.render_settings.video.smooth_brightness")},
@@ -249,6 +250,14 @@ int PreviewSettingsModel::skinIndex() const
     return names.isEmpty() ? -1 : 0;
 }
 
+QVariantList PreviewSettingsModel::fireworkStyleOptions() const
+{
+    return {
+        option(static_cast<int>(PreviewFireworkStyle::Standard), "dialog.skin_settings.firework.standard"),
+        option(static_cast<int>(PreviewFireworkStyle::Modern), "dialog.skin_settings.firework.modern"),
+    };
+}
+
 QVariantList PreviewSettingsModel::skinJudgeEffectOptions() const
 {
     return QVariantList{
@@ -314,8 +323,6 @@ int PreviewSettingsModel::outlineIndex() const
 QVariantList PreviewSettingsModel::fontLibraryOptions() const
 {
     QVariantList list;
-    const auto area = miacode::preview::scene::previewHudFontAreaFromId(hudFontAreaId_);
-    const QString defaultFamily = miacode::preview::scene::previewHudDefaultFontForArea(area, 14).family();
     const QString selectedPath = hudFontPath();
     bool selectedListed = selectedPath.isEmpty();
     const QVector<miacode::video_export::FontLibraryEntry> entries =
@@ -325,7 +332,7 @@ QVariantList PreviewSettingsModel::fontLibraryOptions() const
         list.append(QVariantMap{
             {QStringLiteral("label"), entry.label},
             {QStringLiteral("path"), entry.path},
-            {QStringLiteral("family"), entry.path.isEmpty() ? defaultFamily : entry.family},
+            {QStringLiteral("family"), entry.family},
         });
         selectedListed |= entry.path == selectedPath;
     }
@@ -379,9 +386,14 @@ QString PreviewSettingsModel::hudFontSample() const
 QFont PreviewSettingsModel::hudFont() const
 {
     const auto area = miacode::preview::scene::previewHudFontAreaFromId(hudFontAreaId_);
-    return area == miacode::preview::scene::PreviewHudFontArea::DebugInfo
-        ? miacode::preview::scene::previewHudMonoFontForArea(miacode::hud_preferences::load(), area, 14)
-        : miacode::preview::scene::previewHudTimestampFontForArea(miacode::hud_preferences::load(), area, 14, QFont::DemiBold);
+    const auto settings = miacode::hud_preferences::load();
+    QFont font = area == miacode::preview::scene::PreviewHudFontArea::DebugInfo
+        ? miacode::preview::scene::previewHudMonoFontForArea(settings, area, 14, QFont::Medium)
+        : miacode::preview::scene::previewHudTimestampFontForArea(
+            settings, area, 14,
+            area == miacode::preview::scene::PreviewHudFontArea::CenterDisplay ? QFont::Black : QFont::DemiBold);
+    font.setPixelSize(14);
+    return font;
 }
 
 void PreviewSettingsModel::setSkinIndex(int index)

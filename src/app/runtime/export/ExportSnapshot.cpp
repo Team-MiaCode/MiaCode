@@ -2,7 +2,6 @@
 #include "app/runtime/Shared.h"
 
 #include "app/services/PlaybackStateAuthority.h"
-#include "app/services/ExportIntroPreferences.h"
 #include "app/services/ChartBannerData.h"
 #include "app/services/HudFontPreferences.h"
 
@@ -57,9 +56,6 @@ IntroBannerSpec buildIntroBannerSpec(
     intro.jacketPath = chartPath.isEmpty()
         ? QString()
         : miacode::chart_assets::resolveDisplayBackgroundImagePath(chartPath);
-    // The PV-preview segment is chosen per song, so every export of this chart
-    // (single, batch item, any difficulty) uses the start its project stored.
-    intro.pvPreviewStartSeconds = miacode::export_intro_preferences::pvPreviewStartSeconds(chartPath);
     return intro;
 }
 
@@ -368,14 +364,9 @@ void miacode::runtime::VideoExportHost::installExportPreviewAuditionScene(int di
             session_.previewPlaybackRate_ > 0.0 ? session_.previewPlaybackRate_ : 1.0,
             session_.previewTimingSettings_);
     }
-    // clock_count count-in is opt-in via the export dialog's "Enable clock_count"
-    // checkbox (default OFF), so the audition starts WITHOUT the count-in to match
-    // what will actually be exported (所见即所导). Toggling the checkbox re-seeds
-    // this live — see the clockCountEnabledChanged connection in
-    // createEmbeddedVideoExportPanel. The VALUE / BPM still come from the chart.
-    session_.setExportAuditionClockSchedule(
-        0,
-        miacode::chart_clock::clockBpmForChart(session_.applicationServices_.workspace().document(), difficulty->chart));
+    // The count-in follows the page's clock_count checkbox so the audition matches
+    // the export; the value and BPM come from the chart.
+    applyExportAuditionClockSchedule(difficultyId);
 
     // Set up the negative-time intro region (slider range + default playhead at
     // the intro head) when 添加片头 is on for this difficulty.
@@ -456,11 +447,6 @@ bool miacode::runtime::VideoExportHost::buildVideoExportSnapshot(
         return false;
     }
 
-    session_.refreshTimelineMetadata();
-    if (!liveTimelineCoversDifficulty(resolvedDifficultyId)) {
-        parseAndPublishTimelineForDifficulty(resolvedDifficultyId);
-    }
-
     VideoExportSnapshot built;
     built.hudFontSettings = miacode::hud_preferences::load();
     built.jobId = QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -492,6 +478,7 @@ bool miacode::runtime::VideoExportHost::buildVideoExportSnapshot(
     built.backgroundBrightnessInner = requestedTask.backgroundBrightnessInner;
     built.layoutSquareScale = requestedTask.layoutSquareScale;
     built.fireworkBrightness = requestedTask.fireworkBrightness;
+    built.fireworkStyle = requestedTask.fireworkStyle;
     built.smoothBrightness = requestedTask.smoothBrightness;
     built.outlineVariant = requestedTask.outlineVariant;
     built.outlineImagePath = session_.resolvePreviewCustomOutlinePath();
@@ -510,8 +497,7 @@ bool miacode::runtime::VideoExportHost::buildVideoExportSnapshot(
     built.fps = requestedTask.fps;
     built.audioBitrateKbps = requestedTask.audioBitrateKbps;
     built.outputMode = requestedTask.outputMode;
-    built.preset = requestedTask.preset;
-    built.sizePreset = requestedTask.sizePreset;
+    built.encoding = requestedTask.encoding;
     built.fullRangeExport = requestedTask.fullRangeExport;
     const QString exportStem = sanitizeExportFileStem(session_.applicationServices_.workspace().document().title, QStringLiteral("out"));
     const QString difficultyName = SimaiDocument::difficultyShortName(resolvedDifficultyId).replace(':', '_');
@@ -530,16 +516,15 @@ bool miacode::runtime::VideoExportHost::buildVideoExportSnapshot(
     // keeps CLI / batch emitting it). The clock_count VALUE is re-derived worker-side.
     built.clockCountEnabled = requestedTask.clockCountEnabled;
     built.introSoundFileName = requestedTask.introSoundFileName;
-    built.intro = buildIntroBannerSpec(
-        session_.applicationServices_.workspace().document(),
-        resolvedDifficultyId,
-        session_.currentFilePath_,
-        requestedTask.intro.enabled,
-        built.fullRangeExport);
-    // The payload above is rebuilt from the live document; the "片头" tab
-    // styling (DX/SD, backdrop, blur, shadow, lv text) only exists on the
-    // dialog task — carry it over or the export silently reverts to defaults.
-    copyIntroStyling(requestedTask.intro, &built.intro);
+    built.intro = requestedTask.intro;
+    built.intro.enabled = requestedTask.intro.enabled && built.fullRangeExport;
+    if (built.intro.enabled) {
+        built.intro = buildIntroBannerSpec(
+            session_.applicationServices_.workspace().document(),
+            resolvedDifficultyId, session_.currentFilePath_, true, true);
+        // Keep the dialog's styling when refreshing chart-derived banner data.
+        copyIntroStyling(requestedTask.intro, &built.intro);
+    }
 
     if (built.skinDirectory.trimmed().isEmpty()) {
         if (errorMessage != nullptr) {
@@ -702,6 +687,7 @@ bool miacode::runtime::VideoExportHost::buildVideoExportSnapshotForChartDirector
     built.backgroundBrightnessInner = requestedTask.backgroundBrightnessInner;
     built.layoutSquareScale = requestedTask.layoutSquareScale;
     built.fireworkBrightness = requestedTask.fireworkBrightness;
+    built.fireworkStyle = requestedTask.fireworkStyle;
     built.smoothBrightness = requestedTask.smoothBrightness;
     built.outlineVariant = requestedTask.outlineVariant;
     built.outlineImagePath = session_.resolvePreviewCustomOutlinePath();
@@ -720,8 +706,7 @@ bool miacode::runtime::VideoExportHost::buildVideoExportSnapshotForChartDirector
     built.fps = requestedTask.fps;
     built.audioBitrateKbps = requestedTask.audioBitrateKbps;
     built.outputMode = requestedTask.outputMode;
-    built.preset = requestedTask.preset;
-    built.sizePreset = requestedTask.sizePreset;
+    built.encoding = requestedTask.encoding;
     built.fullRangeExport = true;
     built.outputPath = resolveVideoExportOutputPath(
         QString(),
@@ -919,6 +904,7 @@ bool miacode::runtime::VideoExportHost::exportPreviewVideoFromCli(
     task.backgroundBrightnessInner = request.backgroundBrightnessInner;
     task.layoutSquareScale = request.layoutSquareScale;
     task.fireworkBrightness = request.fireworkBrightness;
+    task.fireworkStyle = request.fireworkStyle;
     task.smoothBrightness = request.smoothBrightness;
     task.outlineVariant = request.outlineVariant;
     task.outlineImagePath = session_.resolvePreviewCustomOutlinePath();

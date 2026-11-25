@@ -66,6 +66,27 @@ void miacode::runtime::PlaybackCoordinator::togglePlayback()
     onTogglePreviewPause();
 }
 
+void miacode::runtime::PlaybackCoordinator::pausePlayback()
+{
+    if (!beginPlaybackCommand()) {
+        return;
+    }
+    // A parse completion must not restart playback after export has begun.
+    state_.pendingPreviewPlaybackStart_ = false;
+    state_.pendingPreviewPlaybackResumeFromPause_ = false;
+    state_.pendingPreviewPlaybackRevision_ = 0;
+    state_.pendingPreviewPlaybackDifficultyId_ = 0;
+    state_.pendingPreviewPlaybackSecond_ = 0.0;
+    state_.previewPendingPlayInteractionId_ = 0;
+    state_.previewPendingPlayInteractionSource_.clear();
+    pauseExportIntroAdvance();
+    if (state_.playing_ || state_.previewStartupSyncPending_ || state_.previewLateVideoStartPending_) {
+        pauseQtPreviewPlaybackExact();
+    }
+    playbackState_.previewTransportState_ = miacode::PlaybackTransportState::Paused;
+    updatePauseButtonAppearance();
+}
+
 void miacode::runtime::PlaybackCoordinator::stopOrPlay()
 {
     if (!beginPlaybackCommand()) {

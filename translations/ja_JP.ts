@@ -3,6 +3,58 @@
 <TS version="2.1" language="ja_JP">
 <context>
     <name></name>
+    <message id="job_progress.busy">
+        <source>Please wait for the current task to finish.</source>
+        <translation>現在の処理が完了するまでお待ちください。</translation>
+    </message>
+    <message id="export.gif.action">
+        <source>Export selected range as GIF</source>
+        <translation>選択範囲をGIFとして出力</translation>
+    </message>
+    <message id="export.gif.title">
+        <source>Export GIF</source>
+        <translation>GIF を出力</translation>
+    </message>
+    <message id="export.gif.exporting">
+        <source>Exporting GIF...</source>
+        <translation>GIFを出力中…</translation>
+    </message>
+    <message id="export.gif.completed">
+        <source>GIF generated and copied to the clipboard.</source>
+        <translation>GIFを生成してクリップボードにコピーしました。</translation>
+    </message>
+    <message id="export.gif.clipboard_unavailable">
+        <source>The GIF clipboard cache is unavailable.</source>
+        <translation>GIF用クリップボードキャッシュを使用できません。</translation>
+    </message>
+    <message id="export.gif.clipboard_failed">
+        <source>Could not copy the GIF to the clipboard.</source>
+        <translation>GIFをクリップボードにコピーできませんでした。</translation>
+    </message>
+    <message id="export.gif.failed">
+        <source>GIF export failed: %1</source>
+        <translation>GIF出力に失敗しました：%1</translation>
+    </message>
+    <message id="toast.operation_failed">
+        <source>%1 failed: %2.</source>
+        <translation>%1に失敗しました。%2。</translation>
+    </message>
+    <message id="toast.operation_partially_failed">
+        <source>%1 partially failed: %2.</source>
+        <translation>%1の一部に失敗しました。%2。</translation>
+    </message>
+    <message id="toast.selection_required">
+        <source>Select the chart text whose subdivision you want to adjust</source>
+        <translation>分音を調整する譜面テキストを選択してください</translation>
+    </message>
+    <message id="toast.subdivision_incompatible">
+        <source>The selected chart cannot be adjusted by this subdivision ratio</source>
+        <translation>選択した部分はこの分音比率で調整できません</translation>
+    </message>
+    <message id="toast.subdivision_limit">
+        <source>The subdivision value exceeds the supported range</source>
+        <translation>分音の値が対応範囲を超えています</translation>
+    </message>
     <message id="setup.completion_hint">
         <source>Customize completion candidates in Preferences.</source>
         <translation>補完候補リストは環境設定でカスタマイズできます。</translation>
@@ -160,6 +212,10 @@ Classic mode: All functions are on one page, similar to the layout in earlier ve
     <message id="action.later">
         <source>Later</source>
         <translation>後で</translation>
+    </message>
+    <message id="action.filter">
+        <source>Filter</source>
+        <translation>絞り込み</translation>
     </message>
     <message id="action.new">
         <source>New</source>
@@ -895,6 +951,10 @@ Classic mode: All functions are on one page, similar to the layout in earlier ve
         <source>Reset to default…</source>
         <translation>既定のレイアウトにリセット…</translation>
     </message>
+    <message id="cover.rotation">
+        <source>Rotation</source>
+        <translation>回転</translation>
+    </message>
     <message id="cover.save_cover_layout">
         <source>Save cover layout</source>
         <translation>カバーレイアウトを保存</translation>
@@ -1317,6 +1377,34 @@ Failed: %2</source>
         <source>Default</source>
         <translation>デフォルト</translation>
     </message>
+    <message id="dialog.preferences.theme.default_dark">
+        <source>Default Dark</source>
+        <translation>デフォルトダーク</translation>
+    </message>
+    <message id="dialog.preferences.theme.default_light">
+        <source>Default Light</source>
+        <translation>デフォルトライト</translation>
+    </message>
+    <message id="dialog.preferences.theme.legacy_dark">
+        <source>Classic Dark</source>
+        <translation>クラシックダーク</translation>
+    </message>
+    <message id="dialog.preferences.theme.legacy_light">
+        <source>Classic Light</source>
+        <translation>クラシックライト</translation>
+    </message>
+    <message id="dialog.preferences.theme.catppuccin_mocha">
+        <source>Catppuccin Mocha</source>
+        <translation>モカ</translation>
+    </message>
+    <message id="dialog.preferences.theme.catppuccin_latte">
+        <source>Catppuccin Latte</source>
+        <translation>ラテ</translation>
+    </message>
+    <message id="dialog.preferences.theme.nord">
+        <source>Nord</source>
+        <translation>ノルド</translation>
+    </message>
     <message id="dialog.preferences.theme.light">
         <source>Light</source>
         <translation>明るい</translation>
@@ -1530,12 +1618,12 @@ Failed: %2</source>
         <translation>試聴</translation>
     </message>
     <message id="dialog.render_settings.music.default_intro_sound">
-        <source>Default intro sound</source>
-        <translation>既定の開始音</translation>
+        <source>Default</source>
+        <translation>既定</translation>
     </message>
     <message id="dialog.render_settings.music.intro_sound">
-        <source>Intro sound</source>
-        <translation>開始音</translation>
+        <source>Intro music</source>
+        <translation>開始音楽</translation>
     </message>
     <message id="dialog.render_settings.preview.canvas_frame_rate">
         <source>Preview Refresh Rate</source>
@@ -1620,6 +1708,18 @@ Failed: %2</source>
     <message id="dialog.render_settings.video.skin.standard">
         <source>SD</source>
         <translation>SD</translation>
+    </message>
+    <message id="dialog.skin_settings.firework">
+        <source>Firework effect</source>
+        <translation>花火エフェクト</translation>
+    </message>
+    <message id="dialog.skin_settings.firework.modern">
+        <source>Modern</source>
+        <translation>モダン</translation>
+    </message>
+    <message id="dialog.skin_settings.firework.standard">
+        <source>Standard</source>
+        <translation>標準</translation>
     </message>
     <message id="dialog.render_settings.video.firework_brightness">
         <source>Firework brightness</source>
@@ -1801,6 +1901,10 @@ Restore the backup from %1?</source>
         <source>Failed to send export snapshot to worker.</source>
         <translation>出力スナップショットをワーカーへ送信できませんでした。</translation>
     </message>
+    <message id="dialog.video_export.estimated_size">
+        <source>Estimated size: %1</source>
+        <translation>推定サイズ：%1</translation>
+    </message>
     <message id="dialog.video_export.error.disk_full_temp">
         <source>%1 is out of space. Export writes the video to the system temp folder (%2) first.</source>
         <translation>%1の空き容量が不足しています。出力時はまずシステムの一時フォルダー（%2）に動画を作成します。</translation>
@@ -1824,6 +1928,10 @@ Restore the backup from %1?</source>
     <message id="dialog.video_export.error.render_failed">
         <source>Rendering the export frames failed.</source>
         <translation>出力映像のレンダリングに失敗しました。</translation>
+    </message>
+    <message id="dialog.video_export.error.size_limit_too_small">
+        <source>The size limit cannot hold this export&apos;s audio. Raise the limit or lower the audio bitrate.</source>
+        <translation>サイズ上限ではこのエクスポートの音声が収まりません。上限を上げるか、音声ビットレートを下げてください。</translation>
     </message>
     <message id="dialog.video_export.error.audio_failed">
         <source>Could not generate the export audio track.</source>
@@ -1901,18 +2009,6 @@ Restore the backup from %1?</source>
         <source>Show bottom-left timestamp</source>
         <translation>左下に時刻を表示</translation>
     </message>
-    <message id="dialog.video_export.preset">
-        <source>Export Quality</source>
-        <translation>出力品質</translation>
-    </message>
-    <message id="dialog.video_export.preset.fast">
-        <source>Fast</source>
-        <translation>高速</translation>
-    </message>
-    <message id="dialog.video_export.preset.high_quality">
-        <source>High Quality</source>
-        <translation>高品質</translation>
-    </message>
     <message id="preview.stop">
         <source>Stop</source>
         <translation>停止</translation>
@@ -1989,6 +2085,22 @@ Restore the backup from %1?</source>
         <source>Worker ready...</source>
         <translation>裏側の処理を準備済み...</translation>
     </message>
+    <message id="dialog.video_export.quality_level">
+        <source>Quality</source>
+        <translation>画質</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.high">
+        <source>High</source>
+        <translation>高</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.small">
+        <source>Compact</source>
+        <translation>軽量</translation>
+    </message>
+    <message id="dialog.video_export.quality_level.standard">
+        <source>Standard</source>
+        <translation>標準</translation>
+    </message>
     <message id="dialog.video_export.range.end">
         <source>End</source>
         <translation>終了</translation>
@@ -1997,33 +2109,37 @@ Restore the backup from %1?</source>
         <source>Start</source>
         <translation>開始</translation>
     </message>
+    <message id="dialog.video_export.rate_mode">
+        <source>Export strategy</source>
+        <translation>エクスポート方針</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.bitrate">
+        <source>Bitrate</source>
+        <translation>ビットレート指定</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.file_size">
+        <source>Size limit</source>
+        <translation>サイズ上限</translation>
+    </message>
+    <message id="dialog.video_export.rate_mode.quality">
+        <source>Quality first</source>
+        <translation>画質優先</translation>
+    </message>
     <message id="dialog.video_export.resolution">
         <source>Resolution</source>
         <translation>解像度</translation>
     </message>
-    <message id="dialog.video_export.size_preset">
-        <source>File size</source>
-        <translation>ファイルサイズ</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.compact">
-        <source>Smaller</source>
-        <translation>小さめ</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.standard">
-        <source>Standard</source>
-        <translation>標準</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.ultra_compact">
-        <source>Smallest (No PV)</source>
-        <translation>最小（PVなし）</translation>
-    </message>
-    <message id="dialog.video_export.size_preset.ultra_compact_with_pv">
-        <source>Smallest (With PV)</source>
-        <translation>最小（PVあり）</translation>
+    <message id="dialog.video_export.size_limit">
+        <source>Size limit</source>
+        <translation>サイズ上限</translation>
     </message>
     <message id="dialog.video_export.title">
         <source>Export Video</source>
         <translation>動画出力</translation>
+    </message>
+    <message id="dialog.video_export.video_bitrate">
+        <source>Video bitrate</source>
+        <translation>映像ビットレート</translation>
     </message>
     <message id="document.all_difficulties_share_this_designer">
         <source>All difficulties share this designer</source>
@@ -2393,9 +2509,37 @@ File: </source>
         <source>%1 was not found next to the current chart.</source>
         <translation>現在の譜面フォルダーに %1 がありません。</translation>
     </message>
+    <message id="media_tools.volume_balance">
+        <source>Volume Balance</source>
+        <translation>音量バランス</translation>
+    </message>
+    <message id="media_tools.volume_balance_analyze_failed">
+        <source>Could not measure the audio loudness.</source>
+        <translation>音声のラウドネスを測定できませんでした。</translation>
+    </message>
+    <message id="media_tools.volume_balance_confirm">
+        <source>Replace %1 with the processed audio?</source>
+        <translation>処理後の音声で %1 を置き換えますか？</translation>
+    </message>
+    <message id="media_tools.volume_balance_missing_track">
+        <source>No chart audio found.</source>
+        <translation>譜面の音声が見つかりません。</translation>
+    </message>
+    <message id="media_tools.volume_balance_track_changed">
+        <source>The audio file changed during processing.</source>
+        <translation>処理中に音声ファイルが変更されました。</translation>
+    </message>
+    <message id="media_tools.volume_balance_unchanged">
+        <source>No adjustment needed.</source>
+        <translation>調整は不要です。</translation>
+    </message>
+    <message id="media_tools.volume_balance_saved">
+        <source>Processing complete.</source>
+        <translation>処理が完了しました。</translation>
+    </message>
     <message id="media_tools.audio_processing_track">
         <source>Audio Processing track.mp3</source>
-        <translation>音声処理 track.mp3</translation>
+        <translation>音声処理</translation>
     </message>
     <message id="media_tools.audio_video_processing">
         <source>Audio/Video Processing</source>
@@ -2523,7 +2667,7 @@ File: </source>
     </message>
     <message id="media_tools.black_screen">
         <source>black screen</source>
-        <translation>黒画面</translation>
+        <translation>余白画面</translation>
     </message>
     <message id="media_tools.canceled">
         <source>Canceled.</source>
@@ -2601,6 +2745,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
 
 このファイルはプレビュー、メディアプレーヤー、エクスプローラーのプレビューウィンドウ、または別のプログラムで開かれている可能性があります。</translation>
     </message>
+    <message id="media_tools.recovery_files_1">
+        <source>Files preserved for recovery: %1</source>
+        <translation>復元用のファイルを次の場所に保存しました：%1</translation>
+    </message>
     <message id="media_tools.failed_to_stage_original_file">
         <source>Failed to stage original file for replacement: %1
 
@@ -2671,15 +2819,15 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="media_tools.prepend_pv_black_screen">
         <source>Add Intro Black Screen</source>
-        <translation>冒頭に黒画面を追加</translation>
+        <translation>冒頭に余白画面を追加</translation>
     </message>
     <message id="media_tools.analyzing_audio_alignment">
         <source>Analyzing audio alignment...</source>
         <translation>音声の同期を分析中...</translation>
     </message>
     <message id="media_tools.video_audio_missing">
-        <source>The background video has no audio stream to align.</source>
-        <translation>背景動画に同期可能な音声トラックがありません。</translation>
+        <source>The background video has no audio stream and cannot be automatically aligned; no files were changed.</source>
+        <translation>背景動画に音声トラックがないため、自動同期できません。ファイルは変更されていません。</translation>
     </message>
     <message id="media_tools.video_alignment_cancelled">
         <source>Audio alignment canceled.</source>
@@ -2771,7 +2919,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="media_tools.video_processing_pv">
         <source>Video Processing pv.mp4</source>
-        <translation>動画処理 pv.mp4</translation>
+        <translation>動画処理</translation>
     </message>
     <message id="menu.clear_elements">
         <source>Clear Elements</source>
@@ -2948,6 +3096,22 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="net.packaging_zip">
         <source>Packaging ZIP...</source>
         <translation>Packaging ZIP...</translation>
+    </message>
+    <message id="net.cancelling_download">
+        <source>Cancelling download…</source>
+        <translation>ダウンロードをキャンセル中…</translation>
+    </message>
+    <message id="net.waiting_for_download_1">
+        <source>Waiting for server response: %1</source>
+        <translation>サーバーの応答待ち：%1</translation>
+    </message>
+    <message id="net.preparing_download">
+        <source>Preparing download…</source>
+        <translation>ダウンロードを準備中…</translation>
+    </message>
+    <message id="net.saving_download">
+        <source>Saving downloaded files…</source>
+        <translation>ダウンロードしたファイルを保存中…</translation>
     </message>
     <message id="net.paused">
         <source>Paused</source>
@@ -3257,6 +3421,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Return to Main Window</source>
         <translation>メインウィンドウに戻す</translation>
     </message>
+    <message id="preview.window.show">
+        <source>Show Preview Window</source>
+        <translation>プレビューウィンドウを表示</translation>
+    </message>
     <message id="preview.window.title">
         <source>Preview</source>
         <translation>プレビュー</translation>
@@ -3386,8 +3554,8 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>譜面</translation>
     </message>
     <message id="qml.chart_designer_1">
-        <source> · Chart Designer: %1</source>
-        <translation> ・譜面制作者：%1</translation>
+        <source>Chart Designer: %1</source>
+        <translation>譜面制作者：%1</translation>
     </message>
     <message id="qml.choose_a_folder_to_scan">
         <source>Choose a folder to scan</source>
@@ -3519,7 +3687,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="qml.insert_2_beats_of_black_screen_bpm_3_about_4_seconds_at_the_begi">
         <source>Insert %2 beats of black screen (BPM %3, about %4 seconds) at the beginning of %1. The original file is backed up.</source>
-        <translation>%1 の先頭に %2 拍（BPM %3、約 %4 秒）の黒画面を挿入します。元ファイルは自動でバックアップされます。</translation>
+        <translation>%1 の先頭に %2 拍（BPM %3、約 %4 秒）の余白画面を挿入します。元ファイルは自動でバックアップされます。</translation>
     </message>
     <message id="qml.insert_2_beats_of_silence_bpm_3_about_4_seconds_at_the_beginning">
         <source>Insert %2 beats of silence (BPM %3, about %4 seconds) at the beginning of %1. The original file is backed up.</source>
@@ -3527,7 +3695,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="qml.insert_a_black_screen_of_the_specified_duration_at_the_beginning">
         <source>Insert a black screen of the specified duration at the beginning of the background video and automatically back up the original file.</source>
-        <translation>背景動画の先頭に指定した長さの黒画面を挿入し、元のファイルを自動的にバックアップします。</translation>
+        <translation>背景動画の先頭に指定した長さの余白画面を挿入し、元のファイルを自動的にバックアップします。</translation>
     </message>
     <message id="qml.insert_blank_audio_of_the_specified_duration_at_the_beginning_of">
         <source>Insert blank audio of the specified duration at the beginning of track.mp3 and automatically back up the original file.</source>
@@ -3699,7 +3867,7 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     </message>
     <message id="qml.prepend_black_screen">
         <source>Prepend black screen</source>
-        <translation>動画の先頭に黒画面を追加</translation>
+        <translation>動画の先頭に余白画面を追加</translation>
     </message>
     <message id="qml.prepend_blank_audio">
         <source>Prepend blank audio</source>
@@ -3780,6 +3948,18 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="qml.set_as_local_default">
         <source>Set as local default</source>
         <translation>ローカル既定値に設定</translation>
+    </message>
+    <message id="qml.shortcut_moved">
+        <source>Moved shortcut %1 from %2 to %3.</source>
+        <translation>ショートカット「%1」を「%2」から「%3」に移しました。</translation>
+    </message>
+    <message id="qml.shortcut_reserved">
+        <source>Shortcut %1 is used by %2 and can't be assigned to %3.</source>
+        <translation>ショートカット「%1」は「%2」で使用されているため、「%3」に割り当てできません。</translation>
+    </message>
+    <message id="qml.shortcut_unassigned">
+        <source>Not set</source>
+        <translation>未設定</translation>
     </message>
     <message id="qml.show_all_open_editors">
         <source>Show all open editors</source>
@@ -3944,6 +4124,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
     <message id="shortcut.preview.play_pause_global">
         <source>Play/Pause Preview</source>
         <translation>プレビューを再生/一時停止</translation>
+    </message>
+    <message id="shortcut.preview.play_pause_non_text">
+        <source>Play/Pause Preview (Outside Editor)</source>
+        <translation>プレビューを再生/一時停止（エディタ外）</translation>
     </message>
     <message id="shortcut.preview.speed_down">
         <source>Playback Speed -</source>
@@ -4145,6 +4329,10 @@ Error: %1</source>
         <source>Muri</source>
         <translation>無理</translation>
     </message>
+    <message id="validation.muri.issue_heading">
+        <source>%1 (%2)</source>
+        <translation>%1（%2）</translation>
+    </message>
     <message id="validation.muri.alert.warning">
         <source>Warning</source>
         <translation>警告</translation>
@@ -4232,6 +4420,14 @@ Error: %1</source>
     <message id="video_export.intro_audition_stop">
         <source>Stop</source>
         <translation>停止</translation>
+    </message>
+    <message id="video_export.intro_music_copy_failed">
+        <source>Could not copy the audio into the intro music folder.</source>
+        <translation>音声を開始音楽フォルダーにコピーできませんでした。</translation>
+    </message>
+    <message id="video_export.intro_music_import">
+        <source>Import audio…</source>
+        <translation>音声を読み込む…</translation>
     </message>
     <message id="video_export.intro_music_segment">
         <source>Music segment</source>
@@ -4322,6 +4518,14 @@ Error: %1</source>
         <translation>タイムライン</translation>
     </message>
 
+    <message id="net.ui.query_options">
+        <source>Search options</source>
+        <translation>検索オプション</translation>
+    </message>
+    <message id="net.ui.queue_hint">
+        <source>Choose a chart folder and add it to the queue.</source>
+        <translation>譜面フォルダーを選び、キューに追加してください。</translation>
+    </message>
     <message id="net.ui.download_page">
         <source>Majdata Net</source>
         <translation>譜面ダウンロード</translation>
@@ -4372,7 +4576,7 @@ Error: %1</source>
     </message>
     <message id="net.ui.case_sensitive">
         <source>Case sensitive</source>
-        <translation>大文字・小文字を区別</translation>
+        <translation>大文字と小文字を区別</translation>
     </message>
     <message id="net.ui.force_refresh">
         <source>Refresh from server</source>
@@ -4688,8 +4892,8 @@ Error: %1</source>
         <translation>状態：降順</translation>
     </message>
     <message id="guide.page_one">
-        <source>Getting started · Page 1</source>
-        <translation>初心者ガイド · 1 ページ</translation>
+        <source>Getting started, page 1</source>
+        <translation>初心者ガイドの 1 ページ目</translation>
     </message>
     <message id="guide.exit">
         <source>Exit guide</source>
@@ -4783,9 +4987,9 @@ Error: %1</source>
         <source>Follow code: choose whether the timeline follows the current chart-source position in settings.</source>
         <translation>コード追従：設定で、譜面コードの現在位置にタイムラインを追従させるか切り替えます。</translation>
     </message>
-    <message id="guide.editor.metadata_save">
-        <source>Changes to the level, offset and designer above are saved immediately.</source>
-        <translation>上部のレベル、オフセット、譜面作者の変更は即時保存されます。</translation>
+    <message id="guide.editor.normalize">
+        <source>Select a passage and use Normalize Chart to tidy its layout.</source>
+        <translation>譜面の一部を選択し、「譜面整理」で書式を整えます。</translation>
     </message>
     <message id="guide.editor.measure">
         <source>Start a new measure here and switch to 3/4 time.</source>
@@ -4833,7 +5037,7 @@ Error: %1</source>
     </message>
     <message id="guide.navigation.tools">
         <source>Toolbox: chart normalization, audio and video processing, and more.</source>
-        <translation>ツールボックス：譜面の整理、音声・動画処理ツールなど。</translation>
+        <translation>ツールボックス：譜面の整理、音声や動画の処理ツールなど。</translation>
     </message>
     <message id="guide.navigation.preferences">
         <source>Preferences: configure interface appearance and styling, the editor and shortcuts.</source>
@@ -4842,6 +5046,12 @@ Error: %1</source>
     <message id="preferences.completion.customize">
         <source>Custom candidates</source>
         <translation>候補のカスタマイズ</translation>
+    </message>
+    <message id="preferences.completion.help">
+        <source>"Duration" sets the completion list shown when typing [.
+"Beat subdivision" sets the completion list shown when typing {.</source>
+        <translation>「長さ」は、[ を入力したときの補完候補を設定します。
+「拍の分割」は、{ を入力したときの補完候補を設定します。</translation>
     </message>
     <message id="preferences.completion.expand">
         <source>Expand custom candidates</source>
@@ -4866,6 +5076,18 @@ Error: %1</source>
     <message id="preferences.completion.division_hint">
         <source>Enter subdivision</source>
         <translation>拍の分割を入力</translation>
+    </message>
+    <message id="preferences.completion.duration_suffix">
+        <source>Custom continuation</source>
+        <translation>カスタム後続候補</translation>
+    </message>
+    <message id="preferences.completion.duration_suffix_hint">
+        <source>Enter a suffix</source>
+        <translation>後続候補を入力</translation>
+    </message>
+    <message id="preferences.completion.invalid_duration_suffix">
+        <source>Enter a valid duration suffix</source>
+        <translation>有効な長さの後続候補を入力してください</translation>
     </message>
     <message id="preferences.completion.reorder">
         <source>Drag to reorder; use Up or Down when focused</source>
@@ -4925,11 +5147,11 @@ Error: %1</source>
     </message>
     <message id="media_tools.prepend_pv_geometry_mismatch">
         <source>PV dimensions or duration failed validation after prepending black frames.</source>
-        <translation>黒画面を追加した PV の解像度または長さの検証に失敗しました。</translation>
+        <translation>余白画面を追加した PV の解像度または長さの検証に失敗しました。</translation>
     </message>
     <message id="media_tools.prepend_pv_size_limit_failed">
         <source>The prepended PV exceeds its size budget or the 20 MB limit.</source>
-        <translation>黒画面を追加した PV がサイズ予算または 20 MB の上限を超えています。</translation>
+        <translation>余白画面を追加した PV がサイズ予算または 20 MB の上限を超えています。</translation>
     </message>
     <message id="file_picker.native_failed">
         <source>Could not open the system folder picker.</source>
@@ -4943,6 +5165,7 @@ Error: %1</source>
         <source>Search installed fonts…</source>
         <translation>インストール済みフォントを検索…</translation>
     </message>
+    <message id="dialog.preferences.font.default_suffix"><source>Default</source><translation>既定</translation></message>
     <message id="dialog.preferences.font.default">
         <source>Default font</source>
         <translation>既定のフォント</translation>
@@ -4964,8 +5187,8 @@ Error: %1</source>
         <translation>ミッドナイト</translation>
     </message>
     <message id="dialog.preferences.theme.forest">
-        <source>Forest</source>
-        <translation>フォレスト</translation>
+        <source>Si-callion</source>
+        <translation>スーねぎ</translation>
     </message>
     <message id="dialog.preferences.theme.paper">
         <source>Warm Paper</source>
@@ -4978,6 +5201,155 @@ Error: %1</source>
     <message id="dialog.preferences.theme.comment_sample">
         <source>Comment</source>
         <translation>コメント</translation>
+    </message>
+    <message id="dialog.preferences.theme.yuzu"><source>Yuzu</source><translation>ゆず</translation></message>
+    <message id="dialog.preferences.theme.sky"><source>Sky Blue</source><translation>空色</translation></message>
+    <message id="dialog.preferences.theme.dracula"><source>Dracula</source><translation>ドラキュラ</translation></message>
+    <message id="dialog.preferences.theme.tokyo_night"><source>Tokyo Night</source><translation>東京の夜</translation></message>
+    <message id="dialog.preferences.theme.noah"><source>Noa</source><translation>ノア</translation></message>
+    <message id="cover.text_stroke">
+        <source>Text outline</source>
+        <translation>文字の縁取り</translation>
+    </message>
+    <message id="cover.text_stroke_color">
+        <source>Outline color</source>
+        <translation>縁取りの色</translation>
+    </message>
+    <message id="color_picker.open">
+        <source>Pick color</source>
+        <translation>色を選択</translation>
+    </message>
+    <message id="cover.text_stroke_width">
+        <source>Outline width</source>
+        <translation>縁取りの幅</translation>
+    </message>
+    <message id="cover.text_shadow">
+        <source>Text shadow</source>
+        <translation>文字の影</translation>
+    </message>
+    <message id="cover.text_shadow_color">
+        <source>Shadow color</source>
+        <translation>影の色</translation>
+    </message>
+    <message id="cover.text_shadow_opacity">
+        <source>Shadow opacity</source>
+        <translation>影の不透明度</translation>
+    </message>
+    <message id="cover.text_shadow_blur">
+        <source>Shadow blur</source>
+        <translation>影のぼかし</translation>
+    </message>
+    <message id="cover.text_shadow_x">
+        <source>Shadow X offset</source>
+        <translation>影の横方向オフセット</translation>
+    </message>
+    <message id="cover.text_shadow_y">
+        <source>Shadow Y offset</source>
+        <translation>影の縦方向オフセット</translation>
+    </message>
+    <message id="library.title">
+        <source>Chart library</source>
+        <translation>譜面ライブラリ</translation>
+    </message>
+    <message id="library.choose_folder">
+        <source>Choose folder</source>
+        <translation>フォルダーを選択</translation>
+    </message>
+    <message id="library.no_directory">
+        <source>No library folder selected</source>
+        <translation>譜面ライブラリのフォルダーが未選択です</translation>
+    </message>
+    <message id="library.refresh">
+        <source>Refresh</source>
+        <translation>更新</translation>
+    </message>
+    <message id="library.current_editing">
+        <source>Currently editing</source>
+        <translation>編集中</translation>
+    </message>
+    <message id="library.search">
+        <source>Search</source>
+        <translation>検索</translation>
+    </message>
+    <message id="library.all_difficulties">
+        <source>All difficulties</source>
+        <translation>すべての難易度</translation>
+    </message>
+    <message id="library.source_id">
+        <source>Source song ID</source>
+        <translation>楽曲ID</translation>
+    </message>
+    <message id="library.version">
+        <source>Version</source>
+        <translation>バージョン</translation>
+    </message>
+    <message id="library.genre">
+        <source>Genre</source>
+        <translation>ジャンル</translation>
+    </message>
+    <message id="library.scanning">
+        <source>Scanning chart library…</source>
+        <translation>ライブラリを読み込み中…</translation>
+    </message>
+    <message id="library.missing_folder">
+        <source>Library folder unavailable</source>
+        <translation>ライブラリフォルダーが見つかりません</translation>
+    </message>
+    <message id="library.open_chart_folder_failed">
+        <source>Could not open the chart folder.</source>
+        <translation>この曲のフォルダーを開けませんでした。</translation>
+    </message>
+    <message id="library.empty">
+        <source>No charts found</source>
+        <translation>譜面が見つかりません</translation>
+    </message>
+    <message id="library.audition">
+        <source>Listen</source>
+        <translation>試聴</translation>
+    </message>
+    <message id="library.pause">
+        <source>Pause</source>
+        <translation>一時停止</translation>
+    </message>
+    <message id="library.untitled">
+        <source>Untitled chart</source>
+        <translation>無題の譜面</translation>
+    </message>
+    <message id="library.difficulty.1">
+        <source>Easy</source>
+        <translation>Easy</translation>
+    </message>
+    <message id="library.difficulty.2">
+        <source>Basic</source>
+        <translation>Basic</translation>
+    </message>
+    <message id="library.difficulty.3">
+        <source>Advanced</source>
+        <translation>Advanced</translation>
+    </message>
+    <message id="library.difficulty.4">
+        <source>Expert</source>
+        <translation>Expert</translation>
+    </message>
+    <message id="library.difficulty.5">
+        <source>Master</source>
+        <translation>Master</translation>
+    </message>
+    <message id="library.difficulty.6">
+        <source>Re:Master</source>
+        <translation>Re:Master</translation>
+    </message>
+    <message id="library.difficulty.7">
+        <source>Utage</source>
+        <translation>Utage</translation>
+    </message>
+    <message id="library.result_count">
+        <source>%1 / %2 songs</source>
+        <translation>%1 / %2 曲</translation>
+    </message>
+    <message id="library.select_song">
+        <source>Select a song to see its details</source>
+        <translation>曲を選択すると詳細が表示されます</translation>
     </message>
 </context>
 <context>

@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Controls.impl as ControlsImpl
 import QtQuick.Layouts
 import QtQuick.Window
 import MiaCode.UI
@@ -11,6 +12,14 @@ TextField {
     property bool reservesPlainSpace: true
     property color backgroundColor: Theme.colors.background.control
     property bool outlined: false
+    property url leadingIcon
+    property int leadingIconSize: 14
+    readonly property bool hasLeadingIcon: leadingIcon.toString().length > 0
+
+    function commitPendingEdit() {
+        if (acceptableInput)
+            editingFinished()
+    }
 
     ContextMenu.menu: AppTextContextMenu {
         editor: root
@@ -22,7 +31,7 @@ TextField {
     placeholderTextColor: Theme.colors.text.secondary
     selectedTextColor: Theme.colors.text.primary
     selectionColor: Theme.colors.state.textSelection
-    leftPadding: 10
+    leftPadding: root.hasLeadingIcon ? root.leadingIconSize + 15 : 10
     rightPadding: 10
     topPadding: 4
     bottomPadding: 4
@@ -30,6 +39,18 @@ TextField {
     Layout.preferredHeight: implicitHeight
     Layout.maximumHeight: implicitHeight
     hoverEnabled: true
+
+    ControlsImpl.IconImage {
+        visible: root.hasLeadingIcon
+        x: 9
+        anchors.verticalCenter: parent.verticalCenter
+        width: root.leadingIconSize
+        height: root.leadingIconSize
+        source: root.leadingIcon
+        sourceSize: Theme.iconSourceSize(root.leadingIconSize, root.leadingIconSize)
+        color: !root.enabled ? Theme.colors.text.disabled
+             : root.activeFocus ? Theme.colors.text.primary : Theme.colors.text.secondary
+    }
 
     background: Rectangle {
         anchors.left: parent.left

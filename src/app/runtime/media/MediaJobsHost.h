@@ -6,12 +6,16 @@
 #include "app/services/MediaToolsEngine.h"
 
 #include <functional>
+#include <memory>
 
 namespace miacode::runtime {
 
 class MediaJobsHost final : public miacode::MediaToolsEngine {
 public:
     MediaJobsHost(Session& session, RuntimeContext::Ui& ui, RuntimeContext::State& state);
+    ~MediaJobsHost() override;
+
+    void shutdown();
 
     void onCompressBackgroundVideo();
     void onConvertTrackTo44100Hz();
@@ -28,6 +32,7 @@ public:
     void restoreMediaBlankBackup(MediaBlankTarget target);
     void applyMediaBlank(MediaBlankTarget target, double beats, double bpm);
 
+    void balanceAudioVolume() override;
     void convertTrackTo44100Hz() override;
     void compressBackgroundVideo() override;
     void alignBackgroundVideoToTrack() override;
@@ -49,6 +54,7 @@ private:
     };
     MediaBlankPaths resolveMediaBlankPaths(MediaBlankTarget target) const;
 
+    bool rejectBusyJob() const;
     QString resolveLatencyDetectorTrackPath() const;
     QString resolveCurrentChartDirectory() const;
     void releasePreviewMediaForFileOperation();
@@ -62,6 +68,17 @@ private:
         const miacode::LocalizedText& title,
         const miacode::LocalizedText& summary,
         const QString& producedFilePath);
+
+    void runAudioVolumeBalance(const QString& ffmpegPath, const QString& trackPath,
+                               const QString& backupPath);
+
+    struct VolumeBalanceJob;
+    std::unique_ptr<VolumeBalanceJob> volumeBalanceJob_;
+    struct AlignmentJob;
+    std::unique_ptr<AlignmentJob> alignmentJob_;
+    struct CompressionJob;
+    std::unique_ptr<CompressionJob> compressionJob_;
+    bool shuttingDown_ = false;
 
     Session& session_;
     RuntimeContext::Ui& ui_;

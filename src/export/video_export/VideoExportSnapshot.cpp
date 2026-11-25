@@ -1,5 +1,4 @@
 #include "export/video_export/VideoExportSnapshot.h"
-#include "export/video_export/VideoExportRuntimePolicy.h"
 
 #include "core/chart/document/SimaiDocument.h"
 #include "core/chart/parser/SimaiParser.h"
@@ -56,47 +55,6 @@ PreviewOutlineVariant outlineVariantFromToken(const QString& token)
         return PreviewOutlineVariant::JudgeAreaLabeled;
     }
     return PreviewOutlineVariant::Line;
-}
-
-QString videoExportPresetToken(VideoExportPreset preset)
-{
-    switch (preset) {
-    case VideoExportPreset::HighQuality:
-        return QStringLiteral("high_quality");
-    case VideoExportPreset::Fast:
-    default:
-        return QStringLiteral("fast");
-    }
-}
-
-VideoExportPreset videoExportPresetFromToken(const QString& token)
-{
-    if (token.compare(QStringLiteral("high_quality"), Qt::CaseInsensitive) == 0) {
-        return VideoExportPreset::HighQuality;
-    }
-    if (token.compare(QStringLiteral("high_compression"), Qt::CaseInsensitive) == 0) {
-        return VideoExportPreset::HighQuality;
-    }
-    if (token.compare(QStringLiteral("fast"), Qt::CaseInsensitive) == 0) {
-        return VideoExportPreset::Fast;
-    }
-    // Unknown/missing token -> the safe default (synchronous readback, no
-    // tearing), matching the dialog's default export-quality choice.
-    return VideoExportPreset::HighQuality;
-}
-
-VideoExportSizePreset videoExportSizePresetFromToken(const QString& token)
-{
-    if (token.compare(QStringLiteral("compact"), Qt::CaseInsensitive) == 0) {
-        return VideoExportSizePreset::Compact;
-    }
-    if (token.compare(QStringLiteral("ultra_compact"), Qt::CaseInsensitive) == 0) {
-        return VideoExportSizePreset::UltraCompact;
-    }
-    if (token.compare(QStringLiteral("ultra_compact_with_pv"), Qt::CaseInsensitive) == 0) {
-        return VideoExportSizePreset::UltraCompactWithPv;
-    }
-    return VideoExportSizePreset::Standard;
 }
 
 PreviewBackgroundScaleMode backgroundScaleModeFromToken(const QString& token)
@@ -175,6 +133,7 @@ QJsonObject VideoExportSnapshot::toJson() const
     render.insert(QStringLiteral("background_brightness_inner"), backgroundBrightnessInner);
     render.insert(QStringLiteral("layout_square_scale"), layoutSquareScale);
     render.insert(QStringLiteral("firework_brightness"), fireworkBrightness);
+    render.insert(QStringLiteral("firework_style"), QString::fromLatin1(fireworkStyleToken(fireworkStyle)));
     render.insert(QStringLiteral("smooth_brightness"), smoothBrightness);
     render.insert(QStringLiteral("outline_variant"), outlineVariantToken(outlineVariant));
     render.insert(QStringLiteral("background_scale_mode"), QString::fromLatin1(backgroundScaleModeToken(backgroundScaleMode)));
@@ -227,10 +186,11 @@ QJsonObject VideoExportSnapshot::toJson() const
     exportObject.insert(QStringLiteral("output_height"), outputHeight);
     exportObject.insert(QStringLiteral("fps"), fps);
     exportObject.insert(QStringLiteral("audio_bitrate_kbps"), audioBitrateKbps);
-    exportObject.insert(QStringLiteral("preset"), videoExportPresetToken(preset));
+    exportObject.insert(QStringLiteral("rate_mode"), miacode::video_export::videoRateModeToken(encoding.mode));
     exportObject.insert(
-        QStringLiteral("size_preset"),
-        miacode::video_export::videoExportSizePresetToken(sizePreset));
+        QStringLiteral("quality_level"), miacode::video_export::videoQualityLevelToken(encoding.quality));
+    exportObject.insert(QStringLiteral("size_limit_mb"), encoding.sizeLimitMb);
+    exportObject.insert(QStringLiteral("video_bitrate_kbps"), encoding.videoBitrateKbps);
     exportObject.insert(QStringLiteral("full_range_export"), fullRangeExport);
     exportObject.insert(QStringLiteral("output_path"), outputPath);
     exportObject.insert(QStringLiteral("output_mode"), videoExportOutputModeToken(outputMode));
@@ -278,7 +238,7 @@ bool VideoExportSnapshot::fromJson(
 
     VideoExportSnapshot parsed;
     parsed.schema = object.value(QStringLiteral("schema")).toString(parsed.schema);
-    if (parsed.schema != QLatin1String("miacode_export_snapshot_v1")) {
+    if (parsed.schema != QLatin1String(kVideoExportSnapshotSchema)) {
         if (errorMessage != nullptr) {
             *errorMessage = QStringLiteral("unsupported export snapshot schema");
         }
@@ -315,6 +275,7 @@ bool VideoExportSnapshot::fromJson(
         render.value(QStringLiteral("layout_square_scale")).toDouble(parsed.layoutSquareScale);
     parsed.fireworkBrightness = miacode::preview_video::normalizedFireworkBrightness(
         render.value(QStringLiteral("firework_brightness")).toDouble(parsed.fireworkBrightness));
+    parsed.fireworkStyle = fireworkStyleFromToken(render.value(QStringLiteral("firework_style")).toString());
     parsed.smoothBrightness =
         render.value(QStringLiteral("smooth_brightness")).toBool(parsed.smoothBrightness);
     parsed.outlineVariant =
@@ -394,9 +355,14 @@ bool VideoExportSnapshot::fromJson(
     parsed.fps = exportObject.value(QStringLiteral("fps")).toInt(parsed.fps);
     parsed.audioBitrateKbps = exportObject.value(QStringLiteral("audio_bitrate_kbps"))
                                   .toInt(parsed.audioBitrateKbps);
-    parsed.preset = videoExportPresetFromToken(exportObject.value(QStringLiteral("preset")).toString());
-    parsed.sizePreset = videoExportSizePresetFromToken(
-        exportObject.value(QStringLiteral("size_preset")).toString());
+    parsed.encoding.mode = miacode::video_export::videoRateModeFromToken(
+        exportObject.value(QStringLiteral("rate_mode")).toString(), parsed.encoding.mode);
+    parsed.encoding.quality = miacode::video_export::videoQualityLevelFromToken(
+        exportObject.value(QStringLiteral("quality_level")).toString(), parsed.encoding.quality);
+    parsed.encoding.sizeLimitMb =
+        exportObject.value(QStringLiteral("size_limit_mb")).toInt(parsed.encoding.sizeLimitMb);
+    parsed.encoding.videoBitrateKbps =
+        exportObject.value(QStringLiteral("video_bitrate_kbps")).toInt(parsed.encoding.videoBitrateKbps);
     parsed.fullRangeExport = exportObject.value(QStringLiteral("full_range_export")).toBool(parsed.fullRangeExport);
     parsed.outputPath = exportObject.value(QStringLiteral("output_path")).toString();
     parsed.outputMode = videoExportOutputModeFromToken(exportObject.value(QStringLiteral("output_mode")).toString());
@@ -511,6 +477,7 @@ bool buildVideoExportTaskFromSnapshot(
     built.backgroundBrightnessInner = snapshot.backgroundBrightnessInner;
     built.layoutSquareScale = snapshot.layoutSquareScale;
     built.fireworkBrightness = snapshot.fireworkBrightness;
+    built.fireworkStyle = snapshot.fireworkStyle;
     built.smoothBrightness = snapshot.smoothBrightness;
     built.outlineVariant = snapshot.outlineVariant;
     built.outlineImagePath = snapshot.outlineImagePath;
@@ -528,8 +495,7 @@ bool buildVideoExportTaskFromSnapshot(
     built.outputHeight = snapshot.outputHeight;
     built.fps = snapshot.fps;
     built.audioBitrateKbps = qBound(96, snapshot.audioBitrateKbps, 320);
-    built.preset = snapshot.preset;
-    built.sizePreset = snapshot.sizePreset;
+    built.encoding = miacode::video_export::normalizedVideoEncodingSettings(snapshot.encoding);
     built.fullRangeExport = snapshot.fullRangeExport;
     built.showTimestamp = snapshot.showTimestamp;
     built.showObjectStatsHud = snapshot.showObjectStatsHud;

@@ -149,6 +149,11 @@ void UiRequestService::postNotice(NoticeSeverity severity,
     emitNotice(severity, title, text, details, QString());
 }
 
+void UiRequestService::postToast(NoticeSeverity severity, const LocalizedText& text)
+{
+    emit toastRequested(severityId(severity), text.text());
+}
+
 QString UiRequestService::requestConfirmation(const LocalizedText& title,
                                               const LocalizedText& text,
                                               const LocalizedText& acceptLabel,

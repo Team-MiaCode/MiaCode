@@ -11,6 +11,7 @@ Rectangle {
     property bool netUploadEnabled: false
     property bool networkActive: false
     property bool toolsAvailable: true
+    property var buttonStateColors: Theme.chromeStateColors
     readonly property bool toolsMenuActive: toolsPopup.active
     signal viewRequested(string viewId)
     signal toolRequested(string toolId)
@@ -22,7 +23,7 @@ Rectangle {
     }
 
     implicitWidth: Theme.activityButtonSize
-    color: Theme.surfaceColor(Theme.colors.background.activityBar)
+    color: Theme.chromeSurfaceColor(Theme.colors.background.activityBar, false)
 
     Column {
         anchors.left: parent.left
@@ -30,12 +31,22 @@ Rectangle {
         anchors.top: parent.top
 
         ActivityButton {
+            objectName: "chartActivityButton"
             height: 2 * Theme.workspaceHeaderContentCenterY
             iconSource: Qt.resolvedUrl("icons/file.svg")
             filledIconSource: Qt.resolvedUrl("icons/file-fill.svg")
             tooltip: qsTrId("qml.chart")
             selected: root.activeView === "chart"
             onClicked: root.viewRequested("chart")
+        }
+        ActivityButton {
+            objectName: "chartLibraryActivityButton"
+            iconSource: Qt.resolvedUrl("icons/chart-library.svg")
+            filledIconSource: Qt.resolvedUrl("icons/chart-library-fill.svg")
+            tooltip: qsTrId("library.title")
+            selected: root.activeView === "library"
+            activeFocusOnTab: true
+            onClicked: root.viewRequested("library")
         }
         ActivityButton {
             iconSource: Qt.resolvedUrl("icons/export.svg")
@@ -49,9 +60,10 @@ Rectangle {
             id: majnetButton
             objectName: "majnetActivityButton"
             iconSource: Qt.resolvedUrl("icons/globe.svg")
+            filledIconSource: Qt.resolvedUrl("icons/globe-fill.svg")
             tooltip: qsTrId("net.ui.majnet")
-            selected: root.networkActive || majnetPopup.active
-            onClicked: majnetPopup.popup(majnetButton, majnetButton.width, 0)
+            selected: root.activeView === "network"
+            onClicked: root.viewRequested("network")
         }
         ActivityButton {
             id: toolsButton
@@ -59,22 +71,9 @@ Rectangle {
             filledIconSource: Qt.resolvedUrl("icons/tools-fill.svg")
             tooltip: qsTrId("qml.tools")
             enabled: root.toolsAvailable
-            selected: toolsPopup.active
-            onClicked: {
-                if (toolsPopup.active)
-                    toolsPopup.close()
-                else
-                    toolsPopup.popup(toolsButton, toolsButton.width, 0)
-            }
+            selected: root.activeView === "tools"
+            onClicked: root.viewRequested("tools")
         }
-    }
-
-    // Keep the left navigation entry and the top-level Majnet menu identical.
-    MajnetActionsMenu {
-        id: majnetPopup
-        uploadEnabled: root.netUploadEnabled
-        onDownloadRequested: root.toolRequested("net-download")
-        onUploadRequested: root.toolRequested("net-upload")
     }
 
     AppMenu {
@@ -118,6 +117,7 @@ Rectangle {
         width: Theme.activityButtonSize
         height: Theme.activityButtonSize
         hoverEnabled: true
+        Accessible.name: button.tooltip
 
         // Controls size contentItem to the button's available area. Keep the
         // icon inside a container so its higher-resolution source cannot
@@ -144,7 +144,7 @@ Rectangle {
                 anchors.fill: parent
                 contentWidth: Theme.activityIconSize + 1
                 contentHeight: Theme.activityIconSize
-                stateColors: Theme.chromeStateColors
+                stateColors: root.buttonStateColors
                 hovered: button.hovered
                 pressed: button.down
                 selected: button.selected

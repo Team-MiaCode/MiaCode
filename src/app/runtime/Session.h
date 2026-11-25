@@ -212,6 +212,7 @@ public:
         miacode::preview_gameplay::CenterDisplayMode centerDisplayMode =
             miacode::preview_gameplay::kDefaultCenterDisplayMode;
         double fireworkBrightness = miacode::preview_video::kFireworkBrightnessDefault;
+        PreviewFireworkStyle fireworkStyle = PreviewFireworkStyle::Standard;
         bool smoothBrightness = miacode::preview_video::kSmoothBrightnessDefault;
         double backgroundBrightnessOuter = miacode::preview_video::kBackgroundBrightnessDefault;
         double backgroundBrightnessInner = miacode::preview_video::kBackgroundBrightnessInnerDefault;
@@ -264,6 +265,7 @@ public:
     bool applyTouchPadAuthoringPreviewAnchor(int difficultyId, int line, int column);
     bool seekPreviewToEditorLocation(int difficultyId, int line, int column);
     void requestSelectionRangeExport(int difficultyId, int selectionStart, int selectionEnd);
+    void requestSelectionRangeGifExport(int difficultyId, int selectionStart, int selectionEnd);
     // v2 binds the same ShortcutRegistry ids directly in QML instead of using
     // the hidden v1 window's shortcut action layer.
     bool updateDocumentField(DocumentField field, const QString& value);

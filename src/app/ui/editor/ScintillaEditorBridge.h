@@ -106,6 +106,8 @@ public:
     Q_INVOKABLE void selectAll();
     Q_INVOKABLE void beginViewportInteraction() { beginUserInteraction(); }
     Q_INVOKABLE void select(int anchor, int position);
+    // Moves the edit caret to the follow caret when that is the caret the user sees.
+    Q_INVOKABLE void continueAtFollowCaret();
     Q_INVOKABLE void selectCurrentLine();
     Q_INVOKABLE void jumpToLine(int line);
     Q_INVOKABLE int positionAt(qreal x, qreal y) const;
@@ -117,6 +119,7 @@ public:
     Q_INVOKABLE void dropDocument(const QString& key);
     Q_INVOKABLE void configureSearch(const QString& query, const QString& replacement, bool matchCase, bool wholeWord);
     Q_INVOKABLE void exportSelectionRange();
+    Q_INVOKABLE void exportSelectionGif();
     Q_INVOKABLE bool applyNormalization(const QVariantMap& options);
     Q_INVOKABLE bool applyChartTransform(const QString& operation);
     Q_INVOKABLE bool createBookmarkAtLine(int line, const QString& title);

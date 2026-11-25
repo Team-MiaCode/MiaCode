@@ -19,14 +19,8 @@
 #include "core/analysis/MuriTypes.h"
 #include "core/video/PreviewVideoGeometryConfig.h"
 #include "core/video/PreviewGameplayConfig.h"
-#include "export/video_export/VideoExportRuntimePolicy.h"
+#include "export/video_export/VideoExportEncoding.h"
 #include "export/video_export/VideoExportOutput.h"
-enum class VideoExportPreset {
-    Fast,
-    HighQuality,
-};
-
-using VideoExportSizePreset = miacode::video_export::VideoExportSizePreset;
 
 // Pre-roll "track-start" intro banner spec. Populated from the chart in
 // buildVideoExportSnapshot; consumed by the export session when `enabled`.
@@ -70,8 +64,7 @@ struct IntroBannerSpec {
     // card holds over the chart's own PV + music from pvPreviewStartSeconds
     // (chart second == media second) for the fixed kPvPreviewHoldSeconds, then
     // the cycle-2 wipe hands off. A chart without a video PV shows the crisp 曲绘.
-    // The style is a dialog preference; the start belongs to the chart and is
-    // read from its project preferences when the spec is built.
+    // The style and segment start are selected for each export.
     bool pvPreview = false;
     double pvPreviewStartSeconds = 0.0;
     // Background-only gain, independent of the chart's normal PV brightness.
@@ -181,6 +174,7 @@ inline void copyIntroStyling(const IntroBannerSpec& from, IntroBannerSpec* to)
     to->fontDisplayPath = from.fontDisplayPath;
     to->fontBodyPath = from.fontBodyPath;
     to->pvPreview = from.pvPreview;
+    to->pvPreviewStartSeconds = from.pvPreviewStartSeconds;
     to->pvPreviewBrightness = from.pvPreviewBrightness;
 }
 
@@ -226,6 +220,7 @@ struct VideoExportTask {
     double backgroundBrightnessInner = miacode::preview_video::kBackgroundBrightnessInnerDefault;
     double layoutSquareScale = miacode::preview_video::kLayoutSquareScaleDefault;
     double fireworkBrightness = miacode::preview_video::kFireworkBrightnessDefault;
+    PreviewFireworkStyle fireworkStyle = PreviewFireworkStyle::Standard;
     bool smoothBrightness = miacode::preview_video::kSmoothBrightnessDefault;
     PreviewOutlineVariant outlineVariant = PreviewOutlineVariant::Line;
     QString outlineImagePath;
@@ -252,9 +247,8 @@ struct VideoExportTask {
     // quality bump for charts with stereo BGM, transparent for casual
     // phone playback. Routed into ffmpeg as `-b:a <kbps>k`.
     int audioBitrateKbps = 192;
-    // Encoding quality settings apply to the selected hardware or software codec.
-    VideoExportPreset preset = VideoExportPreset::HighQuality;
-    VideoExportSizePreset sizePreset = VideoExportSizePreset::Standard;
+    // Video rate control chosen on the export page; see planVideoRate.
+    miacode::video_export::VideoEncodingSettings encoding;
     bool fullRangeExport = true;
     bool showTimestamp = true;
     bool showObjectStatsHud = false;

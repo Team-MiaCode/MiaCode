@@ -15,6 +15,7 @@ MenuBar {
     property bool documentAvailable: true
     property bool editorCommandsEnabled: true
     property bool chartCommandsEnabled: true
+    property bool playbackCommandsEnabled: true
     property bool toolCommandsEnabled: true
 
     property MainMenu menuDefinitions: MainMenu {
@@ -29,6 +30,7 @@ MenuBar {
         documentAvailable: root.documentAvailable
         editorCommandsEnabled: root.editorCommandsEnabled
         chartCommandsEnabled: root.chartCommandsEnabled
+        playbackCommandsEnabled: root.playbackCommandsEnabled
         toolCommandsEnabled: root.toolCommandsEnabled
         nativeMenuMode: true
     }

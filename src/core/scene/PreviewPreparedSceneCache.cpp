@@ -367,7 +367,8 @@ void PreviewPreparedSceneCache::rebuild(const PreviewFrameState& state)
                     &guideLayer_,
                     markerIndex,
                     marker.second - tapTiming.lifecycleDurationSeconds,
-                    marker.second
+                    marker.second,
+                    headRepresentativeMarkerIndex
                 );
                 appendPreparedMarkerEntry(
                     &headLayer_,
@@ -412,7 +413,7 @@ void PreviewPreparedSceneCache::rebuild(const PreviewFrameState& state)
                     marker.second + miacode::preview_gameplay::kJudgeEffectFireworkTouchTriggerDelaySeconds,
                     marker.second
                         + miacode::preview_gameplay::kJudgeEffectFireworkTouchTriggerDelaySeconds
-                        + miacode::preview_gameplay::kJudgeEffectFireworkDurationSeconds
+                        + miacode::preview_gameplay::kFireworkMaxDurationSeconds
                 );
             }
             continue;
@@ -436,7 +437,7 @@ void PreviewPreparedSceneCache::rebuild(const PreviewFrameState& state)
                     &judgeFireworkLayer_,
                     markerIndex,
                     qMax(marker.second, marker.endSecond),
-                    qMax(marker.second, marker.endSecond) + miacode::preview_gameplay::kJudgeEffectFireworkDurationSeconds
+                    qMax(marker.second, marker.endSecond) + miacode::preview_gameplay::kFireworkMaxDurationSeconds
                 );
             }
             continue;

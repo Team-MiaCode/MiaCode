@@ -58,23 +58,7 @@ Rectangle {
         && root.session.chartFrameAvailable
         && !root.session.busy
 
-    // LabeledCombo 吃 { value, label }；字体库给的是 { path, label, family }。
-    readonly property var fontOptions: {
-        const source = root.session ? root.session.fontLibraryOptions : []
-        const options = []
-        for (let index = 0; index < source.length; ++index)
-            options.push({ value: source[index].path, label: source[index].label, family: source[index].family })
-        return options
-    }
-
-    FontLoader {
-        id: defaultDisplayFont
-        source: "qrc:/intro/assets/fonts/ResourceHanRoundedCN-Heavy.ttf"
-    }
-    FontLoader {
-        id: defaultBodyFont
-        source: "qrc:/intro/assets/fonts/ResourceHanRoundedCN-Bold.ttf"
-    }
+    readonly property var fontOptions: session ? session.fontLibraryOptions : []
 
     // 检查器标签列。标签都是短词，88px 容得下中/英/日三种文案而不折行。
     readonly property int labelWidth: 88
@@ -470,21 +454,28 @@ Rectangle {
                 SplitView.maximumWidth: 460
                 color: Theme.colors.background.panel
                 clip: true
+                readonly property int padding: 10
 
+                // The right padding belongs to the Flickable, so its clip edge is the
+                // pane edge and the scroll bar sits in that gutter instead of over
+                // swatches and switches that end on the content edge.
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 10
+                    anchors.margins: inspectorPane.padding
+                    anchors.rightMargin: 0
                     spacing: 8
 
                     AppTabBar {
                         id: inspectorTabs
                         Layout.fillWidth: true
+                        Layout.rightMargin: inspectorPane.padding
                         tabs: [{ id: "canvas", label: qsTrId("cover.canvas") },
                                { id: "layer", label: qsTrId("cover.layer"), objectName: "coverLayerTab" }]
                     }
 
                     Rectangle {
                         Layout.fillWidth: true
+                        Layout.rightMargin: inspectorPane.padding
                         Layout.preferredHeight: 1 / Screen.devicePixelRatio
                         color: Theme.separatorColor
                     }
@@ -500,7 +491,7 @@ Rectangle {
 
                         AppTabPages {
                             id: inspector
-                            width: parent.width
+                            width: parent.width - inspectorPane.padding
                             currentIndex: inspectorTabs.currentIndex
 
                             // ---- 画板 ----
@@ -678,6 +669,16 @@ Rectangle {
                                         value: (root.activeLayer ? root.activeLayer.sizeFraction : 0.85) * 100
                                         onMoved: function(value) { if (root.session) root.session.setActiveLayerSizeFraction(value / 100) }
                                     }
+                                    LabeledSlider {
+                                        objectName: "coverLayerRotationSlider"
+                                        label: qsTrId("cover.rotation")
+                                        labelWidth: root.labelWidth
+                                        from: -180
+                                        to: 180
+                                        suffix: "°"
+                                        value: root.activeLayer ? root.activeLayer.rotation : 0
+                                        onMoved: function(value) { if (root.session) root.session.setActiveLayerRotation(value) }
+                                    }
 
                                     // ---- 图片 ----
                                     SettingsSection {
@@ -714,19 +715,25 @@ Rectangle {
                                         RowLayout {
                                             Layout.fillWidth: true
                                             FormLabel { text: qsTrId("cover.text_color") }
-                                            AppTextField {
-                                                Layout.fillWidth: true
-                                                text: root.activeLayer ? root.activeLayer.textColor : "#FFFFFF"
-                                                onEditingFinished: if (root.session) root.session.setActiveLayerTextColor(text)
-                                            }
-                                            // 色值是文本输入，一个小色板比读十六进制快。
-                                            Rectangle {
-                                                implicitWidth: 22
-                                                implicitHeight: 22
-                                                radius: Theme.controlRadius
+                                            AppColorField {
                                                 color: root.activeLayer ? root.activeLayer.textColor : "#FFFFFF"
-                                                border.width: Theme.controlBorderWidth
-                                                border.color: Theme.colors.border.control
+                                                onEdited: function(color) { if (root.session) root.session.setActiveLayerTextColor(color) }
+                                            }
+                                        }
+                                        LabeledCombo {
+                                            comboObjectName: "coverTextFontCombo"
+                                            label: qsTrId("cover.font")
+                                            labelWidth: root.labelWidth
+                                            options: root.fontOptions
+                                            valueRole: "path"
+                                            fontFamilyRole: "family"
+                                            currentValue: root.activeLayer?.fontPath ?? ""
+                                            onPicked: value => { if (root.session) root.session.setActiveLayerFontPath(value) }
+
+                                            IconButton {
+                                                iconSource: Qt.resolvedUrl("icons/folder-open.svg")
+                                                tooltip: qsTrId("card_font.import")
+                                                onClicked: if (root.session) root.session.importActiveLayerFont()
                                             }
                                         }
                                         RowLayout {
@@ -737,9 +744,57 @@ Rectangle {
                                                 onToggled: if (root.session) root.session.setActiveLayerTextBold(checked)
                                             }
                                             Item { Layout.fillWidth: true }
-                                            AppButton {
-                                                text: qsTrId("card_font.import")
-                                                onClicked: root.session.importActiveLayerFont()
+                                        }
+                                        AppSwitch {
+                                            text: qsTrId("cover.text_stroke")
+                                            checked: root.activeLayer ? root.activeLayer.textStrokeEnabled : false
+                                            onToggled: root.session.setActiveLayerTextEffect("textStrokeEnabled", checked)
+                                        }
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            FormLabel { text: qsTrId("cover.text_stroke_color") }
+                                            AppColorField {
+                                                color: root.activeLayer ? root.activeLayer.textStrokeColor : "#000000"
+                                                onEdited: function(color) { root.session.setActiveLayerTextEffect("textStrokeColor", color) }
+                                            }
+                                        }
+                                        LabeledSlider {
+                                            Layout.fillWidth: true
+                                            label: qsTrId("cover.text_stroke_width")
+                                            suffix: " px"; decimals: 1
+                                            from: 0; to: 30; stepSize: 0.5
+                                            value: root.activeLayer ? root.activeLayer.textStrokeWidth : 2
+                                            onMoved: root.session.setActiveLayerTextEffect("textStrokeWidth", value)
+                                        }
+                                        AppSwitch {
+                                            text: qsTrId("cover.text_shadow")
+                                            checked: root.activeLayer ? root.activeLayer.textShadowEnabled : false
+                                            onToggled: root.session.setActiveLayerTextEffect("textShadowEnabled", checked)
+                                        }
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            FormLabel { text: qsTrId("cover.text_shadow_color") }
+                                            AppColorField {
+                                                color: root.activeLayer ? root.activeLayer.textShadowColor : "#000000"
+                                                onEdited: function(color) { root.session.setActiveLayerTextEffect("textShadowColor", color) }
+                                            }
+                                        }
+                                        Repeater {
+                                            model: [
+                                                {key: "textShadowOpacity", label: qsTrId("cover.text_shadow_opacity"), min: 0, max: 1, step: 0.01},
+                                                {key: "textShadowBlur", label: qsTrId("cover.text_shadow_blur"), min: 0, max: 60, step: 1},
+                                                {key: "textShadowOffsetX", label: qsTrId("cover.text_shadow_x"), min: -100, max: 100, step: 1},
+                                                {key: "textShadowOffsetY", label: qsTrId("cover.text_shadow_y"), min: -100, max: 100, step: 1}
+                                            ]
+                                            LabeledSlider {
+                                                required property var modelData
+                                                Layout.fillWidth: true
+                                                label: modelData.label
+                                                suffix: modelData.key === "textShadowOpacity" ? "" : " px"
+                                                decimals: modelData.key === "textShadowOpacity" ? 2 : 0
+                                                from: modelData.min; to: modelData.max; stepSize: modelData.step
+                                                value: root.activeLayer ? root.activeLayer[modelData.key] : 0
+                                                onMoved: root.session.setActiveLayerTextEffect(modelData.key, value)
                                             }
                                         }
                                     }
@@ -956,12 +1011,12 @@ Rectangle {
                                         title: qsTrId("cover.font")
 
                                         LabeledCombo {
-                                            objectName: "coverCardDisplayFontCombo"
+                                            comboObjectName: "coverCardDisplayFontCombo"
                                             fontFamilyRole: "family"
-                                            defaultFontFamily: defaultDisplayFont.name
-                                            label: qsTrId("cover.title_font")
+                                            label: qsTrId("card_font.title")
                                             labelWidth: root.labelWidth
                                             options: root.fontOptions
+                                            valueRole: "path"
                                             currentValue: root.session ? root.session.cardFontDisplayPath : ""
                                             onPicked: function(value) { if (root.session) root.session.cardFontDisplayPath = value }
 
@@ -972,12 +1027,12 @@ Rectangle {
                                             }
                                         }
                                         LabeledCombo {
-                                            objectName: "coverCardBodyFontCombo"
+                                            comboObjectName: "coverCardBodyFontCombo"
                                             fontFamilyRole: "family"
-                                            defaultFontFamily: defaultBodyFont.name
-                                            label: qsTrId("cover.body_font")
+                                            label: qsTrId("card_font.body")
                                             labelWidth: root.labelWidth
                                             options: root.fontOptions
+                                            valueRole: "path"
                                             currentValue: root.session ? root.session.cardFontBodyPath : ""
                                             onPicked: function(value) { if (root.session) root.session.cardFontBodyPath = value }
 

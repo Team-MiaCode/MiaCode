@@ -6,6 +6,8 @@
 
 #include "app/services/ExportEngine.h"
 
+class QThread;
+
 namespace miacode::runtime {
 
 class VideoExportHost final : public miacode::ExportEngine {
@@ -16,6 +18,8 @@ public:
     using BatchExportCallbacks = miacode::ExportEngine::BatchCallbacks;
 
     VideoExportHost(Session& session, RuntimeContext::Ui& ui, RuntimeContext::State& state);
+    ~VideoExportHost() override;
+    void launchSelectionGifExport(int difficultyId, double startSecond, double endSecond);
 
     // ---- miacode::ExportEngine ----
     VideoExportTask buildSeedTask(int difficultyId) override;
@@ -23,6 +27,7 @@ public:
     bool startAudition(int difficultyId, const VideoExportTask& visualTask) override;
     void clearAudition() override;
     void stopAudition() override;
+    void setAuditionClockCountEnabled(int difficultyId, bool enabled) override;
     bool launchVideoExport(const VideoExportTask& requestedTask, int difficultyId,
                            QString* errorMessage) override;
     bool launchBatchExport(const VideoExportTask& templateTask,
@@ -41,6 +46,7 @@ public:
     void refreshIntroState() override;
     void setIntroAuditionPlaying(bool playing) override;
     bool introAuditionPlaying() const override;
+    void auditionIntroSound() override;
 
     void applySharedExportTaskSettings(const VideoExportTask& task);
     // The three dialog entry slots take an explicit difficulty id; the
@@ -88,13 +94,13 @@ public:
         VideoExportSnapshot* snapshot,
         QString* errorMessage
     );
-    bool startVideoExportWorkerProcess(
+    static bool startVideoExportWorkerProcess(
         QProcess* process,
         const VideoExportSnapshot& snapshot,
         QString* errorMessage,
         bool forceDisableOffscreenPbo = false
     );
-    bool runVideoExportWorkerSync(
+    static bool runVideoExportWorkerSync(
         const VideoExportSnapshot& snapshot,
         bool* canceledByUser,
         QString* errorMessage,
@@ -117,6 +123,7 @@ public:
     );
 
 private:
+    VideoExportTask buildVideoExportRenderTask() const;
     // Banner-card payload (title/artist/designer/level/difficulty/bpm/mode/jacket)
     // for the given difficulty — seeds VideoExportTask::intro so the cover
     // composer can render the card without a full snapshot.
@@ -148,6 +155,7 @@ private:
     // Mirrors the latency page's installSandboxScene. Teardown clears the flag
     // and invalidates the snapshot so the next difficulty switch rebuilds.
     void installExportPreviewAuditionScene(int difficultyId);
+    void applyExportAuditionClockSchedule(int difficultyId);
     void teardownExportPreviewAuditionScene();
     bool runBatchExport(
         const VideoExportTask& templateTask,
@@ -157,15 +165,18 @@ private:
         BatchExportResult* result,
         const BatchExportCallbacks& callbacks,
         QString* errorMessage);
-    // ---- Inline export progress on the preview transport (A3 amended) ----
+    // Shared shell progress for the export worker.
     void reportExportProgress(int percent, const miacode::LocalizedText& label);
-    // percent < 0 keeps the current percent (label-only update); an empty
-    // label keeps the current label.
-    void endExportProgress();
+    void endExportProgress(const miacode::LocalizedText& completionMessage = {});
+    void finishSelectionGifExport(const QString& outputPath, bool succeeded,
+                                  const miacode::LocalizedText& errorMessage = {});
 
     Session& session_;
     RuntimeContext::Ui& ui_;
     RuntimeContext::State& state_;
+    QThread* gifExportThread_ = nullptr;
+    // The page's clock_count choice; scene reinstalls reapply it.
+    bool auditionClockCountEnabled_ = false;
 };
 
 }  // namespace miacode::runtime

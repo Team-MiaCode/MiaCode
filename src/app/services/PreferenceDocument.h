@@ -33,6 +33,14 @@ enum class ThemePalette {
     Forest,
     Paper,
     Lavender,
+    CatppuccinMocha,
+    CatppuccinLatte,
+    Nord,
+    Noah,
+    Yuzu,
+    Sky,
+    Dracula,
+    TokyoNight,
 };
 
 struct LanguageOption {

@@ -15,6 +15,9 @@ AppDropdownPanel {
     signal settingsRequested(string group)
     readonly property bool customizable: root.controller.completionGroup.length > 0
     readonly property real settingsSlotWidth: customizable ? Theme.controlMinHeight + 3 : 0
+    readonly property int maximumVisibleRows: 6
+    readonly property real candidateRowHeight: Math.max(Theme.controlMinHeight, root.editor.lineHeight,
+        Math.ceil(candidateFontMetrics.height) + 2 * (Theme.chromePadding + Theme.chromeInsetY))
 
     parent: Overlay.overlay
     modal: false
@@ -23,7 +26,7 @@ AppDropdownPanel {
     visible: editor.navigationVisible && controller.completionActive && controller.completionCandidates.length > 0
 
     readonly property real maximumHeight: root.parent
-        ? Math.max(0, Math.min(260, root.parent.height - 2 * root.margins)) : 260
+        ? Math.max(0, root.parent.height - 2 * root.margins) : Infinity
     property real candidatesWidth: 0
 
     // A vertical ListView never computes contentWidth, so the previous
@@ -43,7 +46,8 @@ AppDropdownPanel {
                     Math.max(120, Math.ceil(root.candidatesWidth)
                         + root.leftPadding + root.rightPadding + 24 + root.settingsSlotWidth))
     height: Math.min(root.maximumHeight,
-                     Math.max(Theme.controlMinHeight, candidateList.contentHeight)
+                     root.candidateRowHeight * Math.min(root.maximumVisibleRows,
+                         root.controller.completionCandidates.length)
                          + root.topPadding + root.bottomPadding)
 
     function updateAnchor() {
@@ -109,6 +113,10 @@ AppDropdownPanel {
             id: candidateMetrics
             font: root.editor.effectiveFont
         }
+        FontMetrics {
+            id: candidateFontMetrics
+            font: root.editor.effectiveFont
+        }
         ListView {
             id: candidateList
             anchors.left: parent.left
@@ -128,8 +136,7 @@ AppDropdownPanel {
                 required property int index
                 stateColors: Theme.colors.popupState
                 width: candidateList.width
-                implicitHeight: Math.max(Theme.controlMinHeight, root.editor.lineHeight,
-                    implicitContentHeight + 2 * (Theme.chromePadding + Theme.chromeInsetY))
+                implicitHeight: root.candidateRowHeight
                 highlighted: candidateRow.index === root.controller.completionIndex
                 text: candidateRow.modelData
                 labelFont: root.editor.effectiveFont
