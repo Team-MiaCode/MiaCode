@@ -66,6 +66,8 @@ public:
             samplesGeneration_ = sample.generation;
             sampleCount_ = nextSample_ = 0;
             lastPresentedSampleNs_ = -1;
+            leadInitialized_ = false;
+            smoothedLeadSeconds_ = 0.0;
         }
         if (sample.sampledAtNs <= lastPresentedSampleNs_) return;
         lastPresentedSampleNs_ = sample.sampledAtNs;
@@ -78,7 +80,16 @@ public:
         const auto middle = sampleCount_ / 2;
         const double median = sampleCount_ % 2 == 0
             ? (ordered[middle - 1] + ordered[middle]) * 0.5 : ordered[middle];
-        leadSeconds_.store(median, std::memory_order_release);
+        // Slew gently toward median so crossing a vsync bucket boundary cannot inject
+        // a sudden multi-millisecond jump into the scrolling timeline.
+        if (!leadInitialized_) {
+            smoothedLeadSeconds_ = median;
+            leadInitialized_ = true;
+        } else {
+            const double delta = median - smoothedLeadSeconds_;
+            smoothedLeadSeconds_ += std::clamp(delta * 0.1, -0.0003, 0.0003);
+        }
+        leadSeconds_.store(smoothedLeadSeconds_, std::memory_order_release);
     }
 
     double presentationLeadSeconds() const { return leadSeconds_.load(std::memory_order_acquire); }
@@ -103,4 +114,6 @@ private:
     std::array<double, 8> samples_{};
     std::size_t sampleCount_ = 0;
     std::size_t nextSample_ = 0;
+    bool leadInitialized_ = false;
+    double smoothedLeadSeconds_ = 0.0;
 };

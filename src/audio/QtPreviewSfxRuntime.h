@@ -188,6 +188,14 @@ private:
     PausePreviewResult lastPauseResult() const;
     void shutdownWorker();
 
+    struct AudibleOffsetState {
+        bool initialized = false;
+        quint64 generation = 0;
+        quint64 assetGeneration = 0;
+        quint64 transactionId = 0;
+        double offsetSeconds = 0.0;
+    };
+
     std::unique_ptr<miacode::preview_audio::PreviewAudioWorker> worker_;
     // Guards the one non-GUI producer (the Core Audio callback) against worker
     // teardown. GUI methods stay on QObject's thread and retain their existing model.
@@ -195,6 +203,8 @@ private:
     std::shared_ptr<CallbackState> callbackState_;
     mutable std::mutex snapshotMutex_;
     miacode::preview_audio::PreviewAudioSnapshot lastSnapshot_;
+    mutable std::mutex audibleOffsetMutex_;
+    mutable AudibleOffsetState audibleOffsetState_;
     std::atomic_bool acceptingCommands_{true};
     std::atomic<quint64> playbackGeneration_{1};
     std::atomic<quint64> assetGeneration_{1};

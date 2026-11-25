@@ -107,9 +107,25 @@ void miacode::runtime::PlaybackCoordinator::onTimelineRenderCadenceTick()
     }
     state_.qtPreviewLastTimelineCadenceMs_ = state_.qtPreviewWatchdogElapsed_.elapsed();
     const qint64 nowNs = state_.qtPreviewWatchdogElapsed_.nsecsElapsed();
+    const qint64 targetIntervalNs = timelineTargetFrameIntervalNs();
+#ifdef Q_OS_MACOS
+    // At display refresh rate, Metal vsync already paces afterAnimating; gating
+    // again would skip frames whenever a presentation callback arrives slightly early.
+    const QScreen* rootScreen = state_.rootWindow_ != nullptr && state_.rootWindow_->screen() != nullptr
+        ? state_.rootWindow_->screen()
+        : QGuiApplication::primaryScreen();
+    const double rootRefreshHz = rootScreen != nullptr && qIsFinite(rootScreen->refreshRate())
+            && rootScreen->refreshRate() >= 1.0
+        ? rootScreen->refreshRate()
+        : 60.0;
+    const qint64 displayIntervalNs = qRound64(1000000000.0 / rootRefreshHz);
+    if (targetIntervalNs <= displayIntervalNs) {
+        state_.qtPreviewLastTimelineCadenceFlushNs_ = nowNs;
+    } else
+#endif
     if (!miacode::timeline::cadence::renderCadenceShouldFlush(
             nowNs,
-            timelineTargetFrameIntervalNs(),
+            targetIntervalNs,
             &state_.qtPreviewLastTimelineCadenceFlushNs_)) {
         return;
     }

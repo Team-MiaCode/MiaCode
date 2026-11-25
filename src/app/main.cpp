@@ -401,13 +401,9 @@ int main(int argc, char* argv[])
 #endif
 
     QSurfaceFormat format = QSurfaceFormat::defaultFormat();
-    // Keep Metal's drawable queue shallow so audio-locked UI reaches the screen
-    // without accumulating an additional queued frame after render submission.
-#ifdef Q_OS_MACOS
-    format.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
-#else
+    // Triple-buffer + vsync keeps two windows at full display refresh without
+    // swapchain stalls; TimelineFramePresentationClock measures real scanout latency.
     format.setSwapBehavior(QSurfaceFormat::TripleBuffer);
-#endif
     format.setSwapInterval(1);
     QSurfaceFormat::setDefaultFormat(format);
     logStartupStage("surface_format_ready");

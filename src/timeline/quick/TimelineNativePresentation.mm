@@ -78,11 +78,12 @@ void observeTimelineNativePresentation(
     if (drawable == nil || sample.sampledAtNs < 0) return;
     clock->activateNativePresentation();
     [drawable addPresentedHandler:^(id<MTLDrawable> presented) {
-        auto presentationNs = TimelineFramePresentationClock::nowNs();
         const double time = presented.presentedTime;
-        if (time > 0.0) {
-            presentationNs -= static_cast<long long>((CACurrentMediaTime() - time) * 1000000000.0);
+        if (time <= 0.0) {
+            return;
         }
+        auto presentationNs = TimelineFramePresentationClock::nowNs();
+        presentationNs -= static_cast<long long>((CACurrentMediaTime() - time) * 1000000000.0);
         clock->recordPresentation(sample, presentationNs);
     }];
 }
