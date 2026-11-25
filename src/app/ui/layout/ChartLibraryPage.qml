@@ -213,7 +213,7 @@ Item {
 
             RowLayout {
                 objectName: "chartLibraryActionGroup"
-                visible: root.efficientMode || difficultyButton.visible
+                visible: root.efficientMode || library.songs.length > 0
                 spacing: 2
 
                 LibraryIconButton {
