@@ -82,7 +82,7 @@ Item {
             height: Math.max(0, parent.height - 2 * root.trackPadding)
             radius: Math.max(2, root.radius - root.trackPadding)
             color: root.nativeMaterialActive
-                ? (Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.88))
+                ? Theme.chromeStateColors.selected
                 : Theme.overlayColor(Theme.darkTheme
                     ? Theme.colors.buttonState.selected
                     : Theme.colors.background.panel)
