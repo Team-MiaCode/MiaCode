@@ -422,16 +422,10 @@ exec "$APPDIR/usr/bin/MiaCode" "$@"
 EOF
 chmod +x "$DIST_DIR/AppRun"
 
-"$LINUXDEPLOY_BIN" \
-  --appdir="$APPDIR" \
-  --executable="$APPDIR/usr/bin/MiaCode" \
-  --desktop-file="$APPDIR/usr/share/applications/miacode.desktop" \
-  --icon-file="$APPDIR/usr/share/icons/hicolor/512x512/apps/miacode.png" \
-  --custom-apprun="$DIST_DIR/AppRun" \
-  --plugin qt
-
 # The Qt plugin's QML deployment is best-effort; make sure the modules the UI
-# imports actually made it in, regardless of what the plugin decided to do.
+# imports actually made it in before linuxdeploy scans dependencies. QML modules
+# can contain native plugins whose shared libraries must be picked up by that
+# scan, so copying them afterwards would leave those libraries behind.
 QML_IMPORT_ROOT=""
 if [[ -n "${QT_ROOT:-}" && -d "$QT_ROOT/qml" ]]; then
   QML_IMPORT_ROOT="$QT_ROOT/qml"
@@ -447,6 +441,14 @@ if [[ ! -d "$APPDIR/usr/qml/QtQuick/Controls" ]]; then
   echo "QML modules were not deployed into the AppDir; the AppImage would fail to start" >&2
   exit 1
 fi
+
+"$LINUXDEPLOY_BIN" \
+  --appdir="$APPDIR" \
+  --executable="$APPDIR/usr/bin/MiaCode" \
+  --desktop-file="$APPDIR/usr/share/applications/miacode.desktop" \
+  --icon-file="$APPDIR/usr/share/icons/hicolor/512x512/apps/miacode.png" \
+  --custom-apprun="$DIST_DIR/AppRun" \
+  --plugin qt
 
 package_step "Building AppImage"
 TARGET_APPIMAGE="${DIST_DIR}/${PACKAGE_NAME}.AppImage"
