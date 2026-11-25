@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Window
 import MiaCode.UI
 import "qrc:/preview/runtime/qml" as Preview
 
@@ -13,7 +14,7 @@ Rectangle {
     property bool latencyActive: false
     // See PreviewTransport: the canvas menu hides on the export page.
     property bool exportPageActive: false
-    // Suspend the scene subscription while moving the pane between windows.
+    // Only the selected pane owns the live runtime and media output.
     property bool surfaceActive: true
     property bool detached: false
     // Mirrors the transport row when the preview sits left of the editor; set
@@ -131,14 +132,21 @@ Rectangle {
             height: root.freeAspectActive
                     ? parent.height
                     : root.fittedFrameHeight(parent.width, parent.height)
-            // Do not construct an invisible scene root: it still subscribes to
-            // PreviewRuntime::frameStateChanged even when QSG skips painting it.
-            active: root.surfaceActive && root.visible && width >= 64 && height >= 64
+            readonly property bool presenting: root.surfaceActive && root.visible
+                && !!root.Window.window && root.Window.window.visible
+                && root.Window.window.visibility !== Window.Minimized
+                && width >= 64 && height >= 64
+            // Keep each surface in its own window after its first activation.
+            property bool initialized: false
+            onPresentingChanged: if (presenting) initialized = true
+            Component.onCompleted: if (presenting) initialized = true
+            active: initialized
+            visible: presenting
 
             sourceComponent: Preview.PreviewSurface {
                 anchors.fill: parent
-                runtime: root.previewSession.runtime
-                mediaHost: root.previewSession.mediaHost
+                runtime: previewSurfaceLoader.presenting ? root.previewSession.runtime : null
+                mediaHost: previewSurfaceLoader.presenting ? root.previewSession.mediaHost : null
                 logger: root.previewSession
                 surfaceRole: root.detached ? "detached" : "workspace"
                 backgroundColor: "transparent"
@@ -172,8 +180,15 @@ Rectangle {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         efficientMode: root.preferences.efficientSidebarEnabled
-        statistics: root.previewSession.statistics
+        statistics: []
         dataAvailable: !root.latencyActive && root.previewSession.statisticsAvailable
         enabled: root.documentAvailable
+    }
+
+    Binding {
+        target: statistics
+        property: "statistics"
+        value: root.previewSession.statistics
+        when: root.visible
     }
 }

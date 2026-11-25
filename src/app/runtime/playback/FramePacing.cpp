@@ -23,6 +23,7 @@
 
 #include <QtCore>
 #include <QtGui>
+#include <QQuickWindow>
 
 using namespace miacode::runtime::shared;
 
@@ -51,6 +52,13 @@ int previewFrameSwapWatchdogTimeoutMs(qint64 frameIntervalNs)
         24,
         qMax(1, qRound(static_cast<double>(frameIntervalNs) / 1000000.0)) * 2
     );
+}
+
+double screenRefreshRate(const QWindow* window)
+{
+    const QScreen* screen = window != nullptr ? window->screen() : QGuiApplication::primaryScreen();
+    const double rate = screen != nullptr ? screen->refreshRate() : 0.0;
+    return qIsFinite(rate) && rate >= 1.0 ? rate : 60.0;
 }
 
 }  // namespace
@@ -104,18 +112,8 @@ Session::PreviewCanvasFrameRateMode miacode::runtime::PlaybackCoordinator::curre
 
 double miacode::runtime::PlaybackCoordinator::currentPreviewCanvasRefreshRate() const
 {
-    QScreen* targetScreen = nullptr;
-    if (state_.rootWindow_ != nullptr) {
-        targetScreen = state_.rootWindow_->screen();
-    }
-    if (targetScreen == nullptr) {
-        targetScreen = QGuiApplication::primaryScreen();
-    }
-    const double refreshRate = targetScreen != nullptr ? targetScreen->refreshRate() : 0.0;
-    if (!qIsFinite(refreshRate) || refreshRate < 1.0) {
-        return 60.0;
-    }
-    return refreshRate;
+    const QWindow* previewWindow = state_.scene_ != nullptr ? state_.scene_->visibleHostWindow() : nullptr;
+    return screenRefreshRate(previewWindow != nullptr ? previewWindow : state_.rootWindow_.data());
 }
 
 bool miacode::runtime::PlaybackCoordinator::previewCanvasUsesFrameSwappedPacing() const
@@ -131,6 +129,29 @@ bool miacode::runtime::PlaybackCoordinator::previewCanvasUsesFrameSwappedPacing(
     // only the gate is dropped. The gate code paths are left in place but
     // unreachable so the surgery is one line.
     return false;
+}
+
+bool miacode::runtime::PlaybackCoordinator::previewCanvasUsesFramePreparationPacing() const
+{
+#ifdef Q_OS_MACOS
+    return true;
+#else
+    return false;
+#endif
+}
+
+void miacode::runtime::PlaybackCoordinator::onPreviewCanvasFramePreparing()
+{
+    if (!state_.playing_ || !previewCanvasUsesFramePreparationPacing()
+        || !state_.qtPreviewFixedAwaitingFrame_) {
+        return;
+    }
+    // Update content for the frame Qt is about to sync. A swap callback can
+    // arrive after the next display deadline when two windows are rendering.
+    state_.qtPreviewFixedAwaitingFrame_ = false;
+    state_.qtPreviewFixedAwaitingFrameSinceMs_ = -1;
+    state_.qtPreviewFixedAwaitingFrameSinceNs_ = -1;
+    advanceFixedIntervalGateAfterPresent();
 }
 
 qint64 miacode::runtime::PlaybackCoordinator::previewCanvasTargetFrameIntervalNs() const
@@ -165,9 +186,8 @@ qint64 miacode::runtime::PlaybackCoordinator::previewCanvasTargetFrameIntervalNs
     return qMax<qint64>(1LL, qRound64(1000000000.0 / qMax(1.0, targetHz)));
 }
 
-double miacode::runtime::PlaybackCoordinator::targetRefreshRateForFrameRateMode(PreviewCanvasFrameRateMode mode) const
+double miacode::runtime::PlaybackCoordinator::targetRefreshRateForFrameRateMode(PreviewCanvasFrameRateMode mode, double displayHz) const
 {
-    const double displayHz = currentPreviewCanvasRefreshRate();
     switch (mode) {
     case PreviewCanvasFrameRateMode::Fps30:
         return qMin(30.0, displayHz);
@@ -183,13 +203,14 @@ double miacode::runtime::PlaybackCoordinator::targetRefreshRateForFrameRateMode(
 
 qint64 miacode::runtime::PlaybackCoordinator::targetFrameIntervalNsForFrameRateMode(PreviewCanvasFrameRateMode mode) const
 {
-    return qMax<qint64>(1LL, qRound64(1000000000.0 / qMax(1.0, targetRefreshRateForFrameRateMode(mode))));
+    return qMax<qint64>(1LL, qRound64(1000000000.0 / qMax(1.0, targetRefreshRateForFrameRateMode(mode, currentPreviewCanvasRefreshRate()))));
 }
 
 qint64 miacode::runtime::PlaybackCoordinator::timelineTargetFrameIntervalNs() const
 {
     const double timelineTargetFps =
-        qMin(targetRefreshRateForFrameRateMode(state_.timeline_.timelineFrameRateMode_),
+        qMin(targetRefreshRateForFrameRateMode(state_.timeline_.timelineFrameRateMode_,
+                                                   screenRefreshRate(state_.rootWindow_.data())),
              miacode::runtime::shared::kTimelineMaxUiUpdateFps);
     return qMax<qint64>(1LL, qRound64(1000000000.0 / qMax(1.0, timelineTargetFps)));
 }
@@ -267,7 +288,7 @@ void miacode::runtime::PlaybackCoordinator::requestNextDisplayRefreshPreviewFram
     scheduleNextQtPreviewTick();
 }
 
-void miacode::runtime::PlaybackCoordinator::requestNextFixedIntervalPreviewFrame()
+void miacode::runtime::PlaybackCoordinator::requestNextFixedIntervalPreviewFrame(bool refreshScene)
 {
     // Doc section 4.1: fixed 60/120 is now present-driven. This mirrors the DisplayRefresh
     // request path — set awaiting flag, ask the canvas to update, arm the watchdog.
@@ -281,7 +302,15 @@ void miacode::runtime::PlaybackCoordinator::requestNextFixedIntervalPreviewFrame
     state_.qtPreviewFixedAwaitingFrameSinceMs_ = state_.qtPreviewWatchdogElapsed_.elapsed();
     state_.qtPreviewFixedAwaitingFrameSinceNs_ = state_.qtPreviewWatchdogElapsed_.nsecsElapsed();
     state_.qtPreviewFixedGateFrameRequestSeq_ += 1;
-    state_.scene_->requestFramePresentation();
+    if (refreshScene) {
+        state_.scene_->requestFramePresentation(previewCanvasUsesFramePreparationPacing());
+    } else if (QQuickWindow* host = state_.scene_->visibleHostWindow()) {
+        if (previewCanvasUsesFramePreparationPacing()) {
+            host->update();
+        } else {
+            host->requestUpdate();
+        }
+    }
     scheduleNextQtPreviewTick();
 }
 
@@ -318,7 +347,9 @@ void miacode::runtime::PlaybackCoordinator::advanceFixedIntervalGateAfterPresent
     // The display already limits presents at its refresh rate. Applying the
     // interval gate again can repeat a frame when a present arrives early.
     const qint64 displayIntervalNs = qRound64(1000000000.0 / currentPreviewCanvasRefreshRate());
-    if (targetIntervalNs <= displayIntervalNs) gatePassed = true;
+    if (targetIntervalNs <= displayIntervalNs) {
+        gatePassed = true;
+    }
 #endif
     if (gatePassed) {
         // Record the canonical "tick time" now, BEFORE the tick runs. Using phase-locked
@@ -356,7 +387,8 @@ void miacode::runtime::PlaybackCoordinator::advanceFixedIntervalGateAfterPresent
                 state_.qtPreviewFramePacingDiagLastFixedGateLogMs_ = nowMs;
                 appendPreviewFramePacingDiagLog(
                     QStringLiteral("fixed_gate_tick"),
-                    QStringLiteral("source=present gate_wait_ms=%1 target_ms=%2 awaiting_frame=0 time_authority=%3")
+                    QStringLiteral("source=%1 gate_wait_ms=%2 target_ms=%3 awaiting_frame=0 time_authority=%4")
+                        .arg(previewCanvasUsesFramePreparationPacing() ? QStringLiteral("prepare") : QStringLiteral("present"))
                         .arg(static_cast<double>(sinceLastNs) / 1000000.0, 0, 'f', 3)
                         .arg(static_cast<double>(targetIntervalNs) / 1000000.0, 0, 'f', 3)
                         .arg(state_.previewSfxRuntime_ != nullptr
@@ -384,8 +416,9 @@ void miacode::runtime::PlaybackCoordinator::advanceFixedIntervalGateAfterPresent
                 );
             }
         }
-        // Keep the present pump alive so the next present can re-check the gate.
-        requestNextFixedIntervalPreviewFrame();
+        // Keep the pump alive so the next display slot can re-check the gate.
+        // Under frame-preparation pacing, avoid dirtying scene items on skipped slots.
+        requestNextFixedIntervalPreviewFrame(/*refreshScene=*/!previewCanvasUsesFramePreparationPacing());
     }
 }
 
@@ -393,8 +426,17 @@ void miacode::runtime::PlaybackCoordinator::refreshPreviewFrameRateTimers()
 {
     const qint64 targetIntervalNs = previewCanvasTargetFrameIntervalNs();
     const qint64 timelineIntervalNs = timelineTargetFrameIntervalNs();
-    if (ui_.qtPreviewTimer_ != nullptr) {
-        ui_.qtPreviewTimer_->setInterval(std::chrono::nanoseconds(qMax<qint64>(1, targetIntervalNs)));
+    if (state_.playing_ && state_.scene_ != nullptr && !previewCanvasUsesFrameSwappedPacing()) {
+        // Re-kick the active host window after a window switch or screen change
+        // even when a request was already in flight on the previous host.
+        if (state_.qtPreviewFixedAwaitingFrame_) {
+            state_.qtPreviewFixedAwaitingFrameSinceMs_ = state_.qtPreviewWatchdogElapsed_.elapsed();
+            state_.qtPreviewFixedAwaitingFrameSinceNs_ = state_.qtPreviewWatchdogElapsed_.nsecsElapsed();
+            state_.scene_->requestFramePresentation(previewCanvasUsesFramePreparationPacing());
+            scheduleNextQtPreviewTick();
+        } else {
+            requestNextFixedIntervalPreviewFrame();
+        }
     }
     if (ui_.qtPreviewTimelineTimer_ != nullptr) {
         ui_.qtPreviewTimelineTimer_->setInterval(std::chrono::nanoseconds(qMax<qint64>(1, timelineIntervalNs)));

@@ -139,11 +139,10 @@ void Session::finishFrameBootstrap(const std::function<void(const QString&)>& lo
             scheduleNextQtPreviewTick();
             return;
         }
-        // Fixed interval watchdog (doc 4.1): if no present in a reasonable window while we had
-        // an update() request in flight, clear state and kick a new frame request.
         if (!qtPreviewFixedAwaitingFrame_) {
             return;
         }
+        // Recover an outstanding update request if the window stopped advancing.
         if (qtPreviewFixedAwaitingFrameSinceMs_ >= 0
             && nowMs - qtPreviewFixedAwaitingFrameSinceMs_ >= stallTimeoutMs) {
             const qint64 waitMs = nowMs - qtPreviewFixedAwaitingFrameSinceMs_;

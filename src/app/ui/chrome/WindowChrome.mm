@@ -161,6 +161,25 @@ void configureNativeTitleBar(NSWindow* window, bool fullscreen = false)
 }
 }
 
+namespace {
+
+void useDisplayLinkPacing(CALayer* layer)
+{
+    if ([layer isKindOfClass:CAMetalLayer.class]) {
+        auto* metalLayer = static_cast<CAMetalLayer*>(layer);
+        if (metalLayer.displaySyncEnabled) {
+            // Qt's screen display link already paces updates to this window.
+            metalLayer.displaySyncEnabled = NO;
+        }
+        return;
+    }
+    for (CALayer* child in layer.sublayers) {
+        useDisplayLinkPacing(child);
+    }
+}
+
+} // namespace
+
 void WindowChrome::refreshMacOsMaterial(QWindow* window)
 {
     if (window == nullptr) {
@@ -171,6 +190,7 @@ void WindowChrome::refreshMacOsMaterial(QWindow* window)
     if (nativeWindow == nil) {
         return;
     }
+    useDisplayLinkPacing(view.layer);
     const bool materialWanted = blurMaterialsEnabled_ && !materialRegions_.isEmpty();
     if (nativeWindow.opaque) {
         nativeWindow.opaque = NO;

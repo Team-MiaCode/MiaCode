@@ -113,7 +113,7 @@ void miacode::runtime::PlaybackCoordinator::onTimelineRenderCadenceTick()
             &state_.qtPreviewLastTimelineCadenceFlushNs_)) {
         return;
     }
-    flushQtPreviewTimelinePosition();
+    flushQtPreviewTimelinePosition(/*usePresentationLead=*/true);
 }
 
 void miacode::runtime::PlaybackCoordinator::onTimelineCadenceWatchdogTick()
@@ -130,7 +130,7 @@ void miacode::runtime::PlaybackCoordinator::onTimelineCadenceWatchdogTick()
     flushQtPreviewTimelinePosition();
 }
 
-void miacode::runtime::PlaybackCoordinator::flushQtPreviewTimelinePosition()
+void miacode::runtime::PlaybackCoordinator::flushQtPreviewTimelinePosition(bool usePresentationLead)
 {
     if (state_.playing_) {
         miacode::preview_audio::playback_flow::State playbackFlowState;
@@ -145,7 +145,8 @@ void miacode::runtime::PlaybackCoordinator::flushQtPreviewTimelinePosition()
         if (state_.previewSfxRuntime_ != nullptr && !tickDecision.holdsPendingPlayingSeek) {
             presentedSecond = state_.previewSfxRuntime_->audiblePlaybackSecond(second, state_.previewPlaybackRate_);
         }
-        if (state_.timeline_.timelineQuickStateBridge_ != nullptr && !tickDecision.holdsPendingPlayingSeek) {
+        if (usePresentationLead && state_.timeline_.timelineQuickStateBridge_ != nullptr
+            && !tickDecision.holdsPendingPlayingSeek) {
             // Project the moving playhead to this window's measured presentation time.
             // Chart geometry, waveform samples and editor follow retain audio seconds.
             presentedSecond += state_.timeline_.timelineQuickStateBridge_->presentationLeadSeconds()

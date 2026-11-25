@@ -88,8 +88,8 @@ Item {
         root.previewSession.updateScrub(second)
     }
     property bool scrubActive: false
-    property real activeScrubSecond: root.previewSession.positionSeconds
-    readonly property real displayedSeconds: root.dataAvailable
+    property real activeScrubSecond: 0
+    readonly property real displayedSeconds: root.visible && root.dataAvailable
         ? (root.scrubActive ? root.activeScrubSecond : root.previewSession.positionSeconds)
         : 0
 
@@ -160,7 +160,7 @@ Item {
         property: "value"
         // 范围重建时按当前进度定位，涵盖位置数值保持不变的页面切换。
         value: Math.max(progress.from, Math.min(progress.to, root.previewSession.positionSeconds))
-        when: !progress.pressed && !root.scrubActive
+        when: root.visible && !progress.pressed && !root.scrubActive
     }
 
     MouseArea {

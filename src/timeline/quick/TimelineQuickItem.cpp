@@ -843,6 +843,9 @@ TimelineQuickItem::TimelineQuickItem(QQuickItem* parent)
     setAcceptedMouseButtons(Qt::LeftButton);
     setAcceptHoverEvents(true);
     setFocus(true);
+    connect(this, &QQuickItem::visibleChanged, this, [this]() {
+        if (isVisible()) update();
+    });
     heldHorizontalKeyScrollTimer_.setSingleShot(false);
     heldHorizontalKeyScrollTimer_.setInterval(kTimelineKeyHoldTickIntervalMs);
     connect(&heldHorizontalKeyScrollTimer_, &QTimer::timeout, this, &TimelineQuickItem::applyHeldHorizontalKeyScrollTick);
@@ -1172,7 +1175,7 @@ void TimelineQuickItem::syncSourceState()
     if (!canBecomeReady()) {
         updateReadyState(false);
     }
-    update();
+    if (isVisible()) update();
 }
 
 void TimelineQuickItem::syncNoteViewportRect()
@@ -1696,10 +1699,10 @@ void TimelineQuickItem::bindRenderCadence(QQuickWindow* window)
     renderCadenceConnection_ = QObject::connect(
         window, &QQuickWindow::afterAnimating, this,
         [this, presentationClock]() {
-            if (stateBridge_ == nullptr) {
+            if (stateBridge_ == nullptr || !isVisible()) {
                 return;
             }
-            if (isVisible()) presentationClock->beginGuiFrame(stateBridge_->playbackCadenceActive());
+            presentationClock->beginGuiFrame(stateBridge_->playbackCadenceActive());
             stateBridge_->notifyRenderCadenceTick(presentationClock->presentationLeadSeconds());
             // Keep the loop spinning for as long as playback owns the cadence. The tick above
             // normally dirties this item (renderStateChanged -> syncSourceState -> update),

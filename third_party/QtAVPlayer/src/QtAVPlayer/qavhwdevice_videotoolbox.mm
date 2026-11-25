@@ -16,31 +16,16 @@
 #endif
 #import <Metal/Metal.h>
 
-#include <QList>
-#include <QVariant>
 #include <QDebug>
+#include <QHash>
+#include <QList>
+#include <QMutex>
+#include <QVariant>
+#include <rhi/qrhi_platform.h>
+
+#include <array>
 
 QT_BEGIN_NAMESPACE
-
-class QAVHWDevice_VideoToolboxPrivate
-{
-public:
-    id<MTLDevice> device = nullptr;
-    CVPixelBufferRef pbuf = nullptr;
-};
-
-QAVHWDevice_VideoToolbox::QAVHWDevice_VideoToolbox()
-    : d_ptr(new QAVHWDevice_VideoToolboxPrivate)
-{
-}
-
-QAVHWDevice_VideoToolbox::~QAVHWDevice_VideoToolbox()
-{
-    Q_D(QAVHWDevice_VideoToolbox);
-    if (d->pbuf)
-        CVPixelBufferRelease(d->pbuf);
-    [d->device release];
-}
 
 AVPixelFormat QAVHWDevice_VideoToolbox::format() const
 {
@@ -55,15 +40,34 @@ AVHWDeviceType QAVHWDevice_VideoToolbox::type() const
 class VideoBuffer_MTL : public QAVVideoBuffer_GPU
 {
 public:
-    VideoBuffer_MTL(QAVHWDevice_VideoToolboxPrivate *hw, const QAVVideoFrame &frame)
+    explicit VideoBuffer_MTL(const QAVVideoFrame &frame)
         : QAVVideoBuffer_GPU(frame)
-        , m_hw(hw)
+        , m_pixelBuffer(frame.frame() ? reinterpret_cast<CVPixelBufferRef>(frame.frame()->data[3]) : nullptr)
     {
+        if (m_pixelBuffer)
+            CVPixelBufferRetain(m_pixelBuffer);
     }
 
     ~VideoBuffer_MTL() override
     {
-        releaseTextureObjects();
+        for (const auto &planes : m_textures) {
+            for (id<MTLTexture> texture : planes)
+                [texture release];
+        }
+        if (m_pixelBuffer)
+            CVPixelBufferRelease(m_pixelBuffer);
+    }
+
+    QAVVideoFrame::MapData map() override
+    {
+        QMutexLocker locker(&m_mutex);
+        return QAVVideoBuffer_GPU::map();
+    }
+
+    bool isMapped() const override
+    {
+        QMutexLocker locker(&m_mutex);
+        return QAVVideoBuffer_GPU::isMapped();
     }
 
     QAVVideoFrame::HandleType handleType() const override
@@ -71,30 +75,21 @@ public:
         return QAVVideoFrame::MTLTextureHandle;
     }
 
-    QVariant handle(QRhi */*rhi*/) const override
+    QVariant handle(QRhi *rhi) const override
     {
-        QList<QVariant> textures = { 0, 0 };
-        if (m_texturesReady) {
-            textures[0] = quint64(m_textureObjects[0]);
-            textures[1] = quint64(m_textureObjects[1]);
-            return textures;
-        }
-        releaseTextureObjects();
+        if (!rhi || rhi->backend() != QRhi::Metal)
+            return {};
+        const auto *handles = static_cast<const QRhiMetalNativeHandles *>(rhi->nativeHandles());
+        id<MTLDevice> device = handles ? reinterpret_cast<id<MTLDevice>>(handles->dev) : nil;
+        if (!device || !m_pixelBuffer)
+            return {};
 
-        CVPixelBufferRef pbuf = (CVPixelBufferRef)frame().frame()->data[3];
+        QMutexLocker locker(&m_mutex);
+        const auto existing = m_textures.constFind(device);
+        if (existing != m_textures.cend())
+            return textureHandles(existing.value());
 
-        if (!pbuf)
-            return textures;
-
-        CVPixelBufferRetain(pbuf);
-        if (m_hw->pbuf)
-            CVPixelBufferRelease(m_hw->pbuf);
-        m_hw->pbuf = pbuf;
-
-        if (CVPixelBufferGetDataSize(m_hw->pbuf) <= 0)
-            return textures;
-
-        const OSType format = CVPixelBufferGetPixelFormatType(m_hw->pbuf);
+        const OSType format = CVPixelBufferGetPixelFormatType(m_pixelBuffer);
         bool tenBit = false;
         switch (format) {
         case kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange:
@@ -106,56 +101,54 @@ public:
             break;
         default:
             qWarning() << "Unsupported VideoToolbox pixel format" << format;
-            return textures;
+            return {};
         }
 
-        if (!m_hw->device)
-            m_hw->device = MTLCreateSystemDefaultDevice();
-
-        IOSurfaceRef surface = CVPixelBufferGetIOSurface(m_hw->pbuf);
-        const int planes = CVPixelBufferGetPlaneCount(m_hw->pbuf);
-        if (!surface || planes != 2) {
-            qWarning() << "Invalid VideoToolbox IOSurface planes" << planes;
-            return textures;
-        }
-        for (int i = 0; i < planes; ++i) {
-            int w = IOSurfaceGetWidthOfPlane(surface, i);
-            int h = IOSurfaceGetHeightOfPlane(surface, i) ;
-            MTLPixelFormat f = tenBit
-                ? (i ? MTLPixelFormatRG16Unorm : MTLPixelFormatR16Unorm)
-                : (i ? MTLPixelFormatRG8Unorm : MTLPixelFormatR8Unorm);
-            MTLTextureDescriptor *desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:f width:w height:h mipmapped:NO];
-
-            m_textureObjects[i] = [m_hw->device newTextureWithDescriptor:desc iosurface:surface plane:i];
-            textures[i] = quint64(m_textureObjects[i]);
+        IOSurfaceRef surface = CVPixelBufferGetIOSurface(m_pixelBuffer);
+        if (!surface || CVPixelBufferGetPlaneCount(m_pixelBuffer) != 2) {
+            qWarning() << "Invalid VideoToolbox IOSurface planes";
+            return {};
         }
 
-        m_texturesReady = m_textureObjects[0] && m_textureObjects[1];
-        if (!m_texturesReady)
-            releaseTextureObjects();
-
-        return textures;
+        TexturePlanes planes{};
+        @autoreleasepool {
+            for (size_t plane = 0; plane < planes.size(); ++plane) {
+                const MTLPixelFormat pixelFormat = tenBit
+                    ? (plane ? MTLPixelFormatRG16Unorm : MTLPixelFormatR16Unorm)
+                    : (plane ? MTLPixelFormatRG8Unorm : MTLPixelFormatR8Unorm);
+                MTLTextureDescriptor *desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:pixelFormat
+                    width:IOSurfaceGetWidthOfPlane(surface, plane)
+                    height:IOSurfaceGetHeightOfPlane(surface, plane)
+                    mipmapped:NO];
+                planes[plane] = [device newTextureWithDescriptor:desc iosurface:surface plane:plane];
+            }
+        }
+        if (!planes[0] || !planes[1]) {
+            for (id<MTLTexture> texture : planes)
+                [texture release];
+            return {};
+        }
+        // The textures retain their device and stay alive with this video frame.
+        m_textures.insert(device, planes);
+        return textureHandles(planes);
     }
 
 private:
-    void releaseTextureObjects() const
+    using TexturePlanes = std::array<id<MTLTexture>, 2>;
+
+    static QVariant textureHandles(const TexturePlanes &planes)
     {
-        for (id<MTLTexture> texture : m_textureObjects) {
-            [texture release];
-        }
-        m_textureObjects[0] = nil;
-        m_textureObjects[1] = nil;
-        m_texturesReady = false;
+        return QList<QVariant>{quint64(planes[0]), quint64(planes[1])};
     }
 
-    QAVHWDevice_VideoToolboxPrivate *m_hw = nullptr;
-    mutable id<MTLTexture> m_textureObjects[2] = { nullptr, nullptr };
-    mutable bool m_texturesReady = false;
+    const CVPixelBufferRef m_pixelBuffer;
+    mutable QMutex m_mutex;
+    mutable QHash<id<MTLDevice>, TexturePlanes> m_textures;
 };
 
 QAVVideoBuffer *QAVHWDevice_VideoToolbox::videoBuffer(const QAVVideoFrame &frame) const
 {
-    return new VideoBuffer_MTL(d_ptr.get(), frame);
+    return new VideoBuffer_MTL(frame);
 }
 
 QT_END_NAMESPACE

@@ -97,11 +97,10 @@ private:
     Qt::MouseButton touchPadAuthoringPressedButton_ = Qt::NoButton;
     QMetaObject::Connection runtimeUpdateConnection_;
     QMetaObject::Connection frameSwapConnection_;
-#ifdef Q_OS_MACOS
     QMetaObject::Connection framePresentedCaptureConnection_;
+#ifdef Q_OS_MACOS
     QMetaObject::Connection guiFrameConnection_;
 #endif
-    QMetaObject::Connection fireworkPresentConnection_;
     QMetaObject::Connection windowVisibilityConnection_;
     QMetaObject::Connection renderBeforeSyncConnection_;
     QMetaObject::Connection renderAfterSyncConnection_;
@@ -122,9 +121,15 @@ private:
     // and read from updatePaintNode), never cleared: "first draw in this scene-graph
     // lifetime" is exactly the event of interest.
     QSet<QString> layersFirstDrawn_;
-    // Set in updatePaintNode when the firework layer emitted a node, consumed by the
-    // direct frameSwapped hook. Render-thread only in both directions, so no atomic.
-    bool fireworkNodeInPendingFrame_ = false;
+    struct PresentationBinding {
+        // Written during scene synchronization and consumed by the same render thread.
+        bool fireworkInFrame = false;
+        std::atomic<bool> fireworkPresented{false};
+#ifdef Q_OS_MACOS
+        std::atomic<int> pendingPresentCount{0};
+#endif
+    };
+    std::shared_ptr<PresentationBinding> presentationBinding_;
     std::atomic<bool> textureResetRequested_{false};
     PreviewQuickStageBackgroundLayer stageBackgroundLayer_;
     PreviewQuickBackdropLayer backdropLayer_;

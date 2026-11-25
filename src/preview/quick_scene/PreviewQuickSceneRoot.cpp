@@ -329,8 +329,8 @@ PreviewQuickSceneRoot::PreviewQuickSceneRoot(QQuickItem* parent)
 
 PreviewQuickSceneRoot::~PreviewQuickSceneRoot()
 {
-#ifdef Q_OS_MACOS
     QObject::disconnect(framePresentedCaptureConnection_);
+#ifdef Q_OS_MACOS
     QObject::disconnect(guiFrameConnection_);
 #endif
     if (frameSwapConnection_) {
@@ -537,8 +537,8 @@ void PreviewQuickSceneRoot::setRuntimeObject(QObject* runtimeObject)
 
 void PreviewQuickSceneRoot::setFrameState(const miacode::preview::scene::PreviewFrameState* frameState)
 {
-#ifdef Q_OS_MACOS
     QObject::disconnect(framePresentedCaptureConnection_);
+#ifdef Q_OS_MACOS
     QObject::disconnect(guiFrameConnection_);
 #endif
     if (runtime_ != nullptr && boundWindow_ != nullptr) {
@@ -632,10 +632,11 @@ PreviewTextureStats PreviewQuickSceneRoot::takePendingTextureStatsForPresentatio
 
 void PreviewQuickSceneRoot::syncVisibleHostWindowBinding(const char* reason)
 {
-#ifdef Q_OS_MACOS
     QObject::disconnect(framePresentedCaptureConnection_);
+#ifdef Q_OS_MACOS
     QObject::disconnect(guiFrameConnection_);
 #endif
+    presentationBinding_.reset();
     const QString reasonText = QString::fromLatin1(reason != nullptr ? reason : "unspecified");
     if (frameSwapConnection_) {
         QObject::disconnect(frameSwapConnection_);
@@ -649,7 +650,8 @@ void PreviewQuickSceneRoot::syncVisibleHostWindowBinding(const char* reason)
     // old ones here: they are Qt::DirectConnection lambdas and re-binding the same
     // window (F11 / re-parent) would otherwise stack a duplicate set on every rebind.
     for (QMetaObject::Connection* connection : {
-             &fireworkPresentConnection_,
+             &sceneGraphInvalidatedConnection_,
+             &mmcssBootstrapConnection_,
              &renderBeforeSyncConnection_,
              &renderAfterSyncConnection_,
              &renderBeforeRenderConnection_,
@@ -744,55 +746,52 @@ void PreviewQuickSceneRoot::syncVisibleHostWindowBinding(const char* reason)
         syncVisibleHostWindowBinding("window_visibility_changed");
         update();
     });
-    // Direct (render-thread) hook: promotes "the firework layer emitted a node during
-    // this frame's updatePaintNode" into "a frame containing that node has been
-    // presented", which is the warm-up's completion criterion. Kept separate from the
-    // queued frameSwapped handler below precisely because that one can lag a frame.
-    fireworkPresentConnection_ = QObject::connect(
-        boundWindow_, &QQuickWindow::frameSwapped, this,
-        [this]() {
-            if (!fireworkNodeInPendingFrame_) {
-                return;
-            }
-            fireworkNodeInPendingFrame_ = false;
-            if (runtime_ != nullptr) {
-                runtime_->notifyFireworkLayerPresentedNode();
-            }
-        },
-        Qt::DirectConnection);
-#ifdef Q_OS_MACOS
-    // 原生窗口动画期间，绘制仍可继续，界面线程的排队通知可能延迟。
-    // 每次绑定独立保存待处理状态，两种界面线程回调共享一次性通知。
-    const auto pendingPresent = std::make_shared<std::atomic<bool>>(false);
+    const auto binding = std::make_shared<PresentationBinding>();
+    presentationBinding_ = binding;
+    // Render-thread work belongs to this binding even if the GUI switches windows.
     framePresentedCaptureConnection_ = QObject::connect(
         boundWindow_, &QQuickWindow::frameSwapped, this,
-        [pendingPresent]() { pendingPresent->store(true, std::memory_order_release); },
-        Qt::DirectConnection);
-    const auto notifyPresented = [this, pendingPresent,
-                                  host = boundWindow_, runtime = runtime_]() {
-        if (host != boundWindow_ || runtime != runtime_
-            || !pendingPresent->exchange(false, std::memory_order_acquire)) {
+        [binding]() {
+            if (std::exchange(binding->fireworkInFrame, false)) {
+                binding->fireworkPresented.store(true, std::memory_order_release);
+            }
+#ifdef Q_OS_MACOS
+            binding->pendingPresentCount.fetch_add(1, std::memory_order_release);
+#endif
+        }, Qt::DirectConnection);
+    const auto notifyPresented = [this, binding]() {
+        if (binding != presentationBinding_ || runtime_ == nullptr || boundWindow_ == nullptr) {
+            return;
+        }
+#ifdef Q_OS_MACOS
+        const int presentCount = binding->pendingPresentCount.exchange(0, std::memory_order_acquire);
+        if (presentCount <= 0) {
             return;
         }
 #else
-    const auto notifyPresented = [this]() {
+        constexpr int presentCount = 1;
 #endif
-        if (runtime_ == nullptr || boundWindow_ == nullptr || window() != boundWindow_) {
-            return;
+        if (binding->fireworkPresented.exchange(false, std::memory_order_acquire)) {
+            runtime_->notifyFireworkLayerPresentedNode();
         }
         if (miacode::debug_options::previewProfileOutputEnabled()) {
             runtime_->notePresentedTextureStats(takePendingTextureStatsForPresentation());
         }
-        runtime_->notifyVisibleFramePresented();
+        for (int i = 0; i < presentCount; ++i) {
+            runtime_->notifyVisibleFramePresented();
+        }
     };
     frameSwapConnection_ = QObject::connect(
         boundWindow_, &QQuickWindow::frameSwapped, this, notifyPresented);
 #ifdef Q_OS_MACOS
-    // afterAnimating 在界面线程、场景同步之前执行；复用原有播放帧率控制。
-    // 与排队通知共用一次性标记，每个待处理呈现最多推进一次播放。
     guiFrameConnection_ = QObject::connect(
         boundWindow_, &QQuickWindow::afterAnimating, this,
-        notifyPresented, Qt::DirectConnection);
+        [this, binding, notifyPresented] {
+            notifyPresented();
+            if (binding == presentationBinding_ && runtime_ != nullptr) {
+                emit runtime_->framePreparing();
+            }
+        }, Qt::DirectConnection);
 #endif
     // Register Qt's QSG render thread with Windows MMCSS (Multimedia Class Scheduler
     // Service) under the "Games" task class. This asks the OS scheduler to protect the
@@ -1070,12 +1069,8 @@ QSGNode* PreviewQuickSceneRoot::updatePaintNode(QSGNode* oldNode, UpdatePaintNod
             judgeFireworkNodeProduced = (node != nullptr);
             return node;
         });
-    if (judgeFireworkNodeProduced) {
-        // Latch it for the direct frameSwapped hook below, which is what confirms the
-        // warm-up: binding the material here only records the work, while the swap is
-        // what proves the pipeline build and texture upload actually completed
-        // (audit §6D-2). Render-thread only, same thread as the hook.
-        fireworkNodeInPendingFrame_ = true;
+    if (judgeFireworkNodeProduced && presentationBinding_) {
+        presentationBinding_->fireworkInFrame = true;
     }
     applyWindowCounts(
         "judge_firework",
