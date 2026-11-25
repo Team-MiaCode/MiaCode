@@ -4716,10 +4716,6 @@ Error: %1</source>
         <source>Download %1 Items</source>
         <translation>%1 件をダウンロード</translation>
     </message>
-    <message id="net.ui.download_count">
-        <source>Download progress %1/%2</source>
-        <translation>ダウンロード進捗 %1/%2</translation>
-    </message>
     <message id="net.ui.file_progress">
         <source>Current file progress</source>
         <translation>現在のファイルの進捗</translation>

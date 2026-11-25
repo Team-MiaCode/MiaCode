@@ -4716,10 +4716,6 @@ Error: %1</source>
         <source>Download %1 Items</source>
         <translation>下载 %1</translation>
     </message>
-    <message id="net.ui.download_count">
-        <source>Download progress %1/%2</source>
-        <translation>下载进度 %1/%2</translation>
-    </message>
     <message id="net.ui.file_progress">
         <source>Current file progress</source>
         <translation>当前文件进度</translation>

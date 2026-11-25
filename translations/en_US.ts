@@ -4716,10 +4716,6 @@ Error: %1</translation>
         <source>Download %1 Items</source>
         <translation>Download %1 Items</translation>
     </message>
-    <message id="net.ui.download_count">
-        <source>Download progress %1/%2</source>
-        <translation>Download progress %1/%2</translation>
-    </message>
     <message id="net.ui.file_progress">
         <source>Current file progress</source>
         <translation>Current file progress</translation>

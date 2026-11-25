@@ -429,7 +429,7 @@ void NetModel::updateDownload() {
     const auto items = service_->jobs().items(downloadJobId_, principal_);
     const auto counts = job.value(QStringLiteral("counts")).toObject();
     const int completed = counts.value(QStringLiteral("succeeded")).toInt() + counts.value(QStringLiteral("failed")).toInt();
-    progressText_ = qtTrId("net.ui.download_count").arg(completed).arg(downloadChartIds_.size());
+    progressText_ = QStringLiteral("%1/%2").arg(completed).arg(downloadChartIds_.size());
     progress_ = -1;
     bool stateChanged = false;
     for (const auto& value : items) {
