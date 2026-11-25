@@ -4519,8 +4519,8 @@ Error: %1</translation>
     </message>
 
     <message id="net.ui.query_options">
-        <source>Search options</source>
-        <translation>Search options</translation>
+        <source>Filters</source>
+        <translation>Filters</translation>
     </message>
     <message id="net.ui.queue_hint">
         <source>Choose a chart folder and add it to the queue.</source>
@@ -4541,22 +4541,6 @@ Error: %1</translation>
     <message id="net.ui.tag">
         <source>Tag</source>
         <translation>Tag</translation>
-    </message>
-    <message id="net.ui.start_date">
-        <source>Start date (YYYY-MM-DD)</source>
-        <translation>Start date (YYYY-MM-DD)</translation>
-    </message>
-    <message id="net.ui.end_date">
-        <source>End date (YYYY-MM-DD)</source>
-        <translation>End date (YYYY-MM-DD)</translation>
-    </message>
-    <message id="net.ui.sort_uploaded_desc">
-        <source>Newest first</source>
-        <translation>Newest first</translation>
-    </message>
-    <message id="net.ui.sort_uploaded_asc">
-        <source>Oldest first</source>
-        <translation>Oldest first</translation>
     </message>
     <message id="net.ui.sort_level_desc">
         <source>Highest level first</source>
@@ -4590,6 +4574,10 @@ Error: %1</translation>
         <source>Check connection</source>
         <translation>Check connection</translation>
     </message>
+    <message id="net.ui.probing">
+        <source>Checking connection…</source>
+        <translation>Checking connection…</translation>
+    </message>
     <message id="net.ui.clear_selection">
         <source>Clear selection</source>
         <translation>Clear selection</translation>
@@ -4598,13 +4586,21 @@ Error: %1</translation>
         <source>%1 results, %2 selected</source>
         <translation>%1 results, %2 selected</translation>
     </message>
+    <message id="net.ui.results">
+        <source>%1 results</source>
+        <translation>%1 results</translation>
+    </message>
+    <message id="net.ui.searching">
+        <source>Searching…</source>
+        <translation>Searching…</translation>
+    </message>
     <message id="net.ui.connection_normal">
-        <source>Connection normal (%1 ms)</source>
-        <translation>Connection normal (%1 ms)</translation>
+        <source>Connection normal</source>
+        <translation>Connection normal</translation>
     </message>
     <message id="net.ui.connection_slow">
-        <source>Connection slow (%1 ms)</source>
-        <translation>Connection slow (%1 ms)</translation>
+        <source>Connection slow</source>
+        <translation>Connection slow</translation>
     </message>
     <message id="net.ui.error">
         <source>Net: %1</source>
@@ -4671,10 +4667,6 @@ Error: %1</translation>
         <translation>Artist</translation>
     </message>
 
-    <message id="net.ui.uploaded_at">
-        <source>Uploaded at</source>
-        <translation>Uploaded at</translation>
-    </message>
 
     <message id="net.ui.state">
         <source>Status</source>
@@ -4686,9 +4678,29 @@ Error: %1</translation>
         <translation>Online preview</translation>
     </message>
 
+    <message id="net.ui.search_placeholder">
+        <source>Search songs, artists or chart designers…</source>
+        <translation>Search songs, artists or chart designers…</translation>
+    </message>
+    <message id="net.ui.search_suggestions">
+        <source>Search suggestions</source>
+        <translation>Search suggestions</translation>
+    </message>
+    <message id="net.ui.clear_search">
+        <source>Clear search</source>
+        <translation>Clear search</translation>
+    </message>
+    <message id="net.ui.search_by_id">
+        <source>Chart ID</source>
+        <translation>Chart ID</translation>
+    </message>
+    <message id="net.ui.search_by_hash">
+        <source>Chart hash</source>
+        <translation>Chart hash</translation>
+    </message>
     <message id="net.ui.query_hint">
-        <source>Enter a user ID, Tag or song title and select a date range.</source>
-        <translation>Enter a user ID, Tag or song title and select a date range.</translation>
+        <source>Search by keyword or enter a filter.</source>
+        <translation>Search by keyword or enter a filter.</translation>
     </message>
 
     <message id="net.ui.view_log">
@@ -4699,6 +4711,30 @@ Error: %1</translation>
     <message id="net.download_selected">
         <source>Download selected</source>
         <translation>Download selected</translation>
+    </message>
+    <message id="net.ui.download_selection_count">
+        <source>Download %1 Items</source>
+        <translation>Download %1 Items</translation>
+    </message>
+    <message id="net.ui.download_count">
+        <source>Download progress %1/%2</source>
+        <translation>Download progress %1/%2</translation>
+    </message>
+    <message id="net.ui.file_progress">
+        <source>Current file progress</source>
+        <translation>Current file progress</translation>
+    </message>
+    <message id="net.ui.preview_column">
+        <source>Preview</source>
+        <translation>Preview</translation>
+    </message>
+    <message id="net.ui.download_one">
+        <source>Download</source>
+        <translation>Download</translation>
+    </message>
+    <message id="net.ui.download_folder_unavailable">
+        <source>The download folder could not be opened.</source>
+        <translation>The download folder could not be opened.</translation>
     </message>
 
     <message id="net.ui.cancel_task">

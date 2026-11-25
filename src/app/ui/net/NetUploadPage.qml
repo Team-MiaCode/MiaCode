@@ -175,9 +175,8 @@ Item {
                     interactive: !root.uploadModel.busy
                     reorderable: true
                     wrappingRole: "fileNames"
-                    wrappingColumn: 2
                     columns: [
-                        {title: "#", width: 24},
+                        {title: "#", width: 24, number: true},
                         {title: qsTrId("net.ui.chart_folder"), role: "displayName", tooltipRole: "path", weight: 50},
                         {title: qsTrId("net.ui.files"), role: "fileNames", weight: 35, minimum: 80, wrap: true},
                         {title: qsTrId("net.ui.state"), role: "itemState", width: 88, alignment: Text.AlignHCenter}

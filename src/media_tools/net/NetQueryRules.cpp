@@ -25,7 +25,7 @@ QString validateNetQuery(const NetQueryRequest& request)
     if (request.providerId != QLatin1String("majdata")) {
         return QStringLiteral("capability.unavailable");
     }
-    if (request.uploader.trimmed().isEmpty() && normalizedNetTag(request.tag).isEmpty()
+    if (request.search.trimmed().isEmpty() && request.uploader.trimmed().isEmpty() && normalizedNetTag(request.tag).isEmpty()
         && request.title.trimmed().isEmpty()) {
         return QStringLiteral("request.invalid");
     }
@@ -47,6 +47,7 @@ QString validateNetQuery(const NetQueryRequest& request)
 
 QStringList netCandidateSearches(const NetQueryRequest& request)
 {
+    if (!request.search.trimmed().isEmpty()) return {request.search.trimmed()};
     const QString uploader = request.uploader.trimmed();
     const QString tag = normalizedNetTag(request.tag);
     const QString title = request.title.trimmed();
@@ -77,6 +78,10 @@ QStringList netCandidateSearches(const NetQueryRequest& request)
 
 QString netCandidateCacheKey(const NetQueryRequest& request)
 {
+    if (!request.search.trimmed().isEmpty()) {
+        return QString::fromUtf8(QJsonDocument(QJsonArray{
+            request.providerId, QStringLiteral("search"), request.search.trimmed()}).toJson(QJsonDocument::Compact));
+    }
     QString field;
     QString value;
     if (!request.uploader.trimmed().isEmpty()) {

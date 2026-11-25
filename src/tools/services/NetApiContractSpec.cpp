@@ -7,6 +7,7 @@
 #include <QJsonDocument>
 #include <QTextStream>
 #include <QTimer>
+#include <QUrlQuery>
 
 namespace {
 bool check(bool condition, const char* message)
@@ -17,9 +18,11 @@ bool check(bool condition, const char* message)
 class Transport final : public miacode::net::NetTransportPort {
 public:
     int calls = 0;
-    Cancel request(const miacode::net::NetHttpRequest&, Done done, Progress) override
+    QString lastSearch;
+    Cancel request(const miacode::net::NetHttpRequest& request, Done done, Progress) override
     {
         ++calls;
+        lastSearch = QUrlQuery(request.url).queryItemValue(QStringLiteral("search"), QUrl::FullyDecoded);
         QTimer::singleShot(0, [done] {
             miacode::net::NetHttpResponse response;
             response.status = 200;
@@ -52,7 +55,8 @@ int main(int argc, char** argv)
         QJsonObject{{"title", "song"}, {"caseSensitive", "false"}}, QJsonObject{{"title", "song"}, {"secret", "hidden"}},
         QJsonObject{{"title", "song"}, {"startDate", "2026-02-30"}, {"endDate", "2026-03-01"}},
         QJsonObject{{"title", "song"}, {"startDate", "2026-10-01"}}, QJsonObject{{"tag", "tag: "}},
-        QJsonObject{{"title", "song"}, {"timeZone", "Not/AZone"}}, QJsonObject{{"title", QJsonValue::Null}}}) {
+        QJsonObject{{"title", "song"}, {"timeZone", "Not/AZone"}}, QJsonObject{{"title", QJsonValue::Null}},
+        QJsonObject{{"search", "  "}}}) {
         auto request = bad;
         request.insert(QStringLiteral("providerId"), QStringLiteral("majdata"));
         ok &= check(!ApiCatalog::validate(QStringLiteral("net.queries.create"), request).ok(), "invalid query is rejected before dispatch");
@@ -97,9 +101,12 @@ int main(int argc, char** argv)
     settingsContext.scopes.insert(QStringLiteral("net.settings.read"));
     ok &= check(code(api.dispatch(settingsContext, QStringLiteral("net.settings.get"))) == QLatin1String("capability.unavailable"),
         "registered settings operation reports its planned capability");
-    const auto accepted = api.dispatch(context, QStringLiteral("net.queries.create"), {{"providerId", "majdata"}, {"title", "Song"}});
+    const auto accepted = api.dispatch(context, QStringLiteral("net.queries.create"),
+        {{"providerId", "majdata"}, {"search", " Song "}, {"uploader", ""}, {"tag", ""}, {"title", ""},
+            {"caseSensitive", false}, {"forceRefresh", true}, {"sort", "title_asc"}});
     const QString jobId = accepted.envelope.value("result").toObject().value("jobId").toString();
-    ok &= check(accepted.status == 202 && !jobId.isEmpty(), "query returns a task handle");
+    ok &= check(accepted.status == 202 && !jobId.isEmpty(), "desktop keyword-only query returns a task handle");
+    if (jobId.isEmpty()) return 1;
     QEventLoop loop;
     QObject::connect(&jobs, &JobRegistry::changed, &loop, [&](const QString& id) {
         if (id == jobId && JobRegistry::isTerminal(jobs.snapshot(id, context.principal).value("state").toString())) loop.quit();
@@ -107,10 +114,27 @@ int main(int argc, char** argv)
     QTimer::singleShot(3000, &loop, &QEventLoop::quit);
     loop.exec();
     const auto snapshot = api.dispatch(context, QStringLiteral("jobs.get"), {{"jobId", jobId}});
+    ok &= check(transport.calls == 1 && transport.lastSearch == QStringLiteral("Song"),
+        "desktop keyword is normalized and reaches the provider without another filter");
     ok &= check(snapshot.status == 200 && snapshot.envelope.value("result").toObject().value("state") == "succeeded", "query task finishes through provider");
     const QString queryRef = snapshot.envelope.value("result").toObject().value("result").toObject().value("queryRef").toString();
     const auto page = api.dispatch(context, QStringLiteral("net.queries.results"), {{"queryRef", queryRef}});
     ok &= check(page.status == 200 && page.envelope.value("result").toObject().value("items").toArray().size() == 1, "query result DTO is checked at public boundary");
+    QEventLoop suggestionLoop;
+    QJsonArray suggestions;
+    const auto cancelSuggestion = netService.suggest(context.principal,
+        {{"providerId", "majdata"}, {"search", "Song"}, {"uploader", ""}, {"tag", ""}, {"title", ""}},
+        [&](net::NetTaskResult result) {
+            suggestions = result.result.toArray();
+            suggestionLoop.quit();
+        });
+    if (cancelSuggestion) {
+        QTimer::singleShot(3000, &suggestionLoop, &QEventLoop::quit);
+        suggestionLoop.exec();
+        cancelSuggestion();
+    }
+    ok &= check(suggestions.size() == 1 && suggestions.first().toObject().value("label") == "Song",
+        "keyword-only autocomplete passes the same request validation");
     auto other = context;
     other.principal = QStringLiteral("client_b");
     for (const auto& operation : {QStringLiteral("jobs.get"), QStringLiteral("jobs.items"), QStringLiteral("jobs.events"), QStringLiteral("jobs.cancel")})

@@ -13,6 +13,7 @@ namespace miacode::net {
 
 struct NetQueryRequest {
     QString providerId = QStringLiteral("majdata");
+    QString search;
     QString uploader;
     QString tag;
     QString title;
