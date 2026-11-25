@@ -65,7 +65,7 @@ jobs:
             qt: .qt/6.11.1/gcc_64
             media: third_party/ffmpeg/linux
             version: ffmpeg7.1
-            artifact_ext: AppImage
+            artifact_ext: 7z
     defaults:
       run:
         shell: bash
@@ -123,10 +123,7 @@ jobs:
         id: package-cache
         uses: actions/cache/restore@v6
         with:
-          path: |
-            dist/*.7z
-            dist/*/*.AppImage
-            dist/*.AppImage
+          path: dist/*.7z
           key: platform-v1-package-${{ matrix.platform }}-${{ env.CI_CHANNEL }}-${{ steps.keys.outputs.source }}
 
       - name: Fetch assets
@@ -242,48 +239,48 @@ jobs:
       - name: Artifact name
         id: artifact
         run: |
-          if [ "${{ startsWith(matrix.platform, 'linux') }}" = "true" ]; then
-            # The AppImage is written to dist/<package>/ by the packaging script.
-            echo "Contents of dist/:"
-            find dist -maxdepth 2 -name '*.AppImage' -print 2>/dev/null || true
-            APPIMAGE=""
-            while IFS= read -r candidate; do
-              APPIMAGE="$candidate"
-              break
-            done < <(find dist -name '*.AppImage' -type f 2>/dev/null)
+          if [ "${{ startsWith(matrix.platform, 'linux') }}" = "true" ] && [ "${{ steps.package-cache.outputs.cache-hit }}" != "true" ]; then
+            # The AppImage lands in dist/<package>/; the archive belongs at dist/
+            # so restore, save, upload and report all use the same dist/*.7z path.
+            APPIMAGE="$(find dist -name '*.AppImage' -type f -print -quit 2>/dev/null)"
             if [ -z "$APPIMAGE" ]; then
               echo "No AppImage found under dist/" >&2
               exit 1
             fi
-            APPIMAGE_BASENAME="$(basename "$APPIMAGE" .AppImage)"
-            sudo apt-get update -y >/dev/null 2>&1 && sudo apt-get install -y -qq p7zip-full >/dev/null 2>&1 || true
-            pushd "$(dirname "$APPIMAGE")" >/dev/null
-            7z a -mx=9 "${APPIMAGE_BASENAME}.7z" "$(basename "$APPIMAGE")" >/dev/null
-            popd >/dev/null
-            echo "name=${APPIMAGE_BASENAME}.7z" >> "$GITHUB_OUTPUT"
-            echo "Artifact name: ${APPIMAGE_BASENAME}.7z"
-          else
-            python scripts/build/package.py artifact
+            APPIMAGE_NAME="$(basename "$APPIMAGE")"
+            ARCHIVE="dist/${APPIMAGE_NAME%.AppImage}.7z"
+            ARCHIVE_ABS="$(pwd)/$ARCHIVE"
+            rm -f "$ARCHIVE"
+            if ! command -v 7z >/dev/null 2>&1; then
+              sudo apt-get update -y >/dev/null 2>&1
+              sudo apt-get install -y -qq p7zip-full >/dev/null 2>&1
+            fi
+            (
+              cd "$(dirname "$APPIMAGE")"
+              7z a -mx=9 "$ARCHIVE_ABS" "$APPIMAGE_NAME" >/dev/null
+            )
+            ENTRIES="$(7z l -slt "$ARCHIVE" | awk '/^-{3,}$/ { entries = 1; next } entries && /^Path = / { sub(/^Path = /, ""); print }')"
+            if [ "$ENTRIES" != "$APPIMAGE_NAME" ]; then
+              echo "Archive $ARCHIVE does not contain only $APPIMAGE_NAME:" >&2
+              echo "$ENTRIES" >&2
+              exit 1
+            fi
+            echo "Archive $ARCHIVE contains $ENTRIES"
           fi
+          python scripts/build/package.py artifact
 
       - name: Save package
         if: steps.package-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
-          path: |
-            dist/*.7z
-            dist/*/*.AppImage
-            dist/*.AppImage
+          path: dist/*.7z
           key: ${{ steps.package-cache.outputs.cache-primary-key }}
 
       - name: Upload
         uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.artifact.outputs.name }}
-          path: |
-            dist/*.7z
-            dist/*/*.AppImage
-            dist/*.AppImage
+          path: dist/*.7z
           compression-level: 0
           if-no-files-found: error
           retention-days: 14
