@@ -20,7 +20,7 @@ Rectangle {
     signal updateActivated()
 
     implicitHeight: 23
-    color: Theme.surfaceColor(Theme.colors.background.statusBar)
+    color: Theme.chromeSurfaceColor(Theme.colors.background.statusBar)
 
     Rectangle {
         anchors.left: parent.left

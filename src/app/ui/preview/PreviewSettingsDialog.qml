@@ -58,11 +58,7 @@ AppDialog {
     background: FloatingCard {
         id: dialogSurface
         popup: root
-        tintColor: Theme.dialogTintColor
-        blurRadius: Theme.dialogBlurRadius
-        shadowBlur: 0.68
-        shadowOpacity: Theme.dialogShadowOpacity
-        shadowVerticalOffset: 3
+        largeSurface: true
         tintDelegate: Item {
             readonly property real tintOpacity: dialogSurface.materialActive ? Theme.dialogTintOpacity : 1
             readonly property color sidebarTint: Theme.colors.background.surface

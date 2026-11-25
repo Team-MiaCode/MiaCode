@@ -131,16 +131,24 @@ QtObject {
     readonly property int popupEnterDuration: 120
     readonly property int popupExitDuration: 90
     readonly property color floatingBorderColor: darkTheme
-        ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(0, 0, 0, 0.08)
-    // Frosted menu material is independent of wallpaper visibility.
-    readonly property real popupTintOpacity: 0.85
-    readonly property int popupBlurRadius: 96
-    readonly property real dialogTintOpacity: 0.94
-    readonly property int dialogBlurRadius: 128
-    readonly property color modalScrimColor: Qt.rgba(0, 0, 0, 0.5)
-    readonly property real popupBlurScale: 0.5
-    readonly property real popupShadowOpacity: darkTheme ? 0.28 : 0.14
-    readonly property real dialogShadowOpacity: darkTheme ? 0.34 : 0.18
+        ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(0, 0, 0, 0.11)
+    // Frosted menu and dialog materials are independent of wallpaper visibility.
+    readonly property real popupTintOpacity: darkTheme ? 0.80 : 0.82
+    readonly property int popupBlurRadius: 160
+    readonly property real popupBlurScale: 0.35
+    readonly property real popupBlurMultiplier: 0.45
+    readonly property real popupBlurSaturation: 0.08
+    readonly property real dialogTintOpacity: darkTheme ? 0.93 : 0.94
+    readonly property int dialogBlurRadius: 240
+    readonly property real dialogBlurScale: 0.25
+    readonly property real dialogBlurMultiplier: 0.60
+    readonly property real dialogBlurSaturation: -0.15
+    readonly property color modalScrimColor: darkTheme
+        ? Qt.rgba(0, 0, 0, 0.48) : Qt.rgba(0, 0, 0, 0.30)
+    readonly property real popupShadowOpacity: darkTheme ? 0.42 : 0.18
+    readonly property real popupContactShadowOpacity: darkTheme ? 0.32 : 0.10
+    readonly property real dialogShadowOpacity: darkTheme ? 0.50 : 0.22
+    readonly property real dialogContactShadowOpacity: darkTheme ? 0.36 : 0.12
     readonly property real followHighlightOpacity: activeThemeToken === "noah" ? 0.26 : darkTheme ? 0.5 : 0.65
     readonly property color popupTintColor: {
         const c = Qt.color(colors.background.elevated)

@@ -77,29 +77,26 @@ Item {
             if (!Theme.blurMaterialsEnabled || Theme.backgroundActive || !root.visible)
                 return []
             if (Qt.platform.os === "windows")
-                return [{ rect: Qt.rect(0, 0, root.width * scale, root.height * scale) }]
-            const top = root.mapToItem(null, 0, 0)
-            const regions = [{
-                rect: Qt.rect(top.x, top.y, root.width * scale, chromeHost.height * scale)
-            }]
+                return [{ edge: "window" }]
+            // Edge-pinned descriptors stay constant during window resize so
+            // AppKit stretches strips natively without rebuilding views.
+            const topHeight = Math.round(chromeHost.height * scale)
+            const bottomHeight = statusBar.visible && statusBar.height > 0
+                ? Math.round(statusBar.height * scale) : 0
+            const regions = [{ edge: "top", thickness: topHeight }]
             const strip = splitView.activityBarMaterialRect
-            if (strip.width > 0 && strip.height > 0) {
-                // Column positions its children after their sizes change.
-                // Read those positions as binding dependencies before mapping
-                // to the window scene, rather than snapshotting mapToItem().
-                const origin = root.mapToItem(null,
-                    mainViewHost.x + splitView.x + strip.x,
-                    mainViewHost.y + splitView.y + strip.y)
+            if (strip.width > 0) {
+                const cornerExtra = root.preferences.efficientSidebarEnabled
+                    ? 0 : Theme.workspaceRadius
                 regions.push({
-                    rect: Qt.rect(origin.x, origin.y,
-                        strip.width * scale, strip.height * scale)
+                    edge: "left",
+                    topInset: topHeight,
+                    bottomInset: bottomHeight,
+                    thickness: Math.round((strip.width + cornerExtra) * scale)
                 })
-                if (!root.preferences.efficientSidebarEnabled) {
-                    regions.push({
-                        rect: Qt.rect(origin.x + strip.width * scale, origin.y,
-                            Theme.workspaceRadius * scale, Theme.workspaceRadius * scale)
-                    })
-                }
+            }
+            if (bottomHeight > 0) {
+                regions.push({ edge: "bottom", thickness: bottomHeight })
             }
             return regions
         }

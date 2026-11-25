@@ -79,7 +79,7 @@ ApplicationWindow {
         when: Qt.platform.os === "osx" || Qt.platform.os === "windows"
         value: window.visible && titleBar.visible
             && Theme.blurMaterialsEnabled && !Theme.backgroundActive
-            ? [{ rect: Qt.rect(0, 0, window.width, titleBar.height * Theme.uiScale) }] : []
+            ? [{ edge: "top", thickness: Math.round(titleBar.height * Theme.uiScale) }] : []
         restoreMode: Binding.RestoreNone
     }
 

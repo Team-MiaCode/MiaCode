@@ -12,6 +12,9 @@ Item {
     required property Item sourceItem
     required property T.Popup popup
     property int blurRadius: Theme.popupBlurRadius
+    property real blurScale: Theme.popupBlurScale
+    property real blurMultiplier: Theme.popupBlurMultiplier
+    property real backdropSaturation: Theme.popupBlurSaturation
     property real cornerRadius: Theme.popupRadius
     readonly property real padding: blurRadius
     readonly property real sampleWidth: width + 2 * padding
@@ -86,14 +89,16 @@ Item {
 
     Rectangle {
         id: capture
-        width: Math.ceil(root.sampleWidth * Theme.popupBlurScale)
-        height: Math.ceil(root.sampleHeight * Theme.popupBlurScale)
+        width: Math.max(1, Math.ceil(root.sampleWidth * root.blurScale))
+        height: Math.max(1, Math.ceil(root.sampleHeight * root.blurScale))
         visible: false
         color: Theme.colors.background.surface
 
         ShaderEffectSource {
             id: sceneSample
             live: root.visible
+            smooth: true
+            mipmap: true
             anchors.fill: parent
             sourceItem: root.sourceItem
             sourceRect: root.sceneRect
@@ -103,6 +108,8 @@ Item {
             anchors.fill: parent
             sourceItem: root.overlaySource
             live: root.visible
+            smooth: true
+            mipmap: true
             sourceRect: root.overlayRect
             textureSize: Qt.size(capture.width, capture.height)
         }
@@ -111,6 +118,8 @@ Item {
     ShaderEffectSource {
         id: sample
         live: root.visible
+        smooth: true
+        mipmap: true
         width: capture.width
         height: capture.height
         sourceItem: root.overlaySource ? capture : null
@@ -124,6 +133,7 @@ Item {
         height: root.sampleHeight
         visible: false
         layer.enabled: true
+        layer.smooth: true
         Rectangle {
             x: root.padding
             y: root.padding
@@ -153,8 +163,10 @@ Item {
         source: root.overlaySource ? sample : sceneSample
         autoPaddingEnabled: false
         blurEnabled: true
-        blurMax: root.blurRadius * Theme.popupBlurScale
+        blurMax: Math.max(2, Math.min(64, Math.round(root.blurRadius * root.blurScale)))
         blur: 1.0
+        blurMultiplier: root.blurMultiplier
+        saturation: root.backdropSaturation
         maskEnabled: true
         maskSource: mask
         maskThresholdMin: 0.5

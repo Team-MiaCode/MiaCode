@@ -10,12 +10,17 @@ Item {
     id: root
 
     property T.Popup popup: null
-    property color tintColor: Theme.popupTintColor
-    property int blurRadius: Theme.popupBlurRadius
+    property bool largeSurface: false
+    property color tintColor: largeSurface ? Theme.dialogTintColor : Theme.popupTintColor
+    property int blurRadius: largeSurface ? Theme.dialogBlurRadius : Theme.popupBlurRadius
+    property real blurScale: largeSurface ? Theme.dialogBlurScale : Theme.popupBlurScale
+    property real blurMultiplier: largeSurface ? Theme.dialogBlurMultiplier : Theme.popupBlurMultiplier
+    property real backdropSaturation: largeSurface ? Theme.dialogBlurSaturation : Theme.popupBlurSaturation
     property real cornerRadius: popup ? Theme.popupRadius : Theme.controlRadius
-    property real shadowBlur: 0.6
-    property real shadowOpacity: Theme.popupShadowOpacity
-    property real shadowVerticalOffset: 2
+    property real shadowBlur: largeSurface ? 1.25 : 0.85
+    property real shadowOpacity: largeSurface ? Theme.dialogShadowOpacity : Theme.popupShadowOpacity
+    property real contactShadowOpacity: largeSurface ? Theme.dialogContactShadowOpacity : Theme.popupContactShadowOpacity
+    property real shadowVerticalOffset: largeSurface ? 8 : 5
     property Component tintDelegate: null
     property bool retainBackdrop: false
     property bool backdropCreated: false
@@ -31,6 +36,15 @@ Item {
         visible: root.shadowOpacity > 0
     }
 
+    RectangularShadow {
+        anchors.fill: parent
+        radius: root.cornerRadius
+        blur: root.largeSurface ? 10 : 8
+        offset: Qt.vector2d(0, root.largeSurface ? 2 : 1)
+        color: Qt.rgba(0, 0, 0, root.contactShadowOpacity)
+        visible: root.shadowOpacity > 0 && root.contactShadowOpacity > 0
+    }
+
     Loader {
         id: backdrop
         anchors.fill: parent
@@ -43,6 +57,9 @@ Item {
             sourceItem: root.backdropSource
             popup: root.popup
             blurRadius: root.blurRadius
+            blurScale: root.blurScale
+            blurMultiplier: root.blurMultiplier
+            backdropSaturation: root.backdropSaturation
             cornerRadius: root.cornerRadius
         }
     }

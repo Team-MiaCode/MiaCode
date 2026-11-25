@@ -67,9 +67,9 @@
 @end
 
 @interface MiaCodeMaterialHostView : NSView
-@property(nonatomic, strong) NSView* surfaces;
-@property(nonatomic, strong) NSMutableArray<NSView*>* effects;
+@property(nonatomic, strong) NSMutableArray<NSVisualEffectView*>* effects;
 @property(nonatomic, strong) NSMutableArray<NSArray<NSLayoutConstraint*>*>* placements;
+@property(nonatomic, strong) NSMutableArray<NSString*>* edgeKinds;
 @end
 
 @implementation MiaCodeMaterialHostView
@@ -85,15 +85,16 @@
     if (self) {
         self.effects = [NSMutableArray array];
         self.placements = [NSMutableArray array];
+        self.edgeKinds = [NSMutableArray array];
     }
     return self;
 }
 #if !__has_feature(objc_arc)
 - (void)dealloc
 {
-    [_surfaces release];
     [_effects release];
     [_placements release];
+    [_edgeKinds release];
     [super dealloc];
 }
 #endif
@@ -106,17 +107,6 @@ NSView* cocoaView(QWindow* window)
         return nil;
     }
     return (__bridge NSView*)reinterpret_cast<void*>(window->winId());
-}
-
-void pinMaterialContent(NSView* content, NSView* owner)
-{
-    content.translatesAutoresizingMaskIntoConstraints = NO;
-    [NSLayoutConstraint activateConstraints:@[
-        [content.leadingAnchor constraintEqualToAnchor:owner.leadingAnchor],
-        [content.trailingAnchor constraintEqualToAnchor:owner.trailingAnchor],
-        [content.topAnchor constraintEqualToAnchor:owner.topAnchor],
-        [content.bottomAnchor constraintEqualToAnchor:owner.bottomAnchor]
-    ]];
 }
 }
 
@@ -206,13 +196,6 @@ void WindowChrome::refreshMacOsMaterial(QWindow* window)
         material.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
         material.wantsLayer = YES;
         material.layer.zPosition = -FLT_MAX;
-        NSView* surfaces = [[NSView alloc] initWithFrame:material.bounds];
-        [material addSubview:surfaces];
-        pinMaterialContent(surfaces, material);
-        material.surfaces = surfaces;
-#if !__has_feature(objc_arc)
-        [surfaces release];
-#endif
 #if __has_feature(objc_arc)
         macMaterialView_ = (__bridge_retained void*)material;
 #else
@@ -229,49 +212,103 @@ void WindowChrome::refreshMacOsMaterial(QWindow* window)
         material.frame = view.bounds;
     }
 
-    NSView* surfaces = material.surfaces;
     const NSUInteger regionCount = static_cast<NSUInteger>(materialRegions_.size());
     while (material.effects.count > regionCount) {
         layoutChanged = true;
         [NSLayoutConstraint deactivateConstraints:material.placements.lastObject];
         [material.placements removeLastObject];
+        [material.edgeKinds removeLastObject];
         [material.effects.lastObject removeFromSuperview];
         [material.effects removeLastObject];
     }
+
+    // Pin each chrome strip to window edges with AutoLayout so live window
+    // resizing stretches strips in AppKit without rebuilding views or masks,
+    // and leaves the central workspace outside behind-window blur calculation.
     for (NSUInteger i = 0; i < regionCount; ++i) {
         const QVariantMap region = materialRegions_.at(i).toMap();
-        const QRectF rect = region.value(QStringLiteral("rect")).toRectF();
-        NSView* effect = i < material.effects.count ? material.effects[i] : nil;
-        if (effect == nil) {
+        const QString edge = region.value(QStringLiteral("edge")).toString();
+        NSString* edgeKind = edge.isEmpty() ? @"rect" : edge.toNSString();
+
+        NSVisualEffectView* visualEffect = i < material.effects.count ? material.effects[i] : nil;
+        if (visualEffect == nil) {
             layoutChanged = true;
-            NSVisualEffectView* visualEffect = [[NSVisualEffectView alloc] initWithFrame:NSZeroRect];
+            visualEffect = [[NSVisualEffectView alloc] initWithFrame:NSZeroRect];
             visualEffect.material = NSVisualEffectMaterialSidebar;
             visualEffect.blendingMode = NSVisualEffectBlendingModeBehindWindow;
             visualEffect.state = NSVisualEffectStateFollowsWindowActiveState;
-            effect = visualEffect;
-            effect.translatesAutoresizingMaskIntoConstraints = NO;
-            [surfaces addSubview:effect];
-            [material.effects addObject:effect];
-            NSArray<NSLayoutConstraint*>* placement = @[
-                [effect.leadingAnchor constraintEqualToAnchor:surfaces.leadingAnchor],
-                [effect.topAnchor constraintEqualToAnchor:surfaces.topAnchor],
-                i == 0 ? [effect.trailingAnchor constraintEqualToAnchor:surfaces.trailingAnchor]
-                       : [effect.widthAnchor constraintEqualToConstant:0],
-                i == 1 ? [effect.bottomAnchor constraintEqualToAnchor:surfaces.bottomAnchor]
-                       : [effect.heightAnchor constraintEqualToConstant:0]
-            ];
-            [material.placements addObject:placement];
-            [NSLayoutConstraint activateConstraints:placement];
+            visualEffect.translatesAutoresizingMaskIntoConstraints = NO;
+            [material addSubview:visualEffect];
+            [material.effects addObject:visualEffect];
+            [material.placements addObject:@[]];
+            [material.edgeKinds addObject:@""];
 #if !__has_feature(objc_arc)
-            [effect release];
+            [visualEffect release];
 #endif
         }
+
+        if (![material.edgeKinds[i] isEqualToString:edgeKind]) {
+            layoutChanged = true;
+            [NSLayoutConstraint deactivateConstraints:material.placements[i]];
+            NSArray<NSLayoutConstraint*>* placement = nil;
+            if ([edgeKind isEqualToString:@"top"]) {
+                placement = @[
+                    [visualEffect.leadingAnchor constraintEqualToAnchor:material.leadingAnchor],
+                    [visualEffect.trailingAnchor constraintEqualToAnchor:material.trailingAnchor],
+                    [visualEffect.topAnchor constraintEqualToAnchor:material.topAnchor],
+                    [visualEffect.heightAnchor constraintEqualToConstant:0]
+                ];
+            } else if ([edgeKind isEqualToString:@"bottom"]) {
+                placement = @[
+                    [visualEffect.leadingAnchor constraintEqualToAnchor:material.leadingAnchor],
+                    [visualEffect.trailingAnchor constraintEqualToAnchor:material.trailingAnchor],
+                    [visualEffect.bottomAnchor constraintEqualToAnchor:material.bottomAnchor],
+                    [visualEffect.heightAnchor constraintEqualToConstant:0]
+                ];
+            } else if ([edgeKind isEqualToString:@"left"]) {
+                placement = @[
+                    [visualEffect.leadingAnchor constraintEqualToAnchor:material.leadingAnchor],
+                    [visualEffect.topAnchor constraintEqualToAnchor:material.topAnchor],
+                    [visualEffect.bottomAnchor constraintEqualToAnchor:material.bottomAnchor],
+                    [visualEffect.widthAnchor constraintEqualToConstant:0]
+                ];
+            } else {
+                placement = @[
+                    [visualEffect.leadingAnchor constraintEqualToAnchor:material.leadingAnchor],
+                    [visualEffect.topAnchor constraintEqualToAnchor:material.topAnchor],
+                    [visualEffect.widthAnchor constraintEqualToConstant:0],
+                    [visualEffect.heightAnchor constraintEqualToConstant:0]
+                ];
+            }
+            material.placements[i] = placement;
+            material.edgeKinds[i] = edgeKind;
+            [NSLayoutConstraint activateConstraints:placement];
+        }
+
         NSArray<NSLayoutConstraint*>* placement = material.placements[i];
-        const CGFloat constants[] = {
-            rect.x(), rect.y(),
-            i == 0 ? rect.right() - NSWidth(view.bounds) : rect.width(),
-            i == 1 ? rect.bottom() - NSHeight(view.bounds) : rect.height()
-        };
+        CGFloat constants[4] = {0, 0, 0, 0};
+        if ([edgeKind isEqualToString:@"top"]) {
+            constants[0] = region.value(QStringLiteral("leftInset")).toDouble();
+            constants[1] = -region.value(QStringLiteral("rightInset")).toDouble();
+            constants[2] = region.value(QStringLiteral("topInset")).toDouble();
+            constants[3] = region.value(QStringLiteral("thickness")).toDouble();
+        } else if ([edgeKind isEqualToString:@"bottom"]) {
+            constants[0] = region.value(QStringLiteral("leftInset")).toDouble();
+            constants[1] = -region.value(QStringLiteral("rightInset")).toDouble();
+            constants[2] = -region.value(QStringLiteral("bottomInset")).toDouble();
+            constants[3] = region.value(QStringLiteral("thickness")).toDouble();
+        } else if ([edgeKind isEqualToString:@"left"]) {
+            constants[0] = region.value(QStringLiteral("leftInset")).toDouble();
+            constants[1] = region.value(QStringLiteral("topInset")).toDouble();
+            constants[2] = -region.value(QStringLiteral("bottomInset")).toDouble();
+            constants[3] = region.value(QStringLiteral("thickness")).toDouble();
+        } else {
+            const QRectF rect = region.value(QStringLiteral("rect")).toRectF();
+            constants[0] = rect.x();
+            constants[1] = rect.y();
+            constants[2] = rect.width();
+            constants[3] = rect.height();
+        }
         for (NSUInteger j = 0; j < placement.count; ++j) {
             if (placement[j].constant != constants[j]) {
                 placement[j].constant = constants[j];

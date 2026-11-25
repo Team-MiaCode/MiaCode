@@ -15,6 +15,7 @@ Item {
     required property var timelineSession
     required property var previewSession
     property bool guideSettingsActive: false
+    property real expandedHeight: 0
     readonly property bool guideSettingsAvailable: root.guideSettingsActive
         && root.visible && timelineItem.visible
     readonly property Item timelineGuideItem: timelineItem
@@ -34,11 +35,6 @@ Item {
             settingsMenu.openAt(brightnessButton)
     }
 
-    Rectangle {
-        width: parent.width
-        height: timelineItem.visible ? tabs.height : parent.height
-        color: Theme.surfaceColor(Theme.colors.background.panel)
-    }
     clip: true
     readonly property int contentTopMargin: 0
     readonly property real minimumHeight: tabs.implicitHeight + timelineItem.minimumViewportHeight
@@ -154,6 +150,21 @@ Item {
         onTextSecondaryColorChanged: timelineThemeRefresh.restart()
         onWaveStrokeColorChanged: timelineThemeRefresh.restart()
     }
+
+    // Keep inner content at its expanded height while the panel slides open or
+    // closed so the timeline and issue lists slide smoothly instead of squishing.
+    Item {
+        id: panelContent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: root.expandedHeight > 0 ? Math.max(parent.height, root.expandedHeight) : parent.height
+
+        Rectangle {
+            width: parent.width
+            height: timelineItem.visible ? tabs.height : parent.height
+            color: Theme.surfaceColor(Theme.colors.background.panel)
+        }
 
     BottomTabBar {
         id: tabs
@@ -388,6 +399,10 @@ Item {
             timelineItem.noteViewportRect.width,
             timelineItem.noteViewportRect.height)
         previewSession: root.previewSession
+    }
+
+    // Keep the inner content wrapper covering every visual child except the
+    // non-visual helpers below.
     }
 
     Connections {

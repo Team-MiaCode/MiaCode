@@ -43,6 +43,23 @@ Item {
     property real animatedSidebarContentWidth: targetSidebarContentWidth
     readonly property bool sidebarPanelShown: animatedSidebarContentWidth > 0.5
     readonly property bool sidebarAnimating: Math.abs(animatedSidebarContentWidth - targetSidebarContentWidth) > 0.5
+    property bool sidebarMaterialHolding: false
+    property real sidebarMaterialHoldWidth: 0
+    property bool bottomPanelAnimationReady: false
+    property real bottomPanelReveal: bottomPanelEffectivelyVisible ? 1 : 0
+    readonly property bool bottomPanelShown: bottomPanelReveal > 0.005
+    readonly property bool bottomPanelAnimating:
+        Math.abs(bottomPanelReveal - (bottomPanelEffectivelyVisible ? 1 : 0)) > 0.005
+    readonly property real targetBottomPanelHeight: {
+        const maxHeight = Math.max(bottomPanel.minimumHeight, Math.min(
+            centerSplit.height * root.preferences.bottomPanelMaximumHeightRatio,
+            centerSplit.height - editorHost.SplitView.minimumHeight
+                - Theme.splitDividerThickness))
+        const minHeight = Math.max(bottomPanel.minimumHeight,
+            centerSplit.height * root.preferences.bottomPanelMinimumHeightRatio)
+        return Math.max(minHeight, Math.min(maxHeight,
+            centerSplit.height * root.preferences.bottomPanelHeightRatio))
+    }
     readonly property bool libraryPopupActive: libraryPage.popupActive
     readonly property Item navigationItem: sidebar.navigationItem
     readonly property Item chartSidebarItem: sidebar.chartSidebarItem
@@ -58,10 +75,24 @@ Item {
     readonly property Item settingsDialogParent: root.previewDetached
         ? detachedPreviewWindow.Overlay.overlay : root.Overlay.overlay
     property bool previewSurfaceMoving: false
+    // Hold the native backdrop at full sidebar width across collapse/expand and
+    // for a brief swapchain margin after collapse so AppKit never shrinks ahead
+    // of Qt's Metal presentation and exposes unblurred desktop behind the panel.
+    readonly property real activityBarMaterialWidth: {
+        if (root.compact)
+            return 0
+        if (!root.preferences.efficientSidebarEnabled)
+            return sidebar.activityBarWidth
+        if (root.sidebarAnimating)
+            return Math.max(sidebar.width, root.targetSidebarContentWidth, root.preferences.sidebarWidth)
+        if (root.sidebarResizing)
+            return sidebar.visible ? Math.min(horizontalSplit.width, sidebar.width + 64) : 0
+        if (sidebar.visible)
+            return sidebar.width
+        return root.sidebarMaterialHolding ? root.sidebarMaterialHoldWidth : 0
+    }
     readonly property rect activityBarMaterialRect: Qt.rect(0, 0,
-        root.compact ? 0 : root.preferences.efficientSidebarEnabled
-            ? sidebar.width : sidebar.activityBarWidth,
-        horizontalSplit.height)
+        activityBarMaterialWidth, horizontalSplit.height)
     readonly property real minimumEditorWidth: Math.max(editorPane.minimumWidth,
         bottomPanel.minimumWidth)
     // 拆分后的工作区按编辑器和底部面板计算，侧栏所需空间单独计算。
@@ -115,7 +146,37 @@ Item {
         }
     }
 
-    Component.onCompleted: Qt.callLater(() => { root.sidebarAnimationReady = true })
+    Behavior on bottomPanelReveal {
+        enabled: root.bottomPanelAnimationReady && !centerSplit.resizing
+        NumberAnimation {
+            duration: 180
+            easing.type: Easing.OutCubic
+        }
+    }
+
+    Timer {
+        id: sidebarMaterialReleaseTimer
+        interval: 60
+        onTriggered: root.sidebarMaterialHolding = false
+    }
+
+    onSidebarPanelShownChanged: {
+        if (!root.compact && root.preferences.efficientSidebarEnabled) {
+            if (sidebarPanelShown) {
+                sidebarMaterialReleaseTimer.stop()
+                root.sidebarMaterialHolding = false
+            } else {
+                root.sidebarMaterialHoldWidth = Math.max(root.preferences.sidebarWidth, 1)
+                root.sidebarMaterialHolding = true
+                sidebarMaterialReleaseTimer.restart()
+            }
+        }
+    }
+
+    Component.onCompleted: Qt.callLater(() => {
+        root.sidebarAnimationReady = true
+        root.bottomPanelAnimationReady = true
+    })
     onCompactChanged: {
         root.suppressSidebarAnimation = true
         Qt.callLater(() => { root.suppressSidebarAnimation = false })
@@ -387,8 +448,8 @@ Item {
             when: (Qt.platform.os === "osx" || Qt.platform.os === "windows") && target !== null
             value: detachedPreviewWindow.visible && detachedTitleBar.visible
                 && Theme.blurMaterialsEnabled && !Theme.backgroundActive
-                ? [{ rect: Qt.rect(0, 0, detachedPreviewWindow.width,
-                    (detachedTitleBar.height + detachedToolBar.height) * Theme.uiScale) }]
+                ? [{ edge: "top",
+                     thickness: Math.round((detachedTitleBar.height + detachedToolBar.height) * Theme.uiScale) }]
                 : []
             restoreMode: Binding.RestoreNone
         }
@@ -634,17 +695,22 @@ Item {
 
                 BottomPanel {
                     id: bottomPanel
-                    visible: root.bottomPanelEffectivelyVisible
+                    visible: root.bottomPanelShown
+                    expandedHeight: root.bottomPanelAnimating ? root.targetBottomPanelHeight : 0
                     guideSettingsActive: root.timelineGuideActive
                     documentSession: root.documentSession
                     analysisSession: root.analysisSession
                     preferences: root.preferences
                     timelineSession: root.timelineSession
                     previewSession: root.previewSession
-                    SplitView.minimumHeight: bottomPanelSnap.constrained
-                        ? bottomPanelSnap.targetSize : bottomPanelSnap.minimumSize
-                    SplitView.maximumHeight: bottomPanelSnap.constrained
-                        ? bottomPanelSnap.targetSize : bottomPanelSnap.maximumSize
+                    SplitView.minimumHeight: root.bottomPanelAnimating
+                        ? 0
+                        : bottomPanelSnap.constrained
+                            ? bottomPanelSnap.targetSize : bottomPanelSnap.minimumSize
+                    SplitView.maximumHeight: root.bottomPanelAnimating
+                        ? Math.max(0, root.targetBottomPanelHeight)
+                        : bottomPanelSnap.constrained
+                            ? bottomPanelSnap.targetSize : bottomPanelSnap.maximumSize
                     onAnalysisRowActivated: (difficultyId, revision, line, column, endColumn, second) =>
                         editorPane.revealAnalysisRow(
                             difficultyId, revision, line, column, endColumn, second, root.analysisSession)
@@ -735,7 +801,7 @@ Item {
                     centerSplit.height * root.preferences.bottomPanelMaximumHeightRatio,
                     centerSplit.height - editorHost.SplitView.minimumHeight
                         - Theme.splitDividerThickness)) : 0
-            snapAvailable: dragAvailable
+            snapAvailable: dragAvailable && !root.bottomPanelAnimating
             readonly property bool lineSnapAvailable: dragAvailable
                 && !root.previewDetached && !root.previewSurfaceMoving
                 && previewHost.visible && preview.visible && root.transportItem.visible
@@ -944,8 +1010,10 @@ Item {
     Binding {
         target: bottomPanel.SplitView
         property: "preferredHeight"
-        value: root.bottomPanelEffectivelyVisible
-            ? centerSplit.height * root.preferences.bottomPanelHeightRatio : 0
+        value: root.bottomPanelAnimating
+            ? root.targetBottomPanelHeight * root.bottomPanelReveal
+            : root.bottomPanelEffectivelyVisible
+                ? centerSplit.height * root.preferences.bottomPanelHeightRatio : 0
         when: !centerSplit.resizing
         restoreMode: Binding.RestoreNone
     }

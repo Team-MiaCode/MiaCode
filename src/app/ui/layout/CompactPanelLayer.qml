@@ -228,9 +228,8 @@ Item {
         // 浮层置于 Overlay，背景采样包含工作区，抽屉自身保持在采样源之外。
         background: FloatingCard {
             popup: sidebarDrawer
-            tintColor: Theme.popupTintColor
-            blurRadius: Theme.popupBlurRadius
-            shadowOpacity: Theme.dialogShadowOpacity
+            largeSurface: true
+            shadowVerticalOffset: 0
         }
 
         contentItem: Item {

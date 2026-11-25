@@ -59,11 +59,7 @@ Dialog {
 
     background: FloatingCard {
         popup: root
-        tintColor: Theme.dialogTintColor
-        blurRadius: Theme.dialogBlurRadius
-        shadowBlur: 0.68
-        shadowOpacity: Theme.dialogShadowOpacity
-        shadowVerticalOffset: 3
+        largeSurface: true
     }
 
     header: Label {
