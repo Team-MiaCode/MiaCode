@@ -296,7 +296,7 @@ Item {
         documentAvailable: root.documentSession.hasDocument
         surfaceActive: !root.previewSurfaceMoving
         detached: root.previewDetached
-        transportMirrored: root.previewOnLeft && !root.previewDetached
+        transportMirrored: root.previewOnLeft
         previewSession: root.previewSession
         preferences: root.preferences
         exportSession: root.pages.exportSession
