@@ -91,7 +91,7 @@ Item {
     readonly property bool exportVideoActive:
         root.pages.activePageId === "export"
     readonly property bool libraryActive: root.viewState.activeSidebarView === "library"
-    readonly property bool previewOnLeft: !libraryActive && root.preferencesModel.previewOnLeft
+    readonly property bool previewOnLeft: root.preferencesModel.previewOnLeft
     onPreviewOnLeftChanged: root.syncWorkspacePanelOrder()
     readonly property real previewEditorAvailableWidth:
         Math.max(1, workspaceSplit.width - (previewHost.visible ? Theme.splitDividerThickness : 0))
