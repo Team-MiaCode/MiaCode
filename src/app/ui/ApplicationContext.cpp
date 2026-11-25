@@ -16,7 +16,7 @@ ApplicationContext::ApplicationContext(miacode::ApplicationServices& services,
     , analysis_(services.workspace(), services.analysis(), this)
     , preview_(services.shellNotifications(), services.previewSurfaceSlot(), services.playbackControlSlot(), this)
     , timeline_(services.shellNotifications(), services.timelineSurfaceSlot(), this)
-    , commands_(document_, services.documentBridgeSlot(), this)
+    , commands_(document_, services.documentBridgeSlot(), services.uiRequests(), this)
     , pages_(services.shellNotifications(), document_, services.editorPageRouterSlot(),
              services.exportPageSessionSlot(), this)
     , editor_(this)

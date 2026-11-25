@@ -12,13 +12,18 @@ Rectangle {
     required property var documentSession
     required property var commands
     required property var pages
+    property bool compact: false
     property bool toolsMenuActive: false
     property bool nativeMaterialActive: Theme.nativeMaterialActive
-    readonly property var navigationStateColors: nativeMaterialActive
-        ? Theme.compensatedStateColorsFor(Theme.colors.listState) : Theme.colors.listState
-    readonly property Item cornerSourceItem: heading
+    readonly property var navigationStateColors: nativeMaterialActive ? ({
+        hover: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.07) : Qt.rgba(0, 0, 0, 0.05),
+        pressed: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.11) : Qt.rgba(0, 0, 0, 0.09),
+        selected: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.13) : Qt.rgba(0, 0, 0, 0.08)
+    }) : root.compact ? Theme.colors.popupState : Theme.colors.listState
+    readonly property Item cornerSourceItem: scroll
     readonly property Item navigationContentItem: difficulties
     readonly property Item toolsItem: toolsRow
+    readonly property bool popupActive: difficulties.popupActive
 
     signal toolsRequested()
     signal settingsRequested()
@@ -32,20 +37,11 @@ Rectangle {
     color: Theme.chromeSurfaceColor(Theme.colors.background.panel, root.nativeMaterialActive)
     clip: true
 
-    PanelHeader {
-        id: heading
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        title: qsTrId("sidebar.menu")
-        sidebarTitle: true
-    }
-
     Flickable {
         id: scroll
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.top: heading.bottom
+        anchors.top: parent.top
         anchors.bottom: settingsRow.top
         contentHeight: contents.implicitHeight + 12
         clip: true
@@ -54,9 +50,9 @@ Rectangle {
 
         Column {
             id: contents
-            x: 6
-            y: 6
-            width: parent.width - 12
+            x: 7
+            y: 4
+            width: parent.width - 14
             spacing: 6
 
             SidebarRow {
@@ -145,7 +141,9 @@ Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.margins: 6
+        anchors.leftMargin: 7
+        anchors.rightMargin: 7
+        anchors.bottomMargin: 6
         text: qsTrId("dialog.preferences.title")
         iconSource: Qt.resolvedUrl("icons/settings.svg")
         onClicked: root.settingsRequested()

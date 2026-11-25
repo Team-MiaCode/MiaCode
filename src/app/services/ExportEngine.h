@@ -48,6 +48,9 @@ public:
     // Keep the export preview mode while presenting an empty difficulty.
     virtual void clearAudition() = 0;
     virtual void stopAudition() = 0;
+    // Turns the clock_count count-in of the running audition on or off without
+    // reinstalling its scene.
+    virtual void setAuditionClockCountEnabled(int difficultyId, bool enabled) = 0;
 
     // Start the single-chart export. Returns false and fills `errorMessage`
     // when the job could not be launched at all; a job that starts and later
@@ -90,6 +93,8 @@ public:
     // returns to where it started (repeating while the page loops it).
     virtual void setIntroAuditionPlaying(bool playing) = 0;
     virtual bool introAuditionPlaying() const = 0;
+    // Plays the classic intro's opening music once through the preview SFX bank.
+    virtual void auditionIntroSound() {}
 
 protected:
     ExportEngine() = default;

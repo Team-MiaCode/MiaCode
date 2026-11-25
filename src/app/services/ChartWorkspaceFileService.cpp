@@ -152,7 +152,8 @@ ChartWorkspaceFileService::ChartWorkspaceFileService(ChartWorkspace& workspace)
 {
 }
 
-ChartWorkspaceFileResult ChartWorkspaceFileService::open(const QString& path, ChartDocumentOrigin origin) const
+ChartWorkspaceFileResult ChartWorkspaceFileService::open(
+    const QString& path, ChartDocumentOrigin origin, int preferredDifficultyId) const
 {
     if (workspace_ == nullptr) return {false, 0, QStringLiteral("workspace_unavailable"), {}};
     QString normalizedPath = path.isEmpty() ? QString() : QDir::cleanPath(path);
@@ -177,7 +178,7 @@ ChartWorkspaceFileResult ChartWorkspaceFileService::open(const QString& path, Ch
     if (!text || file.error() != QFileDevice::NoError) {
         return {false, workspace_->snapshot().revision, QStringLiteral("decode_failed"), {}};
     }
-    const ChartWorkspaceResult result = workspace_->openSource(*text, normalizedPath, 0, origin);
+    const ChartWorkspaceResult result = workspace_->openSource(*text, normalizedPath, preferredDifficultyId, origin);
     return {result.accepted, result.revision,
             result.accepted ? QString() : QStringLiteral("open_failed"), result.issues,
             usedSystemEncoding};

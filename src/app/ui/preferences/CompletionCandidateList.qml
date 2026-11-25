@@ -181,6 +181,14 @@ Column {
                         HoverHandler {
                             cursorShape: drag.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor
                         }
+                        // A click on the row's blank area edits the value; a drag still reorders.
+                        TapHandler {
+                            acceptedButtons: Qt.LeftButton
+                            onTapped: {
+                                valueInput.forceActiveFocus()
+                                valueInput.cursorPosition = valueInput.length
+                            }
+                        }
                         DragHandler {
                             id: drag
                             target: null
@@ -217,8 +225,10 @@ Column {
                         x: 18
                         anchors.verticalCenter: parent.verticalCenter
                         height: Math.max(28, Theme.controlMinHeight - 2)
-                        width: Math.max(0, Math.min(card.width * 0.75, card.width - 62,
-                            Math.max(card.width * 0.225, valueMetrics.advanceWidth + leftPadding + rightPadding + 6)))
+                        // The placeholder row has no drag area, so its field spans the row.
+                        width: card.placeholderRow ? Math.max(0, card.width - x - 10)
+                            : Math.max(0, Math.min(card.width * 0.75, card.width - 62,
+                                Math.max(card.width * 0.225, valueMetrics.advanceWidth + leftPadding + rightPadding + 6)))
                         leftPadding: 4
                         rightPadding: 4
                         topPadding: 3

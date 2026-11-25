@@ -10,6 +10,7 @@ Rectangle {
     required property string mode
     required property var pages
     property bool documentAvailable: true
+    property var rowStateColors: Theme.colors.listState
     readonly property alias cornerSourceItem: heading
     signal toolRequested(string toolId)
 
@@ -30,6 +31,7 @@ Rectangle {
 
     component ToolRow: NavRow {
         width: parent.width
+        stateColors: root.rowStateColors
         textLeftPadding: 20
         enabled: root.documentAvailable
     }
@@ -63,6 +65,7 @@ Rectangle {
 
             NavRow {
                 width: parent.width
+                stateColors: root.rowStateColors
                 visible: root.mode === "network"
                 text: qsTrId("net.ui.download_page")
                 iconSource: Qt.resolvedUrl("icons/download.svg")
@@ -72,6 +75,7 @@ Rectangle {
             }
             NavRow {
                 width: parent.width
+                stateColors: root.rowStateColors
                 visible: root.mode === "network" && root.pages.netUploadEnabled
                 text: qsTrId("net.ui.upload_page")
                 iconSource: Qt.resolvedUrl("icons/upload.svg")
@@ -91,6 +95,10 @@ Rectangle {
                 ToolRow {
                     text: qsTrId("media_tools.prepend_blank")
                     onClicked: root.toolRequested("prependTrack")
+                }
+                ToolRow {
+                    text: qsTrId("media_tools.volume_balance")
+                    onClicked: root.toolRequested("balanceVolume")
                 }
                 ToolRow {
                     text: qsTrId("media_tools.sample_rate_conversion")

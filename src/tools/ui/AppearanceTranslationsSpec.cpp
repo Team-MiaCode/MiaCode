@@ -118,7 +118,6 @@ ApplicationWindow {
             label: qsTrId("dialog.preferences.font.family")
             options: translatedFonts; fontFamilyRole: "family"
             currentValue: sampleFont.family
-            defaultFontFamily: sampleFont.family
         }
         Text {
             objectName: "localizedComment"
@@ -148,8 +147,9 @@ ApplicationWindow {
 
         const auto themes = miacode::ui::appearance_labels::themeOptions();
         const QString fontLabel = miacode::ui::appearance_labels::fontLabel(font.family(), true);
-        expect(fontLabel.endsWith(expected.value(QStringLiteral("dialog.preferences.font.monospace"))),
-               language + QStringLiteral(" font suffix is localized"));
+        expect(fontLabel == QStringLiteral("%1 (%2)").arg(
+                   font.family(), expected.value(QStringLiteral("dialog.preferences.font.monospace"))),
+               language + QStringLiteral(" font qualifier is localized"));
         engine.rootContext()->setContextProperty(QStringLiteral("translatedThemeOptions"), themes);
         engine.rootContext()->setContextProperty(QStringLiteral("translatedFonts"), QVariantList{
             QVariantMap{{"value", ""}, {"label", qtTrId("dialog.preferences.font.default")}},

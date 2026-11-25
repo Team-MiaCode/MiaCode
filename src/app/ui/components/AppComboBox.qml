@@ -12,15 +12,16 @@ ComboBox {
     property bool compact: false
     property color backgroundColor: Theme.colors.background.elevated
     property bool outlined: false
-    // Font pickers render each choice in its own family, including their
-    // context-specific default. Ordinary dropdowns keep the UI font.
+    // Only choices with an explicit font family preview it.
     property string fontFamilyRole: ""
-    property string defaultFontFamily: Theme.uiFont
+    // Custom fonts missing a PostScript name can render blank in Qt's
+    // distance-field glyph cache; native rendering avoids dropping them.
+    readonly property int optionRenderType: root.fontFamilyRole ? Text.NativeRendering : Text.QtRendering
 
     function optionFamily(index) {
         if (root.fontFamilyRole && root.model && index >= 0 && index < root.count)
-            return root.model[index][root.fontFamilyRole] || root.defaultFontFamily
-        return root.defaultFontFamily
+            return root.model[index][root.fontFamilyRole] || Theme.uiFont
+        return Theme.uiFont
     }
 
     function optionFont(index) {
@@ -45,6 +46,7 @@ ComboBox {
         rightPadding: 0
         text: root.displayText
         font: root.font
+        renderType: root.optionRenderType
         color: root.enabled ? Theme.colors.text.active : Theme.colors.text.disabled
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
@@ -92,6 +94,7 @@ ComboBox {
         highlighted: root.highlightedIndex === index
         text: root.textAt(index)
         labelFont: root.optionFont(index)
+        labelRenderType: root.optionRenderType
     }
 
     popup: AppDropdownPanel {

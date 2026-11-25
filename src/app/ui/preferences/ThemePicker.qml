@@ -9,7 +9,6 @@ ColumnLayout {
     required property var options
     required property string currentValue
     required property bool darkPalette
-    readonly property int minimumTileWidth: 144
     readonly property var paletteOptions: options.filter(function(option) {
         const theme = Theme.themeCatalog[option.value]
         return theme && theme.dark === root.darkPalette
@@ -19,6 +18,7 @@ ColumnLayout {
     spacing: 6
 
     Text {
+        visible: text.length > 0
         text: root.label
         color: Theme.colors.text.secondary
         font.family: Theme.uiFont
@@ -27,8 +27,7 @@ ColumnLayout {
 
     GridLayout {
         Layout.fillWidth: true
-        columns: Math.max(1, Math.min(4,
-            Math.floor((width + columnSpacing) / (root.minimumTileWidth + columnSpacing))))
+        columns: 4
         uniformCellWidths: true
         columnSpacing: 6
         rowSpacing: 6
@@ -38,17 +37,21 @@ ColumnLayout {
             delegate: AbstractButton {
                 id: tile
                 required property var modelData
+                readonly property bool compact: width < 132
                 readonly property bool selected: root.currentValue === modelData.value
                 readonly property var previewColors: (Theme.themeCatalog[modelData.value] || Theme.themeCatalog.dark).colors
                 Layout.fillWidth: true
-                Layout.minimumWidth: root.minimumTileWidth
-                implicitHeight: 84
+                Layout.minimumWidth: 0
+                Layout.preferredWidth: 144
+                implicitHeight: compact ? 92 : 84
                 padding: 6
                 hoverEnabled: true
                 objectName: "themeTile_" + modelData.value
                 Accessible.role: Accessible.RadioButton
                 Accessible.name: modelData.label
                 Accessible.checked: selected
+                ToolTip.visible: tile.hovered && themeLabel.truncated
+                ToolTip.text: modelData.label
                 onClicked: root.picked(modelData.value)
 
                 background: Rectangle {
@@ -84,14 +87,18 @@ ColumnLayout {
                             }
                         }
                         Column {
-                            x: 14
-                            y: 5
-                            width: parent.width - x - 6
-                            spacing: 2
+                            id: sample
+                            readonly property int fontSize: tile.compact ? 10 : 11
+                            x: tile.compact ? 11 : 14
+                            y: tile.compact ? 4 : 5
+                            width: parent.width - x - (tile.compact ? 3 : 6)
+                            spacing: tile.compact ? 1 : 2
                             Text {
                                 width: parent.width
                                 textFormat: Text.StyledText
                                 wrapMode: Text.WrapAnywhere
+                                maximumLineCount: tile.compact ? 3 : 2
+                                elide: Text.ElideRight
                                 text: {
                                     const syntax = tile.previewColors.syntax
                                     const note = syntax.note || tile.previewColors.text.editor
@@ -106,7 +113,7 @@ ColumnLayout {
                                         + "<font color='" + syntax.duration + "'>[4:1]</font>,"
                                 }
                                 font.family: Theme.codeFont.family
-                                font.pixelSize: 11
+                                font.pixelSize: sample.fontSize
                                 color: tile.previewColors.text.editor
                             }
                             Text {
@@ -115,7 +122,7 @@ ColumnLayout {
                                 text: "|| " + qsTrId("dialog.preferences.theme.comment_sample")
                                 elide: Text.ElideRight
                                 font.family: Theme.codeFont.family
-                                font.pixelSize: 11
+                                font.pixelSize: sample.fontSize
                                 color: tile.previewColors.syntax.comment
                             }
                         }
@@ -123,6 +130,7 @@ ColumnLayout {
                     RowLayout {
                         Layout.fillWidth: true
                         Text {
+                            id: themeLabel
                             Layout.fillWidth: true
                             objectName: "themeLabel_" + tile.modelData.value
                             text: tile.modelData.label

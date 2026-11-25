@@ -13,6 +13,9 @@ on:
           "release" omits the channel segment from the package name.
         type: string
         default: nightly
+      expected_version:
+        description: Release version when the selected branch does not name a version.
+        type: string
 
 permissions:
   contents: read
@@ -96,6 +99,18 @@ jobs:
         uses: actions/checkout@v7
         with:
           lfs: false
+
+      - name: Verify release version
+        if: inputs.channel == 'release'
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+        run: |
+          case "$GITHUB_REF" in
+            refs/tags/*) version="$GITHUB_REF_NAME" ;;
+            refs/heads/release/*) version="${GITHUB_REF_NAME#release/}" ;;
+            *) version="${EXPECTED_VERSION:?Provide the expected release version when dispatching from this branch.}" ;;
+          esac
+          python scripts/release/update-manifest.py verify --tag="$version"
 
       - name: Cache keys
         id: keys

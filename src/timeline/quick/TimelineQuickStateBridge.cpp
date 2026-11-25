@@ -110,9 +110,8 @@ QHash<quint64, QString> muriMarkerTooltipsForReport(const MuriAnalysisReport& re
     const SimaiValidationLocale locale = timelineUiValidationLocale();
     for (const MuriDiagnostic& diagnostic : report.diagnostics) {
         const quint64 locationId = timelineRenderLocationId(diagnostic.line, diagnostic.col);
-        QString text = QStringLiteral("%1 · %2")
-                           .arg(muriAlertLevelText(diagnostic.alertLevel))
-                           .arg(muriKindText(diagnostic.kind));
+        QString text = qtTrId("validation.muri.issue_heading")
+                           .arg(muriKindText(diagnostic.kind), muriAlertLevelText(diagnostic.alertLevel));
         const QString detail = renderMuriDiagnosticDetail(diagnostic, locale).trimmed();
         if (!detail.isEmpty()) {
             text += QStringLiteral("\n") + detail;

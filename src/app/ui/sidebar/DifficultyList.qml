@@ -15,6 +15,7 @@ Column {
     property bool flatNavigation: false
     property var rowStateColors: Theme.colors.listState
     readonly property bool sectionExpanded: true
+    readonly property bool popupActive: addDifficultyMenu.active || removeDifficultyDialog.visible
 
     spacing: root.flatNavigation ? 2 : 0
     width: parent ? parent.width : implicitWidth
@@ -54,6 +55,7 @@ Column {
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             visible: root.flatNavigation
+            stateColors: root.rowStateColors
             iconSource: Qt.resolvedUrl("icons/remove.svg")
             tooltip: qsTrId("qml.delete_current_difficulty")
             enabled: root.documentSession.currentDifficultyId > 0

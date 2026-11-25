@@ -47,6 +47,11 @@ Item {
     signal openRequested()
     signal completionSettingsRequested(string group)
     readonly property Item cornerSourceItem: tabs.visible ? tabs : null
+    readonly property color cornerBackingColor: tabs.visible
+        ? "transparent"
+        : (root.documentSession.hasDocument || root.viewState.netEditorActive
+            ? Theme.surfaceColor(Theme.colors.background.surface)
+            : Theme.surfaceColor(Theme.colors.background.panel))
 
     function undo() {
         if (sourceVisible)
@@ -205,6 +210,7 @@ Item {
 
     EditorTabBar {
         id: tabs
+        objectName: "workspaceTabBar"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top

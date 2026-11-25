@@ -213,6 +213,10 @@ Classic mode: All functions are on one page, similar to the layout in earlier ve
         <source>Later</source>
         <translation>Later</translation>
     </message>
+    <message id="action.filter">
+        <source>Filter</source>
+        <translation>Filter</translation>
+    </message>
     <message id="action.new">
         <source>New</source>
         <translation>New</translation>
@@ -1614,12 +1618,12 @@ Failed: %2</translation>
         <translation>Audition</translation>
     </message>
     <message id="dialog.render_settings.music.default_intro_sound">
-        <source>Default intro sound</source>
-        <translation>Default intro sound</translation>
+        <source>Default</source>
+        <translation>Default</translation>
     </message>
     <message id="dialog.render_settings.music.intro_sound">
-        <source>Intro sound</source>
-        <translation>Intro sound</translation>
+        <source>Intro music</source>
+        <translation>Intro music</translation>
     </message>
     <message id="dialog.render_settings.preview.canvas_frame_rate">
         <source>Preview Refresh Rate</source>
@@ -2505,6 +2509,34 @@ File: </translation>
         <source>%1 was not found next to the current chart.</source>
         <translation>%1 was not found next to the current chart.</translation>
     </message>
+    <message id="media_tools.volume_balance">
+        <source>Volume Balance</source>
+        <translation>Volume Balance</translation>
+    </message>
+    <message id="media_tools.volume_balance_analyze_failed">
+        <source>Could not measure the audio loudness.</source>
+        <translation>Could not measure the audio loudness.</translation>
+    </message>
+    <message id="media_tools.volume_balance_confirm">
+        <source>Replace %1 with the processed audio?</source>
+        <translation>Replace %1 with the processed audio?</translation>
+    </message>
+    <message id="media_tools.volume_balance_missing_track">
+        <source>No chart audio found.</source>
+        <translation>No chart audio found.</translation>
+    </message>
+    <message id="media_tools.volume_balance_track_changed">
+        <source>The audio file changed during processing.</source>
+        <translation>The audio file changed during processing.</translation>
+    </message>
+    <message id="media_tools.volume_balance_unchanged">
+        <source>No adjustment needed.</source>
+        <translation>No adjustment needed.</translation>
+    </message>
+    <message id="media_tools.volume_balance_saved">
+        <source>Processing complete.</source>
+        <translation>Processing complete.</translation>
+    </message>
     <message id="media_tools.audio_processing_track">
         <source>Audio Processing track.mp3</source>
         <translation>Audio Processing</translation>
@@ -3389,6 +3421,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Return to Main Window</source>
         <translation>Return to Main Window</translation>
     </message>
+    <message id="preview.window.show">
+        <source>Show Preview Window</source>
+        <translation>Show Preview Window</translation>
+    </message>
     <message id="preview.window.title">
         <source>Preview</source>
         <translation>Preview</translation>
@@ -3518,8 +3554,8 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>Chart</translation>
     </message>
     <message id="qml.chart_designer_1">
-        <source> · Chart Designer: %1</source>
-        <translation> · Chart Designer: %1</translation>
+        <source>Chart Designer: %1</source>
+        <translation>Chart Designer: %1</translation>
     </message>
     <message id="qml.choose_a_folder_to_scan">
         <source>Choose a folder to scan</source>
@@ -4293,6 +4329,10 @@ Error: %1</translation>
         <source>Muri</source>
         <translation>Muri</translation>
     </message>
+    <message id="validation.muri.issue_heading">
+        <source>%1 (%2)</source>
+        <translation>%1 (%2)</translation>
+    </message>
     <message id="validation.muri.alert.warning">
         <source>Warning</source>
         <translation>Warning</translation>
@@ -4380,6 +4420,14 @@ Error: %1</translation>
     <message id="video_export.intro_audition_stop">
         <source>Stop</source>
         <translation>Stop</translation>
+    </message>
+    <message id="video_export.intro_music_copy_failed">
+        <source>Could not copy the audio into the intro music folder.</source>
+        <translation>Could not copy the audio into the intro music folder.</translation>
+    </message>
+    <message id="video_export.intro_music_import">
+        <source>Import audio…</source>
+        <translation>Import audio…</translation>
     </message>
     <message id="video_export.intro_music_segment">
         <source>Music segment</source>
@@ -4844,8 +4892,8 @@ Error: %1</translation>
         <translation>Status: descending</translation>
     </message>
     <message id="guide.page_one">
-        <source>Getting started · Page 1</source>
-        <translation>Getting started · Page 1</translation>
+        <source>Getting started, page 1</source>
+        <translation>Getting started, page 1</translation>
     </message>
     <message id="guide.exit">
         <source>Exit guide</source>
@@ -4939,9 +4987,9 @@ Error: %1</translation>
         <source>Follow code: choose whether the timeline follows the current chart-source position in settings.</source>
         <translation>Follow code: choose whether the timeline follows the current chart-source position in settings.</translation>
     </message>
-    <message id="guide.editor.metadata_save">
-        <source>Changes to the level, offset and designer above are saved immediately.</source>
-        <translation>Changes to the level, offset and designer above are saved immediately.</translation>
+    <message id="guide.editor.normalize">
+        <source>Select a passage and use Normalize Chart to tidy its layout.</source>
+        <translation>Select a passage and use Normalize Chart to tidy its layout.</translation>
     </message>
     <message id="guide.editor.measure">
         <source>Start a new measure here and switch to 3/4 time.</source>
@@ -5139,8 +5187,8 @@ Error: %1</translation>
         <translation>Midnight</translation>
     </message>
     <message id="dialog.preferences.theme.forest">
-        <source>Forest</source>
-        <translation>Forest</translation>
+        <source>Si-callion</source>
+        <translation>Si-callion</translation>
     </message>
     <message id="dialog.preferences.theme.paper">
         <source>Warm Paper</source>
@@ -5198,6 +5246,110 @@ Error: %1</translation>
     <message id="cover.text_shadow_y">
         <source>Shadow Y offset</source>
         <translation>Shadow Y offset</translation>
+    </message>
+    <message id="library.title">
+        <source>Chart library</source>
+        <translation>Chart library</translation>
+    </message>
+    <message id="library.choose_folder">
+        <source>Choose folder</source>
+        <translation>Choose folder</translation>
+    </message>
+    <message id="library.no_directory">
+        <source>No library folder selected</source>
+        <translation>No library folder selected</translation>
+    </message>
+    <message id="library.refresh">
+        <source>Refresh</source>
+        <translation>Refresh</translation>
+    </message>
+    <message id="library.current_editing">
+        <source>Currently editing</source>
+        <translation>Currently editing</translation>
+    </message>
+    <message id="library.search">
+        <source>Search</source>
+        <translation>Search</translation>
+    </message>
+    <message id="library.all_difficulties">
+        <source>All difficulties</source>
+        <translation>All difficulties</translation>
+    </message>
+    <message id="library.source_id">
+        <source>Source song ID</source>
+        <translation>Source song ID</translation>
+    </message>
+    <message id="library.version">
+        <source>Version</source>
+        <translation>Version</translation>
+    </message>
+    <message id="library.genre">
+        <source>Genre</source>
+        <translation>Genre</translation>
+    </message>
+    <message id="library.scanning">
+        <source>Scanning chart library…</source>
+        <translation>Scanning chart library…</translation>
+    </message>
+    <message id="library.missing_folder">
+        <source>Library folder unavailable</source>
+        <translation>Library folder unavailable</translation>
+    </message>
+    <message id="library.open_chart_folder_failed">
+        <source>Could not open the chart folder.</source>
+        <translation>Could not open the chart folder.</translation>
+    </message>
+    <message id="library.empty">
+        <source>No charts found</source>
+        <translation>No charts found</translation>
+    </message>
+    <message id="library.audition">
+        <source>Listen</source>
+        <translation>Listen</translation>
+    </message>
+    <message id="library.pause">
+        <source>Pause</source>
+        <translation>Pause</translation>
+    </message>
+    <message id="library.untitled">
+        <source>Untitled chart</source>
+        <translation>Untitled chart</translation>
+    </message>
+    <message id="library.difficulty.1">
+        <source>Easy</source>
+        <translation>Easy</translation>
+    </message>
+    <message id="library.difficulty.2">
+        <source>Basic</source>
+        <translation>Basic</translation>
+    </message>
+    <message id="library.difficulty.3">
+        <source>Advanced</source>
+        <translation>Advanced</translation>
+    </message>
+    <message id="library.difficulty.4">
+        <source>Expert</source>
+        <translation>Expert</translation>
+    </message>
+    <message id="library.difficulty.5">
+        <source>Master</source>
+        <translation>Master</translation>
+    </message>
+    <message id="library.difficulty.6">
+        <source>Re:Master</source>
+        <translation>Re:Master</translation>
+    </message>
+    <message id="library.difficulty.7">
+        <source>Utage</source>
+        <translation>Utage</translation>
+    </message>
+    <message id="library.result_count">
+        <source>%1 / %2 songs</source>
+        <translation>%1 / %2 songs</translation>
+    </message>
+    <message id="library.select_song">
+        <source>Select a song to see its details</source>
+        <translation>Select a song to see its details</translation>
     </message>
 </context>
 <context>

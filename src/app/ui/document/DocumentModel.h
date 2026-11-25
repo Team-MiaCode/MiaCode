@@ -180,7 +180,7 @@ public:
     Q_INVOKABLE QVariantMap fileDialogLocation(bool saveMode) const;
     Q_INVOKABLE QStringList openFileNameFilters() const;
     Q_INVOKABLE bool openFile(const QUrl& fileUrl);
-    bool openChartFile(const QUrl& fileUrl);
+    bool openChartFile(const QUrl& fileUrl, int preferredDifficultyId = 0);
     QJsonObject documentIdentity() const;
     net::NetEnginePort::Cancel openNetPreview(const QString& path, const QJsonObject& expected,
                                              net::NetEnginePort::Done done);
@@ -269,7 +269,7 @@ signals:
     void bookmarksChanged();
 
 private:
-    bool openFileWithOrigin(const QUrl& fileUrl, ChartDocumentOrigin origin);
+    bool openFileWithOrigin(const QUrl& fileUrl, ChartDocumentOrigin origin, int preferredDifficultyId = 0);
     mutable QString workspaceId_;
     enum class WorkspaceCommitKind {
         Incremental,

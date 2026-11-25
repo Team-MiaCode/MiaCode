@@ -27,6 +27,7 @@ public:
     bool startAudition(int difficultyId, const VideoExportTask& visualTask) override;
     void clearAudition() override;
     void stopAudition() override;
+    void setAuditionClockCountEnabled(int difficultyId, bool enabled) override;
     bool launchVideoExport(const VideoExportTask& requestedTask, int difficultyId,
                            QString* errorMessage) override;
     bool launchBatchExport(const VideoExportTask& templateTask,
@@ -45,6 +46,7 @@ public:
     void refreshIntroState() override;
     void setIntroAuditionPlaying(bool playing) override;
     bool introAuditionPlaying() const override;
+    void auditionIntroSound() override;
 
     void applySharedExportTaskSettings(const VideoExportTask& task);
     // The three dialog entry slots take an explicit difficulty id; the
@@ -153,6 +155,7 @@ private:
     // Mirrors the latency page's installSandboxScene. Teardown clears the flag
     // and invalidates the snapshot so the next difficulty switch rebuilds.
     void installExportPreviewAuditionScene(int difficultyId);
+    void applyExportAuditionClockSchedule(int difficultyId);
     void teardownExportPreviewAuditionScene();
     bool runBatchExport(
         const VideoExportTask& templateTask,
@@ -172,6 +175,8 @@ private:
     RuntimeContext::Ui& ui_;
     RuntimeContext::State& state_;
     QThread* gifExportThread_ = nullptr;
+    // The page's clock_count choice; scene reinstalls reapply it.
+    bool auditionClockCountEnabled_ = false;
 };
 
 }  // namespace miacode::runtime

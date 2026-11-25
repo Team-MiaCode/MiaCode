@@ -1404,9 +1404,9 @@ QStringList DocumentModel::openFileNameFilters() const
     return {qtTrId("qml.simai_files_txt_simai")};
 }
 
-bool DocumentModel::openChartFile(const QUrl& fileUrl)
+bool DocumentModel::openChartFile(const QUrl& fileUrl, int preferredDifficultyId)
 {
-    return openFileWithOrigin(fileUrl, ChartDocumentOrigin::Local);
+    return openFileWithOrigin(fileUrl, ChartDocumentOrigin::Local, preferredDifficultyId);
 }
 
 bool DocumentModel::openFile(const QUrl& fileUrl)
@@ -1463,13 +1463,13 @@ net::NetEnginePort::Cancel DocumentModel::openNetPreview(const QString& path, co
     return [finish, failure] { finish({{}, failure("job.cancelled")}); };
 }
 
-bool DocumentModel::openFileWithOrigin(const QUrl& fileUrl, ChartDocumentOrigin origin)
+bool DocumentModel::openFileWithOrigin(const QUrl& fileUrl, ChartDocumentOrigin origin, int preferredDifficultyId)
 {
     const QString path = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
     if (fileService_ == nullptr) return false;
     miacode::ChartWorkspaceFileResult result;
     if (!runWorkspaceMutation([&] {
-            result = fileService_->open(path, origin);
+            result = fileService_->open(path, origin, preferredDifficultyId);
             return result.accepted;
         })) {
         uiRequests_->postNotice(miacode::NoticeSeverity::Error,

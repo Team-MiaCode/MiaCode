@@ -3,6 +3,10 @@ run-name: Release ${{ github.ref_name }}
 
 on:
   workflow_dispatch:
+    inputs:
+      expected_version:
+        description: Release version for branches outside release/<version>.
+        type: string
 
 permissions:
   contents: read
@@ -17,3 +21,4 @@ jobs:
     uses: ./.github/workflows/package.yml
     with:
       channel: release
+      expected_version: ${{ inputs.expected_version }}

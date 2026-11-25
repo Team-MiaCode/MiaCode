@@ -416,14 +416,6 @@ AppDialog {
                         first: true
 
                         PreferenceCombo {
-                            objectName: "preferencesThemeModeCombo"
-                            label: qsTrId("dialog.preferences.theme.mode")
-                            options: root.preferencesModel.themeModeOptions
-                            currentValue: root.preferencesModel.themeModeToken
-                            onPicked: function(value) { root.preferencesModel.themeModeToken = value }
-                        }
-
-                        PreferenceCombo {
                             objectName: "preferencesUiScaleCombo"
                             label: qsTrId("dialog.preferences.ui_scale")
                             options: root.preferencesModel.uiScaleOptions
@@ -431,30 +423,34 @@ AppDialog {
                             onPicked: value => root.preferencesModel.uiScalePercent = value
                         }
 
-                        ThemePicker {
-                            objectName: "preferencesLightThemeCombo"
-                            darkPalette: false
-                            visible: root.preferencesModel.themeModeToken !== "dark"
-                            label: qsTrId("dialog.preferences.theme.light_palette")
-                            options: root.preferencesModel.themePaletteOptions
-                            currentValue: root.preferencesModel.lightThemeToken
-                            onPicked: function(value) { root.preferencesModel.lightThemeToken = value }
+                        PreferenceCombo {
+                            objectName: "preferencesThemeModeCombo"
+                            label: qsTrId("dialog.preferences.theme.mode")
+                            options: root.preferencesModel.themeModeOptions
+                            currentValue: root.preferencesModel.themeModeToken
+                            onPicked: value => root.preferencesModel.themeModeToken = value
                         }
 
                         ThemePicker {
-                            objectName: "preferencesDarkThemeCombo"
-                            darkPalette: true
-                            visible: root.preferencesModel.themeModeToken !== "light"
-                            label: qsTrId("dialog.preferences.theme.dark_palette")
+                            id: palettePicker
+                            objectName: "preferencesThemePicker"
+                            darkPalette: Theme.darkTheme
+                            label: ""
                             options: root.preferencesModel.themePaletteOptions
-                            currentValue: root.preferencesModel.darkThemeToken
-                            onPicked: function(value) { root.preferencesModel.darkThemeToken = value }
+                            currentValue: darkPalette ? root.preferencesModel.darkThemeToken
+                                : root.preferencesModel.lightThemeToken
+                            onPicked: value => {
+                                if (palettePicker.darkPalette)
+                                    root.preferencesModel.darkThemeToken = value
+                                else
+                                    root.preferencesModel.lightThemeToken = value
+                            }
                         }
-
                     }
 
                     PreferenceGroup {
                         title: qsTrId("dialog.preferences.group.workspace")
+                        Layout.topMargin: 6
 
                         PreferenceCombo {
                             objectName: "preferencesLanguageCombo"
@@ -608,6 +604,7 @@ AppDialog {
                                 id: fontSearch
                                 objectName: "preferencesFontSearch"
                                 Layout.fillWidth: true
+                                leadingIcon: Qt.resolvedUrl("icons/search.svg")
                                 placeholderText: qsTrId("dialog.preferences.font.search")
                                 Accessible.name: placeholderText
                             }
@@ -623,7 +620,6 @@ AppDialog {
                                     }
                                     currentValue: root.preferencesModel.editorFontFamily
                                     fontFamilyRole: "family"
-                                    defaultFontFamily: Theme.codeFont.family
                                     onPicked: function(value) { root.preferencesModel.editorFontFamily = value }
                                 }
                                 AppButton {
@@ -634,12 +630,7 @@ AppDialog {
                                 }
                             }
 
-                            Rectangle {
-                                Layout.fillWidth: true
-                                implicitHeight: fontPreview.implicitHeight + 24
-                                radius: Theme.controlRadius
-                                color: Theme.colors.background.surface
-                                border.color: Theme.colors.border.normal
+                            FontSamplePane {
                                 FontMetrics {
                                     id: fontPreviewMetrics
                                     font: Theme.codeFont
@@ -647,9 +638,8 @@ AppDialog {
                                 Text {
                                     id: fontPreview
                                     objectName: "preferencesFontPreview"
-                                    x: 12
-                                    y: 12
-                                    width: parent.width - 24
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
                                     text: {
                                         const keyword = Theme.colors.syntax.keyword
                                         const beat = Theme.colors.syntax.beat || keyword
@@ -660,7 +650,7 @@ AppDialog {
                                             .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
                                         return "<font color='" + keyword + "'>(180)</font><font color='" + beat + "'>{4}</font><font color='" + note + "'>1</font>,<font color='" + note + "'>2</font>,<font color='" + note + "'>3</font>,<font color='" + note + "'>4</font>,<br>"
                                             + "<font color='" + note + "'>1-5</font><font color='" + duration + "'>[4:1]</font>,<font color='" + note + "'>2h</font>"
-                                            + "<font color='" + duration + "'>[8:1]</font>,<font color='" + note + "'>B1</font>,<br>"
+                                            + "<font color='" + duration + "'>[8:1]</font>,<font color='" + note + "'>3b</font>,<br>"
                                             + "<font color='" + comment + "'>|| " + sample + "</font>"
                                     }
                                     textFormat: Text.StyledText
@@ -700,6 +690,7 @@ AppDialog {
 
                         PreferenceGroup {
                             title: qsTrId("dialog.preferences.group.input")
+                            Layout.topMargin: 6
 
                             PreferenceCombo {
                                 objectName: "preferencesInputHandlingCombo"

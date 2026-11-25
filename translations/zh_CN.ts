@@ -213,6 +213,10 @@ Classic mode: All functions are on one page, similar to the layout in earlier ve
         <source>Later</source>
         <translation>以后再说</translation>
     </message>
+    <message id="action.filter">
+        <source>Filter</source>
+        <translation>筛选</translation>
+    </message>
     <message id="action.new">
         <source>New</source>
         <translation>新建</translation>
@@ -1614,12 +1618,12 @@ Failed: %2</source>
         <translation>试听</translation>
     </message>
     <message id="dialog.render_settings.music.default_intro_sound">
-        <source>Default intro sound</source>
-        <translation>默认片头音效</translation>
+        <source>Default</source>
+        <translation>默认</translation>
     </message>
     <message id="dialog.render_settings.music.intro_sound">
-        <source>Intro sound</source>
-        <translation>片头音效</translation>
+        <source>Intro music</source>
+        <translation>片头音乐</translation>
     </message>
     <message id="dialog.render_settings.preview.canvas_frame_rate">
         <source>Preview Refresh Rate</source>
@@ -2505,6 +2509,34 @@ File: </source>
         <source>%1 was not found next to the current chart.</source>
         <translation>当前谱面目录缺少 %1。</translation>
     </message>
+    <message id="media_tools.volume_balance">
+        <source>Volume Balance</source>
+        <translation>音量平衡</translation>
+    </message>
+    <message id="media_tools.volume_balance_analyze_failed">
+        <source>Could not measure the audio loudness.</source>
+        <translation>音频响度测量失败。</translation>
+    </message>
+    <message id="media_tools.volume_balance_confirm">
+        <source>Replace %1 with the processed audio?</source>
+        <translation>处理后会替换 %1，是否继续？</translation>
+    </message>
+    <message id="media_tools.volume_balance_missing_track">
+        <source>No chart audio found.</source>
+        <translation>当前谱面缺少音轨。</translation>
+    </message>
+    <message id="media_tools.volume_balance_track_changed">
+        <source>The audio file changed during processing.</source>
+        <translation>处理期间音轨文件发生变化。</translation>
+    </message>
+    <message id="media_tools.volume_balance_unchanged">
+        <source>No adjustment needed.</source>
+        <translation>无需调整。</translation>
+    </message>
+    <message id="media_tools.volume_balance_saved">
+        <source>Processing complete.</source>
+        <translation>处理完成。</translation>
+    </message>
     <message id="media_tools.audio_processing_track">
         <source>Audio Processing track.mp3</source>
         <translation>音频处理</translation>
@@ -3389,6 +3421,10 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Return to Main Window</source>
         <translation>返回主窗口</translation>
     </message>
+    <message id="preview.window.show">
+        <source>Show Preview Window</source>
+        <translation>显示预览窗口</translation>
+    </message>
     <message id="preview.window.title">
         <source>Preview</source>
         <translation>预览</translation>
@@ -3518,8 +3554,8 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <translation>谱面</translation>
     </message>
     <message id="qml.chart_designer_1">
-        <source> · Chart Designer: %1</source>
-        <translation> · 谱师：%1</translation>
+        <source>Chart Designer: %1</source>
+        <translation>谱师：%1</translation>
     </message>
     <message id="qml.choose_a_folder_to_scan">
         <source>Choose a folder to scan</source>
@@ -4293,6 +4329,10 @@ Error: %1</source>
         <source>Muri</source>
         <translation>无理</translation>
     </message>
+    <message id="validation.muri.issue_heading">
+        <source>%1 (%2)</source>
+        <translation>%1（%2）</translation>
+    </message>
     <message id="validation.muri.alert.warning">
         <source>Warning</source>
         <translation>警告</translation>
@@ -4380,6 +4420,14 @@ Error: %1</source>
     <message id="video_export.intro_audition_stop">
         <source>Stop</source>
         <translation>停止</translation>
+    </message>
+    <message id="video_export.intro_music_copy_failed">
+        <source>Could not copy the audio into the intro music folder.</source>
+        <translation>无法将音频复制到片头音乐文件夹。</translation>
+    </message>
+    <message id="video_export.intro_music_import">
+        <source>Import audio…</source>
+        <translation>导入音频…</translation>
     </message>
     <message id="video_export.intro_music_segment">
         <source>Music segment</source>
@@ -4844,8 +4892,8 @@ Error: %1</source>
         <translation>状态：降序</translation>
     </message>
     <message id="guide.page_one">
-        <source>Getting started · Page 1</source>
-        <translation>新手指引 · 第 1 页</translation>
+        <source>Getting started, page 1</source>
+        <translation>新手指引第 1 页</translation>
     </message>
     <message id="guide.exit">
         <source>Exit guide</source>
@@ -4939,9 +4987,9 @@ Error: %1</source>
         <source>Follow code: choose whether the timeline follows the current chart-source position in settings.</source>
         <translation>代码跟随：在设置中切换是否跟随当前谱面代码位置。</translation>
     </message>
-    <message id="guide.editor.metadata_save">
-        <source>Changes to the level, offset and designer above are saved immediately.</source>
-        <translation>修改上方的等级、延迟与谱师信息会立即保存。</translation>
+    <message id="guide.editor.normalize">
+        <source>Select a passage and use Normalize Chart to tidy its layout.</source>
+        <translation>选中一段谱面，点击「谱面整理」让排版更整齐。</translation>
     </message>
     <message id="guide.editor.measure">
         <source>Start a new measure here and switch to 3/4 time.</source>
@@ -5139,8 +5187,8 @@ Error: %1</source>
         <translation>午夜蓝</translation>
     </message>
     <message id="dialog.preferences.theme.forest">
-        <source>Forest</source>
-        <translation>森林绿</translation>
+        <source>Si-callion</source>
+        <translation>小葱</translation>
     </message>
     <message id="dialog.preferences.theme.paper">
         <source>Warm Paper</source>
@@ -5198,6 +5246,110 @@ Error: %1</source>
     <message id="cover.text_shadow_y">
         <source>Shadow Y offset</source>
         <translation>阴影垂直偏移</translation>
+    </message>
+    <message id="library.title">
+        <source>Chart library</source>
+        <translation>谱库</translation>
+    </message>
+    <message id="library.choose_folder">
+        <source>Choose folder</source>
+        <translation>选择目录</translation>
+    </message>
+    <message id="library.no_directory">
+        <source>No library folder selected</source>
+        <translation>尚未选择谱库目录</translation>
+    </message>
+    <message id="library.refresh">
+        <source>Refresh</source>
+        <translation>刷新</translation>
+    </message>
+    <message id="library.current_editing">
+        <source>Currently editing</source>
+        <translation>正在编辑</translation>
+    </message>
+    <message id="library.search">
+        <source>Search</source>
+        <translation>搜索</translation>
+    </message>
+    <message id="library.all_difficulties">
+        <source>All difficulties</source>
+        <translation>全部难度</translation>
+    </message>
+    <message id="library.source_id">
+        <source>Source song ID</source>
+        <translation>源曲目 ID</translation>
+    </message>
+    <message id="library.version">
+        <source>Version</source>
+        <translation>版本</translation>
+    </message>
+    <message id="library.genre">
+        <source>Genre</source>
+        <translation>流派</translation>
+    </message>
+    <message id="library.scanning">
+        <source>Scanning chart library…</source>
+        <translation>正在读取谱库…</translation>
+    </message>
+    <message id="library.missing_folder">
+        <source>Library folder unavailable</source>
+        <translation>找不到谱库目录</translation>
+    </message>
+    <message id="library.open_chart_folder_failed">
+        <source>Could not open the chart folder.</source>
+        <translation>无法打开该曲目的文件夹。</translation>
+    </message>
+    <message id="library.empty">
+        <source>No charts found</source>
+        <translation>没有找到谱面</translation>
+    </message>
+    <message id="library.audition">
+        <source>Listen</source>
+        <translation>试听</translation>
+    </message>
+    <message id="library.pause">
+        <source>Pause</source>
+        <translation>暂停</translation>
+    </message>
+    <message id="library.untitled">
+        <source>Untitled chart</source>
+        <translation>未命名谱面</translation>
+    </message>
+    <message id="library.difficulty.1">
+        <source>Easy</source>
+        <translation>Easy</translation>
+    </message>
+    <message id="library.difficulty.2">
+        <source>Basic</source>
+        <translation>Basic</translation>
+    </message>
+    <message id="library.difficulty.3">
+        <source>Advanced</source>
+        <translation>Advanced</translation>
+    </message>
+    <message id="library.difficulty.4">
+        <source>Expert</source>
+        <translation>Expert</translation>
+    </message>
+    <message id="library.difficulty.5">
+        <source>Master</source>
+        <translation>Master</translation>
+    </message>
+    <message id="library.difficulty.6">
+        <source>Re:Master</source>
+        <translation>Re:Master</translation>
+    </message>
+    <message id="library.difficulty.7">
+        <source>Utage</source>
+        <translation>Utage</translation>
+    </message>
+    <message id="library.result_count">
+        <source>%1 / %2 songs</source>
+        <translation>%1 / %2 首</translation>
+    </message>
+    <message id="library.select_song">
+        <source>Select a song to see its details</source>
+        <translation>选择一首歌曲查看详情</translation>
     </message>
 </context>
 <context>

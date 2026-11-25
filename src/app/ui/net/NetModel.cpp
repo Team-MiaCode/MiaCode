@@ -382,8 +382,11 @@ void NetModel::updateDownload() {
         else if (state == QLatin1String("blocked")) text = qtTrId("net.paused") + downloadHttpStatus(item.value("error").toObject());
         else if (state == QLatin1String("retry_wait")) {
             const auto error = item.value("error").toObject();
-            text = qtTrId("net.retrying_1").arg(resourceName) + QStringLiteral(" · ")
-                + error.value("code").toString() + downloadHttpStatus(error);
+            text = qtTrId("net.retrying_1").arg(resourceName);
+            const auto code = error.value("code").toString();
+            if (!code.isEmpty())
+                text += QStringLiteral(" (%1)").arg(code);
+            text += downloadHttpStatus(error);
             progressText_ = text;
         }
         else if (state == QLatin1String("running")) {
@@ -401,13 +404,13 @@ void NetModel::updateDownload() {
             } else if (!resourceName.isEmpty()) {
                 const auto received = bytes < 1024 * 1024 ? QStringLiteral("%1 KiB").arg(bytes / 1024.0, 0, 'f', 1)
                     : QStringLiteral("%1 MiB").arg(bytes / 1048576.0, 0, 'f', 1);
-                progressText_ = qtTrId("net.downloading") + QStringLiteral(" · ") + received;
+                progressText_ = qtTrId("net.downloading_1").arg(received);
                 if (total > 0) progressText_ += QStringLiteral(" / %1 MiB").arg(total / 1048576.0, 0, 'f', 1);
                 const auto elapsed = downloadItemTimer_.elapsed();
                 if (elapsed > 0) {
                     const double speed = bytes * 1000.0 / elapsed / 1024.0;
-                    progressText_ += speed < 1024.0 ? QStringLiteral(" · %1 KiB/s").arg(speed, 0, 'f', 1)
-                        : QStringLiteral(" · %1 MiB/s").arg(speed / 1024.0, 0, 'f', 2);
+                    progressText_ += speed < 1024.0 ? QStringLiteral(" (%1 KiB/s)").arg(speed, 0, 'f', 1)
+                        : QStringLiteral(" (%1 MiB/s)").arg(speed / 1024.0, 0, 'f', 2);
                 }
             }
             if (phase == QLatin1String("publish")) fraction = 0.9;

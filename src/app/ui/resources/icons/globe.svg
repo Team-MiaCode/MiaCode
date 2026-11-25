@@ -1,14 +1,11 @@
-<!-- Regular contour thickened with a stroke of 2.5% of the viewBox width. -->
-<!-- Fluent System Icons: Globe (regular); MIT license, see licenses/Fluent-MIT.txt.
-     Source: https://raw.githubusercontent.com/microsoft/fluentui-system-icons/a563cf9166f4f91aa617557ed272612b7f0a2f72/assets/Globe/SVG/ic_fluent_globe_20_regular.svg -->
-<!-- Adapted with a lower-right cutout and paired transfer arrows. -->
-<svg width="20" height="20" viewBox="-0.3125 -0.3125 20.625 20.625"
-     fill="none" xmlns="http://www.w3.org/2000/svg"
+<!-- MiaCode: globe with lower-right transfer arrows (regular), geometrically paired with globe-fill.svg. -->
+<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"
      stroke="#212121" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
-  <path d="M18 10A8 8 0 1 0 10 18
-           M10 2C6 2 6 18 10 18
-           M10 2C12.2 2 14 5.6 14 10
-           M2.8 6.5H17.2M2 10H10M2.8 13.5H10"/>
-  <path d="M13 18V12M11.5 13.5L13 12L14.5 13.5
-           M17 12V18M15.5 16.5L17 18L18.5 16.5"/>
+  <path d="M17.5 10 A7.5 7.5 0 1 0 10 17.5
+           M10 2.5 A3.25 7.5 0 0 0 10 17.5
+           M10 2.5 A3.25 7.5 0 0 1 13.25 10
+           M3.13 7 H16.87
+           M3.13 13 H10"/>
+  <path d="M13 17.75 V12.25 M11.5 13.75 L13 12.25 L14.5 13.75
+           M17 12.25 V17.75 M15.5 16.25 L17 17.75 L18.5 16.25"/>
 </svg>

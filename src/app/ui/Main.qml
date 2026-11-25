@@ -222,10 +222,12 @@ ApplicationWindow {
         inputContext: window.inputContext
         commandsEnabled: window.windowCommandsEnabled && window.workbenchCommandsAllowed
         chartCommandsEnabled: mainView.chartEditorActive && window.workbenchCommandsAllowed
+        chartNormalizationEnabled: mainView.chartNormalizationAvailable
         playbackCommandsEnabled: window.playbackCommandsEnabled
         menuOwnsChartTransformShortcuts: window.platform.nativeMenuBar
         menuOwnsPreviewRateShortcuts: window.platform.nativeMenuBar
         onChartTransformRequested: opId => mainView.applyChartTransform(opId)
+        onChartNormalizationRequested: mainView.normalizeChartWithPreferences()
     }
 
     UiScaleShortcuts {

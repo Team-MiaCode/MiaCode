@@ -25,6 +25,7 @@
 #include "app/ui/preferences/LocaleService.h"
 #include "app/ui/drop/ChartDropBridge.h"
 #include "app/ui/document/DocumentModel.h"
+#include "app/ui/layout/ChartLibraryModel.h"
 #include "app/ui/layout/PageHost.h"
 #include "app/ui/dialogs/NativeFolderPicker.h"
 #include "common/DebugLog.h"
@@ -187,6 +188,7 @@ bool Bootstrap::start(const QString& startupOpenTarget)
     engine_->addImportPath(QCoreApplication::applicationDirPath() + QStringLiteral("/qml"));
     registerNoteImageProvider(
         engine_.get(), static_cast<PreviewModel*>(applicationContext_->preview()));
+    ChartLibraryModel::registerCoverProvider(*engine_);
 
     windowChrome_ = std::make_unique<WindowChrome>(this);
     if (auto* settings = qobject_cast<WorkbenchSettings*>(applicationContext_->preferences())) {
