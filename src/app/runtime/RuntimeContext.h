@@ -44,6 +44,10 @@ class WaveformCacheService;
 struct WaveformData;
 }
 
+namespace miacode::spectrogram {
+class SpectrogramCacheService;
+}
+
 namespace miacode {
 class JobProgressService;
 class UiRequestService;
@@ -131,6 +135,7 @@ public:
         quint64 timelineSlowRequestedRevision_ = 0;
         quint64 timelineAnalysisRequestedRevision_ = 0;
         quint64 waveformRefreshGeneration_ = 0;
+        quint64 spectrogramRefreshGeneration_ = 0;
         PreviewCanvasFrameRateMode timelineFrameRateMode_ = PreviewCanvasFrameRateMode::DisplayRefresh;
         bool timelineSyncEnabled_ = false;
     };

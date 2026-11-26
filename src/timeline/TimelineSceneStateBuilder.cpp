@@ -8,6 +8,7 @@
 #include <tuple>
 
 #include "core/video/PreviewSkinConfig.h"
+#include "timeline/TimelineSpectrogramImage.h"
 #include "timeline/TimelineThemeConfig.h"
 #include "timeline/TimelineNoteAssets.h"
 
@@ -470,6 +471,7 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
         request.headerMarkerRightLimit > 0 ? request.headerMarkerRightLimit : request.viewportSize.width();
     state.visibleStartSecond = xToSecond(state, state.timelineLeft);
     state.visibleEndSecond = xToSecond(state, request.viewportSize.width());
+    state.audioVisualizationMode = normalizedAudioVisualizationMode(request.audioVisualizationMode);
     state.appearanceRevision = request.appearanceRevision;
     state.layoutRevision = request.layoutRevision;
     state.gridRevision = request.gridRevision;
@@ -582,7 +584,9 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
         state.laneLabels.append(label);
     }
 
-    if (request.waveformData && request.waveformData->durationSeconds > 0.0) {
+    const bool showSpectrogram = state.audioVisualizationMode
+        == static_cast<int>(AudioVisualizationMode::Spectrogram);
+    if (!showSpectrogram && request.waveformData && request.waveformData->durationSeconds > 0.0) {
         const miacode::waveform::WaveformLevel* waveformLevel =
             miacode::waveform::selectWaveformLevelForVisibleRange(
                 *request.waveformData,
@@ -641,6 +645,39 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
                     adjustedTimelineWaveformColor(theme.waveform, request.waveformBrightness),
                 });
             }
+        }
+    }
+
+    if (showSpectrogram && request.spectrogramData && request.spectrogramData->durationSeconds > 0.0) {
+        const miacode::spectrogram::SpectrogramLevel* spectrogramLevel =
+            miacode::spectrogram::selectSpectrogramLevelForVisibleRange(
+                *request.spectrogramData,
+                qMax(0.001, state.visibleEndSecond - state.visibleStartSecond),
+                qMax(1, request.viewportSize.width() - state.timelineLeft));
+        if (spectrogramLevel != nullptr && spectrogramLevel->columnCount() > 0) {
+            double cullStartSecond = state.displayStartSeconds;
+            double cullEndSecond = state.displayEndSeconds;
+            if (request.horizontalCullPaddingPx > 0 && state.pixelsPerSecond > 1e-6) {
+                const double paddingSec =
+                    static_cast<double>(request.horizontalCullPaddingPx) / state.pixelsPerSecond;
+                cullStartSecond = qMax(0.0, state.visibleStartSecond - paddingSec);
+                cullEndSecond = state.visibleEndSecond + paddingSec;
+            }
+            state.spectrogram = buildTimelineSpectrogramStrip(
+                *spectrogramLevel,
+                // 2.1.0 draws waveform columns on the audio time origin. The
+                // centered FFT lights up a little early, so draw the strip
+                // later by one eighth of the window.
+                -miacode::spectrogram::spectrogramDisplayDelaySeconds(
+                    request.spectrogramData->sampleRate),
+                cullStartSecond,
+                cullEndSecond,
+                state.timelineTop,
+                state.timelineHeight,
+                theme.waveform,
+                request.spectrogramOpacity,
+                [&state](double second) { return secondToXExact(state, second); },
+                request.spectrogramDevicePixelRatio);
         }
     }
 

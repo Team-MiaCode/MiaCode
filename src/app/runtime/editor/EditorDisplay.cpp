@@ -164,6 +164,41 @@ void miacode::runtime::EditorHost::loadPortableState()
                     miacode::timeline::kTimelineWaveformBrightnessDefault)
             );
         }
+        if (preview.value("timeline_audio_visualization").isString()) {
+            state_.timeline_.timelineQuickStateBridge_->setAudioVisualizationMode(
+                miacode::timeline::audioVisualizationModeFromToken(
+                    preview.value("timeline_audio_visualization").toString()));
+        }
+        miacode::spectrogram::SpectrogramParameters spectrogramParameters =
+            state_.timeline_.timelineQuickStateBridge_->spectrogramParameters();
+        if (preview.value("timeline_spectrogram_min_hz").isDouble()) {
+            spectrogramParameters.minHz = preview.value("timeline_spectrogram_min_hz").toDouble(spectrogramParameters.minHz);
+        }
+        if (preview.value("timeline_spectrogram_max_hz").isDouble()) {
+            spectrogramParameters.maxHz = preview.value("timeline_spectrogram_max_hz").toDouble(spectrogramParameters.maxHz);
+        }
+        if (preview.value("timeline_spectrogram_floor_db").isDouble()) {
+            spectrogramParameters.floorDb = static_cast<float>(
+                preview.value("timeline_spectrogram_floor_db").toDouble(spectrogramParameters.floorDb));
+        }
+        if (preview.value("timeline_spectrogram_ceiling_db").isDouble()) {
+            spectrogramParameters.ceilingDb = static_cast<float>(
+                preview.value("timeline_spectrogram_ceiling_db").toDouble(spectrogramParameters.ceilingDb));
+        }
+        if (preview.value("timeline_spectrogram_column_gate_db").isDouble()) {
+            spectrogramParameters.columnGateDb = static_cast<float>(
+                preview.value("timeline_spectrogram_column_gate_db").toDouble(spectrogramParameters.columnGateDb));
+        }
+        if (preview.value("timeline_spectrogram_prominence_floor_db").isDouble()) {
+            spectrogramParameters.prominenceFloorDb = static_cast<float>(
+                preview.value("timeline_spectrogram_prominence_floor_db").toDouble(
+                    spectrogramParameters.prominenceFloorDb));
+        }
+        state_.timeline_.timelineQuickStateBridge_->setSpectrogramParameters(spectrogramParameters);
+        if (preview.value("timeline_spectrogram_opacity").isDouble()) {
+            state_.timeline_.timelineQuickStateBridge_->setSpectrogramOpacity(
+                preview.value("timeline_spectrogram_opacity").toDouble(0.7));
+        }
         if (preview.value("timeline_measure_line_brightness").isDouble()) {
             state_.timeline_.timelineQuickStateBridge_->setMeasureLineBrightness(
                 preview.value("timeline_measure_line_brightness").toDouble(
@@ -644,6 +679,27 @@ void miacode::runtime::EditorHost::savePortableState() const
             ? state_.timeline_.timelineQuickStateBridge_->waveformBrightness()
             : miacode::timeline::kTimelineWaveformBrightnessDefault
     );
+    preview.insert(
+        "timeline_audio_visualization",
+        state_.timeline_.timelineQuickStateBridge_ != nullptr
+            ? miacode::timeline::audioVisualizationModeToken(
+                state_.timeline_.timelineQuickStateBridge_->audioVisualizationMode())
+            : QStringLiteral("waveform"));
+    const miacode::spectrogram::SpectrogramParameters spectrogramParameters =
+        state_.timeline_.timelineQuickStateBridge_ != nullptr
+            ? state_.timeline_.timelineQuickStateBridge_->spectrogramParameters()
+            : miacode::spectrogram::SpectrogramParameters{};
+    preview.insert("timeline_spectrogram_min_hz", spectrogramParameters.minHz);
+    preview.insert("timeline_spectrogram_max_hz", spectrogramParameters.maxHz);
+    preview.insert("timeline_spectrogram_floor_db", spectrogramParameters.floorDb);
+    preview.insert("timeline_spectrogram_ceiling_db", spectrogramParameters.ceilingDb);
+    preview.insert("timeline_spectrogram_column_gate_db", spectrogramParameters.columnGateDb);
+    preview.insert("timeline_spectrogram_prominence_floor_db", spectrogramParameters.prominenceFloorDb);
+    preview.insert(
+        "timeline_spectrogram_opacity",
+        state_.timeline_.timelineQuickStateBridge_ != nullptr
+            ? state_.timeline_.timelineQuickStateBridge_->spectrogramOpacity()
+            : 1.0);
     preview.insert(
         "timeline_measure_line_brightness",
         state_.timeline_.timelineQuickStateBridge_ != nullptr

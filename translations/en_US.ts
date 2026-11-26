@@ -4097,6 +4097,72 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Waveform Brightness</source>
         <translation>Waveform Brightness</translation>
     </message>
+    <message id="shell.timeline_audio_visualization">
+        <source>Audio Visualization</source>
+        <translation>Audio Visualization</translation>
+    </message>
+    <message id="shell.timeline_audio_visualization_waveform">
+        <source>Waveform</source>
+        <translation>Waveform</translation>
+    </message>
+    <message id="shell.timeline_audio_visualization_spectrogram">
+        <source>Spectrogram</source>
+        <translation>Spectrogram</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_min_hz">
+        <source>Lowest Frequency</source>
+        <translation>Lowest Frequency</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_max_hz">
+        <source>Highest Frequency</source>
+        <translation>Highest Frequency</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_frequency_range">
+        <source>Frequency Range</source>
+        <translation>Frequency Range</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_floor_db">
+        <source>Loudness Floor</source>
+        <translation>Loudness Floor</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_loudness_range">
+        <source>Loudness Range</source>
+        <translation>Loudness Range</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_reading_help">
+        <source>Bright vertical lines are usually drums.
+A short bright mark along the bottom is the kick.
+A line running up from the bottom is the snare.
+Horizontal lines are pitch.
+Voice, piano, guitar and strings show up there; higher notes sit higher.
+Brighter means louder.</source>
+        <translation>Bright vertical lines are usually drums.
+A short bright mark along the bottom is the kick.
+A line running up from the bottom is the snare.
+Horizontal lines are pitch.
+Voice, piano, guitar and strings show up there; higher notes sit higher.
+Brighter means louder.</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_updating">
+        <source>Recalculating spectrogram</source>
+        <translation>Recalculating spectrogram</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_updated">
+        <source>Spectrogram updated</source>
+        <translation>Spectrogram updated</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_opacity">
+        <source>Spectrogram Opacity</source>
+        <translation>Spectrogram Opacity</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_column_gate_db">
+        <source>Drum Floor</source>
+        <translation>Drum Floor</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_prominence_floor_db">
+        <source>Melody Floor</source>
+        <translation>Melody Floor</translation>
+    </message>
     <message id="shortcut.ui.zoom_out">
         <source>Zoom Out Interface</source>
         <translation>Zoom Out Interface</translation>

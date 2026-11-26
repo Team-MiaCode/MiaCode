@@ -251,6 +251,8 @@ miacode_add_module(miacode_audio
         src/audio/PreviewAudioWorkerProtocol.h
         src/audio/QtPreviewSfxRuntime.cpp
         src/audio/QtPreviewSfxRuntime.h
+        src/audio/SpectrogramCache.cpp
+        src/audio/SpectrogramCache.h
         src/audio/WaveformCache.cpp
         src/audio/WaveformCache.h
     PUBLIC miacode_scene Qt6::Multimedia
@@ -331,6 +333,8 @@ miacode_add_module(miacode_timeline
         src/timeline/TimelineRenderData.h
         src/timeline/TimelineSceneState.cpp
         src/timeline/TimelineSceneState.h
+        src/timeline/TimelineSpectrogramImage.cpp
+        src/timeline/TimelineSpectrogramImage.h
         src/timeline/TimelineSceneStateBuilder.cpp
         src/timeline/TimelineSceneStateBuilder.h
         src/timeline/TimelineThemeConfig.h
@@ -357,6 +361,8 @@ miacode_add_module(miacode_timeline_quick
         src/timeline/quick/TimelineQuickNotesLayer.h
         src/timeline/quick/TimelineQuickOverlayLayer.cpp
         src/timeline/quick/TimelineQuickOverlayLayer.h
+        src/timeline/quick/TimelineQuickSpectrogramLayer.cpp
+        src/timeline/quick/TimelineQuickSpectrogramLayer.h
         src/timeline/quick/TimelineQuickStateBridge.cpp
         src/timeline/quick/TimelineQuickStateBridge.h
         src/timeline/quick/TimelineQuickTextureCache.cpp

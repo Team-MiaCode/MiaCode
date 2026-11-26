@@ -4097,6 +4097,72 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Waveform Brightness</source>
         <translation>波形の明るさ</translation>
     </message>
+    <message id="shell.timeline_audio_visualization">
+        <source>Audio Visualization</source>
+        <translation>音声の表示</translation>
+    </message>
+    <message id="shell.timeline_audio_visualization_waveform">
+        <source>Waveform</source>
+        <translation>波形</translation>
+    </message>
+    <message id="shell.timeline_audio_visualization_spectrogram">
+        <source>Spectrogram</source>
+        <translation>スペクトログラム</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_min_hz">
+        <source>Lowest Frequency</source>
+        <translation>最低周波数</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_max_hz">
+        <source>Highest Frequency</source>
+        <translation>最高周波数</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_frequency_range">
+        <source>Frequency Range</source>
+        <translation>周波数範囲</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_floor_db">
+        <source>Loudness Floor</source>
+        <translation>ラウドネスの下限</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_loudness_range">
+        <source>Loudness Range</source>
+        <translation>ラウドネス範囲</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_reading_help">
+        <source>Bright vertical lines are usually drums.
+A short bright mark along the bottom is the kick.
+A line running up from the bottom is the snare.
+Horizontal lines are pitch.
+Voice, piano, guitar and strings show up there; higher notes sit higher.
+Brighter means louder.</source>
+        <translation>縦の明るい線は、たいていドラムです。
+一番下にくっついた短い線はキック。
+下から上まで一本つながるのはスネア。
+横に伸びる線は音の高さです。
+声、ピアノ、ギター、弦はこの線で、高い音ほど上に出ます。
+明るいほど大きい音です。</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_updating">
+        <source>Recalculating spectrogram</source>
+        <translation>スペクトログラムを再計算中</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_updated">
+        <source>Spectrogram updated</source>
+        <translation>スペクトログラムを更新しました</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_opacity">
+        <source>Spectrogram Opacity</source>
+        <translation>スペクトログラムの不透明度</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_column_gate_db">
+        <source>Drum Floor</source>
+        <translation>ドラムの底ノイズ</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_prominence_floor_db">
+        <source>Melody Floor</source>
+        <translation>メロディの底ノイズ</translation>
+    </message>
     <message id="shortcut.ui.zoom_out">
         <source>Zoom Out Interface</source>
         <translation>UI を縮小</translation>

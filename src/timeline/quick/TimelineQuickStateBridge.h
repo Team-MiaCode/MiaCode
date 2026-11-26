@@ -15,6 +15,7 @@
 
 #include "timeline/TimelineThemeConfig.h"
 #include "core/analysis/MuriTypes.h"
+#include "audio/SpectrogramCache.h"
 #include "audio/WaveformCache.h"
 #include "timeline/TimelineRenderData.h"
 #include "timeline/TimelineSceneState.h"
@@ -37,6 +38,24 @@ class TimelineQuickStateBridge : public QObject
                WRITE setWaveformBrightness NOTIFY waveformBrightnessChanged)
     Q_PROPERTY(double measureLineBrightness READ measureLineBrightness
                WRITE setMeasureLineBrightness NOTIFY measureLineBrightnessChanged)
+    Q_PROPERTY(int audioVisualizationMode READ audioVisualizationMode
+               WRITE setAudioVisualizationMode NOTIFY audioVisualizationModeChanged)
+    Q_PROPERTY(double spectrogramMinHz READ spectrogramMinHz
+               WRITE setSpectrogramMinHz NOTIFY spectrogramMinHzChanged)
+    Q_PROPERTY(double spectrogramMaxHz READ spectrogramMaxHz
+               WRITE setSpectrogramMaxHz NOTIFY spectrogramMaxHzChanged)
+    Q_PROPERTY(double spectrogramFloorDb READ spectrogramFloorDb
+               WRITE setSpectrogramFloorDb NOTIFY spectrogramFloorDbChanged)
+    Q_PROPERTY(double spectrogramCeilingDb READ spectrogramCeilingDb
+               WRITE setSpectrogramCeilingDb NOTIFY spectrogramCeilingDbChanged)
+    Q_PROPERTY(double spectrogramColumnGateDb READ spectrogramColumnGateDb
+               WRITE setSpectrogramColumnGateDb NOTIFY spectrogramColumnGateDbChanged)
+    Q_PROPERTY(double spectrogramProminenceFloorDb READ spectrogramProminenceFloorDb
+               WRITE setSpectrogramProminenceFloorDb NOTIFY spectrogramProminenceFloorDbChanged)
+    Q_PROPERTY(double spectrogramOpacity READ spectrogramOpacity
+               WRITE setSpectrogramOpacity NOTIFY spectrogramOpacityChanged)
+    Q_PROPERTY(bool spectrogramUpdating READ spectrogramUpdating
+               NOTIFY spectrogramUpdatingChanged)
     Q_PROPERTY(double zoomScale READ zoomScale NOTIFY zoomScaleChanged)
     Q_PROPERTY(QVariantList zoomPresetValues READ zoomPresetValues CONSTANT)
 
@@ -53,6 +72,8 @@ public:
     const TimelineRenderSnapshot& renderSnapshot() const;
     void setWaveformData(const std::shared_ptr<const miacode::waveform::WaveformData>& waveformData);
     std::shared_ptr<const miacode::waveform::WaveformData> waveformData() const;
+    void setSpectrogramData(const std::shared_ptr<const miacode::spectrogram::SpectrogramData>& spectrogramData);
+    std::shared_ptr<const miacode::spectrogram::SpectrogramData> spectrogramData() const;
     void setMuriAnalysisReport(const MuriAnalysisReport& report);
     QHash<quint64, QVector<miacode::timeline::TimelineMuriMarkerPlacement>> muriMarkersByLocation() const;
     QHash<quint64, QString> muriMarkerTooltips() const;
@@ -84,6 +105,28 @@ public:
     void setWaveformBrightness(double brightness);
     double measureLineBrightness() const;
     void setMeasureLineBrightness(double brightness);
+    int audioVisualizationMode() const;
+    void setAudioVisualizationMode(int mode);
+    double spectrogramMinHz() const;
+    void setSpectrogramMinHz(double hz);
+    double spectrogramMaxHz() const;
+    void setSpectrogramMaxHz(double hz);
+    double spectrogramFloorDb() const;
+    void setSpectrogramFloorDb(double db);
+    double spectrogramCeilingDb() const;
+    void setSpectrogramCeilingDb(double db);
+    double spectrogramColumnGateDb() const;
+    void setSpectrogramColumnGateDb(double db);
+    double spectrogramProminenceFloorDb() const;
+    void setSpectrogramProminenceFloorDb(double db);
+    Q_INVOKABLE void setSpectrogramFrequencyWindow(double minHz, double maxHz);
+    Q_INVOKABLE void setSpectrogramLoudnessWindow(double floorDb, double ceilingDb);
+    miacode::spectrogram::SpectrogramParameters spectrogramParameters() const;
+    void setSpectrogramParameters(const miacode::spectrogram::SpectrogramParameters& parameters);
+    double spectrogramOpacity() const;
+    void setSpectrogramOpacity(double opacity);
+    bool spectrogramUpdating() const;
+    void setSpectrogramUpdating(bool updating);
     void cycleZoomPreset(double anchorSecond);
     void stepZoomPreset(int deltaSteps, double anchorSecond);
     void setPlaybackEntrySeconds(double second);
@@ -151,6 +194,16 @@ signals:
     void timelineSyncEnabledChanged(bool enabled);
     void waveformBrightnessChanged(double brightness);
     void measureLineBrightnessChanged(double brightness);
+    void audioVisualizationModeChanged(int mode);
+    void spectrogramMinHzChanged(double hz);
+    void spectrogramMaxHzChanged(double hz);
+    void spectrogramFloorDbChanged(double db);
+    void spectrogramCeilingDbChanged(double db);
+    void spectrogramColumnGateDbChanged(double db);
+    void spectrogramProminenceFloorDbChanged(double db);
+    void spectrogramParametersChanged();
+    void spectrogramOpacityChanged(double opacity);
+    void spectrogramUpdatingChanged(bool updating);
 
 private:
     QSize effectiveViewportSize() const;
@@ -165,6 +218,7 @@ private:
 
     TimelineRenderSnapshot snapshot_;
     std::shared_ptr<const miacode::waveform::WaveformData> waveformData_;
+    std::shared_ptr<const miacode::spectrogram::SpectrogramData> spectrogramData_;
     QHash<quint64, QVector<miacode::timeline::TimelineMuriMarkerPlacement>> muriMarkersByLocation_;
     QHash<quint64, QString> muriMarkerTooltips_;
     QFont headerLineNumberFont_;
@@ -180,6 +234,11 @@ private:
     double waveformBrightness_ = miacode::timeline::kTimelineWaveformBrightnessDefault;
     double measureLineBrightness_ = miacode::timeline::kTimelineMeasureLineBrightnessDefault;
     double presentationLeadSeconds_ = 0.0;
+    int audioVisualizationMode_ = static_cast<int>(miacode::timeline::AudioVisualizationMode::Waveform);
+    miacode::spectrogram::SpectrogramParameters spectrogramParameters_;
+    double spectrogramOpacity_ = 0.7;
+    bool spectrogramUpdating_ = false;
+    void applySpectrogramParameters(const miacode::spectrogram::SpectrogramParameters& parameters);
     double playbackEntrySeconds_ = 0.0;
     double playheadUpperLimitSeconds_ = -1.0;
     double playheadSeconds_ = 0.0;

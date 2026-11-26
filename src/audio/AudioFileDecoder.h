@@ -23,6 +23,8 @@ public:
 
     // Short backend label written to diagnostics ("bass").
     virtual QString decoderName() const = 0;
+    // `targetSampleRate <= 0` keeps the file's own rate. A positive rate
+    // resamples linearly to that rate.
     virtual DecodedMonoAudio decodeFileToMono(const QString& path, int targetSampleRate) const = 0;
 
 protected:

@@ -2,6 +2,7 @@
 
 #include <QColor>
 #include <QFont>
+#include <QImage>
 #include <QPointF>
 #include <QRectF>
 #include <QSize>
@@ -95,6 +96,38 @@ struct TimelineSceneSprite {
     bool mirrorX = false;
 };
 
+enum class AudioVisualizationMode : int {
+    Waveform = 0,
+    Spectrogram = 1,
+};
+
+inline int normalizedAudioVisualizationMode(int mode)
+{
+    return mode == static_cast<int>(AudioVisualizationMode::Spectrogram)
+        ? mode
+        : static_cast<int>(AudioVisualizationMode::Waveform);
+}
+
+inline QString audioVisualizationModeToken(int mode)
+{
+    return normalizedAudioVisualizationMode(mode) == static_cast<int>(AudioVisualizationMode::Spectrogram)
+        ? QStringLiteral("spectrogram")
+        : QStringLiteral("waveform");
+}
+
+inline int audioVisualizationModeFromToken(const QString& token)
+{
+    return token == QLatin1String("spectrogram")
+        ? static_cast<int>(AudioVisualizationMode::Spectrogram)
+        : static_cast<int>(AudioVisualizationMode::Waveform);
+}
+
+struct TimelineSpectrogramStrip {
+    bool valid = false;
+    QRectF rect;
+    QImage image;
+};
+
 struct TimelineSceneHoldSpan {
     int startX = 0;
     int endX = 0;
@@ -129,6 +162,8 @@ struct TimelineSceneState {
     double pixelsPerSecond = 0.0;
     double contentScale = 1.0;
     double maxNavigableSecond = 0.0;
+    int audioVisualizationMode = static_cast<int>(AudioVisualizationMode::Waveform);
+    TimelineSpectrogramStrip spectrogram;
     quint64 appearanceRevision = 0;
     quint64 layoutRevision = 0;
     quint64 gridRevision = 0;

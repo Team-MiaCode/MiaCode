@@ -786,6 +786,7 @@ int main(int argc, char** argv)
         expect(zoomMenu.contains(QStringLiteral("applyZoomPreset"))
                    && settingsMenu.contains(QStringLiteral("waveformBrightness"))
                    && settingsMenu.contains(QStringLiteral("measureLineBrightness"))
+                   && settingsMenu.contains(QStringLiteral("audioVisualizationMode"))
                    && controls.contains(QStringLiteral("followPreviewToggled")),
                QStringLiteral("v2 timeline zoom and brightness menus are QML and follow-code stays on the session"));
         expect(!timelineSession.contains(QStringLiteral("openTimelineZoomMenu"))

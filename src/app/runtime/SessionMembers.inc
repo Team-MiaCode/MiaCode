@@ -78,6 +78,7 @@
         // MainWindow.FrameBootstrap.cpp for why the watcher is BASS-only.
         PreviewAudioDeviceWatcher* previewAudioDeviceWatcher_ = nullptr;
         miacode::waveform::WaveformCacheService* waveformCacheService_ = nullptr;
+        miacode::spectrogram::SpectrogramCacheService* spectrogramCacheService_ = nullptr;
         QThreadPool* previewWarmupPool_ = nullptr;
         QProcess* videoExportWorkerProcess_ = nullptr;
         QByteArray videoExportWorkerStdoutBuffer_;

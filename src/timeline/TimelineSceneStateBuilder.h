@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "timeline/TimelineThemeConfig.h"
+#include "audio/SpectrogramCache.h"
 #include "audio/WaveformCache.h"
 #include "timeline/TimelineRenderData.h"
 #include "timeline/TimelineSceneState.h"
@@ -17,6 +18,7 @@ namespace miacode::timeline {
 struct TimelineSceneBuildRequest {
     TimelineRenderSnapshot snapshot;
     std::shared_ptr<const miacode::waveform::WaveformData> waveformData;
+    std::shared_ptr<const miacode::spectrogram::SpectrogramData> spectrogramData;
     QHash<quint64, QVector<TimelineMuriMarkerPlacement>> muriMarkersByLocation;
     QHash<quint64, QString> muriMarkerTooltips;
     QSize viewportSize;
@@ -48,6 +50,9 @@ struct TimelineSceneBuildRequest {
     double contentScale = 1.0;
     bool fitViewportHeight = false;
     double waveformBrightness = kTimelineWaveformBrightnessDefault;
+    double spectrogramOpacity = 0.7;
+    double spectrogramDevicePixelRatio = 1.0;
+    int audioVisualizationMode = static_cast<int>(AudioVisualizationMode::Waveform);
     double measureLineBrightness = kTimelineMeasureLineBrightnessDefault;
     double playbackEntrySeconds = 0.0;
     double playheadSeconds = 0.0;
