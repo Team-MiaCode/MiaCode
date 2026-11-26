@@ -39,9 +39,13 @@ class ScintillaEditorBridge : public ScintillaQuick_item
     Q_PROPERTY(QString text READ editorText NOTIFY textChanged)
     Q_PROPERTY(QString selectedText READ selectedText NOTIFY selectionChanged)
     Q_PROPERTY(QRectF cursorRectangle READ cursorRectangle NOTIFY cursorRectangleChanged)
+    Q_PROPERTY(int caretResetRevision READ caretResetRevision NOTIFY caretResetRevisionChanged)
     Q_PROPERTY(QRectF currentLineRectangle READ currentLineRectangle NOTIFY currentLineRectangleChanged)
     Q_PROPERTY(QRectF followCursorRectangle READ followCursorRectangle NOTIFY followVisualChanged)
     Q_PROPERTY(bool followCaretVisible READ followCaretVisible NOTIFY followVisualChanged)
+    Q_PROPERTY(qreal textAreaLeft READ textAreaLeft NOTIFY layoutChanged)
+    Q_PROPERTY(bool overwriteMode READ overwriteMode NOTIFY appearanceChanged)
+    Q_PROPERTY(qreal overwriteCaretWidth READ overwriteCaretWidth NOTIFY layoutChanged)
     Q_PROPERTY(int cursorLine READ cursorLine NOTIFY selectionChanged)
     Q_PROPERTY(int cursorColumn READ cursorColumn NOTIFY selectionChanged)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY availabilityChanged)
@@ -84,9 +88,13 @@ public:
     QString selectedText() const;
     QString editorText() const { return document_.text(); }
     QRectF cursorRectangle() const;
+    int caretResetRevision() const { return caretResetRevision_; }
     QRectF currentLineRectangle() const { return currentLineRectangle_; }
     QRectF followCursorRectangle() const;
     bool followCaretVisible() const;
+    qreal textAreaLeft() const { return textAreaLeft_; }
+    bool overwriteMode() const { return overwriteMode_; }
+    qreal overwriteCaretWidth() const { return overwriteCaretWidth_; }
     int cursorLine() const;
     int cursorColumn() const;
     bool canUndo() const { return send(SCI_CANUNDO); }
@@ -133,8 +141,11 @@ signals:
     void scenePositionChanged();
     void selectionChanged();
     void cursorRectangleChanged();
+    void caretMoved(qreal scrollDeltaX, qreal scrollDeltaY, bool animate);
+    void caretResetRevisionChanged();
     void currentLineRectangleChanged();
     void followVisualChanged();
+    void followCaretMoved(qreal scrollDeltaX, qreal scrollDeltaY, bool animate);
     void availabilityChanged();
     void bookmarksChanged();
     void overviewChanged();
@@ -148,6 +159,7 @@ protected:
     void geometryChange(const QRectF& newGeometry, const QRectF& oldGeometry) override;
     void keyPressEvent(QKeyEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
     void inputMethodEvent(QInputMethodEvent* event) override;
@@ -181,6 +193,7 @@ private:
     void touchAuthoring(const QString& pad, QChar separator, int difficulty, qulonglong revision, int anchor, int position);
     void beginUserInteraction();
     void publishTouchUndoAnchor();
+    void resetCaretTracking();
     ScintillaDocumentAdapter document_;
     ScintillaDslStyler styler_;
     QPointer<DocumentModel> documentSession_;
@@ -202,6 +215,16 @@ private:
     QFont effectiveFont_;
     int lineHeight_ = 0;
     QSizeF layoutSize_;
+    qreal textAreaLeft_ = 0;
+    qreal overwriteCaretWidth_ = 8;
+    bool overwriteMode_ = false;
+    bool snapCaretPending_ = true;
+    bool mouseDragging_ = false;
+    int caretResetRevision_ = 0;
+    int lastFirstVisibleLine_ = -1;
+    int lastXOffset_ = -1;
+    int lastCaretBytePos_ = -1;
+    int lastFollowCaretPos_ = -1;
     QRectF cursorRectangle_;
     QRectF currentLineRectangle_;
     QRectF anchorRectangle_;

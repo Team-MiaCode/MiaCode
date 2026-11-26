@@ -450,24 +450,167 @@ Rectangle {
                     warning: Theme.colors.syntax.warning, follow: Theme.colors.state.followHighlight,
                     currentLine: Theme.overlayColor(Theme.colors.state.focusLine),
                     selection: Theme.overlayColor(Theme.colors.state.selectionHighlight) })
-        Rectangle {
-            x: sourceArea.followCursorRectangle.x
-            y: sourceArea.followCursorRectangle.y
-            width: 2
-            height: sourceArea.followCursorRectangle.height
-            color: Theme.colors.accent.primary
-            visible: sourceArea.followCaretVisible
+        component AnimatedCaret: Rectangle {
+            id: caret
+
+            required property Item viewport
+            property bool caretInitialized: false
+            readonly property bool animating: xAnim.running || yAnim.running
+
+            function syncTo(targetX, targetY, targetHeight, scrollDeltaX, scrollDeltaY, allowAnimate) {
+                if (targetHeight <= 0)
+                    return
+                if (!allowAnimate || !caretInitialized) {
+                    xAnim.stop()
+                    yAnim.stop()
+                    x = targetX
+                    y = targetY
+                    caretInitialized = true
+                    return
+                }
+                const shiftedX = x - scrollDeltaX
+                const shiftedY = y - scrollDeltaY
+                const startX = Math.max(-24, Math.min(viewport.width + 24, shiftedX))
+                const startY = Math.max(-24, Math.min(viewport.height + 24, shiftedY))
+                if (Math.abs(startX - targetX) > 0.5) {
+                    xAnim.from = startX
+                    xAnim.to = targetX
+                    xAnim.restart()
+                } else {
+                    xAnim.stop()
+                    x = targetX
+                }
+                if (Math.abs(startY - targetY) > 0.5) {
+                    yAnim.from = startY
+                    yAnim.to = targetY
+                    yAnim.restart()
+                } else {
+                    yAnim.stop()
+                    y = targetY
+                }
+            }
+
+            function resetMotion() {
+                xAnim.stop()
+                yAnim.stop()
+                caretInitialized = false
+            }
+
+            NumberAnimation {
+                id: xAnim
+                target: caret
+                property: "x"
+                duration: 110
+                easing.type: Easing.OutCubic
+            }
+
+            NumberAnimation {
+                id: yAnim
+                target: caret
+                property: "y"
+                duration: 110
+                easing.type: Easing.OutCubic
+            }
         }
-        // Popup keyboard focus belongs to the menu; the editing location stays
-        // visible until the popup closes and returns focus to Scintilla.
-        Rectangle {
-            x: sourceArea.cursorRectangle.x
-            y: sourceArea.cursorRectangle.y
-            width: 2
-            height: sourceArea.cursorRectangle.height
-            color: Theme.colors.text.editor
-            visible: editorContextMenu.visible && !sourceArea.readonly
-                     && !root.syncController.followPlaybackActive
+
+        Item {
+            id: caretClipOverlay
+            x: sourceArea.textAreaLeft
+            y: 0
+            width: Math.max(0, sourceArea.width - x)
+            height: sourceArea.height
+            clip: true
+            z: 2
+            onXChanged: {
+                editCaret.sync(0, 0, false)
+                followCaret.sync(0, 0, false)
+            }
+
+            AnimatedCaret {
+                id: followCaret
+                viewport: caretClipOverlay
+                width: 2
+                height: sourceArea.followCursorRectangle.height
+                radius: 1
+                color: Theme.colors.accent.primary
+                visible: sourceArea.followCaretVisible
+
+                function sync(scrollDeltaX, scrollDeltaY, allowAnimate) {
+                    syncTo(sourceArea.followCursorRectangle.x - caretClipOverlay.x,
+                           sourceArea.followCursorRectangle.y,
+                           sourceArea.followCursorRectangle.height,
+                           scrollDeltaX,
+                           scrollDeltaY,
+                           allowAnimate)
+                }
+
+                onVisibleChanged: {
+                    if (visible && !caretInitialized)
+                        sync(0, 0, false)
+                }
+            }
+
+            AnimatedCaret {
+                id: editCaret
+                viewport: caretClipOverlay
+
+                readonly property bool caretShown: !sourceArea.readonly
+                    && !(root.syncController && root.syncController.followPlaybackActive && sourceArea.followCaretVisible)
+                    && (sourceArea.activeFocus || editorContextMenu.visible || findReplaceBar.open)
+                readonly property bool overwriteBlock: sourceArea.overwriteMode
+                    && sourceArea.selectionStart === sourceArea.selectionEnd
+                readonly property bool caretSolid: editorContextMenu.visible
+                    || findReplaceBar.open || animating || sourceArea.imeComposing
+                property bool blinkOn: true
+
+                function sync(scrollDeltaX, scrollDeltaY, allowAnimate) {
+                    blinkOn = true
+                    caretBlinkTimer.restart()
+                    syncTo(sourceArea.cursorRectangle.x - caretClipOverlay.x,
+                           sourceArea.cursorRectangle.y,
+                           sourceArea.cursorRectangle.height,
+                           scrollDeltaX,
+                           scrollDeltaY,
+                           allowAnimate)
+                }
+
+                visible: caretShown && sourceArea.cursorRectangle.height > 0
+                width: overwriteBlock ? sourceArea.overwriteCaretWidth : 2
+                height: sourceArea.cursorRectangle.height
+                radius: overwriteBlock ? 2 : 1
+                color: overwriteBlock
+                    ? Qt.rgba(Theme.colors.text.editor.r, Theme.colors.text.editor.g, Theme.colors.text.editor.b, 0.35)
+                    : Theme.colors.text.editor
+                opacity: (caretSolid || blinkOn) ? 1.0 : 0.0
+
+                Behavior on opacity {
+                    enabled: !editCaret.caretSolid
+                    NumberAnimation { duration: 75; easing.type: Easing.OutQuad }
+                }
+
+                Timer {
+                    id: caretBlinkTimer
+                    interval: 530
+                    repeat: true
+                    running: editCaret.visible && !editCaret.caretSolid
+                    onTriggered: editCaret.blinkOn = !editCaret.blinkOn
+                }
+
+                onVisibleChanged: {
+                    if (visible) {
+                        blinkOn = true
+                        caretBlinkTimer.restart()
+                        if (!caretInitialized)
+                            sync(0, 0, false)
+                    }
+                }
+            }
+        }
+        onCaretMoved: (scrollDeltaX, scrollDeltaY, animate) => editCaret.sync(scrollDeltaX, scrollDeltaY, animate)
+        onFollowCaretMoved: (scrollDeltaX, scrollDeltaY, animate) => followCaret.sync(scrollDeltaX, scrollDeltaY, animate)
+        onCaretResetRevisionChanged: {
+            editCaret.resetMotion()
+            followCaret.resetMotion()
         }
         onScenePositionChanged: root.editorRailSceneRevision += 1
         onSelectionChanged: {

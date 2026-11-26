@@ -25,6 +25,7 @@ ScintillaEditorBridge::ScintillaEditorBridge(QQuickItem* parent)
     send(SCI_SETCODEPAGE, SC_CP_UTF8);
     send(SCI_USEPOPUP, SC_POPUP_NEVER);
     send(SCI_SETHSCROLLBAR, false);
+    send(SCI_SETCARETSTYLE, CARETSTYLE_INVISIBLE);
     for (int key : {SCK_ADD, SCK_SUBTRACT, SCK_DIVIDE})
         send(SCI_CLEARCMDKEY, key | (SCMOD_CTRL << 16));
     connect(this, &ScintillaQuick_item::textChanged, this, &ScintillaEditorBridge::textMutated);
@@ -191,10 +192,17 @@ void ScintillaEditorBridge::publishLayout()
     const QFont font = property("font").value<QFont>();
     const int height = send(SCI_TEXTHEIGHT, 0);
     const QSizeF size(width(), this->height());
-    const bool metricsChanged = effectiveFont_ != font || lineHeight_ != height || layoutSize_ != size;
+    qreal gutterWidth = 0;
+    for (int margin = 0; margin < send(SCI_GETMARGINS); ++margin)
+        gutterWidth += send(SCI_GETMARGINWIDTHN, margin);
+    const qreal charWidth = qMax<qreal>(2.0, send(SCI_TEXTWIDTH, STYLE_DEFAULT, reinterpret_cast<sptr_t>("0")));
+    const bool metricsChanged = effectiveFont_ != font || lineHeight_ != height
+        || layoutSize_ != size || textAreaLeft_ != gutterWidth || overwriteCaretWidth_ != charWidth;
     effectiveFont_ = font;
     lineHeight_ = height;
     layoutSize_ = size;
+    textAreaLeft_ = gutterWidth;
+    overwriteCaretWidth_ = charWidth;
     if (metricsChanged && miacode::debug_options::runtimeDebugOutputEnabled()) {
         const auto* rail = parentItem() ? parentItem()->findChild<QQuickItem*>(QStringLiteral("sourceVerticalScrollBar")) : nullptr;
         miacode::debug_log::appendLine(miacode::debug_log::Channel::Runtime,
@@ -220,6 +228,28 @@ void ScintillaEditorBridge::publishLayout()
     const bool currentLineChanged = currentLineRectangle_ != currentLineRect;
     const bool anchorChanged = anchorRectangle_ != anchor;
     const bool followChanged = followCursorRectangle_ != follow;
+    const int firstVisibleLine = int(send(SCI_GETFIRSTVISIBLELINE));
+    const int xOffset = int(send(SCI_GETXOFFSET));
+    const int currentPos = int(send(SCI_GETCURRENTPOS));
+    const int followPos = styler_.following() ? followCaretPosition_ : -1;
+    const bool scrollChanged = (lastFirstVisibleLine_ >= 0 && firstVisibleLine != lastFirstVisibleLine_)
+        || (lastXOffset_ >= 0 && xOffset != lastXOffset_);
+    const qreal scrollDeltaX = lastXOffset_ >= 0 ? qreal(xOffset - lastXOffset_) : 0.0;
+    const qreal scrollDeltaY = lastFirstVisibleLine_ >= 0
+        ? qreal(firstVisibleLine - lastFirstVisibleLine_) * height
+        : 0.0;
+    const bool posChanged = (lastCaretBytePos_ >= 0 && currentPos != lastCaretBytePos_);
+    const bool followPosChanged = (lastFollowCaretPos_ >= 0 && followPos >= 0 && followPos != lastFollowCaretPos_);
+    const bool animateCaret = !snapCaretPending_ && !metricsChanged && !mouseDragging_
+        && !imeComposing_ && !(scrollChanged && !posChanged);
+    const bool animateFollow = !snapCaretPending_ && !metricsChanged
+        && !(scrollChanged && !followPosChanged);
+    snapCaretPending_ = false;
+    lastFirstVisibleLine_ = firstVisibleLine;
+    lastXOffset_ = xOffset;
+    lastCaretBytePos_ = currentPos;
+    lastFollowCaretPos_ = followPos;
+
     cursorRectangle_ = cursor;
     currentLineRectangle_ = currentLineRect;
     anchorRectangle_ = anchor;
@@ -227,8 +257,10 @@ void ScintillaEditorBridge::publishLayout()
     if (metricsChanged) emit layoutChanged();
     if (metricsChanged) scheduleOverviewProjectionRefresh(OverviewAllDirty);
     if (cursorChanged) emit cursorRectangleChanged();
+    if (cursorChanged || posChanged) emit caretMoved(scrollDeltaX, scrollDeltaY, animateCaret);
     if (currentLineChanged) emit currentLineRectangleChanged();
     if (followChanged) emit followVisualChanged();
+    if (followChanged || followPosChanged) emit followCaretMoved(scrollDeltaX, scrollDeltaY, animateFollow);
     if (hasActiveFocus() && (metricsChanged || cursorChanged || anchorChanged))
         QGuiApplication::inputMethod()->update(Qt::ImCursorRectangle | Qt::ImAnchorRectangle);
 }
@@ -282,13 +314,25 @@ void ScintillaEditorBridge::setAnalysisSession(AnalysisModel* value)
     refreshDiagnostics();
     emit bindingsChanged();
 }
+void ScintillaEditorBridge::resetCaretTracking()
+{
+    snapCaretPending_ = true;
+    lastFirstVisibleLine_ = -1;
+    lastXOffset_ = -1;
+    lastCaretBytePos_ = -1;
+    lastFollowCaretPos_ = -1;
+    ++caretResetRevision_;
+    emit caretResetRevisionChanged();
+}
 void ScintillaEditorBridge::setNavigationVisible(bool value)
 {
     if (navigationVisible_ == value) return;
     preserveViewport();
     navigationVisible_ = value;
-    if (value) synchronizeDocument();
-    if (!value) {
+    if (value) {
+        synchronizeDocument();
+    } else {
+        resetCaretTracking();
         pendingNavigation_.reset();
         if (controller_) controller_->closeCompletion();
     }
@@ -405,6 +449,7 @@ void ScintillaEditorBridge::synchronizeDocument()
         generation_ = generation;
     }
     if (identityChanged) {
+        resetCaretTracking();
         reportedAnchor_ = reportedCaret_ = -1;
         wheelRemainder_ = 0;
     }
@@ -660,8 +705,12 @@ void ScintillaEditorBridge::refreshOverviewProjection()
 void ScintillaEditorBridge::refreshSettings()
 {
     if (!controller_) return;
-    send(SCI_SETOVERTYPE, controller_->overwriteMode());
+    const bool overwrite = controller_->overwriteMode();
+    const bool overwriteChanged = overwriteMode_ != overwrite;
+    overwriteMode_ = overwrite;
+    send(SCI_SETOVERTYPE, overwrite);
     setFlag(ItemAcceptsInputMethod, !controller_->imeInputDisabled());
+    if (overwriteChanged) emit appearanceChanged();
 }
 void ScintillaEditorBridge::publishContext(bool userCaret)
 {
@@ -711,8 +760,7 @@ void ScintillaEditorBridge::applyFollow(bool reveal)
     if (active) followCaretPosition_ = syncController_->followCaret();
     styler_.follow(active, active ? syncController_->followStart() : 0,
                   active ? syncController_->followEnd() : 0);
-    const int caretStyle = active && syncController_->followPlaybackActive() ? CARETSTYLE_INVISIBLE : CARETSTYLE_LINE;
-    if (send(SCI_GETCARETSTYLE) != caretStyle) send(SCI_SETCARETSTYLE, caretStyle);
+    if (send(SCI_GETCARETSTYLE) != CARETSTYLE_INVISIBLE) send(SCI_SETCARETSTYLE, CARETSTYLE_INVISIBLE);
     emit followVisualChanged();
     if (reveal && active && navigationVisible_ && syncController_->followReveal())
         revealPosition(syncController_->followCaret(), syncController_->followPlaybackActive());
@@ -840,6 +888,7 @@ void ScintillaEditorBridge::dropDocument(const QString& key)
     document_.drop(key);
     touchUndoAnchors_.removeIf([&key](auto it) { return it.value().scope == key; });
     if (current) {
+        resetCaretTracking();
         styler_.reset();
         bookmarks_.clear();
         overviewSyntaxRows_.clear();
@@ -950,6 +999,7 @@ void ScintillaEditorBridge::keyPressEvent(QKeyEvent* event)
 }
 void ScintillaEditorBridge::mousePressEvent(QMouseEvent* event)
 {
+    mouseDragging_ = false;
     beginUserInteraction();
     if (event->button() == Qt::RightButton) {
         int gutterWidth = 0;
@@ -974,8 +1024,15 @@ void ScintillaEditorBridge::mousePressEvent(QMouseEvent* event)
     ScintillaQuick_item::mousePressEvent(event);
     refreshSelection(!programmatic_);
 }
+void ScintillaEditorBridge::mouseMoveEvent(QMouseEvent* event)
+{
+    if (event->buttons().testFlag(Qt::LeftButton))
+        mouseDragging_ = true;
+    ScintillaQuick_item::mouseMoveEvent(event);
+}
 void ScintillaEditorBridge::mouseReleaseEvent(QMouseEvent* event)
 {
+    mouseDragging_ = false;
     ScintillaQuick_item::mouseReleaseEvent(event);
     refreshSelection(!programmatic_);
     if (event->button() == Qt::LeftButton && (event->modifiers() & (Qt::ControlModifier | Qt::MetaModifier))) seekPreviewToCaret();
