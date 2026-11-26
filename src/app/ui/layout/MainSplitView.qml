@@ -120,6 +120,7 @@ Item {
     readonly property bool bottomPanelEffectivelyVisible:
         (root.viewState.difficultyEditorActive || root.viewState.latencyEditorActive)
         && root.viewState.bottomPanelVisible && root.timelineSession.panelVisible
+        && !root.pages.exportTransitionPending
     readonly property bool exportVideoActive:
         root.pages.activePageId === "export"
     readonly property bool libraryActive: root.viewState.activeSidebarView === "library"
@@ -302,6 +303,40 @@ Item {
         detachedPreviewWindow.hide()
         root.Window.window.requestActivate()
         Qt.callLater(root.finishPreviewMove)
+    }
+
+    function completeExportTransitionIfReady() {
+        const window = root.Window.window
+        if (root.pages.exportTransitionPending
+                && (root.bottomPanelReveal === 0 || !window || !window.visible))
+            root.pages.completeExportTransition()
+    }
+
+    Connections {
+        target: root.pages
+        function onExportTransitionPendingChanged() {
+            if (!root.pages.exportTransitionPending)
+                return
+            const window = root.Window.window
+            if (window && window.visible)
+                window.update()
+            else
+                Qt.callLater(root.completeExportTransitionIfReady)
+        }
+    }
+
+    Connections {
+        target: root.Window.window
+        enabled: root.pages.exportTransitionPending
+        function onFrameSwapped() {
+            // Start export work after the fully collapsed frame was presented.
+            if (root.bottomPanelReveal === 0)
+                Qt.callLater(root.completeExportTransitionIfReady)
+        }
+        function onVisibleChanged() {
+            if (!root.Window.window.visible)
+                Qt.callLater(root.completeExportTransitionIfReady)
+        }
     }
 
     Connections {
@@ -657,6 +692,7 @@ Item {
 
                 Item {
                     id: editorHost
+                    enabled: !root.pages.exportTransitionPending
                     clip: true
                     SplitView.fillHeight: true
                     SplitView.minimumHeight: 180

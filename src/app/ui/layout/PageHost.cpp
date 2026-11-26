@@ -217,14 +217,42 @@ bool PageHost::openVideoExportPage(const QString& tab)
         if (exportSessionObject() == nullptr || router() == nullptr) {
             return false;
         }
-        exportSessionObject()->setActiveTab(requestedTab);
-        if (!router()->enterExportPage()) {
-            return false;
-        }
-        activePageId_ = QStringLiteral("export");
-        emit activePageIdChanged();
+        // Let the shell present its outgoing panel animation before export
+        // entry queues any GUI-thread preparation work.
+        exportTransitionTab_ = requestedTab;
+        exportTransitionDocumentGeneration_ = document_->documentGeneration();
+        navigationPending_ = true;
+        emit navigationPendingChanged();
+        exportTransitionPending_ = true;
+        emit exportTransitionPendingChanged();
         return true;
     });
+}
+
+void PageHost::completeExportTransition()
+{
+    if (!exportTransitionPending_) {
+        return;
+    }
+    bool entered = false;
+    if (document_ != nullptr && document_->hasDocument()
+        && document_->documentGeneration() == exportTransitionDocumentGeneration_
+        && exportSessionObject() != nullptr && router() != nullptr) {
+        exportSessionObject()->setActiveTab(exportTransitionTab_);
+        entered = router()->enterExportPage();
+        if (entered) {
+            activePageId_ = QStringLiteral("export");
+            emit activePageIdChanged();
+        }
+    }
+    exportTransitionPending_ = false;
+    exportTransitionTab_.clear();
+    emit exportTransitionPendingChanged();
+    navigationPending_ = false;
+    emit navigationPendingChanged();
+    if (!entered) {
+        emit navigationRejected();
+    }
 }
 
 bool PageHost::openExportPage()
