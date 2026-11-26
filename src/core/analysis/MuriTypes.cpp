@@ -74,195 +74,195 @@ const MuriDetailTemplateRow* detailTemplateRow(MuriDetailKind kind)
         {
             MuriDetailKind::SlideHeadStartEarlyJudgeTap,
             {
-                "%1 start will early-judge a following tap, gap %2.",
-                "%1 启动，会提前判定后续 tap，间隔 %2。",
-                "%1 が始動し、後続の tap を早入力判定します（間隔 %2）。",
+                "%1 start will early-judge next tap (%2)",
+                "%1 启动提前判定后续 tap（间隔 %2）",
+                "%1 始動で後続 tap を早期判定（間隔 %2）",
             },
             {
-                "%1 start may early-judge a following tap, gap %2.",
-                "%1 启动时可能提前判定后续 tap，间隔 %2。",
-                "%1 が始動し、後続の tap を早入力判定する可能性があります（間隔 %2）。",
+                "%1 start may early-judge next tap (%2)",
+                "%1 启动可能提前判定后续 tap（间隔 %2）",
+                "%1 始動で後続 tap を早期判定の恐れ（間隔 %2）",
             },
         },
         {
             MuriDetailKind::SlideHeadJumpStartEarlyJudgeTap,
             {
-                "%1 jump-start will early-judge a following tap, gap %2.",
-                "%1 偷跑，会提前判定后续 tap，间隔 %2。",
-                "%1 が先行始動し、後続の tap を早入力判定します（間隔 %2）。",
+                "%1 jump-start will early-judge next tap (%2)",
+                "%1 偷跑提前判定后续 tap（间隔 %2）",
+                "%1 先行始動で後続 tap を早期判定（間隔 %2）",
             },
             {
-                "%1 jump-start may early-judge a following tap, gap %2.",
-                "%1 偷跑时可能提前判定后续 tap，间隔 %2。",
-                "%1 が先行始動し、後続の tap を早入力判定する可能性があります（間隔 %2）。",
+                "%1 jump-start may early-judge next tap (%2)",
+                "%1 偷跑可能提前判定后续 tap（间隔 %2）",
+                "%1 先行始動で後続 tap を早期判定の恐れ（間隔 %2）",
             },
         },
         {
             MuriDetailKind::SlideHeadStartEarlyJudge,
             {
-                "%1 start will early-judge %2, gap %3.",
-                "%1 启动，会提前判定 %2，间隔 %3。",
-                "%1 が始動し、%2 を早入力判定します（間隔 %3）。",
+                "%1 start will early-judge %2 (%3)",
+                "%1 启动提前判定 %2（间隔 %3）",
+                "%1 始動で %2 を早期判定（間隔 %3）",
             },
             {
-                "%1 start may early-judge %2, gap %3.",
-                "%1 启动时可能提前判定 %2，间隔 %3。",
-                "%1 が始動し、%2 を早入力判定する可能性があります（間隔 %3）。",
+                "%1 start may early-judge %2 (%3)",
+                "%1 启动可能提前判定 %2（间隔 %3）",
+                "%1 始動で %2 を早期判定の恐れ（間隔 %3）",
             },
         },
         {
             MuriDetailKind::SlideHeadJumpStartEarlyJudge,
             {
-                "%1 jump-start will early-judge %2, gap %3.",
-                "%1 偷跑，会提前判定 %2，间隔 %3。",
-                "%1 が先行始動し、%2 を早入力判定します（間隔 %3）。",
+                "%1 jump-start will early-judge %2 (%3)",
+                "%1 偷跑提前判定 %2（间隔 %3）",
+                "%1 先行始動で %2 を早期判定（間隔 %3）",
             },
             {
-                "%1 jump-start may early-judge %2, gap %3.",
-                "%1 偷跑时可能提前判定 %2，间隔 %3。",
-                "%1 が先行始動し、%2 を早入力判定する可能性があります（間隔 %3）。",
+                "%1 jump-start may early-judge %2 (%3)",
+                "%1 偷跑可能提前判定 %2（间隔 %3）",
+                "%1 先行始動で %2 を早期判定の恐れ（間隔 %3）",
             },
         },
         {
             MuriDetailKind::TapOnSlideCollide,
             {
-                "%1 trajectory will collide with %2, gap %3.",
-                "%1 运行轨迹会撞到 %2，间隔 %3。",
-                "%1 の軌道が %2 と衝突します（間隔 %3）。",
+                "%1 trajectory will collide with %2 (%3)",
+                "%1 轨迹撞到 %2（间隔 %3）",
+                "%1 の軌道が %2 に衝突（間隔 %3）",
             },
             {
-                "%1 trajectory may collide with %2, gap %3.",
-                "%1 的运行轨迹可能与 %2 发生碰撞，间隔 %3。",
-                "%1 の軌道が %2 と衝突する可能性があります（間隔 %3）。",
+                "%1 trajectory may collide with %2 (%3)",
+                "%1 轨迹可能撞到 %2（间隔 %3）",
+                "%1 の軌道が %2 に衝突の恐れ（間隔 %3）",
             },
         },
         {
             MuriDetailKind::EarlyJudgedBy,
             {
-                "%1 was early-judged by %2, gap %3.",
-                "%1 被 %2 提前判定，间隔 %3。",
-                "%1 は %2 によって早入力判定されました（間隔 %3）。",
+                "%1 early-judged by %2 (%3)",
+                "%1 被 %2 提前判定（间隔 %3）",
+                "%1 が %2 に早期判定（間隔 %3）",
             },
             {"", "", ""},
         },
         {
             MuriDetailKind::ResolvedOutsideWindow,
             {
-                "%1 resolved outside its critical window, gap %2.",
-                "%1 提前完成，间隔 %2。",
-                "%1 は判定臨界ウィンドウ外で解決しました（間隔 %2）。",
+                "%1 resolved early (%2)",
+                "%1 提前完成（间隔 %2）",
+                "%1 が早期完了（間隔 %2）",
             },
             {"", "", ""},
         },
         {
             MuriDetailKind::MultiTouchFormedBy,
             {
-                "Multi-touch formed by %1.",
-                "%1 构成多押。",
-                "%1 が多点押しを構成します。",
+                "Multi-touch: %1",
+                "%1 构成多押",
+                "%1 で多点押し",
             },
             {
-                "%1 may be considered multi-touch.",
-                "%1 有可能被认为是多押。",
-                "%1 は多点押しと見なされる可能性があります。",
+                "Possible multi-touch: %1",
+                "%1 可能构成多押",
+                "%1 で多点押しの恐れ",
             },
         },
         {
             MuriDetailKind::FormedOverlapSamePosition,
             {
-                "%1 and same-position %2 formed overlap.",
-                "%1 与相同位置的 %2 构成叠键。",
-                "%1 と同位置の %2 が重なりを構成します。",
+                "%1 overlaps %2 at same position",
+                "%1 与同位置 %2 叠键",
+                "%1 と同位置の %2 が重複",
             },
             {"", "", ""},
         },
         {
             MuriDetailKind::FormedOverlapAtSamePosition,
             {
-                "%1 formed overlap at the same position.",
-                "%1 在相同位置构成叠键。",
-                "%1 が同じ位置で重なりを構成します。",
+                "%1 overlaps at same position",
+                "%1 同位置叠键",
+                "%1 が同位置で重複",
             },
             {"", "", ""},
         },
         {
             MuriDetailKind::SlideHeadTriggerEarlyJudged,
             {
-                "Slide-head trigger from %1 early-judged this note.",
-                "来自 %1 的滑键头触发提前判定了此物件。",
-                "%1 からのスライド頭トリガーがこのノーツを早入力判定しました。",
+                "Early-judged by %1 slide head",
+                "被 %1 滑键头提前判定",
+                "%1 のスライド頭で早期判定",
             },
             {"", "", ""},
         },
         {
             MuriDetailKind::PadTriggerEarlyJudged,
             {
-                "Pad trigger from %1 early-judged this note.",
-                "来自 %1 的按下触发提前判定了此物件。",
-                "%1 からのパッド入力がこのノーツを早入力判定しました。",
+                "Early-judged by %1 pad trigger",
+                "被 %1 按下提前判定",
+                "%1 のパッド入力で早期判定",
             },
             {"", "", ""},
         },
         {
             MuriDetailKind::SimpleNoteMissedWindowOverlap,
             {
-                "Runtime simple-note judge for %1 missed the critical window and resolved as overlap.",
-                "运行时普通物件判定 %1 错过了判定临界窗，并最终判为叠键。",
-                "%1 の通常ノーツ実行時判定が臨界ウィンドウを外れ、重なりとして解決されました。",
+                "%1 missed critical window (overlap)",
+                "%1 错过临界窗，判为叠键",
+                "%1 が臨界ウィンドウ外で重複判定",
             },
             {"", "", ""},
         },
         {
             MuriDetailKind::SlideRuntimeOutsideWindow,
             {
-                "Slide runtime judge for %1 resolved outside its critical window.",
-                "Slide 运行时判定 %1 落在判定临界窗之外。",
-                "Slide の実行時判定 %1 は判定臨界ウィンドウ外で解決しました。",
+                "Slide %1 outside critical window",
+                "Slide %1 超出临界窗",
+                "Slide %1 が臨界ウィンドウ外",
             },
             {"", "", ""},
         },
         {
             MuriDetailKind::WifiRuntimeOutsideWindow,
             {
-                "Wifi runtime judge for %1 resolved outside its critical window.",
-                "Wifi 运行时判定 %1 落在判定临界窗之外。",
-                "Wifi の実行時判定 %1 は判定臨界ウィンドウ外で解決しました。",
+                "Wifi %1 outside critical window",
+                "Wifi %1 超出临界窗",
+                "Wifi %1 が臨界ウィンドウ外",
             },
             {"", "", ""},
         },
         {
             MuriDetailKind::SlideClearedEarly,
             {
-                "Slide %1 was cleared earlier than its normal judge timing.",
-                "Slide %1 的完成时间早于正常判定时机。",
-                "Slide %1 は通常の判定タイミングより早く完了しました。",
+                "Slide %1 cleared early",
+                "Slide %1 提前完成",
+                "Slide %1 が早期完了",
             },
             {"", "", ""},
         },
         {
             MuriDetailKind::WifiClearedEarly,
             {
-                "Wifi %1 was cleared earlier than its normal judge timing.",
-                "Wifi %1 的完成时间早于正常判定时机。",
-                "Wifi %1 は通常の判定タイミングより早く完了しました。",
+                "Wifi %1 cleared early",
+                "Wifi %1 提前完成",
+                "Wifi %1 が早期完了",
             },
             {"", "", ""},
         },
         {
             MuriDetailKind::StaticReference,
             {
-                "Static reference from %1, Δ %2",
-                "静态参考：%1，Δ %2",
-                "静的参照：%1、Δ %2",
+                "Static ref %1 (Δ %2)",
+                "静态参考 %1（Δ %2）",
+                "静的参照 %1（Δ %2）",
             },
             {"", "", ""},
         },
         {
             MuriDetailKind::RuntimeHandMultiTouch,
             {
-                "Runtime hand actions formed %1-hand multi-touch: %2",
-                "运行时手部动作形成了 %1 手多押：%2",
-                "実行時の手動作が %1 手の多点押しを構成しました：%2",
+                "%1-hand multi-touch: %2",
+                "%1 手多押：%2",
+                "%1 手多点押し：%2",
             },
             {"", "", ""},
         },
@@ -279,9 +279,9 @@ const MuriDetailTemplateRow* detailTemplateRow(MuriDetailKind kind)
 QString noGapResolvedOutsideWindowTemplate(SimaiValidationLocale locale)
 {
     static const char* kTemplates[3] = {
-        "%1 resolved outside its critical window.",
-        "%1 的判定落在临界窗之外。",
-        "%1 の判定は臨界ウィンドウ外で解決しました。",
+        "%1 outside critical window",
+        "%1 判定超出临界窗",
+        "%1 が臨界ウィンドウ外",
     };
     return QString::fromUtf8(kTemplates[localeTemplateIndex(locale)]);
 }
@@ -289,9 +289,9 @@ QString noGapResolvedOutsideWindowTemplate(SimaiValidationLocale locale)
 QString earlyJudgedByPerfectWindowTemplate(SimaiValidationLocale locale)
 {
     static const char* kTemplates[3] = {
-        "%1 was early-judged by %2 %3 before standard timing, outside the Perfect tolerance (%4 for this trace).",
-        "%1 被 %2 提前判定，比标准判定早 %3；已超出 Perfect 容差（本条 %4）。",
-        "%1 は %2 によって標準判定より %3 早く判定され、Perfect 許容幅（この軌道は %4）を超えています。",
+        "%1 early-judged by %2, %3 before standard timing (Perfect tolerance %4)",
+        "%1 被 %2 提前判定 %3（Perfect 容差 %4）",
+        "%1 が %2 に %3 早期判定（Perfect 許容 %4）",
     };
     return QString::fromUtf8(kTemplates[localeTemplateIndex(locale)]);
 }
@@ -299,9 +299,9 @@ QString earlyJudgedByPerfectWindowTemplate(SimaiValidationLocale locale)
 QString resolvedOutsidePerfectWindowTemplate(SimaiValidationLocale locale)
 {
     static const char* kTemplates[3] = {
-        "%1 resolved %2 before standard timing, outside the Perfect tolerance (%3 for this trace).",
-        "%1 的实际判定比标准判定早 %2，已超出 Perfect 容差（本条 %3）。",
-        "%1 は標準判定より %2 早く判定され、Perfect 許容幅（この軌道は %3）を超えています。",
+        "%1 resolved %2 before standard timing (Perfect tolerance %3)",
+        "%1 提前判定 %2（Perfect 容差 %3）",
+        "%1 が %2 早期判定（Perfect 許容 %3）",
     };
     return QString::fromUtf8(kTemplates[localeTemplateIndex(locale)]);
 }
@@ -309,9 +309,9 @@ QString resolvedOutsidePerfectWindowTemplate(SimaiValidationLocale locale)
 QString staticReferenceNoDeltaTemplate(SimaiValidationLocale locale)
 {
     static const char* kTemplates[3] = {
-        "Static reference from %1",
-        "静态参考：%1",
-        "静的参照：%1",
+        "Static ref %1",
+        "静态参考 %1",
+        "静的参照 %1",
     };
     return QString::fromUtf8(kTemplates[localeTemplateIndex(locale)]);
 }
