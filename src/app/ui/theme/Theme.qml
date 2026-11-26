@@ -128,6 +128,8 @@ QtObject {
             : colors.activityState
     }
     readonly property real popupOpacity: 0.96
+    readonly property int iconTransitionDuration: 140
+    readonly property int iconPressDuration: 90
     readonly property int popupEnterDuration: 120
     readonly property int popupExitDuration: 90
     readonly property color floatingBorderColor: darkTheme

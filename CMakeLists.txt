@@ -647,6 +647,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/components/Tooltip.qml
     src/app/ui/components/HoverChrome.qml
     src/app/ui/components/ChromeRow.qml
+    src/app/ui/components/NavigationIcon.qml
     src/app/ui/components/NavRow.qml
     src/app/ui/components/AppTextField.qml
     src/app/ui/components/AppTextArea.qml

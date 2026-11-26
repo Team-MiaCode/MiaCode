@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls.impl as ControlsImpl
 import QtQuick.Layouts
 import MiaCode.UI
 
@@ -26,14 +25,16 @@ ChromeRow {
     contentItem: RowLayout {
         spacing: 6
 
-        ControlsImpl.IconImage {
+        NavigationIcon {
             visible: root.hasIcon
             Layout.preferredWidth: 16
             Layout.preferredHeight: 16
             Layout.alignment: Qt.AlignVCenter
-            source: root.selected && root.filledIconSource.toString().length > 0
-                ? root.filledIconSource : root.iconSource
-            sourceSize: Theme.iconSourceSize(16, 16)
+            source: root.iconSource
+            filledSource: root.filledIconSource
+            selected: root.selected
+            hovered: root.hovered || root.visualFocus
+            pressed: root.down
             color: root.contentColor
         }
 

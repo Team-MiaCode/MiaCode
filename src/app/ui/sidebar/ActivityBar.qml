@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Controls.impl as ControlsImpl
 import MiaCode.UI
 
 Rectangle {
@@ -123,14 +122,16 @@ Rectangle {
         // icon inside a container so its higher-resolution source cannot
         // change its painted size relative to the selection chrome.
         contentItem: Item {
-            ControlsImpl.IconImage {
-                objectName: "activityButtonIcon"
+            NavigationIcon {
+                imageObjectName: "activityButtonIcon"
                 anchors.centerIn: parent
                 width: Theme.activityIconSize
                 height: Theme.activityIconSize
-                source: button.selected && button.filledIconSource.toString().length > 0
-                    ? button.filledIconSource : button.iconSource
-                sourceSize: Theme.iconSourceSize(Theme.activityIconSize, Theme.activityIconSize)
+                source: button.iconSource
+                filledSource: button.filledIconSource
+                selected: button.selected
+                hovered: button.hovered || button.visualFocus
+                pressed: button.down
                 color: !button.enabled ? Theme.colors.text.disabled
                      : button.selected ? Theme.colors.activityIcon.active
                      : button.hovered ? Theme.colors.activityIcon.hover
