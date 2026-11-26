@@ -23,6 +23,8 @@ public:
 
     // ---- miacode::ExportEngine ----
     VideoExportTask buildSeedTask(int difficultyId) override;
+    std::optional<VideoExportTask> tryBuildCachedSeedTask(int difficultyId) override;
+    void requestSeedTask(int difficultyId, QObject* context, SeedTaskCallback callback) override;
     void applySharedTaskSettings(const VideoExportTask& task) override;
     bool startAudition(int difficultyId, const VideoExportTask& visualTask) override;
     void clearAudition() override;
@@ -123,6 +125,12 @@ public:
     );
 
 private:
+    struct SeedInput;
+    struct PreparedSeed;
+    SeedInput captureSeedInput(int difficultyId) const;
+    static PreparedSeed prepareSeed(SeedInput input);
+    void publishPreparedSeed(const PreparedSeed& prepared);
+    quint64 seedRequestSequence_ = 0;
     VideoExportTask buildVideoExportRenderTask() const;
     // Banner-card payload (title/artist/designer/level/difficulty/bpm/mode/jacket)
     // for the given difficulty — seeds VideoExportTask::intro so the cover

@@ -310,20 +310,26 @@ void miacode::runtime::VideoExportHost::installExportPreviewAuditionScene(int di
     const double firstSeconds = parsedDocumentFirstSeconds(session_.applicationServices_.workspace().document().first, &firstOk);
     const double effectiveFirst = firstOk ? firstSeconds : 0.0;
 
+    const bool alreadyCovered = liveTimelineCoversDifficulty(difficultyId);
     TimelinePreviewRefreshState previewState;
-    if (!liveTimelineCoversDifficulty(difficultyId)) {
+    if (!alreadyCovered) {
         parseAndPublishTimelineForDifficulty(difficultyId);
+        session_.state_.timeline_.timelineQuickModel_.updateFromText(difficulty->chart, effectiveFirst, timingMetadata);
     }
     previewState.shiftedNoteMarkers = session_.state_.timeline_.latestTimelineNoteMarkers_;
     previewState.noteMarkerSignature = session_.state_.timeline_.latestTimelineNoteMarkerSignature_;
-    session_.state_.timeline_.timelineQuickModel_.rebuildFromText(difficulty->chart, effectiveFirst, timingMetadata);
-    if (session_.state_.timeline_.timelineQuickStateBridge_ != nullptr) {
-        session_.state_.timeline_.timelineQuickStateBridge_->setTimelineData(session_.state_.timeline_.timelineQuickModel_.snapshot());
+    const bool sameSceneMarkers = !previewState.noteMarkerSignature.isEmpty()
+        && session_.lastPreviewNoteMarkerSignature_ == previewState.noteMarkerSignature;
+    if (!sameSceneMarkers && session_.state_.timeline_.timelineQuickStateBridge_ != nullptr) {
+        session_.state_.timeline_.timelineQuickStateBridge_->setTimelineData(
+            session_.state_.timeline_.timelineQuickModel_.snapshot());
     }
     session_.state_.timeline_.latestTimelinePreviewRevision_ = session_.state_.timeline_.timelineRevision_;
     session_.state_.timeline_.latestTimelinePreviewSnapshotReady_ = true;
-    session_.scene_->setNoteMarkers(previewState.shiftedNoteMarkers);
-    session_.lastPreviewNoteMarkerSignature_ = previewState.noteMarkerSignature;
+    if (!sameSceneMarkers) {
+        session_.scene_->setNoteMarkers(previewState.shiftedNoteMarkers);
+        session_.lastPreviewNoteMarkerSignature_ = previewState.noteMarkerSignature;
+    }
 
     const double durationSeconds = session_.previewPlaybackEndSeconds();
     if (session_.state_.timeline_.timelineQuickStateBridge_ != nullptr) {
@@ -332,7 +338,8 @@ void miacode::runtime::VideoExportHost::installExportPreviewAuditionScene(int di
     const auto clampToDuration = [durationSeconds](double second) {
         return durationSeconds > 0.0 ? qBound(0.0, second, durationSeconds) : qMax(0.0, second);
     };
-    double startSecond = clampToDuration(qMax(0.0, session_.pauseSecond_));
+    const double previousPauseSecond = session_.pauseSecond_;
+    double startSecond = clampToDuration(qMax(0.0, previousPauseSecond));
     if (session_.exportPreviewEntrySeedSecond_ >= 0.0) {
         // One-shot seed carried in on page entry / re-entry
         // (performSwitchToExportField) so switching to the export page preserves
@@ -354,7 +361,9 @@ void miacode::runtime::VideoExportHost::installExportPreviewAuditionScene(int di
         session_.state_.timeline_.timelineQuickStateBridge_->setPlayheadSeconds(startSecond, false);
     }
     session_.scene_->setPlayheadSeconds(startSecond, true);
-    session_.refreshPreviewObjectStatsTotals(previewState.shiftedNoteMarkers);
+    if (!sameSceneMarkers || session_.previewProgressStatsCache_ == nullptr) {
+        session_.refreshPreviewObjectStatsTotals(previewState.shiftedNoteMarkers);
+    }
     session_.publishPreviewPlayhead();
 
     // SFX timeline for this difficulty's notes.
@@ -371,7 +380,8 @@ void miacode::runtime::VideoExportHost::installExportPreviewAuditionScene(int di
     // Set up the negative-time intro region (slider range + default playhead at
     // the intro head) when 添加片头 is on for this difficulty.
     session_.refreshExportIntroState();
-    if (!session_.exportIntroRegionActive_) {
+    if (!session_.exportIntroRegionActive_
+        && (!sameSceneMarkers || qAbs(startSecond - previousPauseSecond) > 1e-4)) {
         // 场景、进度条、时间轴与视频定位通过暂停 seek 流程同步。
         session_.requestPausedPreviewSeek(startSecond, false, true);
     }

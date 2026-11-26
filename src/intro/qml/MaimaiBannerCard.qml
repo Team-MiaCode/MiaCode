@@ -33,6 +33,7 @@ Item {
     property url jacketImage: ""
     property bool cacheStaticImages: true
     property bool cacheDynamicImages: true
+    property bool asynchronousMedia: false
     // Fallback art when no 曲绘 is available (see effectiveJacket).
     property url logoImage: "qrc:/icons/app-original.png"
     property var trackOverrides: ({})
@@ -547,7 +548,7 @@ Item {
         fillMode: Image.PreserveAspectCrop
         visible: !root.transparentBackground && !root.backdropBlurEnabled
                  && root.effectiveBackdrop.toString().length > 0
-        asynchronous: false
+        asynchronous: root.asynchronousMedia
         smooth: true
         mipmap: true
     }
@@ -624,6 +625,7 @@ Item {
             opacity: root.stageOpacity("frame")
             source: root.assetUrl(root.template.assets.frame[root.trackValue("difficulty")])
             cache: root.cacheStaticImages
+            asynchronous: root.asynchronousMedia
             smooth: true
             mipmap: true
         }
@@ -667,6 +669,7 @@ Item {
                 anchors.fill: parent
                 source: root.effectiveJacket
                 cache: root.cacheDynamicImages
+                asynchronous: root.asynchronousMedia
                 fillMode: Image.PreserveAspectCrop
                 visible: root.effectiveJacket.toString().length > 0
                 smooth: true
@@ -687,6 +690,7 @@ Item {
             opacity: root.stageOpacity("tab")
             source: root.assetUrl(root.template.assets.tab[root.trackValue("difficulty")])
             cache: root.cacheStaticImages
+            asynchronous: root.asynchronousMedia
             // The prefab tab only ships a LEFT tall shoulder (the でらっくす seat).
             // For Standard (SD) charts mirror it so the shoulder moves to the
             // right and seats the スタンダード plate symmetrically.
@@ -703,6 +707,7 @@ Item {
             opacity: root.stageOpacity("tab")
             source: root.assetUrl(root.template.assets.plateDeluxe)
             cache: root.cacheStaticImages
+            asynchronous: root.asynchronousMedia
             visible: root.trackValue("mode") !== "Standard"
             smooth: true
             mipmap: true
@@ -713,6 +718,7 @@ Item {
             opacity: root.stageOpacity("tab")
             source: root.assetUrl(root.template.assets.plateStandard)
             cache: root.cacheStaticImages
+            asynchronous: root.asynchronousMedia
             visible: root.trackValue("mode") === "Standard"
             smooth: true
             mipmap: true
@@ -744,6 +750,7 @@ Item {
             opacity: root.stageOpacity("level")
             source: root.assetUrl(root.template.assets.lvPill[root.trackValue("difficulty")])
             cache: root.cacheStaticImages
+            asynchronous: root.asynchronousMedia
             smooth: true
             mipmap: true
         }
@@ -794,6 +801,7 @@ Item {
                 Image {
                     id: lvLabelSprite
                     cache: root.cacheStaticImages
+                    asynchronous: root.asynchronousMedia
                     height: 60
                     width: root.lvGlyphWidth(14)
                     source: root.lvAtlasUrl()
@@ -810,6 +818,7 @@ Item {
                         model: root.lvDigitSequence(root.trackValue("level"))
                         Image {
                             cache: root.cacheStaticImages
+                            asynchronous: root.asynchronousMedia
                             height: 60
                             width: root.lvGlyphWidth(modelData)
                             source: root.lvAtlasUrl()

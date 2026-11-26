@@ -7,6 +7,9 @@
 #include <QStringList>
 
 #include <functional>
+#include <optional>
+
+class QObject;
 
 namespace miacode {
 
@@ -36,6 +39,19 @@ public:
     // skin/outline, chart metadata and the intro payload. difficultyId 0 means
     // the active difficulty.
     virtual VideoExportTask buildSeedTask(int difficultyId) = 0;
+    virtual std::optional<VideoExportTask> tryBuildCachedSeedTask(int difficultyId)
+    {
+        Q_UNUSED(difficultyId);
+        return std::nullopt;
+    }
+    // Complete on the GUI thread while context lives; nullopt marks a stale snapshot.
+    using SeedTaskCallback = std::function<void(std::optional<VideoExportTask>)>;
+    virtual void requestSeedTask(int difficultyId, QObject* context, SeedTaskCallback callback)
+    {
+        Q_UNUSED(context);
+        callback(buildSeedTask(difficultyId));
+    }
+
 
     // Push the page's live edits onto the on-screen preview so what the user is
     // watching matches what the export will render.

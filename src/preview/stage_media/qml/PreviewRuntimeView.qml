@@ -62,13 +62,21 @@ Rectangle {
         Loader {
             id: introOverlayLoader
             active: introOverlayLayer.visible
-            source: "qrc:/intro/qml/IntroOverlay.qml"
+            asynchronous: true
             width: 1920
             height: 1080
             transformOrigin: Item.Center
             scale: Math.max(introOverlayLayer.width / width, introOverlayLayer.height / height)
             x: introOverlayLayer.width / 2 - width / 2
             y: introOverlayLayer.height / 2 - height / 2
+            function syncOverlaySource() {
+                if (active)
+                    setSource("qrc:/intro/qml/IntroOverlay.qml", { asynchronousMedia: true })
+                else
+                    source = ""
+            }
+            Component.onCompleted: syncOverlaySource()
+            onActiveChanged: syncOverlaySource()
             onLoaded: {
                 introOverlayLayer.syncIntroOverlayData()
                 introOverlayLayer.syncIntroOverlayFrame()

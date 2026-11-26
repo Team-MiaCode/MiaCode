@@ -83,6 +83,7 @@ ExportSession::ExportSession(miacode::ShellNotifications& notifications,
     connect(&miacode::LocaleService::instance(), &miacode::LocaleService::languageChanged,
             this, [this](const QString&) {
                 fontLibraryOptionsCacheValid_ = false;
+                introSoundOptionsCacheValid_ = false;
                 emit localeLabelsChanged();
                 emit fontLibraryChanged();
                 emit introSoundOptionsChanged();
@@ -110,9 +111,14 @@ ExportSession::ExportSession(miacode::ShellNotifications& notifications,
     connect(&notifications, &miacode::ShellNotifications::presentationChanged,
             this, &ExportSession::introPreviewStateChanged);
     // The size estimate follows everything that feeds planVideoRate.
-    connect(this, &ExportSession::outputChanged, this, &ExportSession::estimateChanged);
-    connect(this, &ExportSession::rangeChanged, this, &ExportSession::estimateChanged);
-    connect(this, &ExportSession::introChanged, this, &ExportSession::estimateChanged);
+    const auto emitEstimateIfUnblocked = [this]() {
+        if (!suppressEstimateSignal_) {
+            emit estimateChanged();
+        }
+    };
+    connect(this, &ExportSession::outputChanged, this, emitEstimateIfUnblocked);
+    connect(this, &ExportSession::rangeChanged, this, emitEstimateIfUnblocked);
+    connect(this, &ExportSession::introChanged, this, emitEstimateIfUnblocked);
     connect(this, &ExportSession::rangeChanged, this, [this]() {
         if (rangePlaybackEnabled_ && !hasPendingSelectionRangeExport_) {
             emit playbackRangeRequested(true, exportStartSeconds(), exportEndSeconds());
@@ -266,6 +272,9 @@ bool ExportSession::introLevelTextRender() const
 
 QVariantList ExportSession::introSoundOptions() const
 {
+    if (introSoundOptionsCacheValid_) {
+        return introSoundOptionsCache_;
+    }
     QVariantList list;
     list.append(QVariantMap{
         {QStringLiteral("label"),
@@ -273,20 +282,21 @@ QVariantList ExportSession::introSoundOptions() const
         {QStringLiteral("fileName"), QString()},
     });
     const QString musicDirectory = miacode::preview_sfx::assetMusicDirectory();
-    if (musicDirectory.isEmpty()) {
-        return list;
+    if (!musicDirectory.isEmpty()) {
+        const QFileInfoList entries = QDir(musicDirectory).entryInfoList(
+            miacode::preview_sfx::supportedIntroSoundFileExtensions(),
+            QDir::Files,
+            QDir::Name | QDir::IgnoreCase);
+        for (const QFileInfo& entry : entries) {
+            list.append(QVariantMap{
+                {QStringLiteral("label"), entry.fileName()},
+                {QStringLiteral("fileName"), entry.fileName()},
+            });
+        }
     }
-    const QFileInfoList entries = QDir(musicDirectory).entryInfoList(
-        miacode::preview_sfx::supportedIntroSoundFileExtensions(),
-        QDir::Files,
-        QDir::Name | QDir::IgnoreCase);
-    for (const QFileInfo& entry : entries) {
-        list.append(QVariantMap{
-            {QStringLiteral("label"), entry.fileName()},
-            {QStringLiteral("fileName"), entry.fileName()},
-        });
-    }
-    return list;
+    introSoundOptionsCache_ = list;
+    introSoundOptionsCacheValid_ = true;
+    return introSoundOptionsCache_;
 }
 
 int ExportSession::introSoundIndex() const
@@ -408,6 +418,7 @@ int ExportSession::resolveDefaultDifficultyId(int previousActiveDifficultyId) co
 
 void ExportSession::enter(int previousActiveDifficultyId)
 {
+    auditionSyncPending_ = false;
     if (!pageSessionActive_) {
         pageSessionActive_ = true;
         emit pageSessionActiveChanged();
@@ -419,20 +430,44 @@ void ExportSession::enter(int previousActiveDifficultyId)
         emit selectedDifficultyIdChanged();
     }
     rebuildDifficultyList();
-    // PageHost marks the QML page after this returns. Seed waits one tick.
+    // PageHost marks the page after entry; reuse live timeline data synchronously
+    // when available, and defer audition install until the shell panel transition settles.
     const quint64 generation = ++pagePrepareGeneration_;
-    QTimer::singleShot(0, this, [this, generation]() {
-        if (!pageSessionActive_ || generation != pagePrepareGeneration_) {
-            return;
+    if (difficultyExists(selectedDifficultyId_) && engine() != nullptr) {
+        if (auto cached = engine()->tryBuildCachedSeedTask(selectedDifficultyId_); cached.has_value()) {
+            applySeedTask(selectedDifficultyId_, std::move(*cached));
+            setPreparationPending(false);
+            QTimer::singleShot(0, this, [this, generation]() {
+                if (!pageSessionActive_ || generation != pagePrepareGeneration_) {
+                    return;
+                }
+                scheduleAuditionSync();
+            });
+        } else {
+            setPreparationPending(true);
+            QTimer::singleShot(0, this, [this, generation]() {
+                if (!pageSessionActive_ || generation != pagePrepareGeneration_) {
+                    return;
+                }
+                preparePreview(selectedDifficultyId_);
+            });
         }
-        seedFromDifficulty(selectedDifficultyId_);
-        syncAudition();
-    });
-    // Re-scan once per real page entry so imports made by another QML surface
-    // are visible, while repeated property reads during this entry share the
-    // materialized option list.
-    fontLibraryOptionsCacheValid_ = false;
-    emit fontLibraryChanged();
+    } else {
+        setPreparationPending(true);
+        QTimer::singleShot(0, this, [this, generation]() {
+            if (!pageSessionActive_ || generation != pagePrepareGeneration_) {
+                return;
+            }
+            preparePreview(selectedDifficultyId_);
+        });
+    }
+    // Re-scan once per real page entry, deferred until the Intro tab is opened.
+    fontLibraryRefreshPending_ = true;
+    if (settingsTab_ == QLatin1String("intro")) {
+        fontLibraryRefreshPending_ = false;
+        fontLibraryOptionsCacheValid_ = false;
+        emit fontLibraryChanged();
+    }
 }
 
 void ExportSession::leave()
@@ -443,10 +478,10 @@ void ExportSession::leave()
     }
     setRangePlaybackEnabled(false);
     ++pagePrepareGeneration_;
-    if (!hasSeededTask_) {
-        clearPendingSelectionRangeExport();
-    }
+    auditionSyncPending_ = false;
+    clearPendingSelectionRangeExport();
     pageSessionActive_ = false;
+    setPreparationPending(false);
     emit pageSessionActiveChanged();
     emit rangePlaybackStateChanged();
     savePreferences();
@@ -491,8 +526,7 @@ void ExportSession::replaceDocument(int preferredDifficultyId)
     rebuildDifficultyList();
 
     if (pageSessionActive_) {
-        seedFromDifficulty(selectedDifficultyId_);
-        syncAudition();
+        preparePreview(selectedDifficultyId_);
     }
     if (!difficultyExists(selectedDifficultyId_)) {
         emit outputChanged();
@@ -514,9 +548,7 @@ void ExportSession::selectDifficulty(int difficultyId)
     if (!pageSessionActive_) {
         return;
     }
-    ++pagePrepareGeneration_;
-    seedFromDifficulty(selectedDifficultyId_);
-    syncAudition();
+    preparePreview(selectedDifficultyId_);
 }
 
 void ExportSession::setActiveTab(const QString& tabId)
@@ -539,7 +571,7 @@ void ExportSession::setActiveTab(const QString& tabId)
     emit activeTabChanged();
     emit rangePlaybackStateChanged();
     if (pageSessionActive_) {
-        syncAudition();
+        scheduleAuditionSync();
     }
 }
 
@@ -553,6 +585,11 @@ void ExportSession::setSettingsTab(const QString& tabId)
         return;
     }
     settingsTab_ = next;
+    if (settingsTab_ == QLatin1String("intro") && fontLibraryRefreshPending_) {
+        fontLibraryRefreshPending_ = false;
+        fontLibraryOptionsCacheValid_ = false;
+        emit fontLibraryChanged();
+    }
     emit settingsTabChanged();
 }
 
@@ -574,16 +611,18 @@ void ExportSession::refreshFromDocument()
     }
     rebuildDifficultyList();
     if (pageSessionActive_) {
-        ++pagePrepareGeneration_;
-        seedFromDifficulty(selectedDifficultyId_);
-        syncAudition();
+        preparePreview(selectedDifficultyId_);
     }
     emit batchChanged();
 }
 
 void ExportSession::applyPreferences()
 {
-    const QJsonObject settings = miacode::app_preferences::loadDialogPreferences();
+    applyPreferences(miacode::app_preferences::loadDialogPreferences());
+}
+
+void ExportSession::applyPreferences(const QJsonObject& settings)
+{
     // Keep the established first-run defaults shared with the Widgets dialog.
     task_.clockCountEnabled = false;
     task_.intro.mode = QStringLiteral("auto");
@@ -632,16 +671,98 @@ void ExportSession::seedFromDifficulty(int difficultyId)
         emit rangeChanged();
         return;
     }
+    applySeedTask(difficultyId, engine()->buildSeedTask(difficultyId));
+}
+
+void ExportSession::setPreparationPending(bool pending)
+{
+    if (preparationPending_ == pending) {
+        return;
+    }
+    preparationPending_ = pending;
+    emit preparationPendingChanged();
+    emit rangePlaybackStateChanged();
+}
+
+void ExportSession::setAuditionDeferred(bool deferred)
+{
+    if (auditionDeferred_ == deferred) {
+        return;
+    }
+    auditionDeferred_ = deferred;
+    emit auditionDeferredChanged();
+    if (!auditionDeferred_ && pageSessionActive_ && !preparationPending_ && auditionSyncPending_) {
+        auditionSyncPending_ = false;
+        syncAudition();
+    }
+}
+
+void ExportSession::scheduleAuditionSync()
+{
+    if (!pageSessionActive_ || preparationPending_) {
+        return;
+    }
+    if (auditionDeferred_) {
+        auditionSyncPending_ = true;
+        return;
+    }
+    auditionSyncPending_ = false;
+    syncAudition();
+}
+
+void ExportSession::preparePreview(int difficultyId)
+{
+    const quint64 generation = ++pagePrepareGeneration_;
+    if (!difficultyExists(difficultyId) || engine() == nullptr) {
+        setPreparationPending(false);
+        seedFromDifficulty(difficultyId);
+        scheduleAuditionSync();
+        return;
+    }
+    auto* const sourceEngine = engine();
+    if (auto cached = sourceEngine->tryBuildCachedSeedTask(difficultyId); cached.has_value()) {
+        applySeedTask(difficultyId, std::move(*cached));
+        setPreparationPending(false);
+        scheduleAuditionSync();
+        return;
+    }
+    setPreparationPending(true);
+    sourceEngine->requestSeedTask(difficultyId, this,
+        [this, sourceEngine, difficultyId, generation](std::optional<VideoExportTask> task) {
+            if (!pageSessionActive_ || generation != pagePrepareGeneration_
+                || difficultyId != selectedDifficultyId_ || engine() != sourceEngine) {
+                return;
+            }
+            if (!task.has_value()) {
+                // A workspace revision changed during preparation. Re-capture
+                // the latest document without publishing the old result.
+                QTimer::singleShot(0, this, [this, generation, difficultyId]() {
+                    if (pageSessionActive_ && generation == pagePrepareGeneration_)
+                        preparePreview(difficultyId);
+                });
+                return;
+            }
+            applySeedTask(difficultyId, std::move(*task));
+            setPreparationPending(false);
+            scheduleAuditionSync();
+        });
+}
+
+void ExportSession::applySeedTask(int difficultyId, VideoExportTask seededTask)
+{
     setUnavailableReason(QString());
-    VideoExportTask seededTask = engine()->buildSeedTask(difficultyId);
     detectedIntroMode_ = normalizedIntroBannerMode(seededTask.intro.mode);
     if (hasSeededTask_) {
         miacode::video_export::copyVideoExportUserSettings(task_, &seededTask);
     }
     task_ = std::move(seededTask);
     chartDurationSeconds_ = qMax(0.0, task_.contentDurationSeconds);
+    const bool needsPreferences = !hasSeededTask_ || batchOutputDirectory_.isEmpty();
+    const QJsonObject preferences = needsPreferences
+        ? miacode::app_preferences::loadDialogPreferences()
+        : QJsonObject();
     if (!hasSeededTask_) {
-        applyPreferences();
+        applyPreferences(preferences);
         hasSeededTask_ = true;
     }
     task_.exportStartSeconds = 0.0;
@@ -652,23 +773,26 @@ void ExportSession::seedFromDifficulty(int difficultyId)
     }
     if (batchOutputDirectory_.isEmpty()) {
         // A stored empty value is a cleared choice and must not revive v1's.
-        const QJsonObject preferences = miacode::app_preferences::loadDialogPreferences();
         batchOutputDirectory_ = preferences.contains(QLatin1String(kBatchOutputDirectoryKey))
             ? miacode::file_dialog_preferences::validDirectory(
                   preferences.value(QLatin1String(kBatchOutputDirectoryKey)).toString())
             : legacyBatchExportDirectory("last_output_directory");
     }
     adoptPreviewRenderSettings();
-    emit outputChanged();
-    emit videoChanged();
-    emit introChanged();
-    emit rangeChanged();
-    emit batchChanged();
+    {
+        const QScopedValueRollback suppress(suppressEstimateSignal_, true);
+        emit outputChanged();
+        emit videoChanged();
+        emit introChanged();
+        emit rangeChanged();
+        emit batchChanged();
+    }
+    emit estimateChanged();
 }
 
 void ExportSession::syncAudition()
 {
-    if (engine() == nullptr || !pageSessionActive_) {
+    if (engine() == nullptr || !pageSessionActive_ || preparationPending_) {
         return;
     }
     if (!difficultyExists(selectedDifficultyId_)) {
@@ -772,7 +896,7 @@ VideoExportTask ExportSession::buildRequestedTask() const
 
 void ExportSession::startExport()
 {
-    if (engine() == nullptr) {
+    if (engine() == nullptr || preparationPending_) {
         return;
     }
     if (jobProgress_ != nullptr && jobProgress_->active()) {
@@ -1038,6 +1162,7 @@ void ExportSession::applyIntroSoundImport(const QString& selectedPath)
         }
     }
 
+    introSoundOptionsCacheValid_ = false;
     emit introSoundOptionsChanged();
     setIntroSoundFileName(importedName);
 }
@@ -1053,6 +1178,7 @@ void ExportSession::openIntroSoundDirectory()
 void ExportSession::refreshIntroSoundOptions()
 {
     // Files may have been added or removed in the folder since the list was built.
+    introSoundOptionsCacheValid_ = false;
     emit introSoundOptionsChanged();
     emit introChanged();
 }

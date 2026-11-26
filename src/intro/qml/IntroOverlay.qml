@@ -46,6 +46,8 @@ Item {
 
     property int frame: 0
     property real fps: 60
+    // Live preview enables asynchronous image loading; headless export keeps it synchronous.
+    property bool asynchronousMedia: false
 
     // The chart 曲绘 (background image). Empty -> miacode logo fallback.
     property url backgroundImage: ""
@@ -229,7 +231,7 @@ Item {
         source: root.pvPreviewMode ? "" : root.effectiveBackdrop
         fillMode: Image.PreserveAspectCrop
         visible: false
-        asynchronous: false
+        asynchronous: root.asynchronousMedia
         smooth: true
         mipmap: true
     }
@@ -246,7 +248,7 @@ Item {
         id: blurredTex
         anchors.fill: parent
         sourceItem: blurredBg
-        live: !root.pvPreviewMode
+        live: !root.pvPreviewMode && root.cardOpacity() > 0 && bgFill.status === Image.Ready
         hideSource: true
         visible: false
     }
@@ -275,7 +277,7 @@ Item {
         fillMode: Image.PreserveAspectCrop
         visible: root.pvPreviewMode && !root.pvPreviewVideoUnderlay
                  && root.frame < root.hideAbs && status === Image.Ready
-        asynchronous: false
+        asynchronous: root.asynchronousMedia
         smooth: true
         mipmap: true
     }
@@ -321,6 +323,7 @@ Item {
         width: parent.height
         frame: root.frame
         fps: root.fps
+        asynchronousMedia: root.asynchronousMedia
         externalTemplate: root.bannerTemplateData
         jacketImage: root.backgroundImage
         logoImage: root.logoImage
@@ -350,6 +353,7 @@ Item {
         id: transition
         anchors.fill: parent
         assetsRoot: "qrc:/intro/assets"
+        asynchronousMedia: root.asynchronousMedia
         frame: root.frame
         cycleStartFrame: root.currentCycleStart()
         enterTrimFrames: root.currentCycleStart() === root.cycle1Start ? root.cycle1EnterTrim : 0

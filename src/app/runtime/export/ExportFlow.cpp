@@ -18,6 +18,12 @@
 #include "preview/runtime/PreviewRuntime.h"
 #include "preview/stage_media/PreviewStageMediaHost.h"
 #include "app/services/ExportPagePort.h"
+#include "app/services/ChartBannerData.h"
+#include "core/analysis/TimelineSlowRefresh.h"
+#include "core/chart/model/TimelineMarkerOffset.h"
+#include <QtConcurrentRun>
+#include <QFutureWatcher>
+#include <QPointer>
 #include "app/services/AnimatedImageClipboard.h"
 #include "core/analysis/MuriAnalyzer.h"
 #include "export/video_export/VideoExportController.h"
@@ -296,39 +302,23 @@ VideoExportTask miacode::runtime::VideoExportHost::buildVideoExportRenderTask() 
     return task;
 }
 
-// Build the seed VideoExportTask shared by the export dialog AND the direct
-// cover export: parsed note markers + muri + render settings + skin /
-// outline assets + chart metadata + the banner-card payload. Callers must
-// have validated the target difficulty / scene_ and paused playback
-// first. difficultyId 0 = active difficulty (the pre-export-page behavior).
-VideoExportTask miacode::runtime::VideoExportHost::buildVideoExportSeedTask(int difficultyId)
+namespace {
+
+VideoExportTask assembleSeedTask(
+    const SimaiDocument& document,
+    VideoExportTask task,
+    int difficultyId,
+    const QString& chartPath,
+    const QString& trackPath,
+    const QString& skinDirectory,
+    const QString& outlineImagePath,
+    const QString& introSoundFileName,
+    const PreviewAudioSettings& audioSettings,
+    const PreviewTimingSettings& timingSettings,
+    double trackDuration,
+    QVector<TimelineNoteMarker> noteMarkers,
+    MuriAnalysisReport muriReport)
 {
-    const int resolvedDifficultyId = difficultyId > 0 ? difficultyId : session_.activeDifficultyId_;
-    // The live timeline markers / muri report belong to whichever difficulty
-    // lastTimelineParse* describes. An export-page launch targeting another
-    // difficulty parses that chart directly instead (the same parse the worker
-    // re-runs from the snapshot).
-
-    session_.refreshTimelineMetadata();
-    ensureExportTrackDuration();
-
-    QVector<TimelineNoteMarker> seedMarkers;
-    MuriAnalysisReport seedMuriReport;
-    // Page switch clears activeDifficultyId_ before seeding, so "is this the
-    // live editor difficulty?" cannot be the only reuse gate. Match the last
-    // timeline parse instead: workspace → export of the chart already on
-    // screen must not parse and run muri again.
-    if (liveTimelineCoversDifficulty(resolvedDifficultyId)) {
-        seedMarkers = session_.state_.timeline_.latestTimelineNoteMarkers_;
-        seedMuriReport = session_.muriAnalysisReport_;
-    } else {
-        seedMarkers = parseAndPublishTimelineForDifficulty(resolvedDifficultyId);
-        seedMuriReport = MuriAnalyzer::analyze(
-            seedMarkers,
-            session_.muriRenderOptions_,
-            static_cast<double>(session_.staticTapOnSlideThresholdMs_) / 1000.0);
-    }
-
     const auto previewMarkerEndSecond = [](const TimelineNoteMarker& marker) {
         double markerEnd = qMax(marker.second, marker.endSecond);
         markerEnd = qMax(markerEnd, marker.slideTraceSecond);
@@ -339,41 +329,38 @@ VideoExportTask miacode::runtime::VideoExportHost::buildVideoExportSeedTask(int 
         return qMax(0.0, markerEnd);
     };
     double lastMarkerEndSecond = 0.0;
-    for (const TimelineNoteMarker& marker : seedMarkers) {
+    for (const TimelineNoteMarker& marker : noteMarkers) {
         lastMarkerEndSecond = qMax(lastMarkerEndSecond, previewMarkerEndSecond(marker));
     }
     // Unified content-duration policy = max(chartEnd + tail, music).
     const double unifiedExportEndSecond = miacode::content_duration::totalContentDurationSeconds(
-        lastMarkerEndSecond, session_.previewTrackDurationSeconds_);
+        lastMarkerEndSecond, trackDuration);
 
-    VideoExportTask task = buildVideoExportRenderTask();
-    task.chartPath = session_.currentFilePath_;
-    task.trackPath = session_.resolveDefaultTrackPath();
+    task.chartPath = chartPath;
+    task.trackPath = trackPath;
     // The export page reads it to offer the PV-preview intro, the cover editor
     // to offer the chart-frame PV background (same resolution as the snapshot).
     task.backgroundMediaPath = miacode::chart_assets::resolveChartVideoPath(
-        session_.currentFilePath_, session_.applicationServices_.workspace().document().videoPath);
+        chartPath, document.videoPath);
     // Seed the skin dir so the dialog's "Export Cover" chart-frame renderer can
     // load the note sprites without building a full export snapshot.
-    task.skinDirectory = session_.resolvePreviewSkinDir();
-    task.noteMarkers = seedMarkers;
-    task.muriAnalysisReport = seedMuriReport;
-    task.audioSettings = session_.previewAudioSettings_;
-    task.timingSettings = session_.previewTimingSettings_;
-    task.introSoundFileName = session_.previewIntroSoundFileName_;
+    task.skinDirectory = skinDirectory;
+    task.noteMarkers = std::move(noteMarkers);
+    task.muriAnalysisReport = std::move(muriReport);
+    task.audioSettings = audioSettings;
+    task.timingSettings = timingSettings;
+    task.introSoundFileName = introSoundFileName;
     // Pair the variant with its custom-outline path (same resolver the real export
     // snapshot uses) so the cover's chart-frame ring matches the video export.
-    task.outlineImagePath = session_.resolvePreviewCustomOutlinePath();
+    task.outlineImagePath = outlineImagePath;
     task.contentDurationSeconds = unifiedExportEndSecond;
 
-    const QFileInfo chartInfo(session_.currentFilePath_);
-    QString chartTitle = session_.applicationServices_.workspace().document().title;
-    const QString chartDesigner = session_.applicationServices_.workspace().document()
-        .effectiveDesignerForSlot(resolvedDifficultyId);
+    const QString chartTitle = document.title;
+    const QString chartDesigner = document.effectiveDesignerForSlot(difficultyId);
     QString chartDifficultyLabel;
-    const SimaiDifficultyData* resolvedDifficulty = session_.applicationServices_.workspace().document().difficulty(resolvedDifficultyId);
+    const SimaiDifficultyData* resolvedDifficulty = document.difficulty(difficultyId);
     if (resolvedDifficulty != nullptr) {
-        const QString diffShort = SimaiDocument::difficultyShortName(resolvedDifficultyId);
+        const QString diffShort = SimaiDocument::difficultyShortName(difficultyId);
         const QString diffLevel = resolvedDifficulty->level.trimmed();
         if (!diffShort.isEmpty() || !diffLevel.isEmpty()) {
             chartDifficultyLabel = QStringLiteral("%1 %2")
@@ -381,26 +368,202 @@ VideoExportTask miacode::runtime::VideoExportHost::buildVideoExportSeedTask(int 
                 .trimmed();
         }
     }
-    const QString chartArtist = session_.applicationServices_.workspace().document().artist;
     task.chartTitle = chartTitle;
-    task.chartArtist = chartArtist;
+    task.chartArtist = document.artist;
     task.chartDifficultyLabel = chartDifficultyLabel;
     task.chartDesigner = chartDesigner;
     const QString exportStem = sanitizeExportFileStem(chartTitle, QStringLiteral("out"));
     const QString difficultyName = resolvedDifficulty != nullptr
-        ? SimaiDocument::difficultyShortName(resolvedDifficultyId).replace(':', '_')
+        ? SimaiDocument::difficultyShortName(difficultyId).replace(':', '_')
         : QStringLiteral("chart");
-    const QString outputName = QString("%1_%2.mp4")
-        .arg(exportStem)
-        .arg(difficultyName);
-    task.outputPath = outputName;
+    task.outputPath = QStringLiteral("%1_%2.mp4").arg(exportStem, difficultyName);
     // Seed the banner-card payload so the dialog's "Export Cover" can render the
     // difficulty card without building a full export snapshot.
-    task.intro = buildIntroBannerSpecForDifficulty(resolvedDifficultyId);
+    task.intro = miacode::chart_banner::forDifficulty(document, difficultyId);
+    task.intro.enabled = true;
+    task.intro.jacketPath = chartPath.isEmpty() ? QString()
+        : miacode::chart_assets::resolveDisplayBackgroundImagePath(chartPath);
     // Seed clock_count so the dialog's "Enable clock_count (N)" checkbox shows the
     // chart's value; the checkbox then gates whether it reaches the export.
-    task.clockCount = miacode::chart_clock::clockCountFromDocument(session_.applicationServices_.workspace().document());
+    task.clockCount = miacode::chart_clock::clockCountFromDocument(document);
     return task;
+}
+
+}  // namespace
+
+struct miacode::runtime::VideoExportHost::SeedInput {
+    SimaiDocument document;
+    VideoExportTask baseTask;
+    int difficultyId = 0;
+    QString chartPath;
+    QString trackPath;
+    QString skinDirectory;
+    QString outlineImagePath;
+    QString introSoundFileName;
+    PreviewAudioSettings audioSettings;
+    PreviewTimingSettings timingSettings;
+    double trackDuration = 0.0;
+    bool reuseTimeline = false;
+    SimaiParseResult parseResult;
+    TimelinePreviewRefreshState previewState;
+    MuriAnalysisReport muriReport;
+};
+
+struct miacode::runtime::VideoExportHost::PreparedSeed {
+    VideoExportTask task;
+    int difficultyId = 0;
+    QString chartText;
+    miacode::simai::SimaiTimingMetadata timingMetadata;
+    SimaiParseResult parseResult;
+    TimelinePreviewRefreshState previewState;
+    MuriAnalysisReport muriReport;
+    TimelineQuickModel timeline;
+    bool timelineUpdated = false;
+    double trackDuration = 0.0;
+};
+
+miacode::runtime::VideoExportHost::SeedInput
+miacode::runtime::VideoExportHost::captureSeedInput(int difficultyId) const
+{
+    SeedInput input;
+    input.document = session_.applicationServices_.workspace().document();
+    input.difficultyId = difficultyId > 0 ? difficultyId : session_.activeDifficultyId_;
+    input.baseTask = buildVideoExportRenderTask();
+    input.chartPath = session_.currentFilePath_;
+    input.trackPath = session_.resolveDefaultTrackPath();
+    input.skinDirectory = session_.resolvePreviewSkinDir();
+    input.outlineImagePath = session_.resolvePreviewCustomOutlinePath();
+    input.introSoundFileName = session_.previewIntroSoundFileName_;
+    input.audioSettings = session_.previewAudioSettings_;
+    input.timingSettings = session_.previewTimingSettings_;
+    input.trackDuration = session_.previewTrackDurationSeconds_;
+    input.reuseTimeline = liveTimelineCoversDifficulty(input.difficultyId);
+    if (input.reuseTimeline) {
+        input.parseResult = state_.timeline_.lastTimelineParseResult_;
+        input.previewState.shiftedNoteMarkers = state_.timeline_.latestTimelineNoteMarkers_;
+        input.previewState.noteMarkerSignature = state_.timeline_.latestTimelineNoteMarkerSignature_;
+        input.muriReport = session_.muriAnalysisReport_;
+    }
+    return input;
+}
+
+miacode::runtime::VideoExportHost::PreparedSeed
+miacode::runtime::VideoExportHost::prepareSeed(SeedInput input)
+{
+    PreparedSeed result;
+    result.difficultyId = input.difficultyId;
+    const auto* difficulty = input.document.difficulty(input.difficultyId);
+    result.chartText = difficulty != nullptr ? difficulty->chart : QString();
+    result.timingMetadata = miacode::simai::buildTimingMetadata(input.document);
+    bool firstOk = false;
+    const double first = miacode::timeline::offset::parsedFirstSeconds(input.document.first, &firstOk);
+    const double effectiveFirst = firstOk ? first : 0.0;
+    if (input.reuseTimeline) {
+        result.parseResult = std::move(input.parseResult);
+        result.previewState = std::move(input.previewState);
+        result.muriReport = std::move(input.muriReport);
+    } else {
+        result.parseResult = SimaiParser::parseForTimeline(result.chartText, result.timingMetadata);
+        result.previewState = buildTimelinePreviewRefreshState(result.parseResult, effectiveFirst);
+        result.muriReport = MuriAnalyzer::analyze(result.previewState.shiftedNoteMarkers,
+            input.baseTask.muriRenderOptions, input.baseTask.staticTapOnSlideThresholdSeconds);
+        result.timeline.updateFromText(result.chartText, effectiveFirst, result.timingMetadata);
+        result.timelineUpdated = true;
+    }
+    result.trackDuration = input.trackDuration > 0 ? input.trackDuration
+        : probeAudioDurationSeconds(input.trackPath);
+    result.task = assembleSeedTask(
+        input.document,
+        std::move(input.baseTask),
+        input.difficultyId,
+        input.chartPath,
+        input.trackPath,
+        input.skinDirectory,
+        input.outlineImagePath,
+        input.introSoundFileName,
+        input.audioSettings,
+        input.timingSettings,
+        result.trackDuration,
+        result.previewState.shiftedNoteMarkers,
+        result.muriReport);
+    return result;
+}
+
+
+void miacode::runtime::VideoExportHost::publishPreparedSeed(const PreparedSeed& prepared)
+{
+    auto& timeline = state_.timeline_;
+    timeline.lastTimelineParseDifficultyId_ = prepared.difficultyId;
+    timeline.lastTimelineParseChartText_ = prepared.chartText;
+    timeline.lastTimelineParseTimingMetadata_ = prepared.timingMetadata;
+    timeline.lastTimelineParseResult_ = prepared.parseResult;
+    timeline.latestTimelineNoteMarkers_ = prepared.previewState.shiftedNoteMarkers;
+    timeline.latestTimelineNoteMarkerSignature_ = prepared.previewState.noteMarkerSignature;
+    timeline.latestTimelinePreviewSnapshotReady_ = true;
+    if (prepared.timelineUpdated) {
+        timeline.timelineQuickModel_ = prepared.timeline;
+    }
+    session_.muriAnalysisReport_ = prepared.muriReport;
+    session_.previewTrackDurationSeconds_ = prepared.trackDuration;
+}
+
+std::optional<VideoExportTask> miacode::runtime::VideoExportHost::tryBuildCachedSeedTask(int difficultyId)
+{
+    const int resolvedDifficultyId = difficultyId > 0 ? difficultyId : session_.activeDifficultyId_;
+    if (!liveTimelineCoversDifficulty(resolvedDifficultyId)
+        || session_.previewTrackDurationSeconds_ <= 0.0) {
+        return std::nullopt;
+    }
+    const SimaiDocument& document = session_.applicationServices_.workspace().document();
+    return assembleSeedTask(
+        document,
+        buildVideoExportRenderTask(),
+        resolvedDifficultyId,
+        session_.currentFilePath_,
+        session_.resolveDefaultTrackPath(),
+        session_.resolvePreviewSkinDir(),
+        session_.resolvePreviewCustomOutlinePath(),
+        session_.previewIntroSoundFileName_,
+        session_.previewAudioSettings_,
+        session_.previewTimingSettings_,
+        session_.previewTrackDurationSeconds_,
+        state_.timeline_.latestTimelineNoteMarkers_,
+        session_.muriAnalysisReport_);
+}
+
+VideoExportTask miacode::runtime::VideoExportHost::buildVideoExportSeedTask(int difficultyId)
+{
+    const auto prepared = prepareSeed(captureSeedInput(difficultyId));
+    publishPreparedSeed(prepared);
+    return prepared.task;
+}
+
+void miacode::runtime::VideoExportHost::requestSeedTask(
+    int difficultyId, QObject* context, SeedTaskCallback callback)
+{
+    const auto snapshot = session_.applicationServices_.workspace().snapshot();
+    const quint64 sequence = ++seedRequestSequence_;
+    auto* watcher = new QFutureWatcher<PreparedSeed>(&session_);
+    const QPointer<QObject> receiver(context);
+    QObject::connect(watcher, &QFutureWatcherBase::finished, &session_,
+        [this, watcher, receiver, snapshot, sequence, callback = std::move(callback)]() mutable {
+            watcher->deleteLater();
+            if (receiver.isNull()) {
+                return;
+            }
+            const auto current = session_.applicationServices_.workspace().snapshot();
+            if (sequence != seedRequestSequence_ || snapshot.revision != current.revision
+                || snapshot.documentOpenGeneration != current.documentOpenGeneration) {
+                callback(std::nullopt);
+                return;
+            }
+            const auto prepared = watcher->result();
+            publishPreparedSeed(prepared);
+            callback(prepared.task);
+        });
+    watcher->setFuture(QtConcurrent::run([input = captureSeedInput(difficultyId)]() mutable {
+        return prepareSeed(std::move(input));
+    }));
 }
 
 void miacode::runtime::VideoExportHost::beginExportPreviewSession(const VideoExportTask& task)

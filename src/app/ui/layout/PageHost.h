@@ -18,7 +18,6 @@ class PageHost final : public QObject
     Q_PROPERTY(QString activePageId READ activePageId NOTIFY activePageIdChanged)
     Q_PROPERTY(bool overlayActive READ overlayActive NOTIFY activePageIdChanged)
     Q_PROPERTY(bool navigationPending READ navigationPending NOTIFY navigationPendingChanged)
-    Q_PROPERTY(bool exportTransitionPending READ exportTransitionPending NOTIFY exportTransitionPendingChanged)
     Q_PROPERTY(bool netUploadEnabled READ netUploadEnabled CONSTANT)
     Q_PROPERTY(QObject* exportSession READ exportSession CONSTANT)
 
@@ -36,12 +35,10 @@ public:
     bool overlayActive() const { return !activePageId_.isEmpty() && activePageId_ != QLatin1String("latency")
         && !activePageId_.startsWith(QStringLiteral("net-")); }
     bool navigationPending() const { return navigationPending_; }
-    bool exportTransitionPending() const { return exportTransitionPending_; }
     QObject* exportSession() const;
 
     Q_INVOKABLE bool openVideoExportPage(const QString& tab = QStringLiteral("export"));
     Q_INVOKABLE bool openExportPage();
-    Q_INVOKABLE void completeExportTransition();
     Q_INVOKABLE bool openLatencyPage();
     bool netUploadEnabled() const;
     Q_INVOKABLE bool openNetPage(const QString& page = QStringLiteral("net-download"));
@@ -66,7 +63,6 @@ signals:
     void preferencesRequested();
     void activePageIdChanged();
     void navigationPendingChanged();
-    void exportTransitionPendingChanged();
     void navigationRejected();
     void overlayPageLeft();
     void coverWindowRequested(int difficultyId);
@@ -94,8 +90,5 @@ private:
     QString resumeEditorKey_;
     bool resumeEditorKeyExplicit_ = false;
     bool navigationPending_ = false;
-    bool exportTransitionPending_ = false;
-    qulonglong exportTransitionDocumentGeneration_ = 0;
-    QString exportTransitionTab_;
 };
 } // namespace miacode::ui

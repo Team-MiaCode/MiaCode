@@ -38,17 +38,43 @@ public:
     bool batchLaunchSucceeds = false;
     BatchResult batchResult;
     int seeds = 0;
+    bool deferSeeds = false;
+    bool useCachedSeed = false;
+    int cachedSeeds = 0;
+    int auditions = 0;
+    int auditionDifficulty = 0;
+    int launches = 0;
+    QList<SeedTaskCallback> pendingSeeds;
+    std::optional<VideoExportTask> tryBuildCachedSeedTask(int) override
+    {
+        if (useCachedSeed) {
+            ++cachedSeeds;
+            return task;
+        }
+        return std::nullopt;
+    }
+    void requestSeedTask(int difficultyId, QObject* context, SeedTaskCallback callback) override
+    {
+        if (deferSeeds) pendingSeeds.append(std::move(callback));
+        else ExportEngine::requestSeedTask(difficultyId, context, std::move(callback));
+    }
     VideoExportTask buildSeedTask(int) override { ++seeds; return task; }
     QList<int> difficultyIds() const override { return {4, 5}; }
     QString difficultyChartText(int) const override { return {}; }
     int lastOpenedDifficultyId() const override { return 5; }
     void applySharedTaskSettings(const VideoExportTask&) override {}
-    bool startAudition(int, const VideoExportTask&) override { return false; }
+    bool startAudition(int difficultyId, const VideoExportTask&) override
+    {
+        ++auditions;
+        auditionDifficulty = difficultyId;
+        return false;
+    }
     void clearAudition() override {}
     void stopAudition() override {}
     void setAuditionClockCountEnabled(int, bool) override {}
     bool launchVideoExport(const VideoExportTask& requested, int, QString*) override
     {
+        ++launches;
         launchedTask = requested;
         return launchSucceeds;
     }
@@ -445,6 +471,68 @@ ApplicationWindow {
         const auto saved = miacode::app_preferences::loadDialogPreferences();
         expect(!saved.contains("add_intro") && !saved.contains("intro_style"),
                "export does not persist intro enablement or PV mode");
+    }
+    {
+        Engine delayed;
+        delayed.deferSeeds = true;
+        delayed.task = seed.task;
+        miacode::ExportEngine* delayedSlot = &delayed;
+        miacode::ui::ExportSession session(notifications, historyRequests, progress, appearance, delayedSlot, preview);
+        session.enter(5);
+        bool eventLoopAdvanced = false;
+        QTimer::singleShot(0, [&] { eventLoopAdvanced = true; });
+        wait();
+        expect(eventLoopAdvanced && session.preparationPending() && delayed.pendingSeeds.size() == 1,
+               "GUI events proceed while export preparation is outstanding");
+        session.startExport();
+        expect(delayed.launches == 0, "pending preparation gates export launch");
+        session.selectDifficulty(4);
+        expect(delayed.pendingSeeds.size() == 2, "a new difficulty starts an independent preparation");
+        delayed.pendingSeeds.at(0)(delayed.task);
+        expect(session.preparationPending() && delayed.auditions == 0,
+               "superseded difficulty results stay outside the preview");
+        delayed.pendingSeeds.at(1)(delayed.task);
+        expect(!session.preparationPending() && delayed.auditions == 1 && delayed.auditionDifficulty == 4,
+               "the current difficulty installs its prepared scene");
+        session.selectDifficulty(5);
+        session.leave();
+        delayed.pendingSeeds.at(2)(delayed.task);
+        expect(!session.preparationPending() && !session.pageSessionActive() && delayed.auditions == 1,
+               "page exit invalidates outstanding preparation");
+        session.enter(5);
+        wait();
+        delayed.pendingSeeds.at(3)(std::nullopt);
+        wait();
+        expect(session.preparationPending() && delayed.pendingSeeds.size() == 5,
+               "a stale workspace snapshot triggers preparation from the current document");
+        delayed.pendingSeeds.at(4)(delayed.task);
+        expect(!session.preparationPending() && delayed.auditions == 2,
+               "the refreshed workspace result completes preparation");
+    }
+    {
+        Engine cached;
+        cached.useCachedSeed = true;
+        cached.task = seed.task;
+        miacode::ExportEngine* cachedSlot = &cached;
+        miacode::ui::ExportSession session(notifications, historyRequests, progress, appearance, cachedSlot, preview);
+        session.setAuditionDeferred(true);
+        session.enter(5);
+        expect(!session.preparationPending() && cached.cachedSeeds == 1 && cached.auditions == 0,
+               "cached seed skips preparationPending immediately while deferring audition");
+        wait();
+        expect(cached.auditions == 0,
+               "audition stays deferred while the bottom panel exit transition runs");
+        session.setAuditionDeferred(false);
+        expect(cached.auditions == 1 && cached.auditionDifficulty == 5,
+               "clearing auditionDeferred installs the pending export audition");
+        session.leave();
+        session.setAuditionDeferred(true);
+        session.enter(5);
+        wait();
+        expect(cached.auditions == 1, "deferred audition does not start before leave");
+        session.leave();
+        session.setAuditionDeferred(false);
+        expect(cached.auditions == 1, "leaving before deferral ends cancels the pending audition");
     }
     miacode::FileRequest save;
     save.saveMode = true;

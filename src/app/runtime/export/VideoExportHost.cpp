@@ -41,6 +41,7 @@ bool miacode::runtime::VideoExportHost::startAudition(int difficultyId, const Vi
 
 void miacode::runtime::VideoExportHost::stopAudition()
 {
+    ++seedRequestSequence_;
     stopQmlExportAudition();
 }
 

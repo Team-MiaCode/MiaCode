@@ -24,6 +24,7 @@ Item {
     id: root
 
     property url assetsRoot: ""
+    property bool asynchronousMedia: false
 
     property int frame: 0
     property int cycleStartFrame: -1
@@ -255,6 +256,7 @@ Item {
     Image {
         id: baseTL
         source: assetsRoot + "/transition/base_TL.png"
+        asynchronous: root.asynchronousMedia
         width: root.layerW; height: root.layerH
         x: -root.baseOffX * root.baseFactor()
         y: -root.baseOffY * root.baseFactor()
@@ -263,6 +265,7 @@ Item {
     Image {
         id: baseBR
         source: assetsRoot + "/transition/base_BR.png"
+        asynchronous: root.asynchronousMedia
         width: root.layerW; height: root.layerH
         x: root.baseOffX * root.baseFactor()
         y: root.baseOffY * root.baseFactor()
@@ -272,6 +275,7 @@ Item {
     Image {
         id: hold
         source: assetsRoot + "/transition/hold.png"
+        asynchronous: root.asynchronousMedia
         width: root.layerW; height: root.layerH
         x: root.holdTranslate().x
         y: root.holdTranslate().y
@@ -282,6 +286,7 @@ Item {
     Image {
         id: slide
         source: assetsRoot + "/transition/slide.png"
+        asynchronous: root.asynchronousMedia
         width: root.layerW; height: root.layerH
         x: root.slideTranslate().x
         y: root.slideTranslate().y
@@ -293,6 +298,7 @@ Item {
     Image {
         id: purpleTL
         source: assetsRoot + "/transition/purple_TL.png"
+        asynchronous: root.asynchronousMedia
         width: root.layerW; height: root.layerH
         x: root.purpleTLTranslate().x
         y: root.purpleTLTranslate().y
@@ -301,6 +307,7 @@ Item {
     Image {
         id: purpleBR
         source: assetsRoot + "/transition/purple_BR.png"
+        asynchronous: root.asynchronousMedia
         width: root.layerW; height: root.layerH
         x: -root.purpleTLTranslate().x
         y: -root.purpleTLTranslate().y
@@ -310,6 +317,7 @@ Item {
     Image {
         id: whiteTL
         source: assetsRoot + "/transition/white_TL.png"
+        asynchronous: root.asynchronousMedia
         width: root.layerW; height: root.layerH
         x: root.whiteTLTranslate().x
         y: root.whiteTLTranslate().y
@@ -318,6 +326,7 @@ Item {
     Image {
         id: whiteBR
         source: assetsRoot + "/transition/white_BR.png"
+        asynchronous: root.asynchronousMedia
         width: root.layerW; height: root.layerH
         x: -root.whiteTLTranslate().x
         y: -root.whiteTLTranslate().y
@@ -327,6 +336,7 @@ Item {
     Image {
         id: chip
         source: assetsRoot + "/transition/chip.png"
+        asynchronous: root.asynchronousMedia
         width: root.layerW; height: root.layerH
         x: 0; y: 0
         opacity: root.chipState().op

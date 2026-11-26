@@ -91,6 +91,7 @@ ApplicationWindow {
         property int selectedDifficultyId: 5
         property string activeTab: "export"
         property string settingsTab: "intro"
+        property bool preparationPending: false
         property string unavailableReason: ""
         property bool exportRunning: false
         property string outputPath: "out.mp4"
@@ -129,6 +130,13 @@ ApplicationWindow {
         property string introFontBodyPath: ""
         property int introFontImportRequests: 0
         property bool introPvPreview: false
+        property real introPvStartSeconds: 0.0
+        property real introPvBrightness: 1.0
+        property real introPvSegmentSeconds: 8.5
+        property real introPvMusicSeconds: 9.0
+        property bool introPvVideoAvailable: false
+        property bool introAuditionPlaying: false
+        property bool introAuditionLoop: false
         property string introSoundLabel: "Intro music"
         property var introSoundOptions: [
             { label: "Default", fileName: "" },
@@ -151,7 +159,15 @@ ApplicationWindow {
         property int atomicRangeWrites: 0
         property bool applyingAtomicRange: false
 
+        signal introChanged()
         signal rangeChanged()
+
+        onActiveTabChanged: {
+            if (activeTab === "batch")
+                settingsTab = "batch"
+            else if (settingsTab === "batch")
+                settingsTab = "output"
+        }
 
         onExportStartSecondsChanged: {
             if (applyingAtomicRange)

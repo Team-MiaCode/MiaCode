@@ -30,6 +30,8 @@ class ExportSession final : public QObject, public miacode::ExportPagePort
     // itself never constructs a Widgets dialog.
     Q_PROPERTY(QObject* uiRequests READ uiRequests CONSTANT)
     Q_PROPERTY(bool pageSessionActive READ pageSessionActive NOTIFY pageSessionActiveChanged)
+    Q_PROPERTY(bool preparationPending READ preparationPending NOTIFY preparationPendingChanged)
+    Q_PROPERTY(bool auditionDeferred READ auditionDeferred WRITE setAuditionDeferred NOTIFY auditionDeferredChanged)
     Q_PROPERTY(int selectedDifficultyId READ selectedDifficultyId NOTIFY selectedDifficultyIdChanged)
     Q_PROPERTY(QString activeTab READ activeTab WRITE setActiveTab NOTIFY activeTabChanged)
     Q_PROPERTY(QString settingsTab READ settingsTab WRITE setSettingsTab NOTIFY settingsTabChanged)
@@ -124,10 +126,13 @@ public:
                      QObject* parent = nullptr);
 
     QObject* uiRequests() { return uiRequests_; }
+    bool preparationPending() const { return preparationPending_; }
+    bool auditionDeferred() const { return auditionDeferred_; }
+    void setAuditionDeferred(bool deferred);
     bool pageSessionActive() const override { return pageSessionActive_; }
     bool rangePreviewAvailable() const
     {
-        return pageSessionActive_ && activeTab_ == QLatin1String("export") && unavailableReason_.isEmpty();
+        return pageSessionActive_ && !preparationPending_ && activeTab_ == QLatin1String("export") && unavailableReason_.isEmpty();
     }
     bool rangePlaybackEnabled() const { return rangePlaybackEnabled_; }
     void setRangePlaybackEnabled(bool enabled);
@@ -282,6 +287,8 @@ public:
 
 signals:
     void pageSessionActiveChanged();
+    void preparationPendingChanged();
+    void auditionDeferredChanged();
     void introPreviewStateChanged();
     void selectedDifficultyIdChanged();
     void activeTabChanged();
@@ -303,6 +310,10 @@ signals:
 
 private:
     void seedFromDifficulty(int difficultyId);
+    void preparePreview(int difficultyId);
+    void applySeedTask(int difficultyId, VideoExportTask seededTask);
+    void setPreparationPending(bool pending);
+    void scheduleAuditionSync();
     void rebuildDifficultyList();
     void syncAudition();
     void applyLivePreviewSettings();
@@ -311,6 +322,7 @@ private:
     void adoptPreviewRenderSettings();
     void stopAudition();
     void applyPreferences();
+    void applyPreferences(const QJsonObject& settings);
     void savePreferences() const;
     void resetIntroSelection();
     void setUnavailableReason(const QString& reason);
@@ -345,17 +357,23 @@ private:
     }
     miacode::ShellNotifications* notifications_ = nullptr;
     bool pageSessionActive_ = false;
+    bool preparationPending_ = false;
+    bool auditionDeferred_ = false;
+    bool auditionSyncPending_ = false;
     bool rangePlaybackEnabled_ = false;
     // Set while this session pushes its own task into the shared preview state, so the
     // echoed previewRenderSettingsChanged is not read back as someone else's write.
     bool pushingSharedSettings_ = false;
     bool exportRunning_ = false;
     bool hasSeededTask_ = false;
-    // enter() queues seed one tick later; leave/selectDifficulty bump this
-    // so a stale tick cannot land after the page is gone.
+    // Entry, difficulty changes, and exit invalidate outstanding seed results.
     quint64 pagePrepareGeneration_ = 0;
     bool batchExportRunning_ = false;
     bool batchCancellationRequested_ = false;
+    bool fontLibraryRefreshPending_ = false;
+    bool suppressEstimateSignal_ = false;
+    mutable QVariantList introSoundOptionsCache_;
+    mutable bool introSoundOptionsCacheValid_ = false;
     mutable QVariantList fontLibraryOptionsCache_;
     mutable QString fontLibraryOptionsCacheDefaultLabel_;
     mutable bool fontLibraryOptionsCacheValid_ = false;
