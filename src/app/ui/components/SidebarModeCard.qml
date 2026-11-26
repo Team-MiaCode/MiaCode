@@ -38,8 +38,11 @@ AbstractButton {
             id: miniature
             x: 12
             y: 12
-            width: parent.width - 24
+            // Keep the miniature in design units and scale its complete scene.
+            width: 176
             height: width * 10 / 16
+            scale: Math.max(0, parent.width - 24) / width
+            transformOrigin: Item.TopLeft
             radius: Theme.compactControlRadius
             color: Theme.surfaceColor(Theme.colors.background.surface)
             border.width: 1

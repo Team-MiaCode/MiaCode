@@ -39,11 +39,13 @@ AbstractButton {
             readonly property real contentWidth: width - contentLeft - 5
             readonly property real paneSpacing: 8
             readonly property real paneWidth: (contentWidth - paneSpacing) / 2
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.margins: 12
+            x: 12
+            y: 12
+            // Keep the miniature in design units and scale its complete scene.
+            width: 176
             height: width * 10 / 16
+            scale: Math.max(0, parent.width - 24) / width
+            transformOrigin: Item.TopLeft
             radius: Theme.compactControlRadius
             color: Theme.surfaceColor(Theme.colors.background.surface)
             border.width: 1
