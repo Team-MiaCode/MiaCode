@@ -95,9 +95,6 @@ Item {
                     thickness: Math.round((strip.width + cornerExtra) * scale)
                 })
             }
-            if (bottomHeight > 0) {
-                regions.push({ edge: "bottom", thickness: bottomHeight })
-            }
             return regions
         }
         restoreMode: Binding.RestoreNone
