@@ -695,6 +695,7 @@ Item {
 
                 BottomPanel {
                     id: bottomPanel
+                    enabled: root.bottomPanelEffectivelyVisible
                     visible: root.bottomPanelShown
                     expandedHeight: root.bottomPanelAnimating ? root.targetBottomPanelHeight : 0
                     guideSettingsActive: root.timelineGuideActive

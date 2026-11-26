@@ -94,12 +94,19 @@ bool miacode::runtime::DocumentSessionHost::deleteDifficultyField(int difficulty
 
 void miacode::runtime::DocumentSessionHost::setChartBottomTabsMode(bool enabled)
 {
-    session_.setBottomTabsTabVisible(Session::BottomTabsTabId::Timeline, enabled);
-    session_.setBottomTabsTabVisible(Session::BottomTabsTabId::Validation, enabled);
-    session_.setBottomTabsTabVisible(Session::BottomTabsTabId::Muri, enabled);
+    const bool visibilityChanged = state_.timelineTabVisible_ != enabled
+        || state_.validationTabVisible_ != enabled
+        || state_.muriTabVisible_ != enabled;
+    // Publish the mode as one state change, retaining the selected tab on exit.
+    state_.timelineTabVisible_ = enabled;
+    state_.validationTabVisible_ = enabled;
+    state_.muriTabVisible_ = enabled;
 
     if (enabled) {
         session_.setCurrentBottomTabsTabId(Session::BottomTabsTabId::Timeline);
+    }
+    if (visibilityChanged) {
+        emit session_.presentationChanged();
     }
 }
 

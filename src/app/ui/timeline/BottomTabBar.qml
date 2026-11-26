@@ -10,6 +10,7 @@ Item {
     required property var documentSession
     required property var analysisSession
     required property var timelineSession
+    required property var presentation
 
     readonly property int edgePadding: 4
     readonly property int rowVerticalMargin:
@@ -87,23 +88,23 @@ Item {
         spacing: 4
 
         BottomTab {
-            visible: root.timelineSession.timelineTabVisible
+            visible: root.presentation.timelineTabVisible
             text: root.timelineSession.timelineTabLabel
-            checked: root.timelineSession.currentTabId === "timeline"
+            checked: root.presentation.currentTabId === "timeline"
             onClicked: root.timelineSession.setCurrentTabId("timeline")
         }
         AnalysisTab {
-            visible: root.timelineSession.validationTabVisible
+            visible: root.presentation.validationTabVisible
             text: root.timelineSession.validationTabLabel
             issueCounts: root.countIssues(root.analysisSession.validationRows)
-            checked: root.timelineSession.currentTabId === "validation"
+            checked: root.presentation.currentTabId === "validation"
             onClicked: root.timelineSession.setCurrentTabId("validation")
         }
         AnalysisTab {
-            visible: root.timelineSession.muriTabVisible
+            visible: root.presentation.muriTabVisible
             text: root.timelineSession.muriTabLabel
             issueCounts: ({ errors: root.analysisSession.muriIssueCount, warnings: root.analysisSession.muriWarningCount })
-            checked: root.timelineSession.currentTabId === "muri"
+            checked: root.presentation.currentTabId === "muri"
             onClicked: root.timelineSession.setCurrentTabId("muri")
         }
 

@@ -16,6 +16,30 @@ Item {
     required property var previewSession
     property bool guideSettingsActive: false
     property real expandedHeight: 0
+    property var tabPresentation: ({
+        currentTabId: "",
+        timelineTabVisible: false,
+        validationTabVisible: false,
+        muriTabVisible: false
+    })
+
+    function refreshTabPresentation() {
+        // Keep the outgoing tabs and page intact until the panel is clipped away.
+        if (!root.timelineSession.panelVisible)
+            return
+        root.tabPresentation = {
+            currentTabId: root.timelineSession.currentTabId,
+            timelineTabVisible: root.timelineSession.timelineTabVisible,
+            validationTabVisible: root.timelineSession.validationTabVisible,
+            muriTabVisible: root.timelineSession.muriTabVisible
+        }
+    }
+
+    Component.onCompleted: refreshTabPresentation()
+    Connections {
+        target: root.timelineSession
+        function onTabsChanged() { root.refreshTabPresentation() }
+    }
     readonly property bool guideSettingsAvailable: root.guideSettingsActive
         && root.visible && timelineItem.visible
     readonly property Item timelineGuideItem: timelineItem
@@ -168,6 +192,7 @@ Item {
 
     BottomTabBar {
         id: tabs
+        presentation: root.tabPresentation
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
@@ -183,7 +208,7 @@ Item {
         anchors.right: parent.right
         anchors.top: tabs.bottom
         anchors.bottom: parent.bottom
-        visible: root.timelineSession.currentTabId === "timeline"
+        visible: root.tabPresentation.currentTabId === "timeline"
         enabled: visible
         stateBridge: root.timelineSession.stateBridge
         headerLeftLimit: zoomButton.x + zoomButton.width + 2
@@ -265,7 +290,7 @@ Item {
         anchors.top: tabs.bottom
         anchors.topMargin: root.contentTopMargin
         anchors.bottom: parent.bottom
-        visible: root.timelineSession.currentTabId === "validation"
+        visible: root.tabPresentation.currentTabId === "validation"
 
         Row {
             id: summaryRow
@@ -331,7 +356,7 @@ Item {
         anchors.top: tabs.bottom
         anchors.topMargin: root.contentTopMargin
         anchors.bottom: parent.bottom
-        visible: root.timelineSession.currentTabId === "muri"
+        visible: root.tabPresentation.currentTabId === "muri"
 
         Row {
             id: muriSummaryRow
