@@ -150,17 +150,24 @@ Item {
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: 10
+        width: 18
         visible: root.peekEnabled
 
         HoverHandler {
             id: edgePeekHover
+            blocking: false
+            onHoveredChanged: {
+                if (hovered && root.peekEnabled && !root.peekOpen
+                        && root.windowActive && sidebarDrawer.position > 0.01) {
+                    root.openPeek(false)
+                }
+            }
         }
     }
 
     Timer {
         id: peekOpenTimer
-        interval: 180
+        interval: 55
         running: root.peekEnabled && !root.peekOpen && edgePeekHover.hovered && root.windowActive
         onTriggered: {
             if (root.peekEnabled && edgePeekHover.hovered && root.windowActive)
@@ -203,7 +210,7 @@ Item {
         visible: root.peekEnabled && root.peekOpen
 
         enter: Transition {
-            NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+            NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
         }
         exit: Transition {
             NumberAnimation {
