@@ -432,6 +432,19 @@ bool miacode::runtime::PlaybackCoordinator::startQtPreviewPlayback(double second
 
     preview_.ensurePreviewStageMediaRouteInitialized();
     ensurePreviewSfxRuntimePrepared(state_);
+    const quint64 playbackTxn = ++state_.previewPlaybackTransactionCounter_;
+    state_.activePreviewPlaybackTransactionId_ = playbackTxn;
+    bool forceFreshAudioPrepare = false;
+    if (state_.previewSfxRuntime_ != nullptr) {
+        state_.previewSfxRuntime_->setPlaybackTransactionId(playbackTxn);
+        // Only an explicit Play request reopens command submission after a physical
+        // device cutoff. Reopen before applyLatestTimelinePreviewStateToPausedPreview()
+        // so ApplyPausedState is never dropped as stale on the recovery play.
+        forceFreshAudioPrepare = state_.previewSfxRuntime_->beginManualPlaybackAfterDeviceCutoff();
+    }
+    if (state_.previewStageMediaHost_ != nullptr) {
+        state_.previewStageMediaHost_->setPlaybackTransactionId(playbackTxn);
+    }
     // Re-assert the correct preview levels on EVERY play (fresh or resume).
     // applyPreviewAudioSettingsToRuntime() re-derives them from the current mode:
     // a normal difficulty gets the user's real mix, while the latency page's
@@ -463,34 +476,6 @@ bool miacode::runtime::PlaybackCoordinator::startQtPreviewPlayback(double second
               state_.previewTouchFlowSpeed_)
         : requestedSecond;
     const bool hasVideoMedia = previewStageMediaRouteHasVideo();
-    const quint64 playbackTxn = ++state_.previewPlaybackTransactionCounter_;
-    state_.activePreviewPlaybackTransactionId_ = playbackTxn;
-    // Stamp the transaction tag on both backends HERE, above the retained/cold branch,
-    // so both start paths carry it by construction.
-    //
-    // These two setters are log tags only — every use of playbackTransactionId_ inside
-    // BassPreviewAudioBackend and PreviewStageMediaHost is string formatting. The
-    // functional staleness guard is a different member,
-    // PreviewStageMediaHost::preparedPlaybackTransaction_, set by preparePlaybackStart()
-    // further down; that stays on the cold path because it protects the async
-    // prepare/commit handshake, which the retained path does not have.
-    //
-    // They used to live in the cold path only. The retained fast-resume path returns
-    // before reaching them, and in practice nearly every real playback takes it (a
-    // paused scrub re-anchors the retained state, so the resume is always the retained
-    // branch), which left the audio backend stamping txn=0 on every bass_status line
-    // for the whole session. That silently removed the only handle for correlating
-    // audio-channel lines with the runtime channel's preview/resource_gauge.
-    bool forceFreshAudioPrepare = false;
-    if (state_.previewSfxRuntime_ != nullptr) {
-        state_.previewSfxRuntime_->setPlaybackTransactionId(playbackTxn);
-        // Only an explicit Play request reopens command submission after a physical
-        // device cutoff. The previous session's queued/tail audio stays discarded.
-        forceFreshAudioPrepare = state_.previewSfxRuntime_->beginManualPlaybackAfterDeviceCutoff();
-    }
-    if (state_.previewStageMediaHost_ != nullptr) {
-        state_.previewStageMediaHost_->setPlaybackTransactionId(playbackTxn);
-    }
     const auto applyPlaybackClockState = [this](double initialSecond) {
         playbackState_.qtPreviewStartSecond_ = initialSecond;
         miacode::runtime::shared::writePreviewPauseSecond(
@@ -549,7 +534,8 @@ bool miacode::runtime::PlaybackCoordinator::startQtPreviewPlayback(double second
     bool retainedStartup = false;
     bool retainedStartupUsedSeek = false;
     int retainedModeValue = -1;
-    if (resumeFromPause && !forceFreshAudioPrepare && state_.previewSfxRuntime_ != nullptr) {
+    if (resumeFromPause && !forceFreshAudioPrepare && state_.previewSfxRuntime_ != nullptr
+        && state_.previewSfxRuntime_->audioEngineInitialized()) {
         const QtPreviewSfxRuntime::RetainedPlaybackMode retainedMode =
             state_.previewSfxRuntime_->retainedPlaybackMode();
         if (retainedMode == QtPreviewSfxRuntime::RetainedPlaybackMode::PausedExact

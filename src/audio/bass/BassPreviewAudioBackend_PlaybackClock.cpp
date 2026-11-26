@@ -534,13 +534,17 @@ double BassPreviewAudioBackend::preparePreviewPlaybackTransaction(
     MC_OP("BassPreviewAudioBackend::preparePreviewPlaybackTransaction");
     QElapsedTimer timer;
     timer.start();
+    lastCommitMonotonicNs_ = 0;
     noteInitWindowOpened(QStringLiteral("prepare_preview_playback"));
     if (!initializeAudioEngine()) {
         return startSecond;
     }
     if (outputDeviceRebuildRequired_) {
-        // A device cutoff destroys the old BASS streams.  Recreate assets only on
+        // A device cutoff destroys the old BASS streams. Recreate assets only on
         // this explicit play path, never as part of the route-change callback.
+        if (preparedAssets_.sfxDir.isEmpty()) {
+            refreshPreparedAssets();
+        }
         initializeAssets();
         outputDeviceRebuildRequired_ = false;
         appendAudioDebugLog(QString("bass_output_rebuild_on_explicit_play txn=%1")
@@ -592,6 +596,7 @@ double BassPreviewAudioBackend::preparePreviewPlaybackTransaction(
 void BassPreviewAudioBackend::commitPreparedPreviewPlayback()
 {
     MC_OP("BassPreviewAudioBackend::commitPreparedPreviewPlayback");
+    lastCommitMonotonicNs_ = 0;
     if (!preparedPlayback_.pending || masterMixer_ == 0) {
         return;
     }
@@ -618,6 +623,10 @@ void BassPreviewAudioBackend::commitPreparedPreviewPlayback()
     }
     restoreTouchholdVoices(preparedPlayback_.startSecond);
     anchorSfxScheduler(preparedPlayback_.startSecond);
+    lastCommitMonotonicNs_ = static_cast<qint64>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now().time_since_epoch())
+            .count());
     logTrackFileMissingAfterLoadIfNeeded();
     // G1 Commit 8: rename `bass_commit` → `bass_play` per §7.2 of
     // PREVIEW_AUDIO_CLOCK_ALIGNMENT_HANDOFF_ZH.md, and add the rate field so
@@ -648,6 +657,11 @@ double BassPreviewAudioBackend::preparedStartSecond() const
     return preparedPlayback_.pending ? preparedPlayback_.startSecond : playbackSession_.lastAuthoritativeSecond;
 }
 
+qint64 BassPreviewAudioBackend::lastCommitMonotonicNs() const
+{
+    return lastCommitMonotonicNs_;
+}
+
 void BassPreviewAudioBackend::applyPausedPreviewState(
     const QVector<TimelineNoteMarker>& noteMarkers,
     bool noteMarkersChanged,
@@ -665,6 +679,12 @@ void BassPreviewAudioBackend::applyPausedPreviewState(
     if (transportInvalidated) {
         noteInitWindowOpened(QStringLiteral("apply_paused_state_invalidated"));
         rebuildPreparedTimeline(noteMarkers, playbackRate, timingSettings);
+    }
+    if (!engineInitialized_ || masterMixer_ == 0 || outputDeviceRebuildRequired_) {
+        // Keep the invalidated boundary intact until an explicit cold Prepare
+        // rebuilds the engine and assets on the replacement endpoint.
+        retainedPlaybackMode_ = RetainedPlaybackMode::Invalidated;
+        return;
     }
     const double clampedPauseSecond = clampTimelineSecond(pauseSecond);
     // G1 fix (seek-into-片头 A/V desync): the reuse "same second" check must
@@ -727,6 +747,7 @@ miacode::preview_audio::PausePreviewResult BassPreviewAudioBackend::capturePause
 miacode::preview_audio::PausePreviewResult BassPreviewAudioBackend::pausePreviewPlaybackTransaction()
 {
     MC_OP("BassPreviewAudioBackend::pausePreviewPlaybackTransaction");
+    lastCommitMonotonicNs_ = 0;
     PausePreviewResult result;
     result.usedBackgroundTrack = hasBackgroundTrack();
     result.pauseSecond = authoritativeSecond();

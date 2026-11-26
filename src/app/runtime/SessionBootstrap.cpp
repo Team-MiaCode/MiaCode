@@ -257,6 +257,14 @@ Session::Session(miacode::ApplicationServices& services, QObject* parent)
                 }
             });
     connect(previewSfxRuntime_,
+            &QtPreviewSfxRuntime::previewPlaybackStarted,
+            this,
+            [this](const QtPreviewSfxRuntime::Completion& completion) {
+                if (playback_ != nullptr) {
+                    playback_->handlePreviewAudioPlaybackStarted(completion);
+                }
+            });
+    connect(previewSfxRuntime_,
             &QtPreviewSfxRuntime::retainedPlaybackCompleted,
             this,
             [this](const QtPreviewSfxRuntime::Completion& completion) {
@@ -280,6 +288,16 @@ Session::Session(miacode::ApplicationServices& services, QObject* parent)
                 ? runtime->requestDeviceChangeCutoff()
                 : miacode::preview_audio::PreviewAudioDeviceCutoff{};
         });
+    connect(previewSfxRuntime_,
+            &QtPreviewSfxRuntime::commandCompleted,
+            this,
+            [this](const QtPreviewSfxRuntime::Completion&) {
+                if (previewAudioDeviceWatcher_ != nullptr && previewSfxRuntime_ != nullptr) {
+                    previewAudioDeviceWatcher_->setOutputRoutingPolicy(
+                        state_.audioOutputDeviceIdPreference_,
+                        previewSfxRuntime_->activeOutputDeviceId());
+                }
+            });
     connect(previewAudioDeviceWatcher_,
             &PreviewAudioDeviceWatcher::deviceCutoffRequested,
             this,
@@ -287,6 +305,20 @@ Session::Session(miacode::ApplicationServices& services, QObject* parent)
                 if (playback_ != nullptr) {
                     playback_->applyPreviewAudioDeviceCutoff(cutoff);
                 }
+            });
+    connect(previewAudioDeviceWatcher_,
+            &PreviewAudioDeviceWatcher::outputRouteInvalidated,
+            this,
+            [this](const PreviewAudioDeviceWatcher::DeviceCutoff& cutoff) {
+                if (playback_ != nullptr) {
+                    playback_->applyPreviewAudioDeviceCutoff(cutoff);
+                }
+            });
+    connect(previewAudioDeviceWatcher_,
+            &PreviewAudioDeviceWatcher::outputDevicesChanged,
+            this,
+            [&notifications = services.shellNotifications()]() {
+                emit notifications.audioOutputDevicesChanged();
             });
     logStartupStage("preview_audio_device_watcher_created");
     connect(scene_, &PreviewRuntime::visibleHostRefreshRateChanged, this,

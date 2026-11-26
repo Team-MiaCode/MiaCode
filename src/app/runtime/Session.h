@@ -306,6 +306,8 @@ public:
     void applyPreviewAudioSettingsFromUi(const PreviewAudioSettings& settings) override;
     void savePreviewAudioSettingsAsSoftwareDefault() override;
     void restorePreviewAudioSettingsFromSoftwareDefault() override;
+    QString preferredAudioOutputDeviceId() const override;
+    void setPreferredAudioOutputDeviceId(const QString& deviceId) override;
 
     // 预览设置 page. Read as one map, written one key at a time: each of these
     // has its own way of reaching the running preview — a canvas setter, a

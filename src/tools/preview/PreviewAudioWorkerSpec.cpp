@@ -107,6 +107,9 @@ struct FakeState {
     mutable std::mutex mutex;
     std::condition_variable cv;
     std::vector<CallRecord> calls;
+    QString outputDeviceId;
+    qint64 commitMonotonicNs = 0;
+    bool commitStartsPlayback = false;
     QString blockedMethod;
     QString throwingMethod;
     QString delayedMethod;
@@ -192,6 +195,13 @@ public:
         return state_->engineInitialized;
     }
 
+    void setOutputDeviceId(const QString& deviceId) override
+    {
+        call(QStringLiteral("setOutputDevice"));
+        std::lock_guard lock(state_->mutex);
+        state_->outputDeviceId = deviceId;
+    }
+
     void setChartPath(const QString& chartPath) override
     {
         call(QStringLiteral("setChartPath"));
@@ -214,7 +224,20 @@ public:
         notePlaybackEngineFailure();
         return second + 0.25;
     }
-    void commitPreparedPreviewPlayback() override { call(QStringLiteral("commit")); }
+    void commitPreparedPreviewPlayback() override
+    {
+        call(QStringLiteral("commit"));
+        std::lock_guard lock(state_->mutex);
+        if (state_->commitStartsPlayback) {
+            state_->commitMonotonicNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::steady_clock::now().time_since_epoch()).count();
+        }
+    }
+    qint64 lastCommitMonotonicNs() const override
+    {
+        std::lock_guard lock(state_->mutex);
+        return state_->commitMonotonicNs;
+    }
     void cancelPreparedPreviewPlayback() override { call(QStringLiteral("cancel")); }
     double preparedStartSecond() const override
     {
@@ -892,6 +915,8 @@ QString expectedBackendCall(CommandKind kind)
         return QStringLiteral("pause");
     case CommandKind::StopAll:
         return QStringLiteral("stopAll");
+    case CommandKind::SetOutputDevice:
+        return QStringLiteral("setOutputDevice");
     case CommandKind::SetWarmupResolvedPaths:
         return QStringLiteral("setWarmupResolvedPaths");
     case CommandKind::ReloadAssets:
@@ -978,7 +1003,7 @@ bool verifyOwnershipLifecycleAndDispatch(QTextStream& err)
                  "Ready follows Constructing monotonically", err);
 
     const std::vector<CommandKind> kinds{
-        CommandKind::SetWarmupResolvedPaths, CommandKind::ReloadAssets,
+        CommandKind::SetOutputDevice, CommandKind::SetWarmupResolvedPaths, CommandKind::ReloadAssets,
         CommandKind::SetChartPath, CommandKind::SetBackgroundOffset,
         CommandKind::SetBackgroundRate, CommandKind::ApplyRateAtSecond,
         CommandKind::ApplyLevels, CommandKind::ConfigureTimeline,
@@ -1068,6 +1093,43 @@ bool verifyOwnershipLifecycleAndDispatch(QTextStream& err)
     return ok;
 }
 
+bool verifyCommitClockBelongsToCurrentPlayback(QTextStream& err)
+{
+    auto state = std::make_shared<FakeState>();
+    state->commitStartsPlayback = true;
+    auto completions = std::make_shared<CompletionLog>();
+    PreviewAudioWorker worker(fakeFactory(state), [completions](const auto& completion) {
+        completions->append(completion);
+    });
+    bool ok = expect(waitForLifecycle(worker, WorkerLifecycle::Ready), "commit clock worker ready", err);
+    const auto first = worker.post(commandFor(CommandKind::Commit, 1, 0, 1));
+    PreviewAudioCompletion firstCommit;
+    ok &= expect(completions->waitFor(first.sequence, &firstCommit)
+                     && firstCommit.success && firstCommit.commitMonotonicNs > 0,
+                 "a fresh commit publishes its playback anchor", err);
+    {
+        std::lock_guard lock(state->mutex);
+        state->commitStartsPlayback = false;
+    }
+    for (quint64 transaction = 2; transaction <= 4; ++transaction) {
+        const auto pause = worker.post(commandFor(CommandKind::ManualPause, transaction, 0, transaction - 1));
+        PreviewAudioCompletion pauseCompletion;
+        ok &= expect(completions->waitFor(pause.sequence, &pauseCompletion) && pauseCompletion.success,
+                     "pause completes before retained resume", err);
+        const auto resume = worker.post(commandFor(CommandKind::ResumeRetained, transaction, 0, transaction));
+        PreviewAudioCompletion resumeCompletion;
+        ok &= expect(completions->waitFor(resume.sequence, &resumeCompletion) && resumeCompletion.success,
+                     "retained playback resumes", err);
+        const auto emptyCommit = worker.post(commandFor(CommandKind::Commit, transaction, 0, transaction));
+        PreviewAudioCompletion completion;
+        ok &= expect(completions->waitFor(emptyCommit.sequence, &completion)
+                         && completion.success && completion.commitMonotonicNs == 0,
+                     "empty commit after resume discards the previous playback anchor", err);
+    }
+    worker.shutdownAndJoin();
+    return ok;
+}
+
 bool verifyFactoryFailureAndExplicitRecovery(QTextStream& err)
 {
     auto state = std::make_shared<FakeState>();
@@ -1079,6 +1141,12 @@ bool verifyFactoryFailureAndExplicitRecovery(QTextStream& err)
 
     bool ok = true;
     ok &= expect(waitForLifecycle(worker, WorkerLifecycle::Degraded), "null factory degrades safely", err);
+    PreviewAudioCommand output = commandFor(CommandKind::SetOutputDevice, 0, 0, 0);
+    output.outputDeviceId = QStringLiteral("preferred-output");
+    const auto outputPost = worker.post(output);
+    PreviewAudioCompletion outputCompletion;
+    ok &= expect(completions->waitFor(outputPost.sequence, &outputCompletion) && outputCompletion.success,
+                 "output preference is stored while the backend is missing", err);
     PreviewAudioCommand warmup = commandFor(CommandKind::SetWarmupResolvedPaths, 0, 7, 0);
     const WorkerPostResult warmupPost = worker.post(warmup);
     PreviewAudioCompletion warmupCompletion;
@@ -1108,6 +1176,14 @@ bool verifyFactoryFailureAndExplicitRecovery(QTextStream& err)
     ok &= expect(secondFactory != names.cend() && warmupCall != names.cend() && reloadCall != names.cend()
                      && secondFactory < warmupCall && warmupCall < reloadCall,
                  "retry applies stored warmup before reload", err);
+    {
+        std::lock_guard lock(state->mutex);
+        ok &= expect(state->outputDeviceId == QStringLiteral("preferred-output"),
+                     "recreated backend receives the stored output preference", err);
+    }
+    const auto outputCall = std::find(names.cbegin(), names.cend(), QStringLiteral("setOutputDevice"));
+    ok &= expect(outputCall != names.cend() && outputCall < reloadCall,
+                 "stored output preference reaches the backend before reload", err);
     worker.shutdownAndJoin();
 
     auto throwingState = std::make_shared<FakeState>();
@@ -1117,6 +1193,29 @@ bool verifyFactoryFailureAndExplicitRecovery(QTextStream& err)
                      && throwingWorker.snapshot().lastError == CommandError::BackendUnavailable,
                  "throwing factory degrades safely", err);
     throwingWorker.shutdownAndJoin();
+    auto coldState = std::make_shared<FakeState>();
+    coldState->engineInitialized = false;
+    auto coldCompletions = std::make_shared<CompletionLog>();
+    PreviewAudioWorker coldWorker(fakeFactory(coldState), [coldCompletions](const auto& completion) {
+        coldCompletions->append(completion);
+    });
+    ok &= expect(waitForLifecycle(coldWorker, WorkerLifecycle::Degraded),
+                 "cold backend starts degraded", err);
+    const auto coldOutputPost = coldWorker.post(output);
+    PreviewAudioCompletion coldOutput;
+    ok &= expect(coldCompletions->waitFor(coldOutputPost.sequence, &coldOutput) && coldOutput.success,
+                 "cold backend accepts the output preference", err);
+    {
+        std::lock_guard lock(coldState->mutex);
+        ok &= expect(coldState->outputDeviceId == QStringLiteral("preferred-output"),
+                     "cold backend receives the selected endpoint", err);
+        coldState->engineInitialized = true;
+    }
+    const auto coldReloadPost = coldWorker.post(commandFor(CommandKind::ReloadAssets, 0, 1, 0));
+    PreviewAudioCompletion coldReload;
+    ok &= expect(coldCompletions->waitFor(coldReloadPost.sequence, &coldReload) && coldReload.success,
+                 "cold backend recovers through reload after output selection", err);
+    coldWorker.shutdownAndJoin();
     return ok;
 }
 
@@ -2533,6 +2632,7 @@ int main(int argc, char* argv[])
     ok &= verifyAssetLifecycleCallbackCanReenterWorker(err);
     ok &= verifyWorkerReschedulesHealthAfterBlockingSample(err);
     ok &= verifyOwnershipLifecycleAndDispatch(err);
+    ok &= verifyCommitClockBelongsToCurrentPlayback(err);
     ok &= verifyFactoryFailureAndExplicitRecovery(err);
     ok &= verifyReloadFailureAndAssetStaleness(err);
     ok &= verifyReloadAtomicallyAppliesChartPath(err);

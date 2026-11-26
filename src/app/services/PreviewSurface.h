@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app/services/PlaybackControl.h"
+#include "audio/PreviewAudioOutputDevice.h"
 #include "audio/PreviewAudioSettings.h"
 #include "core/analysis/MuriRenderOptions.h"
 #include "core/video/PreviewRenderSettings.h"
@@ -87,6 +88,12 @@ public:
     virtual void applyAudioSettings(const PreviewAudioSettings& settings) = 0;
     virtual void saveAudioSettingsAsSoftwareDefault() = 0;
     virtual void restoreAudioSettingsFromSoftwareDefault() = 0;
+    virtual QVector<miacode::preview_audio::PreviewAudioOutputDeviceInfo> availableAudioOutputDevices() const
+    {
+        return {};
+    }
+    virtual QString preferredAudioOutputDeviceId() const { return {}; }
+    virtual void setPreferredAudioOutputDeviceId(const QString& deviceId) { Q_UNUSED(deviceId); }
 
 protected:
     PreviewSurface() = default;

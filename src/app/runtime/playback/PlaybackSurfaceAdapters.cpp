@@ -244,6 +244,26 @@ void PlaybackPreviewSurfaceAdapter::restoreAudioSettingsFromSoftwareDefault()
     }
 }
 
+QVector<miacode::preview_audio::PreviewAudioOutputDeviceInfo>
+PlaybackPreviewSurfaceAdapter::availableAudioOutputDevices() const
+{
+    return coordinator_ != nullptr
+        ? coordinator_->availableAudioOutputDevices()
+        : QVector<miacode::preview_audio::PreviewAudioOutputDeviceInfo>();
+}
+
+QString PlaybackPreviewSurfaceAdapter::preferredAudioOutputDeviceId() const
+{
+    return coordinator_ != nullptr ? coordinator_->preferredAudioOutputDeviceId() : QString();
+}
+
+void PlaybackPreviewSurfaceAdapter::setPreferredAudioOutputDeviceId(const QString& deviceId)
+{
+    if (coordinator_ != nullptr) {
+        coordinator_->setPreferredAudioOutputDeviceId(deviceId);
+    }
+}
+
 PlaybackTimelineSurfaceAdapter::PlaybackTimelineSurfaceAdapter(PlaybackCoordinator& coordinator)
     : coordinator_(&coordinator)
 {

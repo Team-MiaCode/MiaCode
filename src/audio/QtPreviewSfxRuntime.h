@@ -66,6 +66,8 @@ public:
         const QString& sfxDir,
         const PreviewAudioSettings& settings);
     bool audioEngineInitialized() const;
+    void setOutputDeviceId(const QString& deviceId);
+    QString activeOutputDeviceId() const;
     AssetSubmission setChartPath(const QString& chartPath);
     void setBackgroundTrackOffsetSeconds(double seconds);
     void setBackgroundTrackPlaybackRate(double rate);
@@ -84,10 +86,10 @@ public:
         double startSecond,
         bool resumeFromPause,
         double playbackRate);
-    void commitPreparedPreviewPlayback();
+    miacode::preview_audio::WorkerPostResult commitPreparedPreviewPlayback();
     void cancelPreparedPreviewPlayback();
     double preparedStartSecond() const;
-    void applyPausedPreviewState(
+    miacode::preview_audio::WorkerPostResult applyPausedPreviewState(
         const QVector<TimelineNoteMarker>& noteMarkers,
         bool noteMarkersChanged,
         double pauseSecond,

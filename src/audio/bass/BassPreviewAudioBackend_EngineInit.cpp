@@ -148,6 +148,97 @@ bool initLinuxOutputDevice(quint32 sampleRate, int* selectedDeviceOut)
 
 namespace {
 
+QString decodeBassDeviceName(const char* name)
+{
+    if (name == nullptr) {
+        return {};
+    }
+#ifdef Q_OS_MACOS
+    return QString::fromUtf8(name);
+#else
+    return QString::fromLocal8Bit(name);
+#endif
+}
+
+QString decodeBassDeviceDriver(const char* driver)
+{
+    return driver != nullptr ? QString::fromUtf8(driver) : QString();
+}
+
+bool isVirtualBassDefaultEntry(const BASS_DEVICEINFO& info)
+{
+    return info.driver == nullptr && (info.flags & BASS_DEVICE_DEFAULT) != 0;
+}
+
+bool resolvePreferredBassDevice(const QString& preferredId, int* indexOut, QString* endpointIdOut)
+{
+    if (preferredId.isEmpty()) {
+        return false;
+    }
+    int nameFallbackIndex = -1;
+    QString nameFallbackEndpointId;
+    BASS_DEVICEINFO info {};
+    for (DWORD index = 1; BASS_GetDeviceInfo(index, &info); ++index) {
+        if ((info.flags & BASS_DEVICE_ENABLED) == 0 || isVirtualBassDefaultEntry(info)) {
+            continue;
+        }
+        const QString driver = decodeBassDeviceDriver(info.driver);
+        const QString name = decodeBassDeviceName(info.name);
+        const QString id = !driver.isEmpty() ? driver : name;
+        if (id == preferredId) {
+            if (indexOut != nullptr) {
+                *indexOut = static_cast<int>(index);
+            }
+            if (endpointIdOut != nullptr) {
+                *endpointIdOut = id;
+            }
+            return true;
+        }
+        if (nameFallbackIndex < 0 && !name.isEmpty() && name == preferredId) {
+            nameFallbackIndex = static_cast<int>(index);
+            nameFallbackEndpointId = id;
+        }
+    }
+    if (nameFallbackIndex > 0) {
+        if (indexOut != nullptr) {
+            *indexOut = nameFallbackIndex;
+        }
+        if (endpointIdOut != nullptr) {
+            *endpointIdOut = nameFallbackEndpointId;
+        }
+        return true;
+    }
+    return false;
+}
+
+#ifdef Q_OS_MACOS
+bool resolveMacDefaultBassEndpoint(int* indexOut, QString* endpointIdOut)
+{
+    BASS_DEVICEINFO info {};
+    for (DWORD index = 1; BASS_GetDeviceInfo(index, &info); ++index) {
+        if ((info.flags & BASS_DEVICE_ENABLED) == 0 || isVirtualBassDefaultEntry(info)) {
+            continue;
+        }
+        if ((info.flags & BASS_DEVICE_DEFAULT) != 0) {
+            const QString driver = decodeBassDeviceDriver(info.driver);
+            const QString name = decodeBassDeviceName(info.name);
+            if (indexOut != nullptr) {
+                *indexOut = static_cast<int>(index);
+            }
+            if (endpointIdOut != nullptr) {
+                *endpointIdOut = !driver.isEmpty() ? driver : name;
+            }
+            return true;
+        }
+    }
+    return false;
+}
+#endif
+
+}  // namespace
+
+namespace {
+
 // Output-glitch DSP callback. Runs on BASS's own mixing thread (there is no
 // separate "audio thread" spawned by MiaCode for the master mixer -- BASS pulls
 // masterMixer_ synchronously when the output driver wants data, and every DSP
@@ -392,6 +483,50 @@ void BassPreviewAudioBackend::unloadOptionalPlugins()
     }
 }
 
+QVector<miacode::preview_audio::PreviewAudioOutputDeviceInfo> BassPreviewAudioBackend::enumerateOutputDevices()
+{
+    miacode::preview_audio::disableBassDefaultDeviceEntry();
+    QVector<miacode::preview_audio::PreviewAudioOutputDeviceInfo> devices;
+    BASS_DEVICEINFO info {};
+    for (DWORD index = 1; BASS_GetDeviceInfo(index, &info); ++index) {
+        if ((info.flags & BASS_DEVICE_ENABLED) == 0 || isVirtualBassDefaultEntry(info)) {
+            continue;
+        }
+        miacode::preview_audio::PreviewAudioOutputDeviceInfo entry;
+        entry.name = decodeBassDeviceName(info.name);
+        entry.driver = decodeBassDeviceDriver(info.driver);
+        entry.id = !entry.driver.isEmpty() ? entry.driver : entry.name;
+        if (entry.id.isEmpty()) {
+            continue;
+        }
+        entry.isDefault = (info.flags & BASS_DEVICE_DEFAULT) != 0;
+        entry.isEnabled = true;
+        devices.push_back(std::move(entry));
+    }
+    return devices;
+}
+
+void BassPreviewAudioBackend::setOutputDeviceId(const QString& deviceId)
+{
+    const QString trimmed = deviceId.trimmed();
+    if (preferredOutputDeviceId_ == trimmed) {
+        return;
+    }
+    preferredOutputDeviceId_ = trimmed;
+    appendAudioDebugLog(
+        QStringLiteral("bass_preferred_output_device_changed target=%1")
+            .arg(preferredOutputDeviceId_.isEmpty() ? QStringLiteral("(default)")
+                                                    : preferredOutputDeviceId_));
+    if (engineInitialized_ || masterMixer_ != 0 || bassDeviceLease_.acquired()) {
+        invalidateOutputDevice();
+    }
+}
+
+QString BassPreviewAudioBackend::activeOutputDeviceId() const
+{
+    return bassOutputEndpointId_;
+}
+
 bool BassPreviewAudioBackend::initializeAudioEngine()
 {
     MC_OP("BassPreviewAudioBackend::initializeAudioEngine");
@@ -401,12 +536,10 @@ bool BassPreviewAudioBackend::initializeAudioEngine()
     QElapsedTimer timer;
     timer.start();
     _mc_op_.note(QStringLiteral("device_sr=%1").arg(deviceSampleRate_));
-#ifdef Q_OS_WIN
-    // BASS_Init(-1) means "follow the Windows default device". main() disables that
-    // mode before anything in the process reaches BASS, so every engine lifetime can
-    // bind to the concrete Core Audio endpoint instead; this reads back that single
-    // process-wide attempt. A device rebuild happens after BASS_Free, when the
-    // setting is no longer mutable anyway.
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
+    // BASS_Init(-1) follows the system default endpoint unless BASS_CONFIG_DEV_DEFAULT
+    // is disabled. main() disables it before anything in the process reaches BASS,
+    // so every engine lifetime can bind to a concrete endpoint instead.
     int errorCode = BASS_OK;
     if (!miacode::preview_audio::disableBassDefaultDeviceEntry(&errorCode)) {
         lastNativeErrorCode_ = errorCode;
@@ -420,35 +553,55 @@ bool BassPreviewAudioBackend::initializeAudioEngine()
             true);
         return false;
     }
-    const DefaultBassEndpoint endpoint = resolveDefaultBassEndpoint();
-    if (endpoint.bassDeviceIndex < 0) {
-        appendAudioDebugLog(
-            QString("bass_endpoint_bind_failed reason=resolve_default com_hr=0x%1 endpoint_hr=0x%2 endpoint=%3")
-                .arg(static_cast<quint32>(endpoint.comResult), 8, 16, QLatin1Char('0'))
-                .arg(static_cast<quint32>(endpoint.endpointResult), 8, 16, QLatin1Char('0'))
-                .arg(endpoint.endpointId.isEmpty() ? QStringLiteral("(none)") : endpoint.endpointId));
-        appendBassDebugLog(
-            miacode::preview_audio::bass::BassDebugOperation::InitializeAudioEngine,
-            QString("reused=0 elapsed_ms=%1 ok=0 reason=resolve_default")
-                .arg(timer.elapsed()),
-            true);
-        return false;
+#endif
+    bassOutputDeviceIndex_ = -1;
+    bassOutputEndpointId_.clear();
+    if (!preferredOutputDeviceId_.isEmpty()) {
+        if (!resolvePreferredBassDevice(
+                preferredOutputDeviceId_, &bassOutputDeviceIndex_, &bassOutputEndpointId_)) {
+            appendAudioDebugLog(
+                QStringLiteral("bass_preferred_device_missing preferred=%1 falling_back_to_default=1")
+                    .arg(preferredOutputDeviceId_));
+        }
     }
-    const auto currentDevice = static_cast<miacode::preview_audio::BassDeviceLeaseApi::DeviceId>(
-        BASS_GetDevice());
-    if (currentDevice != miacode::preview_audio::BassDeviceLeaseApi::kNoDevice
-        && currentDevice != 0
-        && currentDevice != static_cast<miacode::preview_audio::BassDeviceLeaseApi::DeviceId>(
-            endpoint.bassDeviceIndex)) {
-        appendAudioDebugLog(
-            QString("bass_endpoint_bind_failed reason=process_device_conflict current_index=%1 target_index=%2 target_endpoint=%3")
-                .arg(currentDevice)
-                .arg(endpoint.bassDeviceIndex)
-                .arg(endpoint.endpointId));
-        return false;
+    if (bassOutputDeviceIndex_ < 0) {
+#ifdef Q_OS_WIN
+        const DefaultBassEndpoint endpoint = resolveDefaultBassEndpoint();
+        if (endpoint.bassDeviceIndex < 0) {
+            appendAudioDebugLog(
+                QString("bass_endpoint_bind_failed reason=resolve_default com_hr=0x%1 endpoint_hr=0x%2 endpoint=%3")
+                    .arg(static_cast<quint32>(endpoint.comResult), 8, 16, QLatin1Char('0'))
+                    .arg(static_cast<quint32>(endpoint.endpointResult), 8, 16, QLatin1Char('0'))
+                    .arg(endpoint.endpointId.isEmpty() ? QStringLiteral("(none)") : endpoint.endpointId));
+            appendBassDebugLog(
+                miacode::preview_audio::bass::BassDebugOperation::InitializeAudioEngine,
+                QString("reused=0 elapsed_ms=%1 ok=0 reason=resolve_default")
+                    .arg(timer.elapsed()),
+                true);
+            return false;
+        }
+        bassOutputDeviceIndex_ = endpoint.bassDeviceIndex;
+        bassOutputEndpointId_ = endpoint.endpointId;
+#elif defined(Q_OS_MACOS)
+        resolveMacDefaultBassEndpoint(&bassOutputDeviceIndex_, &bassOutputEndpointId_);
+#endif
     }
-    bassOutputDeviceIndex_ = endpoint.bassDeviceIndex;
-    bassOutputEndpointId_ = endpoint.endpointId;
+#ifdef Q_OS_WIN
+    if (bassOutputDeviceIndex_ > 0) {
+        const auto currentDevice = static_cast<miacode::preview_audio::BassDeviceLeaseApi::DeviceId>(
+            BASS_GetDevice());
+        if (currentDevice != miacode::preview_audio::BassDeviceLeaseApi::kNoDevice
+            && currentDevice != 0
+            && currentDevice != static_cast<miacode::preview_audio::BassDeviceLeaseApi::DeviceId>(
+                bassOutputDeviceIndex_)) {
+            appendAudioDebugLog(
+                QString("bass_endpoint_bind_failed reason=process_device_conflict current_index=%1 target_index=%2 target_endpoint=%3")
+                    .arg(currentDevice)
+                    .arg(bassOutputDeviceIndex_)
+                    .arg(bassOutputEndpointId_));
+            return false;
+        }
+    }
 #endif
     if (!ensureBassFxLoaded()) {
         _mc_op_.fail(QStringLiteral("bass_fx load failed"));
@@ -461,28 +614,48 @@ bool BassPreviewAudioBackend::initializeAudioEngine()
     if (!bassDeviceLease_.acquired()) {
         bassDeviceLease_ = miacode::preview_audio::PreviewBassDeviceLease::acquire({
             [this] {
-#ifdef Q_OS_WIN
-                return BASS_SetDevice(bassOutputDeviceIndex_)
-                    ? static_cast<miacode::preview_audio::BassDeviceLeaseApi::DeviceId>(
-                          bassOutputDeviceIndex_)
-                    : miacode::preview_audio::BassDeviceLeaseApi::kNoDevice;
-#else
+                if (bassOutputDeviceIndex_ > 0) {
+                    return BASS_SetDevice(static_cast<DWORD>(bassOutputDeviceIndex_))
+                        ? static_cast<miacode::preview_audio::BassDeviceLeaseApi::DeviceId>(
+                              bassOutputDeviceIndex_)
+                        : miacode::preview_audio::BassDeviceLeaseApi::kNoDevice;
+                }
                 const auto device = static_cast<miacode::preview_audio::BassDeviceLeaseApi::DeviceId>(
                     BASS_GetDevice());
                 return device > 0
                     ? device
                     : miacode::preview_audio::BassDeviceLeaseApi::kNoDevice;
-#endif
             },
             [this] {
-#ifdef Q_OS_WIN
-                return BASS_Init(
-                           bassOutputDeviceIndex_,
-                           static_cast<int>(deviceSampleRate_),
-                           0,
-                           nullptr,
-                           nullptr) != FALSE;
-#elif defined(Q_OS_LINUX)
+                if (bassOutputDeviceIndex_ > 0) {
+                    if (BASS_Init(
+                            bassOutputDeviceIndex_,
+                            static_cast<int>(deviceSampleRate_),
+                            0,
+                            nullptr,
+                            nullptr) != FALSE) {
+                        return true;
+                    }
+#ifdef Q_OS_LINUX
+                    if (!preferredOutputDeviceId_.isEmpty()) {
+                        appendAudioDebugLog(
+                            QStringLiteral("bass_preferred_device_init_failed err=%1 falling_back_to_default=1")
+                                .arg(static_cast<int>(BASS_ErrorGetCode())));
+                        int selectedDevice = -1;
+                        if (!initLinuxOutputDevice(deviceSampleRate_, &selectedDevice)) {
+                            return false;
+                        }
+                        bassOutputDeviceIndex_ = selectedDevice >= 0
+                            ? selectedDevice
+                            : static_cast<int>(BASS_GetDevice());
+                        // Resolve the endpoint from the device that actually initialized.
+                        bassOutputEndpointId_.clear();
+                        return true;
+                    }
+#endif
+                    return false;
+                }
+#ifdef Q_OS_LINUX
                 int selectedDevice = -1;
                 if (!initLinuxOutputDevice(deviceSampleRate_, &selectedDevice)) {
                     return false;
@@ -517,9 +690,9 @@ bool BassPreviewAudioBackend::initializeAudioEngine()
                 && BASS_GetDeviceInfo(static_cast<DWORD>(bassOutputDeviceIndex_), &deviceInfo)) {
                 _mc_op_.note(QStringLiteral("device=%1 name=%2 flags=0x%3")
                                  .arg(bassOutputDeviceIndex_)
-                                 .arg(deviceInfo.name != nullptr
-                                          ? QString::fromUtf8(deviceInfo.name)
-                                          : QStringLiteral("(none)"))
+                                 .arg(decodeBassDeviceName(deviceInfo.name).isEmpty()
+                                          ? QStringLiteral("(none)")
+                                          : decodeBassDeviceName(deviceInfo.name))
                                  .arg(deviceInfo.flags, 0, 16));
             }
             _mc_op_.fail(QStringLiteral("BASS_Init err=%1").arg(errorCode));
@@ -529,6 +702,15 @@ bool BassPreviewAudioBackend::initializeAudioEngine()
                 QString("reused=0 elapsed_ms=%1 ok=0 reason=bass_init").arg(timer.elapsed()),
                 true);
             return false;
+        }
+    }
+    if (bassOutputEndpointId_.isEmpty()) {
+        BASS_DEVICEINFO selectedInfo {};
+        const DWORD activeDevice = static_cast<DWORD>(BASS_GetDevice());
+        if (activeDevice > 0 && BASS_GetDeviceInfo(activeDevice, &selectedInfo) != FALSE) {
+            const QString driver = decodeBassDeviceDriver(selectedInfo.driver);
+            const QString name = decodeBassDeviceName(selectedInfo.name);
+            bassOutputEndpointId_ = !driver.isEmpty() ? driver : name;
         }
     }
 #ifdef Q_OS_LINUX
@@ -615,11 +797,9 @@ bool BassPreviewAudioBackend::initializeAudioEngine()
     // above succeeded.
     attachOutputGlitchProbe();
     engineInitialized_ = true;
-#ifdef Q_OS_WIN
-    // Publish only a fully initialized concrete endpoint. The native device callback
-    // can now pause this output immediately without touching worker-owned streams.
+    // Publish only a fully initialized concrete endpoint. The native/Qt device
+    // callback can now pause this output immediately without touching worker-owned streams.
     miacode::preview_audio::PreviewBassEmergencyPause::arm(bassOutputDeviceIndex_);
-#endif
     appendAudioDebugLog(
         QString("bass_engine_ready sample_rate=%1 output_index=%2 output_endpoint=%3 master_buffer_requested_ms=%4 master_buffer_effective_ms=%5 master_buffer_set=%6 master_buffer_read=%7 master_buffer_override_set=%8 master_buffer_override_valid=%9 master_threads_requested=%10 master_threads_effective=%11 master_threads_set=%12 master_threads_read=%13 master_threads_override_set=%14 master_threads_override_valid=%15")
             .arg(deviceSampleRate_)
@@ -686,6 +866,7 @@ void BassPreviewAudioBackend::invalidateOutputDevice()
     engineInitialized_ = false;
     bassOutputDeviceIndex_ = -1;
     bassOutputEndpointId_.clear();
+    lastCommitMonotonicNs_ = 0;
     outputDeviceRebuildRequired_ = true;
     appendAudioDebugLog(
         QString("bass_output_invalidated previous_index=%1 previous_endpoint=%2 next_play_rebuild=1")

@@ -72,6 +72,10 @@ public:
     double authoritativePlaybackSecond() const override;
     void stopSfxVoices() override;
     void invalidateOutputDevice() override;
+    void setOutputDeviceId(const QString& deviceId) override;
+    QString activeOutputDeviceId() const override;
+    qint64 lastCommitMonotonicNs() const override;
+    static QVector<miacode::preview_audio::PreviewAudioOutputDeviceInfo> enumerateOutputDevices();
     double syncPreviewPlaybackClockTransaction(double fallbackSecond) override;
     void resetCursor(double second, bool includeCurrentSecond) override;
     void drainEvents(double second) override;
@@ -377,6 +381,8 @@ private:
     miacode::preview_audio::PreviewBassDeviceLease bassDeviceLease_;
     int bassOutputDeviceIndex_ = -1;
     QString bassOutputEndpointId_;
+    QString preferredOutputDeviceId_;
+    qint64 lastCommitMonotonicNs_ = 0;
     bool outputDeviceRebuildRequired_ = false;
     void* bassFxModule_ = nullptr;
     void* bassFxTempoCreate_ = nullptr;

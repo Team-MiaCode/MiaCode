@@ -77,6 +77,8 @@ ApplicationContext::ApplicationContext(miacode::ApplicationServices& services,
             &preferences_, &WorkbenchSettings::reloadEditorSettings);
     connect(&services.shellNotifications(), &miacode::ShellNotifications::muriPromptPreferenceChanged,
             &analysis_, &AnalysisModel::refreshPreferences);
+    connect(&services.shellNotifications(), &miacode::ShellNotifications::audioOutputDevicesChanged,
+            &audioSettings_, &AudioSettingsModel::refreshOutputDevices);
     connect(&document_, &DocumentModel::metadataChanged,
             this, [this] { editor_.setWholeBpm(document_.wholeBpm()); });
     connect(&document_, &DocumentModel::documentReplaced,

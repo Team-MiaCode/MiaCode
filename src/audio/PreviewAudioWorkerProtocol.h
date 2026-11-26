@@ -18,6 +18,7 @@ enum class CommandKind {
     DeviceChangePause,
     ManualPause,
     StopAll,
+    SetOutputDevice,
     SetWarmupResolvedPaths,
     ReloadAssets,
     SetChartPath,
@@ -98,6 +99,7 @@ struct PreviewAudioCommand {
     QString chartPath;
     QString trackPath;
     QString sfxDirectory;
+    QString outputDeviceId;
     QString auditionKind;
     QVector<TimelineNoteMarker> noteMarkers;
     PreviewAudioSettings settings;
@@ -144,6 +146,7 @@ struct PreviewAudioCompletion {
     quint64 workerThreadId = 0;
     qint64 queueDelayNs = 0;
     qint64 executionDurationNs = 0;
+    qint64 commitMonotonicNs = 0;
 };
 
 struct PreviewAudioSnapshot {
@@ -163,6 +166,7 @@ struct PreviewAudioSnapshot {
     bool lastSuccess = true;
     double lastValue = 0.0;
     QString backendId;
+    QString activeOutputDeviceId;
     QString detail;
     int nativeErrorCode = 0;
     quint64 workerThreadId = 0;
@@ -190,6 +194,8 @@ constexpr CommandPolicy commandPolicy(CommandKind kind) noexcept
         return {true, true, false, true, false, false, false};
     case CommandKind::StopAll:
         return {true, true, false, false, false, false, false};
+    case CommandKind::SetOutputDevice:
+        return {false, false, false, false, false, false, false};
     case CommandKind::SetWarmupResolvedPaths:
         return {false, false, false, false, true, true, false};
     case CommandKind::ReloadAssets:

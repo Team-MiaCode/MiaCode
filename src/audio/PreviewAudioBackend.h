@@ -116,6 +116,9 @@ public:
     // a concrete endpoint release it here; the next explicit play rebuilds on the
     // current endpoint instead of resuming cut-off buffers on a replacement device.
     virtual void invalidateOutputDevice() {}
+    virtual void setOutputDeviceId(const QString& deviceId) { Q_UNUSED(deviceId); }
+    virtual QString activeOutputDeviceId() const { return {}; }
+    virtual qint64 lastCommitMonotonicNs() const { return 0; }
     virtual double syncPreviewPlaybackClockTransaction(double fallbackSecond) = 0;
     virtual void resetCursor(double second, bool includeCurrentSecond) = 0;
     virtual void drainEvents(double second) = 0;

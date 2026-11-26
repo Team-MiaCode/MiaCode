@@ -1,6 +1,8 @@
 #include "app/runtime/preview/StageMediaHost.h"
+#include "app/runtime/playback/PlaybackCoordinator.h"
 #include "app/runtime/Shared.h"
 
+#include "audio/PreviewAudioDeviceWatcher.h"
 #include "audio/QtPreviewSfxRuntime.h"
 #include "core/chart/parser/SimaiParser.h"
 #include "app/quick_shell/QuickShellPreviewCompositeSurface.h"
@@ -435,6 +437,30 @@ void Session::restorePreviewAudioSettingsFromSoftwareDefault()
 {
     applyPreviewAudioSettingsFromUi(previewAudioSettingsWithBreakSlideTailCheerPreference(
         state_.softwarePreviewAudioSettings_, state_.breakSlideTailCheerMutedPreference_));
+}
+
+QString Session::preferredAudioOutputDeviceId() const
+{
+    return state_.audioOutputDeviceIdPreference_;
+}
+
+void Session::setPreferredAudioOutputDeviceId(const QString& deviceId)
+{
+    const QString trimmed = deviceId.trimmed();
+    if (state_.audioOutputDeviceIdPreference_ == trimmed) {
+        return;
+    }
+    if (playback_ != nullptr) {
+        playback_->pauseOrCancelForOutputDeviceChange();
+    }
+    state_.audioOutputDeviceIdPreference_ = trimmed;
+    savePortableState();
+    if (state_.previewAudioDeviceWatcher_ != nullptr) {
+        state_.previewAudioDeviceWatcher_->setOutputRoutingPolicy(trimmed, QString());
+    }
+    if (state_.previewSfxRuntime_ != nullptr) {
+        state_.previewSfxRuntime_->setOutputDeviceId(trimmed);
+    }
 }
 
 namespace {

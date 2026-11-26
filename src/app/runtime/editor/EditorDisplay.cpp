@@ -6,6 +6,7 @@
 #include "app/runtime/document/DocumentSessionHost.h"
 #include "app/runtime/shell/ShellHost.h"
 
+#include "audio/PreviewAudioDeviceWatcher.h"
 #include "audio/QtPreviewSfxRuntime.h"
 #include "core/chart/parser/SimaiParser.h"
 #include "app/services/PreferenceDocument.h"
@@ -506,6 +507,16 @@ void miacode::runtime::EditorHost::applyPortablePreviewSettings(const QJsonObjec
     state_.softwarePreviewAudioSettings_ = previewAudioSettingsWithBreakSlideTailCheerPreference(
         state_.softwarePreviewAudioSettings_, state_.breakSlideTailCheerMutedPreference_);
     state_.previewAudioSettings_ = state_.softwarePreviewAudioSettings_;
+    state_.audioOutputDeviceIdPreference_ = preview.value("audio_output_device_id").toString().trimmed();
+    if (state_.previewAudioDeviceWatcher_ != nullptr) {
+        state_.previewAudioDeviceWatcher_->setOutputRoutingPolicy(
+            state_.audioOutputDeviceIdPreference_,
+            state_.previewSfxRuntime_ != nullptr ? state_.previewSfxRuntime_->activeOutputDeviceId()
+                                                 : QString());
+    }
+    if (state_.previewSfxRuntime_ != nullptr) {
+        state_.previewSfxRuntime_->setOutputDeviceId(state_.audioOutputDeviceIdPreference_);
+    }
     state_.softwarePreviewTimingSettings_ = PreviewTimingSettings::fromJson(preview.value("timing").toObject());
     state_.softwarePreviewTimingSettings_.normalize();
     state_.previewTimingSettings_ = state_.softwarePreviewTimingSettings_;
@@ -665,6 +676,7 @@ void miacode::runtime::EditorHost::savePortableState() const
         state_.softwarePreviewAudioSettings_, state_.breakSlideTailCheerMutedPreference_);
     preview.insert("audio", storedAudio.toJson());
     preview.insert("break_slide_tail_cheer_muted", state_.breakSlideTailCheerMutedPreference_);
+    preview.insert("audio_output_device_id", state_.audioOutputDeviceIdPreference_);
     preview.insert("timing", state_.softwarePreviewTimingSettings_.toJson());
 
     app.insert("preview", preview);

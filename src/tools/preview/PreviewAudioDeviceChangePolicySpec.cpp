@@ -104,6 +104,26 @@ int main()
             err);
     }
 
+    using miacode::preview_audio::device_change::shouldInvalidateOutputRoute;
+    const auto withHeadset = makeOutputSnapshot(
+        {QStringLiteral("speakers"), QStringLiteral("hdmi"), QStringLiteral("headset")},
+        QStringLiteral("speakers"));
+    const auto defaultHdmi = makeOutputSnapshot(speakers.outputIds, QStringLiteral("hdmi"));
+    for (const QString& preferred : {QString(), QStringLiteral("speakers"), QStringLiteral("missing")}) {
+        ok &= require(
+            shouldInvalidateOutputRoute(speakers, withHeadset, preferred, QStringLiteral("speakers"))
+                && shouldInvalidateOutputRoute(withHeadset, speakers, preferred, QStringLiteral("speakers")),
+            QStringLiteral("topology changes rebuild surviving endpoints for every routing mode"), err);
+        ok &= require(
+            !shouldInvalidateOutputRoute(speakers, speakers, preferred, QStringLiteral("speakers")),
+            QStringLiteral("identical snapshots preserve the route"), err);
+    }
+    ok &= require(
+        !shouldInvalidateOutputRoute(speakers, defaultHdmi, QStringLiteral("speakers"), QStringLiteral("speakers"))
+            && shouldInvalidateOutputRoute(speakers, defaultHdmi, QString(), QStringLiteral("speakers"))
+            && shouldInvalidateOutputRoute(speakers, defaultHdmi, QStringLiteral("missing"), QStringLiteral("speakers")),
+        QStringLiteral("default changes preserve a pinned endpoint and rebuild default or fallback routes"), err);
+
     using miacode::preview_audio::playback_flow::PauseKind;
     using miacode::preview_audio::playback_flow::PauseRequest;
     using miacode::preview_audio::playback_flow::PauseState;

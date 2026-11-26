@@ -239,6 +239,7 @@ miacode_add_module(miacode_audio
         src/audio/PreviewAudioDeviceWatcher.h
         src/audio/PreviewAudioHealth.h
         src/audio/PreviewAudioMixConfig.h
+        src/audio/PreviewAudioOutputDevice.h
         src/audio/PreviewAudioOutputGlitchProbe.h
         src/audio/PreviewAudioOutputGlitchRing.h
         src/audio/PreviewAudioPlaybackFlowPolicy.h

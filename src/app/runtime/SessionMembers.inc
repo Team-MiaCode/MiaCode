@@ -328,6 +328,7 @@
         quint64 previewStartupAudioGeneration_ = 0;
         quint64 previewStartupPendingPrepareSequence_ = 0;
         quint64 previewStartupPendingRetainedSequence_ = 0;
+        qint64 previewStartupCommitPostedMonotonicNs_ = 0;
         quint64 previewPlayingSeekAudioGeneration_ = 0;
         quint64 previewPlayingSeekPendingSequence_ = 0;
         bool previewPlayingSeekCenterView_ = false;
@@ -442,6 +443,7 @@
         // the 本地预设 — otherwise saving a new chart would silently discard them.
         bool previewAudioSettingsEditedWithoutProject_ = false;
         bool breakSlideTailCheerMutedPreference_ = false;
+        QString audioOutputDeviceIdPreference_;
         PreviewTimingSettings softwarePreviewTimingSettings_;
         PreviewTimingSettings previewTimingSettings_;
         int editorTextFontPointSize_ = 0;
@@ -733,6 +735,7 @@
     PreviewAudioSettings& softwarePreviewAudioSettings_ = state_.softwarePreviewAudioSettings_;
     PreviewAudioSettings& previewAudioSettings_ = state_.previewAudioSettings_;
     bool& breakSlideTailCheerMutedPreference_ = state_.breakSlideTailCheerMutedPreference_;
+    QString& audioOutputDeviceIdPreference_ = state_.audioOutputDeviceIdPreference_;
     PreviewTimingSettings& softwarePreviewTimingSettings_ = state_.softwarePreviewTimingSettings_;
     PreviewTimingSettings& previewTimingSettings_ = state_.previewTimingSettings_;
     int& editorTextFontPointSize_ = state_.editorTextFontPointSize_;

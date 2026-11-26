@@ -56,4 +56,17 @@ BassEmergencyPauseResult pauseActivePreviewAudioOutput()
     return result;
 }
 
+QVector<PreviewAudioOutputDeviceInfo> enumeratePreviewAudioOutputDevices()
+{
+    std::function<QVector<PreviewAudioOutputDeviceInfo>()> enumerate;
+    {
+        const std::lock_guard lock(providerMutex());
+        enumerate = installedProvider().enumerateOutputDevices;
+    }
+    if (enumerate) {
+        return enumerate();
+    }
+    return {};
+}
+
 }  // namespace miacode::preview_audio

@@ -825,13 +825,14 @@ void miacode::runtime::PlaybackCoordinator::applyLatestTimelinePreviewStateToPau
 
     miacode::diag::MemoryStageScope memScope("preview/mem_stage", "preview_state_push");
     const bool noteMarkersChanged = state_.timeline_.latestTimelineNoteMarkerSignature_ != state_.lastPreviewNoteMarkerSignature_;
+    bool audioPausedStateAccepted = true;
     if (state_.previewSfxRuntime_ != nullptr) {
-        state_.previewSfxRuntime_->applyPausedPreviewState(
+        audioPausedStateAccepted = state_.previewSfxRuntime_->applyPausedPreviewState(
             state_.timeline_.latestTimelineNoteMarkers_,
             noteMarkersChanged,
             state_.pauseSecond_,
             state_.previewPlaybackRate_,
-            state_.previewTimingSettings_);
+            state_.previewTimingSettings_).accepted;
     }
 
     refreshPreviewObjectStatsTotals(state_.timeline_.latestTimelineNoteMarkers_);
@@ -839,7 +840,9 @@ void miacode::runtime::PlaybackCoordinator::applyLatestTimelinePreviewStateToPau
         state_.scene_->setNoteMarkers(state_.timeline_.latestTimelineNoteMarkers_);
     }
     validation_.applyAlignedMuriAnalysisReportToViews();
-    state_.lastPreviewNoteMarkerSignature_ = state_.timeline_.latestTimelineNoteMarkerSignature_;
+    if (audioPausedStateAccepted) {
+        state_.lastPreviewNoteMarkerSignature_ = state_.timeline_.latestTimelineNoteMarkerSignature_;
+    }
 }
 
 void miacode::runtime::PlaybackCoordinator::requestTimelineSlowRefresh()

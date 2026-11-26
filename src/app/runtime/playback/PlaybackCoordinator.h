@@ -12,6 +12,7 @@
 #include "app/services/PreviewPlaybackPort.h"
 #include "audio/PreviewAudioDeviceChangePolicy.h"
 #include "audio/PreviewAudioDeviceCutoff.h"
+#include "audio/PreviewAudioOutputDevice.h"
 #include "app/runtime/playback/PlaybackIdentityGate.h"
 
 class QObject;
@@ -240,6 +241,9 @@ public:
     void pausePreviewForAudioDeviceChange(miacode::preview_audio::device_change::Change change);
     void applyPreviewAudioDeviceCutoff(
         const miacode::preview_audio::PreviewAudioDeviceCutoff& cutoff);
+    void handlePreviewAudioPlaybackStarted(
+        const miacode::preview_audio::PreviewAudioCompletion& completion);
+    void pauseOrCancelForOutputDeviceChange();
     void handlePreviewStartupCanvasPresented();
     void handlePreviewStartupVideoPrepared(double second, quint64 transactionId);
     void handlePreviewAudioPrepared(const miacode::preview_audio::PreviewAudioCompletion& completion);
@@ -325,6 +329,9 @@ public:
     void applyAudioSettings(const PreviewAudioSettings& settings);
     void saveAudioSettingsAsSoftwareDefault();
     void restoreAudioSettingsFromSoftwareDefault();
+    QVector<miacode::preview_audio::PreviewAudioOutputDeviceInfo> availableAudioOutputDevices() const;
+    QString preferredAudioOutputDeviceId() const;
+    void setPreferredAudioOutputDeviceId(const QString& deviceId);
 
     QObject* timelineStateBridge() const;
     void noteTimelineSurfaceReady();

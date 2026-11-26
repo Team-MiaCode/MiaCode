@@ -257,4 +257,22 @@ void PreviewHost::restoreAudioSettingsFromSoftwareDefault()
     }
 }
 
+QVector<miacode::preview_audio::PreviewAudioOutputDeviceInfo> PreviewHost::availableAudioOutputDevices() const
+{
+    return legacySurface_ != nullptr ? legacySurface_->availableAudioOutputDevices()
+                                     : QVector<miacode::preview_audio::PreviewAudioOutputDeviceInfo>();
+}
+
+QString PreviewHost::preferredAudioOutputDeviceId() const
+{
+    return legacySurface_ != nullptr ? legacySurface_->preferredAudioOutputDeviceId() : QString();
+}
+
+void PreviewHost::setPreferredAudioOutputDeviceId(const QString& deviceId)
+{
+    if (legacySurface_ != nullptr) {
+        legacySurface_->setPreferredAudioOutputDeviceId(deviceId);
+    }
+}
+
 }  // namespace miacode::runtime

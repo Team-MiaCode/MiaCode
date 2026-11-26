@@ -1,6 +1,9 @@
 #pragma once
 
 #include "audio/PreviewAudioBackend.h"
+#include "audio/PreviewAudioOutputDevice.h"
+
+#include <QVector>
 
 #include <functional>
 #include <memory>
@@ -27,6 +30,8 @@ struct PreviewAudioBackendProvider {
     PreviewAudioBackendFactory factory;
     // Optional: stops the active output immediately (see BassEmergencyPauseResult).
     std::function<BassEmergencyPauseResult()> pauseActiveOutput;
+    // Optional: enumerates available output devices for UI selection.
+    std::function<QVector<PreviewAudioOutputDeviceInfo>()> enumerateOutputDevices;
 };
 
 void installPreviewAudioBackendProvider(PreviewAudioBackendProvider provider);
@@ -38,5 +43,8 @@ PreviewAudioBackendFactory productionPreviewAudioBackendFactory();
 // Runs the installed provider's emergency pause. Without one it reports an
 // unavailable output, which is what an unarmed backend reports.
 BassEmergencyPauseResult pauseActivePreviewAudioOutput();
+
+// Enumerates concrete audio output devices from the installed provider.
+QVector<PreviewAudioOutputDeviceInfo> enumeratePreviewAudioOutputDevices();
 
 }  // namespace miacode::preview_audio

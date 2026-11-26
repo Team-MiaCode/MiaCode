@@ -83,6 +83,7 @@ void miacode::runtime::PlaybackCoordinator::cancelPreviewStartupSync(const char*
         state_.previewStartupAudioGeneration_ = 0;
         state_.previewStartupPendingPrepareSequence_ = 0;
         state_.previewStartupPendingRetainedSequence_ = 0;
+        state_.previewStartupCommitPostedMonotonicNs_ = 0;
         state_.previewStartupRequestedSecond_ = 0.0;
         state_.previewStartupVisualSecond_ = 0.0;
         playbackState_.previewStartupPreparedSecond_ = 0.0;
@@ -172,6 +173,69 @@ void miacode::runtime::PlaybackCoordinator::handlePreviewAudioPrepared(
     const miacode::preview_audio::PreviewAudioCompletion& completion)
 {
     handlePreviewAudioStartupCompletion(completion);
+}
+
+void miacode::runtime::PlaybackCoordinator::handlePreviewAudioPlaybackStarted(
+    const miacode::preview_audio::PreviewAudioCompletion& completion)
+{
+    using namespace miacode::preview_audio;
+    if (completion.kind != CommandKind::Commit
+        || !completion.success
+        || !state_.playing_
+        || state_.previewSfxRuntime_ == nullptr
+        || state_.previewStartupCommitPostedMonotonicNs_ <= 0
+        || completion.commitMonotonicNs < state_.previewStartupCommitPostedMonotonicNs_
+        || completion.identity.transactionId == 0
+        || completion.identity.transactionId != state_.activePreviewPlaybackTransactionId_
+        || completion.identity.generation != state_.previewSfxRuntime_->playbackGeneration()) {
+        return;
+    }
+    state_.previewStartupCommitPostedMonotonicNs_ = 0;
+
+    const qint64 nowNs = static_cast<qint64>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now().time_since_epoch())
+            .count());
+    const double elapsedSinceCommitSeconds =
+        static_cast<double>(qMax<qint64>(0, nowNs - completion.commitMonotonicNs)) / 1'000'000'000.0;
+    const double commitAnchoredSecond =
+        playbackState_.qtPreviewStartSecond_ + elapsedSinceCommitSeconds * state_.previewPlaybackRate_;
+    const double currentVisualSecond = authoritativeAudioClockSecond();
+    const double skewSeconds = currentVisualSecond - commitAnchoredSecond;
+    if (skewSeconds <= 0.005) {
+        return;
+    }
+
+    playbackState_.qtPreviewStartSecond_ = commitAnchoredSecond;
+    playbackState_.qtPreviewElapsed_.restart();
+    state_.qtPreviewTimelineStartSecond_ = commitAnchoredSecond;
+    state_.qtPreviewTimelineElapsed_.restart();
+    if (state_.previewStartupVideoStarted_ && state_.previewStageMediaHost_ != nullptr) {
+        // Active PV playback owns its own clock; apply the same anchor through
+        // the explicit commit path, which seeks and handles the media in-point.
+        state_.previewStageMediaHost_->commitPreparedPlaybackStart(commitAnchoredSecond);
+    }
+    state_.previewSfxRuntime_->armDeviceChangeCutoffClock(
+        commitAnchoredSecond,
+        state_.previewPlaybackRate_,
+        state_.activePreviewPlaybackTransactionId_);
+    appendPreviewPlaybackLog(
+        QStringLiteral("commit_clock_reanchored"),
+        QString("txn=%1 skew_ms=%2 anchored_second=%3")
+            .arg(completion.identity.transactionId)
+            .arg(skewSeconds * 1000.0, 0, 'f', 3)
+            .arg(commitAnchoredSecond, 0, 'f', 6));
+}
+
+void miacode::runtime::PlaybackCoordinator::pauseOrCancelForOutputDeviceChange()
+{
+    if (state_.playing_) {
+        pauseQtPreviewPlaybackExact();
+        updatePauseButtonAppearance();
+    } else if (state_.previewStartupSyncPending_ || state_.previewLateVideoStartPending_) {
+        cancelPreviewStartupSync("output_device_changed");
+        updatePauseButtonAppearance();
+    }
 }
 
 void miacode::runtime::PlaybackCoordinator::handlePreviewRetainedPlaybackCompleted(
@@ -515,12 +579,29 @@ void miacode::runtime::PlaybackCoordinator::tryCommitPreviewStartupSync()
         return;
     }
 
+    state_.previewStartupCommitPostedMonotonicNs_ = 0;
+    if (state_.previewSfxRuntime_ != nullptr) {
+        const qint64 commitPostedNs = static_cast<qint64>(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::steady_clock::now().time_since_epoch())
+                .count());
+        const miacode::preview_audio::WorkerPostResult commitResult =
+            state_.previewSfxRuntime_->commitPreparedPreviewPlayback();
+        if (!commitResult.accepted) {
+            appendPreviewPlaybackLog(
+                QStringLiteral("commit_rejected"),
+                QString("txn=%1 error=%2")
+                    .arg(state_.activePreviewPlaybackTransactionId_)
+                    .arg(static_cast<int>(commitResult.error)));
+            cancelPreviewStartupSync("commit_rejected");
+            updatePauseButtonAppearance();
+            return;
+        }
+        state_.previewStartupCommitPostedMonotonicNs_ = commitPostedNs;
+    }
     state_.previewStartupStrongGroupCommitted_ = true;
     playbackState_.previewStartupSyncPending_ = false;
     const double effectiveStartSecond = state_.previewStartupPreparedSecond_;
-    if (state_.previewSfxRuntime_ != nullptr) {
-        state_.previewSfxRuntime_->commitPreparedPreviewPlayback();
-    }
     if (state_.previewStageMediaHost_ != nullptr
         && state_.previewStartupVideoPrepareStarted_
         && state_.previewStartupVideoPrepared_) {
@@ -873,11 +954,38 @@ void miacode::runtime::PlaybackCoordinator::applyPreviewAudioDeviceCutoff(
 {
     using miacode::preview_audio::device_change::Change;
 
-    if (!cutoff.armedPlaybackWasCut || cutoff.change == Change::None) {
+    if (cutoff.change == Change::None) {
         return;
     }
     state_.previewAudioDeviceChangeSequence_ = qMax(
         state_.previewAudioDeviceChangeSequence_, cutoff.identity.deviceSequence);
+    if (!cutoff.armedPlaybackWasCut) {
+        if (cutoff.outputRouteInvalidationOnly
+            && (state_.previewStartupSyncPending_ || state_.previewLateVideoStartPending_)) {
+            const double cancelSecond = state_.previewStartupVisualSecond_;
+            appendPreviewPlaybackLog(
+                QStringLiteral("device_route_invalidated_during_startup"),
+                QString("device_change_seq=%1 txn=%2 cancel_second=%3")
+                    .arg(cutoff.identity.deviceSequence)
+                    .arg(state_.activePreviewPlaybackTransactionId_)
+                    .arg(cancelSecond, 0, 'f', 6));
+            cancelPreviewStartupSync("device_route_invalidated_during_startup");
+            clearPreviewPlayingRetainedSeek();
+            pausePreviewStageMediaRoutePlayback();
+            stopQtPreviewTimers();
+            miacode::runtime::shared::writePreviewPlayingFlag(
+                playbackState_, services_.shellNotifications(), false);
+            services_.editorSync().setPlaybackActive(false);
+            services_.analysis().setDiagnosticsDeferred(false);
+            miacode::runtime::shared::writePreviewPauseSecond(
+                playbackState_.pauseSecond_, cancelSecond, playbackState_.playing_,
+                "device_route_invalidated_during_startup");
+            state_.activePreviewPlaybackTransactionId_ = 0;
+            publishPreviewPlayhead();
+            updatePauseButtonAppearance();
+        }
+        return;
+    }
     if (state_.previewPendingDevicePauseToken_ != 0) {
         appendPreviewPlaybackLog(
             QStringLiteral("device_change_pause_coalesced"),

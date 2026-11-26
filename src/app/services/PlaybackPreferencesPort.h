@@ -21,6 +21,8 @@ public:
     virtual void savePreviewAudioSettingsAsSoftwareDefault() = 0;
     virtual void restorePreviewAudioSettingsFromSoftwareDefault() = 0;
     virtual void applyPreviewAudioSettingsFromUi(const PreviewAudioSettings& settings) = 0;
+    virtual QString preferredAudioOutputDeviceId() const = 0;
+    virtual void setPreferredAudioOutputDeviceId(const QString& deviceId) = 0;
     virtual void setLastOpenDirectory(const QString& pathOrDir) = 0;
 };
 

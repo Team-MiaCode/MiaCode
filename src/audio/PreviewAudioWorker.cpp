@@ -56,6 +56,7 @@ void appendAudioDebugLog(const QString& message)
 
 struct PreviewAudioWorker::BackendSnapshot {
     QString backendId;
+    QString activeOutputDeviceId;
     bool ready = false;
     bool backgroundTrackAvailable = false;
     bool backgroundTrackRunning = false;
@@ -75,6 +76,8 @@ struct PreviewAudioWorker::RuntimeState {
     bool hasWarmupPaths = false;
     QString activeChartPath;
     bool hasActiveChartPath = false;
+    QString outputDeviceId;
+    bool hasOutputDeviceId = false;
     quint64 pauseBarrierGeneration = 0;
     health::StallTracker healthStallTracker;
     double lastHealthLogSecond = -1.0;
@@ -503,7 +506,20 @@ void PreviewAudioWorker::execute(
         return;
     }
 
-    if (backend == nullptr || snapshot().lifecycle == WorkerLifecycle::Degraded) {
+    // Routing is configuration, including before the first successful reload.
+    if (command.kind == CommandKind::SetOutputDevice) {
+        state.outputDeviceId = command.outputDeviceId;
+        state.hasOutputDeviceId = true;
+        if (backend == nullptr) {
+            completion.executionDurationNs = steadyNowNs() - startedAtNs;
+            finishCompletion(completion, nullptr, std::nullopt, false);
+            return;
+        }
+    }
+
+    if (backend == nullptr
+        || (snapshot().lifecycle == WorkerLifecycle::Degraded
+            && command.kind != CommandKind::SetOutputDevice)) {
         completion.error = CommandError::BackendUnavailable;
         completion.success = false;
         completion.detail = QStringLiteral("preview audio backend is unavailable");
@@ -583,6 +599,9 @@ void PreviewAudioWorker::execute(
         case CommandKind::StopAll:
             backend->stopAll();
             break;
+        case CommandKind::SetOutputDevice:
+            backend->setOutputDeviceId(state.outputDeviceId);
+            break;
         case CommandKind::SetWarmupResolvedPaths:
         case CommandKind::ReloadAssets:
             completion.error = CommandError::BackendFailure;
@@ -635,6 +654,12 @@ void PreviewAudioWorker::execute(
             break;
         case CommandKind::Commit:
             backend->commitPreparedPreviewPlayback();
+            completion.commitMonotonicNs = backend->lastCommitMonotonicNs();
+            // Retained resume starts transport before this command. Its empty
+            // commit must not reuse an earlier playback's clock anchor.
+            if (completion.commitMonotonicNs < startedAtNs) {
+                completion.commitMonotonicNs = 0;
+            }
             break;
         case CommandKind::Cancel:
             backend->cancelPreparedPreviewPlayback();
@@ -779,6 +804,9 @@ void PreviewAudioWorker::executeReload(
         } else {
             backend->clearNativeErrorCode();
         }
+        if (createdBackend && state.hasOutputDeviceId) {
+            backend->setOutputDeviceId(state.outputDeviceId);
+        }
         if (state.hasWarmupPaths
             && (createdBackend || command.applyWarmupPathsBeforeReload)) {
             backend->setWarmupResolvedPaths(state.chartPath, state.trackPath, state.sfxDirectory);
@@ -831,6 +859,7 @@ PreviewAudioWorker::BackendSnapshot PreviewAudioWorker::captureBackendSnapshot(
 {
     BackendSnapshot state;
     state.backendId = backend.backendId();
+    state.activeOutputDeviceId = backend.activeOutputDeviceId();
     state.ready = backend.audioEngineInitialized();
     state.backgroundTrackAvailable = backend.hasBackgroundTrack();
     state.backgroundTrackRunning = backend.isBackgroundTrackRunning();
@@ -1019,6 +1048,7 @@ void PreviewAudioWorker::publishBackendLifecycle(
         snapshot_.retainedPlaybackMode = backendState.retainedMode;
         snapshot_.retainedBgmState = backendState.retainedBgmState;
         snapshot_.backendId = backendState.backendId;
+        snapshot_.activeOutputDeviceId = backendState.activeOutputDeviceId;
         snapshot_.detail.clear();
         snapshot_.nativeErrorCode = 0;
         snapshot_.workerThreadId = workerThreadId_.load(std::memory_order_acquire);
@@ -1084,6 +1114,7 @@ bool PreviewAudioWorker::publishCompletion(
                 && std::isfinite(backendState->backgroundSecond)
                 && std::abs(snapshot_.backgroundPlaybackSecond - backendState->backgroundSecond) <= 1e-6;
             snapshot_.backendId = backendState->backendId;
+            snapshot_.activeOutputDeviceId = backendState->activeOutputDeviceId;
             snapshot_.backendReady = snapshot_.lifecycle == WorkerLifecycle::Ready
                 && backendState->ready;
             snapshot_.backgroundTrackAvailable = backendState->backgroundTrackAvailable;

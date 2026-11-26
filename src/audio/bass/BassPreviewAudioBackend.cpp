@@ -144,6 +144,7 @@ PreviewAudioBackendProvider bassPreviewAudioBackendProvider()
         return std::make_unique<BassPreviewAudioBackend>();
     };
     provider.pauseActiveOutput = &PreviewBassEmergencyPause::pauseActiveOutput;
+    provider.enumerateOutputDevices = &BassPreviewAudioBackend::enumerateOutputDevices;
     return provider;
 }
 

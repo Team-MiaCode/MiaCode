@@ -7,6 +7,7 @@
 #include "app/runtime/playback/Playback.Internal.h"
 #include "app/runtime/validation/ValidationHost.h"
 
+#include "audio/PreviewAudioWorkerFactory.h"
 #include "audio/QtPreviewSfxRuntime.h"
 #include "common/DebugLog.h"
 #include "app/services/HudFontPreferences.h"
@@ -547,6 +548,22 @@ void miacode::runtime::PlaybackCoordinator::saveAudioSettingsAsSoftwareDefault()
 void miacode::runtime::PlaybackCoordinator::restoreAudioSettingsFromSoftwareDefault()
 {
     preferences_.restorePreviewAudioSettingsFromSoftwareDefault();
+}
+
+QVector<miacode::preview_audio::PreviewAudioOutputDeviceInfo>
+miacode::runtime::PlaybackCoordinator::availableAudioOutputDevices() const
+{
+    return miacode::preview_audio::enumeratePreviewAudioOutputDevices();
+}
+
+QString miacode::runtime::PlaybackCoordinator::preferredAudioOutputDeviceId() const
+{
+    return preferences_.preferredAudioOutputDeviceId();
+}
+
+void miacode::runtime::PlaybackCoordinator::setPreferredAudioOutputDeviceId(const QString& deviceId)
+{
+    preferences_.setPreferredAudioOutputDeviceId(deviceId);
 }
 
 QObject* miacode::runtime::PlaybackCoordinator::timelineStateBridge() const

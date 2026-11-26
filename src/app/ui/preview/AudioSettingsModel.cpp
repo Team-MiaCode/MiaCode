@@ -101,7 +101,10 @@ AudioSettingsModel::AudioSettingsModel(miacode::PreviewSurface*& surfaceSlot,
     , surfaceSlot_(&surfaceSlot)
 {
     connect(&miacode::LocaleService::instance(), &miacode::LocaleService::languageChanged,
-            this, [this](const QString&) { emit changed(); });
+            this, [this](const QString&) {
+                outputDevicesLoaded_ = false;
+                emit changed();
+            });
 }
 
 AudioSettingsModel::~AudioSettingsModel() = default;
@@ -299,6 +302,7 @@ bool AudioSettingsModel::playAudition(const QString& kind)
     if (auditionSfxDir_ != resolvedSfxDir || !auditionRuntime_->audioEngineInitialized()) {
         // Samples aren't in yet. Post the load and let its completion play the
         // kind we were asked for; this call is the one that goes silent.
+        auditionRuntime_->setOutputDeviceId(surface()->preferredAudioOutputDeviceId());
         const QtPreviewSfxRuntime::AssetSubmission reload =
             auditionRuntime_->reloadAssetsForChartWithWarmupPaths(
                 QString(), QString(), resolvedSfxDir, surface()->audioSettings());
@@ -312,6 +316,76 @@ bool AudioSettingsModel::playAudition(const QString& kind)
     auditionRuntime_->applyLevels(surface()->audioSettings());
     auditionRuntime_->stopAll();
     return auditionRuntime_->audition(resolvedKind);
+}
+
+QVariantList AudioSettingsModel::outputDevices() const
+{
+    if (!outputDevicesLoaded_) {
+        QVariantList items;
+        items.append(QVariantMap{
+            {QStringLiteral("id"), QString()},
+            {QStringLiteral("label"), qtTrId("qml.audio_output_device_system_default")},
+        });
+        const QString selectedId = selectedOutputDeviceId();
+        bool foundSelected = selectedId.isEmpty();
+        if (surface() != nullptr) {
+            const QVector<miacode::preview_audio::PreviewAudioOutputDeviceInfo> devices =
+                surface()->availableAudioOutputDevices();
+            for (const auto& device : devices) {
+                if (device.id.isEmpty()) {
+                    continue;
+                }
+                if (device.id == selectedId) {
+                    foundSelected = true;
+                }
+                const QString displayName = device.name.isEmpty() ? device.id : device.name;
+                items.append(QVariantMap{
+                    {QStringLiteral("id"), device.id},
+                    {QStringLiteral("label"), displayName},
+                });
+            }
+        }
+        if (!foundSelected) {
+            items.append(QVariantMap{
+                {QStringLiteral("id"), selectedId},
+                {QStringLiteral("label"),
+                 QStringLiteral("%1 (%2)")
+                     .arg(selectedId, qtTrId("qml.audio_output_device_unavailable"))},
+            });
+        }
+        cachedOutputDevices_ = std::move(items);
+        outputDevicesLoaded_ = true;
+    }
+    return cachedOutputDevices_;
+}
+
+void AudioSettingsModel::refreshOutputDevices()
+{
+    outputDevicesLoaded_ = false;
+    (void) outputDevices();
+    emit changed();
+}
+
+QString AudioSettingsModel::selectedOutputDeviceId() const
+{
+    return surface() != nullptr ? surface()->preferredAudioOutputDeviceId() : QString();
+}
+
+void AudioSettingsModel::setSelectedOutputDeviceId(const QString& deviceId)
+{
+    if (surface() == nullptr) {
+        return;
+    }
+    const QString trimmed = deviceId.trimmed();
+    if (trimmed == selectedOutputDeviceId()) {
+        return;
+    }
+    // Release any audition BASS device lease before switching the active endpoint
+    // so the audition runtime never holds an obsolete endpoint open.
+    releaseAudition();
+    surface()->setPreferredAudioOutputDeviceId(trimmed);
+    outputDevicesLoaded_ = false;
+    emit changed();
 }
 
 bool AudioSettingsModel::breakSlideTailCheerMuted() const

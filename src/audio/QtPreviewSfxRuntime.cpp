@@ -130,6 +130,18 @@ bool QtPreviewSfxRuntime::audioEngineInitialized() const
         && snapshot.identity.assetGeneration == assetGeneration_.load(std::memory_order_acquire);
 }
 
+void QtPreviewSfxRuntime::setOutputDeviceId(const QString& deviceId)
+{
+    PreviewAudioCommand command = makeCommand(CommandKind::SetOutputDevice);
+    command.outputDeviceId = deviceId.trimmed();
+    post(std::move(command));
+}
+
+QString QtPreviewSfxRuntime::activeOutputDeviceId() const
+{
+    return lastSnapshot().activeOutputDeviceId;
+}
+
 QtPreviewSfxRuntime::AssetSubmission QtPreviewSfxRuntime::setChartPath(const QString& chartPath)
 {
     PreviewAudioCommand command = makeCommand(CommandKind::SetChartPath);
@@ -212,9 +224,9 @@ QtPreviewSfxRuntime::PlaybackSubmission QtPreviewSfxRuntime::preparePreviewPlayb
     return submission;
 }
 
-void QtPreviewSfxRuntime::commitPreparedPreviewPlayback()
+WorkerPostResult QtPreviewSfxRuntime::commitPreparedPreviewPlayback()
 {
-    post(makeCommand(CommandKind::Commit));
+    return post(makeCommand(CommandKind::Commit));
 }
 
 void QtPreviewSfxRuntime::cancelPreparedPreviewPlayback()
@@ -227,7 +239,7 @@ double QtPreviewSfxRuntime::preparedStartSecond() const
     return lastSnapshot().preparedSecond;
 }
 
-void QtPreviewSfxRuntime::applyPausedPreviewState(
+WorkerPostResult QtPreviewSfxRuntime::applyPausedPreviewState(
     const QVector<TimelineNoteMarker>& noteMarkers,
     bool noteMarkersChanged,
     double pauseSecond,
@@ -240,7 +252,7 @@ void QtPreviewSfxRuntime::applyPausedPreviewState(
     command.second = pauseSecond;
     command.rate = playbackRate;
     command.timingSettings = timingSettings;
-    post(std::move(command));
+    return post(std::move(command));
 }
 
 double QtPreviewSfxRuntime::startPreviewPlaybackTransaction(

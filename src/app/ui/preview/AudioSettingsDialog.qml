@@ -29,13 +29,24 @@ AppDialog {
         font.pixelSize: Theme.uiFontSize
     }
     readonly property real labelColumnWidth: {
-        var widest = 0;
+        var widest = root.labelMetrics.advanceWidth(qsTrId("qml.audio_output_device"));
         for (var i = 0; i < root.keys.length; ++i) {
             var channel = root.levels[root.keys[i]];
             if (channel)
                 widest = Math.max(widest, root.labelMetrics.advanceWidth(channel.label));
         }
         return Math.ceil(widest) + 4;
+    }
+
+    function outputDeviceIndexForId(deviceId) {
+        var devices = root.audioSettings.outputDevices;
+        if (!devices)
+            return 0;
+        for (var i = 0; i < devices.length; ++i) {
+            if (devices[i].id === deviceId)
+                return i;
+        }
+        return 0;
     }
 
     function refresh() {
@@ -53,7 +64,10 @@ AppDialog {
         }
     }
 
-    onAboutToShow: root.refresh()
+    onAboutToShow: {
+        root.audioSettings.refreshOutputDevices();
+        root.refresh();
+    }
     onClosed: root.audioSettings.releaseAudition()
 
     Connections {
@@ -122,6 +136,36 @@ AppDialog {
                 id: channelColumn
                 width: pageViewport.availableWidth
                 spacing: Theme.settingsRowSpacing
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Text {
+                        Layout.minimumWidth: root.labelColumnWidth
+                        Layout.preferredWidth: root.labelColumnWidth
+                        Layout.maximumWidth: root.labelColumnWidth
+                        text: qsTrId("qml.audio_output_device")
+                        color: Theme.colors.text.secondary
+                        font.family: Theme.uiFont
+                        font.pixelSize: Theme.uiFontSize
+                    }
+                    AppComboBox {
+                        id: outputDeviceCombo
+                        objectName: "audioOutputDeviceCombo"
+                        Layout.fillWidth: true
+                        model: root.audioSettings.outputDevices
+                        textRole: "label"
+                        Accessible.name: qsTrId("qml.audio_output_device")
+                        currentIndex: root.outputDeviceIndexForId(root.audioSettings.selectedOutputDeviceId)
+                        onActivated: function (index) {
+                            var devices = root.audioSettings.outputDevices;
+                            if (index >= 0 && index < devices.length) {
+                                root.audioSettings.selectedOutputDeviceId = devices[index].id;
+                            }
+                        }
+                    }
+                }
 
                 Repeater {
                     model: root.keys

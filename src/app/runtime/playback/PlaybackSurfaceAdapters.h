@@ -57,6 +57,9 @@ public:
     void applyAudioSettings(const PreviewAudioSettings& settings) override;
     void saveAudioSettingsAsSoftwareDefault() override;
     void restoreAudioSettingsFromSoftwareDefault() override;
+    QVector<miacode::preview_audio::PreviewAudioOutputDeviceInfo> availableAudioOutputDevices() const override;
+    QString preferredAudioOutputDeviceId() const override;
+    void setPreferredAudioOutputDeviceId(const QString& deviceId) override;
 
 private:
     PlaybackCoordinator* coordinator_ = nullptr;

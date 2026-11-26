@@ -166,7 +166,9 @@ int main(int argc, char* argv[])
     // B=GPU driver, C=Win10 build too old) on a single run, no --debug
     // required. All output goes to the same beacon file via append.
     runStartupDiagnostic();
+#endif
 
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
     // BASS_CONFIG_DEV_DEFAULT only accepts changes before the process's first
     // BASS device enumeration or BASS_Init, and the preview engine is not always
     // first: an uncached chart's waveform decode inits the no-sound device before
@@ -182,6 +184,8 @@ int main(int argc, char* argv[])
             bassDefaultDeviceDisabled ? 1 : 0, bassErrorCode);
         miacode::oplog::appendStartupBeaconLine(buf);
     }
+#endif
+#ifdef Q_OS_WIN
     miacode::oplog::appendStartupBeaconLine("phase=pre_mc_op");
 #endif
 

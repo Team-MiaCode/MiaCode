@@ -24,6 +24,9 @@ class AudioSettingsModel final : public QObject
     // sits beside the channels rather than in them.
     Q_PROPERTY(bool breakSlideTailCheerMuted READ breakSlideTailCheerMuted
                    WRITE setBreakSlideTailCheerMuted NOTIFY changed)
+    Q_PROPERTY(QVariantList outputDevices READ outputDevices NOTIFY changed)
+    Q_PROPERTY(QString selectedOutputDeviceId READ selectedOutputDeviceId
+                   WRITE setSelectedOutputDeviceId NOTIFY changed)
 
 public:
     // No MainWindow: the mixer reaches everything through the preview surface.
@@ -35,6 +38,11 @@ public:
     Q_INVOKABLE QVariantList channels() const;
     Q_INVOKABLE void setChannelPercent(const QString& key, int percent);
     Q_INVOKABLE void toggleChannelMuted(const QString& key);
+    Q_INVOKABLE void refreshOutputDevices();
+
+    QVariantList outputDevices() const;
+    QString selectedOutputDeviceId() const;
+    void setSelectedOutputDeviceId(const QString& deviceId);
 
     // The 本地预设 pair: remember this mix as the software default, or put the
     // software default back over the project's.
@@ -84,6 +92,8 @@ private:
     quint64 auditionReloadAssetGeneration_ = 0;
     quint64 auditionReloadSequence_ = 0;
     bool auditionHeld_ = false;
+    mutable QVariantList cachedOutputDevices_;
+    mutable bool outputDevicesLoaded_ = false;
 };
 
 }  // namespace miacode::ui

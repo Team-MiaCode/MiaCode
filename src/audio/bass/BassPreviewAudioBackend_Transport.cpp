@@ -96,7 +96,9 @@ void BassPreviewAudioBackend::anchorTransportToSecond(double targetSecond, const
     playbackSession_.lastAuthoritativeSecond = anchoredSecond;
     resetCursor(anchoredSecond, false);
     pauseTouchholdVoices();
-    retainedPlaybackMode_ = RetainedPlaybackMode::PausedAnchored;
+    retainedPlaybackMode_ = (!engineInitialized_ || masterMixer_ == 0 || outputDeviceRebuildRequired_)
+        ? RetainedPlaybackMode::Invalidated
+        : RetainedPlaybackMode::PausedAnchored;
     logTrackFileMissingAfterLoadIfNeeded();
     appendBassDebugLog(
         miacode::preview_audio::bass::BassDebugOperation::AnchorTransport,
@@ -174,7 +176,9 @@ void BassPreviewAudioBackend::repositionPausedTransportToSecond(double targetSec
         miacode::preview_audio::bass::BassDebugRoute::Transport);
     resetCursor(repositionedSecond, false);
     pauseTouchholdVoices();
-    retainedPlaybackMode_ = RetainedPlaybackMode::PausedAnchored;
+    retainedPlaybackMode_ = (!engineInitialized_ || masterMixer_ == 0 || outputDeviceRebuildRequired_)
+        ? RetainedPlaybackMode::Invalidated
+        : RetainedPlaybackMode::PausedAnchored;
     logTrackFileMissingAfterLoadIfNeeded();
     appendBassDebugLog(
         miacode::preview_audio::bass::BassDebugOperation::RetainedReset,

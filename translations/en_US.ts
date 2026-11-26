@@ -3769,6 +3769,18 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Mute Break star-tail judgement sound</source>
         <translation>Mute Break star-tail judgement sound</translation>
     </message>
+    <message id="qml.audio_output_device">
+        <source>Output device</source>
+        <translation>Output device</translation>
+    </message>
+    <message id="qml.audio_output_device_system_default">
+        <source>System default</source>
+        <translation>System default</translation>
+    </message>
+    <message id="qml.audio_output_device_unavailable">
+        <source>Unavailable</source>
+        <translation>Unavailable</translation>
+    </message>
     <message id="qml.navigate_back">
         <source>Back</source>
         <translation>Back</translation>

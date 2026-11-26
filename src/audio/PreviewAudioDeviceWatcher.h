@@ -32,15 +32,21 @@ public:
     ~PreviewAudioDeviceWatcher() override;
 
     void setDirectCutoffHandler(DirectCutoffHandler handler);
+    void setOutputRoutingPolicy(const QString& preferredDeviceId, const QString& activeDeviceId);
 
     // Called by the Windows Core Audio endpoint callback. The callback itself may
     // run outside the Qt GUI thread; it first posts the audio cutoff barrier, then
     // queues only the GUI-freeze notification back to this QObject's thread.
-    void handleNativeOutputChanged(Change change);
+    void handleNativeOutputChanged(
+        Change change,
+        const QString& deviceId = QString(),
+        bool deviceBecameUnavailable = false);
 
 signals:
     void deviceCutoffRequested(const PreviewAudioDeviceWatcher::DeviceCutoff& cutoff);
+    void outputRouteInvalidated(const PreviewAudioDeviceWatcher::DeviceCutoff& cutoff);
     void outputConfigurationChanged(Change change);
+    void outputDevicesChanged();
 
 private:
     // QMediaDevices is the portability fallback. On Windows it is created only when
@@ -58,4 +64,7 @@ private:
     bool nativeComInitialized_ = false;
     std::mutex directCutoffHandlerMutex_;
     DirectCutoffHandler directCutoffHandler_;
+    std::mutex routingPolicyMutex_;
+    QString preferredOutputDeviceId_;
+    QString activeOutputDeviceId_;
 };

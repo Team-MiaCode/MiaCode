@@ -32,6 +32,7 @@ signals:
 
     void editorPreferencesChanged();
     void muriPromptPreferenceChanged();
+    void audioOutputDevicesChanged();
     void videoExportWorkerRunningChanged(bool running);
     void videoExportCompleted();
 

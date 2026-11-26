@@ -66,6 +66,25 @@ inline bool shouldPausePreview(Change change, bool previewPlaying)
     return previewPlaying && change != Change::None;
 }
 
+// BASS device numbers can move on topology changes even when the active
+// endpoint survives. Rebuild on every topology change; a default-only change
+// matters when following the default or temporarily using a fallback endpoint.
+inline bool shouldInvalidateOutputRoute(
+    const OutputSnapshot& before,
+    const OutputSnapshot& after,
+    const QString& preferredDeviceId,
+    const QString& activeDeviceId)
+{
+    const Change change = compareSnapshots(before, after);
+    if (change == Change::OutputListChanged || change == Change::Both) {
+        return true;
+    }
+    if (change == Change::None) {
+        return false;
+    }
+    return preferredDeviceId.isEmpty() || activeDeviceId != preferredDeviceId;
+}
+
 inline const char* changeName(Change change)
 {
     switch (change) {

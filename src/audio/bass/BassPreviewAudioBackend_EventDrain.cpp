@@ -1115,6 +1115,13 @@ bool BassPreviewAudioBackend::audition(const QString& kind, double gain)
     if (!initializeAudioEngine() || masterMixer_ == 0) {
         return false;
     }
+    if (outputDeviceRebuildRequired_) {
+        if (preparedAssets_.sfxDir.isEmpty()) {
+            refreshPreparedAssets();
+        }
+        initializeAssets();
+        outputDeviceRebuildRequired_ = false;
+    }
     if (!playbackSession_.masterRunning) {
         resetMasterMixerClock(0.0);
         // G1 Commit 6: master mixer was started at engine init and never stops.

@@ -134,21 +134,30 @@ public:
         owner_ = nullptr;
     }
 
-    HRESULT STDMETHODCALLTYPE OnDeviceStateChanged(LPCWSTR, DWORD) override
+    HRESULT STDMETHODCALLTYPE OnDeviceStateChanged(LPCWSTR deviceId, DWORD newState) override
     {
-        notifyOwner(PreviewAudioDeviceWatcher::Change::OutputListChanged);
+        notifyOwner(
+            PreviewAudioDeviceWatcher::Change::OutputListChanged,
+            deviceId != nullptr ? QString::fromWCharArray(deviceId) : QString(),
+            newState != DEVICE_STATE_ACTIVE);
         return S_OK;
     }
 
-    HRESULT STDMETHODCALLTYPE OnDeviceAdded(LPCWSTR) override
+    HRESULT STDMETHODCALLTYPE OnDeviceAdded(LPCWSTR deviceId) override
     {
-        notifyOwner(PreviewAudioDeviceWatcher::Change::OutputListChanged);
+        notifyOwner(
+            PreviewAudioDeviceWatcher::Change::OutputListChanged,
+            deviceId != nullptr ? QString::fromWCharArray(deviceId) : QString(),
+            false);
         return S_OK;
     }
 
-    HRESULT STDMETHODCALLTYPE OnDeviceRemoved(LPCWSTR) override
+    HRESULT STDMETHODCALLTYPE OnDeviceRemoved(LPCWSTR deviceId) override
     {
-        notifyOwner(PreviewAudioDeviceWatcher::Change::OutputListChanged);
+        notifyOwner(
+            PreviewAudioDeviceWatcher::Change::OutputListChanged,
+            deviceId != nullptr ? QString::fromWCharArray(deviceId) : QString(),
+            true);
         return S_OK;
     }
     HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(LPCWSTR, const PROPERTYKEY) override { return S_OK; }
@@ -156,23 +165,29 @@ public:
     HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(
         EDataFlow flow,
         ERole role,
-        LPCWSTR) override
+        LPCWSTR defaultDeviceId) override
     {
         if (flow != eRender || (role != eConsole && role != eMultimedia)) {
             return S_OK;
         }
-        notifyOwner(PreviewAudioDeviceWatcher::Change::DefaultOutputChanged);
+        notifyOwner(
+            PreviewAudioDeviceWatcher::Change::DefaultOutputChanged,
+            defaultDeviceId != nullptr ? QString::fromWCharArray(defaultDeviceId) : QString(),
+            false);
         return S_OK;
     }
 
 private:
-    void notifyOwner(PreviewAudioDeviceWatcher::Change change)
+    void notifyOwner(
+        PreviewAudioDeviceWatcher::Change change,
+        const QString& deviceId,
+        bool deviceBecameUnavailable)
     {
         // Held across the call, not just across the read: the owner may start destructing
         // between a bare null check and the dereference. See detachOwner().
         const std::lock_guard<std::mutex> lock(ownerMutex_);
         if (owner_ != nullptr) {
-            owner_->handleNativeOutputChanged(change);
+            owner_->handleNativeOutputChanged(change, deviceId, deviceBecameUnavailable);
         }
     }
 
@@ -341,6 +356,15 @@ void PreviewAudioDeviceWatcher::setDirectCutoffHandler(DirectCutoffHandler handl
     directCutoffHandler_ = std::move(handler);
 }
 
+void PreviewAudioDeviceWatcher::setOutputRoutingPolicy(
+    const QString& preferredDeviceId,
+    const QString& activeDeviceId)
+{
+    const std::lock_guard<std::mutex> lock(routingPolicyMutex_);
+    preferredOutputDeviceId_ = preferredDeviceId.trimmed();
+    activeOutputDeviceId_ = activeDeviceId.trimmed();
+}
+
 PreviewAudioDeviceWatcher::DeviceCutoff PreviewAudioDeviceWatcher::requestDirectCutoff(Change change)
 {
     DirectCutoffHandler handler;
@@ -357,14 +381,51 @@ PreviewAudioDeviceWatcher::DeviceCutoff PreviewAudioDeviceWatcher::requestDirect
     return cutoff;
 }
 
-void PreviewAudioDeviceWatcher::handleNativeOutputChanged(Change change)
+void PreviewAudioDeviceWatcher::handleNativeOutputChanged(
+    Change change,
+    const QString& deviceId,
+    bool deviceBecameUnavailable)
 {
 #ifdef Q_OS_WIN
+    QString preferredDeviceId;
+    QString activeDeviceId;
+    {
+        const std::lock_guard<std::mutex> lock(routingPolicyMutex_);
+        preferredDeviceId = preferredOutputDeviceId_;
+        activeDeviceId = activeOutputDeviceId_;
+    }
+
+    bool shouldCut = true;
+    if (change == Change::DefaultOutputChanged) {
+        if (!preferredDeviceId.isEmpty() && activeDeviceId == preferredDeviceId) {
+            shouldCut = false;
+        } else if (preferredDeviceId.isEmpty()
+                   && !deviceId.isEmpty()
+                   && !activeDeviceId.isEmpty()
+                   && deviceId == activeDeviceId) {
+            shouldCut = false;
+        }
+    }
+    // Topology changes can renumber BASS entries, including the active endpoint.
+    Q_UNUSED(deviceBecameUnavailable);
+
+    if (!shouldCut) {
+        QMetaObject::invokeMethod(this, [this] { emit outputDevicesChanged(); },
+                                  Qt::QueuedConnection);
+        return;
+    }
+
     // Core Audio calls on its MTA. Queue the worker cutoff before posting GUI work:
     // the operating system is allowed to move a default-following stream meanwhile.
     const DeviceCutoff cutoff = requestDirectCutoff(change);
-    QMetaObject::invokeMethod(this, [this, cutoff] { deliverNativeOutputChange(cutoff); },
-                              Qt::QueuedConnection);
+    QMetaObject::invokeMethod(this, [this, cutoff] {
+        emit outputDevicesChanged();
+        deliverNativeOutputChange(cutoff);
+    }, Qt::QueuedConnection);
+#else
+    Q_UNUSED(change);
+    Q_UNUSED(deviceId);
+    Q_UNUSED(deviceBecameUnavailable);
 #endif
 }
 
@@ -405,6 +466,8 @@ void PreviewAudioDeviceWatcher::deliverNativeOutputChange(const DeviceCutoff& cu
     }
     if (delivered.armedPlaybackWasCut) {
         emit deviceCutoffRequested(delivered);
+    } else {
+        emit outputRouteInvalidated(delivered);
     }
     emit outputConfigurationChanged(delivered.change);
 }
@@ -418,6 +481,36 @@ void PreviewAudioDeviceWatcher::handleAudioOutputsChanged()
         return;
     }
     snapshot_ = std::move(current);
+    emit outputDevicesChanged();
+
+    QString preferredDeviceId;
+    QString activeDeviceId;
+    {
+        const std::lock_guard<std::mutex> lock(routingPolicyMutex_);
+        preferredDeviceId = preferredOutputDeviceId_;
+        activeDeviceId = activeOutputDeviceId_;
+    }
+
+    if (!miacode::preview_audio::device_change::shouldInvalidateOutputRoute(
+            previous, snapshot_, preferredDeviceId, activeDeviceId)) {
+        if (miacode::debug_options::audioDebugOutputEnabled()) {
+            miacode::debug_log::appendLine(
+                miacode::debug_log::Channel::Audio,
+                QStringLiteral("preview/audio_device"),
+                QStringLiteral("action=outputs_changed_ignored_unrelated change=%1 "
+                               "default_before=%2 default_after=%3 preferred=%4 active=%5")
+                    .arg(QLatin1String(changeName(change)))
+                    .arg(previous.defaultOutputId.isEmpty() ? QStringLiteral("(none)")
+                                                            : previous.defaultOutputId)
+                    .arg(snapshot_.defaultOutputId.isEmpty() ? QStringLiteral("(none)")
+                                                             : snapshot_.defaultOutputId)
+                    .arg(preferredDeviceId.isEmpty() ? QStringLiteral("(default)")
+                                                     : preferredDeviceId)
+                    .arg(activeDeviceId.isEmpty() ? QStringLiteral("(none)")
+                                                  : activeDeviceId));
+        }
+        return;
+    }
 
     // Qt is used only on non-Windows or after Windows native registration failed.
     // It uses the same atomic cutoff protocol as the Core Audio source.
@@ -456,6 +549,8 @@ void PreviewAudioDeviceWatcher::handleAudioOutputsChanged()
 
     if (cutoff.armedPlaybackWasCut) {
         emit deviceCutoffRequested(cutoff);
+    } else {
+        emit outputRouteInvalidated(cutoff);
     }
     emit outputConfigurationChanged(change);
 }

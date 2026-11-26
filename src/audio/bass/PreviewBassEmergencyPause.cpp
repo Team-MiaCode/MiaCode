@@ -3,9 +3,7 @@
 #include <chrono>
 #include <mutex>
 
-#ifdef Q_OS_WIN
 #include "bass.h"
-#endif
 
 namespace miacode::preview_audio {
 
@@ -33,22 +31,16 @@ ActiveBassOutput& activeBassOutput()
 
 void PreviewBassEmergencyPause::arm(int outputDeviceIndex)
 {
-#ifdef Q_OS_WIN
     ActiveBassOutput& output = activeBassOutput();
     const std::lock_guard lock(output.mutex);
     output.deviceIndex = outputDeviceIndex;
-#else
-    Q_UNUSED(outputDeviceIndex);
-#endif
 }
 
 void PreviewBassEmergencyPause::disarm()
 {
-#ifdef Q_OS_WIN
     ActiveBassOutput& output = activeBassOutput();
     const std::lock_guard lock(output.mutex);
     output.deviceIndex = -1;
-#endif
 }
 
 BassEmergencyPauseResult PreviewBassEmergencyPause::pauseActiveOutput()
@@ -56,7 +48,6 @@ BassEmergencyPauseResult PreviewBassEmergencyPause::pauseActiveOutput()
     BassEmergencyPauseResult result;
     result.startedMonotonicNs = steadyNowNs();
 
-#ifdef Q_OS_WIN
     ActiveBassOutput& output = activeBassOutput();
     const std::lock_guard lock(output.mutex);
     result.available = output.deviceIndex >= 0;
@@ -82,7 +73,6 @@ BassEmergencyPauseResult PreviewBassEmergencyPause::pauseActiveOutput()
         && previousDevice != static_cast<DWORD>(output.deviceIndex)) {
         BASS_SetDevice(previousDevice);
     }
-#endif
 
     result.finishedMonotonicNs = steadyNowNs();
     return result;
