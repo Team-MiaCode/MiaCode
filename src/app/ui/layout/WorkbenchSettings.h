@@ -28,6 +28,10 @@ class WorkbenchSettings final : public QObject
     Q_PROPERTY(int sidebarMaximumContentWidth READ sidebarMaximumContentWidth CONSTANT)
     Q_PROPERTY(bool bottomPanelVisible READ bottomPanelVisible WRITE setBottomPanelVisible NOTIFY bottomPanelVisibleChanged)
     Q_PROPERTY(double bottomPanelHeightRatio READ bottomPanelHeightRatio WRITE setBottomPanelHeightRatio NOTIFY bottomPanelHeightRatioChanged)
+    Q_PROPERTY(bool validationShowErrors READ validationShowErrors WRITE setValidationShowErrors NOTIFY validationFilterChanged)
+    Q_PROPERTY(bool validationShowWarnings READ validationShowWarnings WRITE setValidationShowWarnings NOTIFY validationFilterChanged)
+    Q_PROPERTY(bool muriShowErrors READ muriShowErrors WRITE setMuriShowErrors NOTIFY muriFilterChanged)
+    Q_PROPERTY(bool muriShowWarnings READ muriShowWarnings WRITE setMuriShowWarnings NOTIFY muriFilterChanged)
     Q_PROPERTY(double bottomPanelDefaultHeightRatio READ bottomPanelDefaultHeightRatio CONSTANT)
     Q_PROPERTY(double bottomPanelMinimumHeightRatio READ bottomPanelMinimumHeightRatio CONSTANT)
     Q_PROPERTY(double bottomPanelMaximumHeightRatio READ bottomPanelMaximumHeightRatio CONSTANT)
@@ -79,6 +83,10 @@ public:
     double bottomPanelDefaultHeightRatio() const;
     double bottomPanelMinimumHeightRatio() const;
     double bottomPanelMaximumHeightRatio() const;
+    bool validationShowErrors() const { return validationShowErrors_; }
+    bool validationShowWarnings() const { return validationShowWarnings_; }
+    bool muriShowErrors() const { return muriShowErrors_; }
+    bool muriShowWarnings() const { return muriShowWarnings_; }
     double previewWidthRatio() const;
     double previewDefaultWidthRatio() const;
     bool previewDetached() const;
@@ -117,6 +125,10 @@ public:
     void setSidebarWidth(int value);
     void setBottomPanelVisible(bool value);
     void setBottomPanelHeightRatio(double value);
+    void setValidationShowErrors(bool value);
+    void setValidationShowWarnings(bool value);
+    void setMuriShowErrors(bool value);
+    void setMuriShowWarnings(bool value);
     void setPreviewWidthRatio(double value);
     void setPreviewDetached(bool value);
     void setPreviewCanvasFreeAspect(bool value);
@@ -139,6 +151,8 @@ signals:
     void sidebarWidthChanged();
     void bottomPanelVisibleChanged();
     void bottomPanelHeightRatioChanged();
+    void validationFilterChanged();
+    void muriFilterChanged();
     void previewWidthRatioChanged();
     void previewDetachedChanged();
     void previewCanvasFreeAspectChanged();
@@ -169,6 +183,10 @@ private:
     int sidebarWidth_ = kSidebarDefaultWidth;
     bool bottomPanelVisible_ = true;
     double bottomPanelHeightRatio_ = kBottomPanelDefaultHeightRatio;
+    bool validationShowErrors_ = true;
+    bool validationShowWarnings_ = true;
+    bool muriShowErrors_ = true;
+    bool muriShowWarnings_ = true;
     double previewWidthRatio_ = kPreviewDefaultWidthRatio;
     bool previewDetached_ = false;
     bool previewCanvasFreeAspect_ = false;

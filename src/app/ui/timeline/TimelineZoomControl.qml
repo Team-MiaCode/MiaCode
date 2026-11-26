@@ -10,6 +10,8 @@ Control {
     id: root
 
     required property var stateBridge
+    property bool borderless: false
+    readonly property alias menuActive: zoomMenu.active
 
     readonly property var presets: root.stateBridge ? root.stateBridge.zoomPresetValues : []
     readonly property int presetIndex: {
@@ -21,8 +23,10 @@ Control {
         }
         return -1
     }
-    readonly property real horizontalInset: Theme.chromeInsetX - Theme.chromeHighlightOutset
-    readonly property real verticalInset: Theme.chromeInsetY - Theme.chromeHighlightOutset
+    readonly property real horizontalInset: root.borderless
+        ? 0 : (Theme.chromeInsetX - Theme.chromeHighlightOutset)
+    readonly property real verticalInset: root.borderless
+        ? 0 : (Theme.chromeInsetY - Theme.chromeHighlightOutset)
     readonly property real stepperWidth: Theme.compactControlHeight - 2
     readonly property real strokeWidth: 1 / root.Screen.devicePixelRatio
     readonly property real bodyWidth: Math.max(54,
@@ -34,7 +38,7 @@ Control {
     enabled: presetIndex >= 0
     font.family: Theme.uiFont
     font.pixelSize: Theme.captionFontSize
-    leftPadding: horizontalInset + strokeWidth
+    leftPadding: horizontalInset + (root.borderless ? 0 : strokeWidth)
     rightPadding: leftPadding
     topPadding: verticalInset + strokeWidth
     bottomPadding: topPadding
@@ -82,10 +86,12 @@ Control {
         y: root.verticalInset
         width: root.width - 2 * root.horizontalInset
         height: root.height - 2 * root.verticalInset
-        radius: Theme.controlRadius
-        color: Theme.surfaceColor(Theme.colors.background.elevated)
+        radius: root.borderless ? Theme.compactControlRadius : Theme.controlRadius
+        color: root.borderless
+            ? "transparent"
+            : Theme.surfaceColor(Theme.colors.background.elevated)
         border.color: Theme.floatingBorderColor
-        border.width: root.strokeWidth
+        border.width: root.borderless ? 0 : root.strokeWidth
         border.pixelAligned: false
     }
 
@@ -113,7 +119,9 @@ Control {
                         ? Theme.colors.text.active : Theme.colors.text.primary
             }
             background: Rectangle {
-                topLeftRadius: Theme.controlRadius - root.strokeWidth
+                topLeftRadius: root.borderless
+                    ? Theme.compactControlRadius
+                    : Theme.controlRadius - root.strokeWidth
                 bottomLeftRadius: topLeftRadius
                 color: Theme.overlayColor(valueButton.down ? Theme.colors.buttonState.pressed
                     : valueButton.hovered ? Theme.colors.buttonState.hover
@@ -162,8 +170,12 @@ Control {
                 }
             }
             background: Rectangle {
-                topRightRadius: stepButton.increase ? Theme.controlRadius - root.strokeWidth : 0
-                bottomRightRadius: stepButton.increase ? 0 : Theme.controlRadius - root.strokeWidth
+                topRightRadius: stepButton.increase
+                    ? (root.borderless ? Theme.compactControlRadius : Theme.controlRadius - root.strokeWidth)
+                    : 0
+                bottomRightRadius: stepButton.increase
+                    ? 0
+                    : (root.borderless ? Theme.compactControlRadius : Theme.controlRadius - root.strokeWidth)
                 color: !stepButton.enabled ? "transparent"
                     : Theme.overlayColor(stepButton.down ? Theme.colors.buttonState.pressed
                         : stepButton.hovered ? Theme.colors.buttonState.hover

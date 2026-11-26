@@ -27,7 +27,7 @@ using miacode::timeline::TimelineThemeColors;
 
 constexpr int kPlayableLaneCount = 8;
 constexpr int kLaneCount = kPlayableLaneCount + 1;
-constexpr int kHeaderHeight = 36;
+constexpr int kHeaderHeight = 24;
 constexpr int kLaneHeight = 20;
 constexpr double kMinimumContentScale = 0.25;
 constexpr double kMinimumTextScale = 0.5;
@@ -848,14 +848,18 @@ TimelineSceneState TimelineSceneStateBuilder::build(const TimelineSceneBuildRequ
     const qreal markerTipY =
         static_cast<qreal>(state.timelineTop)
         - scaledMetric(kTimelineTopMarkerTipOffsetPx, headerContentScale(state.contentScale));
-    const qreal headerTextBottom = (state.timelineTop + headerMetrics.height()) * 0.5;
+    const qreal desiredMarkerHeight =
+        singleDigitWidth * kTimelineHeaderAnchorMarkerLegacyWidthFactor
+            * kTimelineHeaderAnchorMarkerLegacyHeightFactor;
+    const qreal headerTextBottom = qMin(
+        (state.timelineTop + headerMetrics.height()) * 0.5,
+        markerTipY - desiredMarkerHeight - 1.0);
     const qreal markerHeight = qMin(
         qMax(0.0, markerTipY - headerTextBottom
             - scaledMetric(
                 static_cast<qreal>(kTimelineHeaderAnchorMarkerTextGapPx),
                 headerContentScale(state.contentScale))),
-        singleDigitWidth * kTimelineHeaderAnchorMarkerLegacyWidthFactor
-            * kTimelineHeaderAnchorMarkerLegacyHeightFactor);
+        desiredMarkerHeight);
     QVector<HeaderLineLabel> headerLabels;
     qreal lastHeaderLabelRight = 0.0;
     const qreal headerMarkerHalfWidth =

@@ -715,6 +715,10 @@ Item {
                     onAnalysisRowActivated: (difficultyId, revision, line, column, endColumn, second) =>
                         editorPane.revealAnalysisRow(
                             difficultyId, revision, line, column, endColumn, second, root.analysisSession)
+                    onCloseRequested: {
+                        root.viewState.bottomPanelVisible = false
+                        root.preferences.bottomPanelVisible = false
+                    }
                 }
             }
 

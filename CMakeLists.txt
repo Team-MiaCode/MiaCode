@@ -831,7 +831,11 @@ set(MIACODE_UI_ICON_FILES
     src/app/ui/resources/icons/volume-2.svg
     src/app/ui/resources/icons/volume-x.svg
     src/app/ui/resources/icons/close.svg
+    src/app/ui/resources/icons/close-bold.svg
     src/app/ui/resources/icons/toast-error.svg
+    src/app/ui/resources/icons/error-circle-fill.svg
+    src/app/ui/resources/icons/warning-fill.svg
+    src/app/ui/resources/icons/checkmark-circle-fill.svg
     src/app/ui/resources/icons/more.svg
     src/app/ui/resources/icons/metadata.svg
     src/app/ui/resources/icons/metronome.svg

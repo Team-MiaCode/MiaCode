@@ -27,6 +27,10 @@ constexpr auto kSidebarVisible = "sidebar_visible";
 constexpr auto kSidebarWidth = "sidebar_width";
 constexpr auto kBottomPanelVisible = "bottom_panel_visible";
 constexpr auto kBottomPanelHeightRatio = "bottom_panel_height_ratio";
+constexpr auto kValidationShowErrors = "validation_show_errors";
+constexpr auto kValidationShowWarnings = "validation_show_warnings";
+constexpr auto kMuriShowErrors = "muri_show_errors";
+constexpr auto kMuriShowWarnings = "muri_show_warnings";
 constexpr auto kPreviewWidthRatio = "preview_width_ratio";
 constexpr auto kPreviewDetached = "preview_detached";
 constexpr auto kPreviewCanvasFreeAspect = "preview_canvas_free_aspect";
@@ -139,6 +143,10 @@ WorkbenchSettings::WorkbenchSettings(QObject* parent)
                                      jsonDouble(ui, kBottomPanelHeightRatio, legacySettings,
                                                 kLegacyBottomPanelHeightRatio, kBottomPanelDefaultHeightRatio),
                                      kBottomPanelMaximumHeightRatio);
+    validationShowErrors_ = ui.value(QLatin1String(kValidationShowErrors)).toBool(true);
+    validationShowWarnings_ = ui.value(QLatin1String(kValidationShowWarnings)).toBool(true);
+    muriShowErrors_ = ui.value(QLatin1String(kMuriShowErrors)).toBool(true);
+    muriShowWarnings_ = ui.value(QLatin1String(kMuriShowWarnings)).toBool(true);
     previewWidthRatio_ = qBound(kPreviewMinimumWidthRatio,
                                 jsonDouble(ui, kPreviewWidthRatio, legacySettings,
                                            kLegacyPreviewWidthRatio, kPreviewDefaultWidthRatio),
@@ -485,6 +493,38 @@ void WorkbenchSettings::setBottomPanelHeightRatio(double value)
     bottomPanelHeightRatio_ = value;
     storeUiValue(kBottomPanelHeightRatio, value);
     emit bottomPanelHeightRatioChanged();
+}
+
+void WorkbenchSettings::setValidationShowErrors(bool value)
+{
+    if (validationShowErrors_ == value) return;
+    validationShowErrors_ = value;
+    storeUiValue(kValidationShowErrors, value);
+    emit validationFilterChanged();
+}
+
+void WorkbenchSettings::setValidationShowWarnings(bool value)
+{
+    if (validationShowWarnings_ == value) return;
+    validationShowWarnings_ = value;
+    storeUiValue(kValidationShowWarnings, value);
+    emit validationFilterChanged();
+}
+
+void WorkbenchSettings::setMuriShowErrors(bool value)
+{
+    if (muriShowErrors_ == value) return;
+    muriShowErrors_ = value;
+    storeUiValue(kMuriShowErrors, value);
+    emit muriFilterChanged();
+}
+
+void WorkbenchSettings::setMuriShowWarnings(bool value)
+{
+    if (muriShowWarnings_ == value) return;
+    muriShowWarnings_ = value;
+    storeUiValue(kMuriShowWarnings, value);
+    emit muriFilterChanged();
 }
 
 void WorkbenchSettings::setPreviewWidthRatio(double value)

@@ -21,11 +21,21 @@ public:
     void setSnapshot(const miacode::AnalysisSnapshot& snapshot);
     AnalysisRow row(int index) const;
     QVector<AnalysisDecoration> decorationRows() const;
+    int totalRowCount() const { return snapshot_.muriPanelEntries.size(); }
     int warningCount() const { return warningCount_; }
-    int issueCount() const { return rowCount() - warningCount_; }
+    int issueCount() const { return totalRowCount() - warningCount_; }
+    bool showErrors() const { return showErrors_; }
+    bool showWarnings() const { return showWarnings_; }
+    bool setShowErrors(bool show);
+    bool setShowWarnings(bool show);
 
 private:
+    void rebuildFilteredIndices();
+
     miacode::AnalysisSnapshot snapshot_;
+    bool showErrors_ = true;
+    bool showWarnings_ = true;
+    QVector<int> filteredIndices_;
     int warningCount_ = 0;
     mutable bool decorationsReady_ = false;
     mutable QVector<AnalysisDecoration> decorationRows_;
@@ -39,6 +49,8 @@ class AnalysisModel final : public QObject
     Q_PROPERTY(int muriRowCount READ muriRowCount NOTIFY changed)
     Q_PROPERTY(int muriWarningCount READ muriWarningCount NOTIFY changed)
     Q_PROPERTY(int muriIssueCount READ muriIssueCount NOTIFY changed)
+    Q_PROPERTY(bool muriShowErrors READ muriShowErrors WRITE setMuriShowErrors NOTIFY muriFilterChanged)
+    Q_PROPERTY(bool muriShowWarnings READ muriShowWarnings WRITE setMuriShowWarnings NOTIFY muriFilterChanged)
     Q_PROPERTY(bool pending READ pending NOTIFY changed)
     Q_PROPERTY(bool validationPending READ validationPending NOTIFY changed)
     Q_PROPERTY(bool available READ available NOTIFY changed)
@@ -53,9 +65,13 @@ public:
 
     QVariantList validationRows() const;
     QAbstractItemModel* muriRows() { return &muriRows_; }
-    int muriRowCount() const { return muriRows_.rowCount(); }
+    int muriRowCount() const { return muriRows_.totalRowCount(); }
     int muriWarningCount() const { return muriRows_.warningCount(); }
     int muriIssueCount() const { return muriRows_.issueCount(); }
+    bool muriShowErrors() const { return muriRows_.showErrors(); }
+    void setMuriShowErrors(bool show);
+    bool muriShowWarnings() const { return muriRows_.showWarnings(); }
+    void setMuriShowWarnings(bool show);
     QVector<AnalysisDecoration> muriDecorationRows() const { return muriRows_.decorationRows(); }
     bool pending() const;
     bool validationPending() const;
@@ -72,6 +88,7 @@ public:
 
 signals:
     void changed();
+    void muriFilterChanged();
     void rowActivated(int difficultyId, qulonglong revision, int line, int column, int endColumn, double second);
 
 private:

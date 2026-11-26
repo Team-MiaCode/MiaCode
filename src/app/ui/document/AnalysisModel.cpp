@@ -34,7 +34,10 @@ QVariantMap rowToVariantMap(const AnalysisRow& row)
 
 int MuriRowsModel::rowCount(const QModelIndex& parent) const
 {
-    return parent.isValid() ? 0 : snapshot_.muriPanelEntries.size();
+    if (parent.isValid()) return 0;
+    if (showErrors_ && showWarnings_) return totalRowCount();
+    if (!showErrors_ && !showWarnings_) return 0;
+    return filteredIndices_.size();
 }
 
 QHash<int, QByteArray> MuriRowsModel::roleNames() const
@@ -45,8 +48,12 @@ QHash<int, QByteArray> MuriRowsModel::roleNames() const
 QVariant MuriRowsModel::data(const QModelIndex& index, int role) const
 {
     if (!index.isValid() || index.row() < 0 || index.row() >= rowCount() || role != Qt::UserRole) return {};
-    auto result = rowToVariantMap(row(index.row()));
-    result.insert(QStringLiteral("rowIndex"), index.row());
+    // Preserve the unfiltered source index so activateRow validates against the full snapshot.
+    const int sourceIndex = (showErrors_ && showWarnings_)
+        ? index.row()
+        : filteredIndices_.at(index.row());
+    auto result = rowToVariantMap(row(sourceIndex));
+    result.insert(QStringLiteral("rowIndex"), sourceIndex);
     return result;
 }
 
@@ -83,7 +90,41 @@ void MuriRowsModel::setSnapshot(const miacode::AnalysisSnapshot& snapshot)
     }
     decorationRows_.clear();
     decorationsReady_ = false;
+    rebuildFilteredIndices();
     endResetModel();
+}
+
+bool MuriRowsModel::setShowErrors(bool show)
+{
+    if (showErrors_ == show) return false;
+    beginResetModel();
+    showErrors_ = show;
+    rebuildFilteredIndices();
+    endResetModel();
+    return true;
+}
+
+bool MuriRowsModel::setShowWarnings(bool show)
+{
+    if (showWarnings_ == show) return false;
+    beginResetModel();
+    showWarnings_ = show;
+    rebuildFilteredIndices();
+    endResetModel();
+    return true;
+}
+
+void MuriRowsModel::rebuildFilteredIndices()
+{
+    filteredIndices_.clear();
+    if ((showErrors_ && showWarnings_) || (!showErrors_ && !showWarnings_)) return;
+    const int count = snapshot_.muriPanelEntries.size();
+    filteredIndices_.reserve(count);
+    for (int i = 0; i < count; ++i) {
+        const bool isWarning = snapshot_.muriPanelEntries.at(i).alertLevel == MuriAlertLevel::Warning;
+        if (isWarning ? showWarnings_ : showErrors_)
+            filteredIndices_.append(i);
+    }
 }
 
 QVector<AnalysisDecoration> MuriRowsModel::decorationRows() const
@@ -126,6 +167,18 @@ bool AnalysisModel::available() const { return projection_.available; }
 int AnalysisModel::difficultyId() const { return projection_.difficultyId; }
 qulonglong AnalysisModel::revision() const { return projection_.revision; }
 int AnalysisModel::markerCount() const { return projection_.noteMarkers.size(); }
+
+void AnalysisModel::setMuriShowErrors(bool show)
+{
+    if (muriRows_.setShowErrors(show))
+        emit muriFilterChanged();
+}
+
+void AnalysisModel::setMuriShowWarnings(bool show)
+{
+    if (muriRows_.setShowWarnings(show))
+        emit muriFilterChanged();
+}
 
 void AnalysisModel::refreshPreferences()
 {
@@ -190,7 +243,7 @@ void AnalysisModel::cancelRowActivation(
 bool AnalysisModel::rowIsCurrent(const AnalysisRow& candidate, int muriIndex) const
 {
     if (muriIndex < 0) return miacode::ui::analysisRowCanActivate(projection_, candidate, projection_.difficultyId);
-    if (muriIndex >= muriRows_.rowCount() || projection_.pending) return false;
+    if (muriIndex >= muriRows_.totalRowCount() || projection_.pending) return false;
     const auto current = muriRows_.row(muriIndex);
     return current.difficultyId == candidate.difficultyId && current.revision == candidate.revision
         && current.line == candidate.line && current.column == candidate.column
