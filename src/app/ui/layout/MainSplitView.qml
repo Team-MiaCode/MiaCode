@@ -691,6 +691,58 @@ Item {
                         previewSettings: root.previewSettings
                     }
 
+                    // Passive bottom-edge hover zone so the closed bottom panel can be
+                    // reopened in place without obstructing editor text, scrollbars, or clicks.
+                    Item {
+                        id: bottomPanelRevealZone
+                        readonly property bool available:
+                            (root.viewState.difficultyEditorActive || root.viewState.latencyEditorActive)
+                            && root.timelineSession.panelVisible
+                            && !root.viewState.bottomPanelVisible
+                            && !root.bottomPanelAnimating
+                            && !root.pages.overlayActive
+                            && !root.exportVideoActive
+                        readonly property bool reveal: available
+                            && !centerSplit.resizing
+                            && (bottomRevealHover.hovered || bottomRevealPill.hovered || bottomRevealPill.visualFocus)
+
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.bottom: parent.bottom
+                        width: 112
+                        height: 36
+                        z: 5
+                        visible: available
+
+                        HoverHandler {
+                            id: bottomRevealHover
+                            blocking: false
+                        }
+
+                        SidebarEdgePill {
+                            id: bottomRevealPill
+                            buttonObjectName: "bottomPanelRevealButton"
+                            horizontal: true
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.bottom: parent.bottom
+                            anchors.bottomMargin: 8
+                            iconSource: Qt.resolvedUrl("icons/chevron-down.svg")
+                            iconRotation: 180
+                            tooltip: qsTrId("qml.open_bottom_panel")
+                            interactive: bottomPanelRevealZone.reveal
+                            opacity: bottomPanelRevealZone.reveal ? 1 : 0
+                            visible: opacity > 0.01
+
+                            Behavior on opacity {
+                                NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+                            }
+
+                            onClicked: {
+                                root.viewState.bottomPanelVisible = true
+                                root.preferences.bottomPanelVisible = true
+                            }
+                        }
+                    }
+
                 }
 
                 BottomPanel {

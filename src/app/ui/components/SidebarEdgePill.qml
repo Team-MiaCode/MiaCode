@@ -11,6 +11,8 @@ Item {
 
     property url iconSource
     property int iconSize: 13
+    property real iconRotation: 0
+    property bool horizontal: false
     property string tooltip: ""
     property string accessibleName: tooltip
     property string buttonObjectName: ""
@@ -21,8 +23,8 @@ Item {
 
     signal clicked()
 
-    implicitWidth: 22
-    implicitHeight: 44
+    implicitWidth: root.horizontal ? 44 : 22
+    implicitHeight: root.horizontal ? 22 : 44
 
     MouseArea {
         anchors.fill: parent
@@ -35,7 +37,7 @@ Item {
 
     RectangularShadow {
         anchors.fill: pill
-        radius: pill.width / 2
+        radius: Math.min(width, height) / 2
         blur: 12
         offset: Qt.vector2d(0, 2)
         color: Qt.rgba(0, 0, 0, Theme.darkTheme ? 0.36 : 0.14)
@@ -57,7 +59,7 @@ Item {
         onClicked: root.clicked()
 
         background: Rectangle {
-            radius: width / 2
+            radius: Math.min(width, height) / 2
             color: Theme.overlayColor(pill.down
                 ? Theme.colors.buttonState.pressed
                 : pill.hovered
@@ -75,6 +77,7 @@ Item {
                 anchors.centerIn: parent
                 width: root.iconSize
                 height: root.iconSize
+                rotation: root.iconRotation
                 source: root.iconSource
                 sourceSize: Theme.iconSourceSize(root.iconSize, root.iconSize)
                 color: pill.hovered || pill.visualFocus
