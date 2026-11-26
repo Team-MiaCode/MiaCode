@@ -178,7 +178,9 @@ bool JobRegistry::updateItem(const JobToken& token, const QString& itemId, const
         item.insert(QStringLiteral("phase"), phase);
         item.insert(QStringLiteral("error"), error.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(error));
         if (state != QLatin1String("retry_wait")) item.remove(QStringLiteral("retryAt"));
-        for (const auto& key : {QStringLiteral("bytesReceived"), QStringLiteral("bytesTotal"), QStringLiteral("attempt"), QStringLiteral("retryAt")}) {
+        item.remove(QStringLiteral("fileProgress"));
+        for (const auto& key : {QStringLiteral("bytesReceived"), QStringLiteral("bytesTotal"), QStringLiteral("attempt"),
+                 QStringLiteral("retryAt"), QStringLiteral("fileProgress")}) {
             if (progress.contains(key)) item.insert(key, progress.value(key));
         }
         if (!artifacts.isEmpty()) item.insert(QStringLiteral("artifacts"), artifacts);
@@ -213,6 +215,7 @@ bool JobRegistry::finish(const JobToken& token, const QJsonValue& result, const 
             auto item = record->items[index].toObject();
             if (finalItem(item.value(QStringLiteral("state")).toString())) continue;
             item.insert(QStringLiteral("state"), QStringLiteral("cancelled"));
+            item.remove(QStringLiteral("fileProgress"));
             record->items[index] = item;
         }
     }

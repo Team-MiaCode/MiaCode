@@ -20,25 +20,20 @@
 //
 
 #include "qavhwdevice_p.h"
-#include <memory>
 
 QT_BEGIN_NAMESPACE
 
-class QAVHWDevice_VideoToolboxPrivate;
 class Q_AVPLAYER_EXPORT QAVHWDevice_VideoToolbox : public QAVHWDevice
 {
 public:
-    QAVHWDevice_VideoToolbox();
-    ~QAVHWDevice_VideoToolbox();
+    QAVHWDevice_VideoToolbox() = default;
 
     AVPixelFormat format() const override;
     AVHWDeviceType type() const override;
     QAVVideoBuffer *videoBuffer(const QAVVideoFrame &frame) const override;
 
 private:
-    std::unique_ptr<QAVHWDevice_VideoToolboxPrivate> d_ptr;
     Q_DISABLE_COPY(QAVHWDevice_VideoToolbox)
-    Q_DECLARE_PRIVATE(QAVHWDevice_VideoToolbox)
 };
 
 QT_END_NAMESPACE

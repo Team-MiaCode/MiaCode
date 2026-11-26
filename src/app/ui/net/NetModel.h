@@ -5,7 +5,6 @@
 
 #include <QAbstractListModel>
 #include <QPointer>
-#include <QElapsedTimer>
 #include <QSet>
 #include <QVariantMap>
 #include <memory>
@@ -21,6 +20,7 @@ class NetModel final : public QAbstractListModel {
     Q_PROPERTY(bool probing READ probing NOTIFY changed)
     Q_PROPERTY(int resultCount READ rowCount NOTIFY changed)
     Q_PROPERTY(int selectedCount READ selectedCount NOTIFY changed)
+    Q_PROPERTY(int downloadableCount READ downloadableCount NOTIFY changed)
     Q_PROPERTY(QString statusText READ statusText NOTIFY changed)
     Q_PROPERTY(QString errorText READ errorText NOTIFY changed)
     Q_PROPERTY(bool working READ working NOTIFY changed)
@@ -30,19 +30,21 @@ class NetModel final : public QAbstractListModel {
     Q_PROPERTY(double progress READ progress NOTIFY changed)
     Q_PROPERTY(QString progressText READ progressText NOTIFY changed)
     Q_PROPERTY(QString connectionText READ connectionText NOTIFY changed)
-    Q_PROPERTY(QString logText READ logText NOTIFY changed)
+    Q_PROPERTY(QVariantList suggestions READ suggestions NOTIFY suggestionsChanged)
     Q_PROPERTY(QString outputDirectory READ outputDirectory WRITE setOutputDirectory NOTIFY changed)
 
 public:
     enum Role { ChartIdRole = Qt::UserRole + 1, TitleRole, ArtistRole, DesignerRole,
-        UploaderRole, LevelsRole, TagsRole, UploadedAtRole, SelectedRole, StateRole };
+        UploaderRole, LevelsRole, TagsRole, SelectedRole, StateRole, DownloadedRole, DownloadInProgressRole };
     NetModel(NetService* service, QObject* parent = nullptr);
+    ~NetModel() override;
     int rowCount(const QModelIndex& parent = {}) const override;
     QVariant data(const QModelIndex& index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
     bool busy() const { return !queryJobId_.isEmpty(); }
     bool probing() const { return !probeJobId_.isEmpty(); }
     int selectedCount() const;
+    int downloadableCount() const { return charts_.size() - downloadFolders_.size(); }
     QString statusText() const { return statusText_; }
     QString errorText() const { return errorText_; }
     void setHost(DocumentModel* document, miacode::UiRequestService* requests);
@@ -53,11 +55,13 @@ public:
     double progress() const { return progress_; }
     QString progressText() const { return progressText_; }
     QString connectionText() const { return connectionText_; }
-    QString logText() const { return logs_.join('\n'); }
+    QVariantList suggestions() const { return suggestions_; }
     QString outputDirectory() const { return outputDirectory_; }
     void setOutputDirectory(const QString& path);
 
     Q_INVOKABLE void query(const QVariantMap& parameters);
+    Q_INVOKABLE void requestSuggestions(const QVariantMap& parameters);
+    Q_INVOKABLE void clearSuggestions();
     Q_INVOKABLE void probe();
     Q_INVOKABLE void cancelQuery();
     Q_INVOKABLE void cancelProbe();
@@ -66,6 +70,7 @@ public:
     Q_INVOKABLE void setSort(const QString& sort);
     Q_INVOKABLE void browseOutputDirectory();
     Q_INVOKABLE void downloadSelected(bool includeVideo, bool createZip);
+    Q_INVOKABLE void activateDownload(const QString& chartId, bool includeVideo, bool createZip);
     Q_INVOKABLE void preview(const QString& chartId, bool includeVideo);
     Q_INVOKABLE void cancelTask();
     Q_INVOKABLE void resumeDownload();
@@ -74,7 +79,8 @@ private:
     void updateJob(const QString& jobId);
     void loadQuery(const QString& queryRef);
     void updateDownload();
-    void appendLog(const QString& text);
+    void refreshDownloadFolders();
+    void downloadCharts(QStringList chartIds, bool includeVideo, bool createZip);
     void applySort();
     net::NetCallResult call(const QString& operation, const QJsonObject& parameters = {});
     QPointer<NetService> service_;
@@ -91,17 +97,21 @@ private:
     QJsonObject previewExpected_;
     QHash<QString, QString> rowStates_;
     QHash<QString, QString> chartStates_;
-    QString displaySort_ = QStringLiteral("uploaded_desc");
-    QStringList logs_, downloadChartIds_;
-    double progress_ = 0;
+    QHash<QString, QString> downloadFolders_;
+    QString displaySort_ = QStringLiteral("title_asc");
+    QVariantList suggestions_;
+    net::NetEnginePort::Cancel cancelSuggestions_;
+    quint64 suggestionGeneration_ = 0;
+    QStringList downloadChartIds_;
+    double progress_ = -1;
     bool paused_ = false;
     bool downloadCreatesZip_ = false;
-    QElapsedTimer downloadItemTimer_;
-    QString progressItemId_;
     const QString principal_ = QStringLiteral("desktop");
 
 signals:
     void changed();
+    void suggestionsChanged();
+    void downloadFinished(const QString& message, bool failed);
 };
 
 } // namespace miacode::ui

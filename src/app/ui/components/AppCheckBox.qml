@@ -28,9 +28,9 @@ CheckBox {
             anchors.fill: parent
             radius: Theme.smallControlRadius
             // Same on/off colors as AppSwitch.
-            color: Theme.overlayColor(root.checked ? Theme.colors.accent.muted : "transparent")
+            color: Theme.overlayColor(root.checkState !== Qt.Unchecked ? Theme.colors.accent.muted : "transparent")
             border.width: 1
-            border.color: root.checked ? Theme.colors.accent.muted
+            border.color: root.checkState !== Qt.Unchecked ? Theme.colors.accent.muted
                 : root.hovered ? Theme.colors.text.secondary
                 : Theme.colors.toggle.border
         }
@@ -39,9 +39,18 @@ CheckBox {
             anchors.centerIn: parent
             width: root.compact ? 9 : 11
             height: root.compact ? 9 : 11
-            visible: root.checked
+            visible: root.checkState === Qt.Checked
             source: "qrc:/icons/checkmark.svg"
             sourceSize: Theme.iconSourceSize(width, height)
+            color: Theme.colors.toggle.checkedKnob
+        }
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: root.compact ? 6 : 8
+            height: 2
+            radius: height / 2
+            visible: root.checkState === Qt.PartiallyChecked
             color: Theme.colors.toggle.checkedKnob
         }
 

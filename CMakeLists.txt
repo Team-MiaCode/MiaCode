@@ -16,7 +16,7 @@ endif()
 # dialog adds its compile date to the visible version separately.
 set(MIACODE_DISPLAY_VERSION_STRING "${MIACODE_VERSION_STRING}")
 
-set(MIACODE_RELEASE_CHANNEL "nightly" CACHE STRING "Distribution channel: nightly or release")
+set(MIACODE_RELEASE_CHANNEL "release" CACHE STRING "Distribution channel: nightly or release")
 set_property(CACHE MIACODE_RELEASE_CHANNEL PROPERTY STRINGS nightly release)
 if (MIACODE_RELEASE_CHANNEL STREQUAL "nightly")
     set(MIACODE_RELEASE_CHANNEL_DISPLAY "Nightly")
@@ -618,6 +618,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/net/NetPageButton.qml
     src/app/ui/net/NetUploadPage.qml
     src/app/ui/net/NetResultTable.qml
+    src/app/ui/net/NetSearchField.qml
     src/app/ui/components/AppDateField.qml
     src/app/ui/components/PreviewPositionCard.qml
     src/app/ui/components/SidebarModeCard.qml

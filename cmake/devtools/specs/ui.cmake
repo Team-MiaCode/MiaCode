@@ -92,11 +92,16 @@ miacode_add_dev_tool(qml_app_background_model_spec TEST
         src/app/services/PreferenceDocument.cpp
         src/app/ui/preferences/LocaleService.h
         src/app/ui/preferences/LocaleService.cpp
+        src/app/ui/preferences/ApplicationMenuTranslation.cpp
         src/app/services/UiRequestService.h
         src/app/services/UiRequestService.cpp
     LIBS miacode_base Qt6::Core Qt6::Gui Qt6::Qml
     INCLUDES src
 )
+if(APPLE)
+    target_sources(qml_app_background_model_spec PRIVATE src/app/ui/preferences/ApplicationMenuTranslationMac.mm)
+    target_link_libraries(qml_app_background_model_spec PRIVATE "-framework AppKit")
+endif()
 
 miacode_add_dev_tool(qml_chart_drop_bridge_spec TEST
     SOURCES
@@ -193,9 +198,14 @@ miacode_add_dev_tool(timeline_surface_ready_spec TEST
         src/app/services/PreferenceDocument.h
         src/app/ui/preferences/LocaleService.cpp
         src/app/ui/preferences/LocaleService.h
+        src/app/ui/preferences/ApplicationMenuTranslation.cpp
     LIBS miacode_base Qt6::Core Qt6::Qml
     INCLUDES src
 )
+if(APPLE)
+    target_sources(timeline_surface_ready_spec PRIVATE src/app/ui/preferences/ApplicationMenuTranslationMac.mm)
+    target_link_libraries(timeline_surface_ready_spec PRIVATE "-framework AppKit")
+endif()
 
 miacode_add_dev_tool(qml_ui_bootstrap_lifecycle_spec TEST
     SOURCES
@@ -304,6 +314,7 @@ miacode_add_dev_tool(qml_preview_rate_feedback_spec TEST
         src/app/ui/preview/PreviewModel.h
         src/app/ui/preferences/LocaleService.cpp
         src/app/ui/preferences/LocaleService.h
+        src/app/ui/preferences/ApplicationMenuTranslation.cpp
         src/app/services/PreferenceDocument.cpp
         src/app/services/PreferenceDocument.h
         src/app/services/ShellNotifications.cpp
@@ -313,6 +324,10 @@ miacode_add_dev_tool(qml_preview_rate_feedback_spec TEST
     LIBS miacode_base Qt6::Core Qt6::Gui Qt6::Qml Qt6::Test
     INCLUDES src
 )
+if(APPLE)
+    target_sources(qml_preview_rate_feedback_spec PRIVATE src/app/ui/preferences/ApplicationMenuTranslationMac.mm)
+    target_link_libraries(qml_preview_rate_feedback_spec PRIVATE "-framework AppKit")
+endif()
 
 miacode_add_dev_tool(qml_net_page_compile_spec TEST
     SOURCES src/tools/ui/QmlNetPageCompileSpec.cpp

@@ -5,6 +5,7 @@
 #include <QByteArray>
 #include <QDate>
 #include <QDateTime>
+#include <QHash>
 #include <QList>
 #include <QNetworkAccessManager>
 #include <QString>
@@ -54,6 +55,7 @@ QList<NetChartSummary> filterChartsByLocalDateRange(
 QString formatLevels(const QStringList& levels);
 QString netUserSpaceReferer(const QString& username);
 QString chartDirectoryPathForTitle(const QString& outputDirectory, const QString& title, const QString& chartId);
+QHash<QString, QString> findDownloadedChartFolders(const QString& outputDirectory, const QHash<QString, QString>& titlesById);
 QString uniqueZipPathForTitle(const QString& outputDirectory, const QString& title);
 bool packNetChartZip(
     const QString& outputZipPath,

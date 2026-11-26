@@ -166,6 +166,22 @@ QtObject {
         return true
     }
 
+    function moveEditorTab(key, targetIndex) {
+        if (!key)
+            return false
+        const fromIndex = openEditorTabs.indexOf(key)
+        if (fromIndex < 0)
+            return false
+        const clampedTarget = Math.max(0, Math.min(openEditorTabs.length - 1, targetIndex))
+        if (fromIndex === clampedTarget)
+            return false
+        const tabs = openEditorTabs.slice()
+        tabs.splice(fromIndex, 1)
+        tabs.splice(clampedTarget, 0, key)
+        openEditorTabs = tabs
+        return true
+    }
+
     function closeEditor(key) {
         const closingIndex = openEditorTabs.indexOf(key)
         if (closingIndex < 0)

@@ -86,7 +86,7 @@ inline bool renderCadenceShouldFlush(qint64 nowNs, qint64 targetIntervalNs, qint
         return false;
     }
     const qint64 nextScheduledNs = *lastFlushNs + interval;
-    *lastFlushNs = nowNs - nextScheduledNs > interval * 2 ? nowNs : nextScheduledNs;
+    *lastFlushNs = nowNs - nextScheduledNs > interval * 2 ? nowNs : qMin(nextScheduledNs, nowNs);
     return true;
 }
 

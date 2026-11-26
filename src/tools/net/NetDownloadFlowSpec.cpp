@@ -118,11 +118,35 @@ int main(int argc, char** argv) {
     ok &= check(accepted.status == 202 && jobs.snapshot(jobId, "desktop").value("state") == "succeeded"
         && repeated.envelope.value("result").toObject().value("jobId") == jobId
         && server.paths.count("/maichart/service/track") == 1, "public download dispatcher validates results and deduplicates idempotency key");
+    const auto events = api.dispatch(context, "jobs.events", {{"jobId", jobId}})
+        .envelope.value("result").toObject().value("events").toArray();
+    bool sawSeparateFileProgress = false;
+    bool clearedFileProgressOnPublish = false;
+    for (const auto& value : events) {
+        const auto item = value.toObject().value("item").toObject();
+        const auto file = item.value("fileProgress").toObject();
+        const auto bytes = file.value("bytesReceived").toString().toLongLong();
+        const auto total = file.value("bytesTotal").toString().toLongLong();
+        if (bytes > 0 && bytes <= total && item.value("bytesReceived").toString().toLongLong() > bytes)
+            sawSeparateFileProgress = true;
+        if (item.value("phase") == "publish" && !item.contains("fileProgress")) clearedFileProgressOnPublish = true;
+    }
+    ok &= check(sawSeparateFileProgress && clearedFileProgressOnPublish,
+        "download events preserve aggregate bytes and expose the current file only while transferring");
     auto result = download("complete", true, true);
     const auto directory = chartDirectoryPathForTitle(output.path(), "complete", "complete");
     ok &= check(result.error.isEmpty() && result.result.toObject().value("counts").toObject().value("succeeded") == 1
         && QFileInfo::exists(QDir(directory).filePath("pv.mp4")) && zipHas(QDir(directory).filePath("download.zip"), "pv.mp4"),
         "download publishes all resources and ZIP includes PV");
+    const auto published = result.result.toObject();
+    const auto directoryRef = published.value("directoryArtifacts").toArray().at(0).toObject().value("artifactRef").toString();
+    const auto zipRef = published.value("zipArtifacts").toArray().at(0).toObject().value("artifactRef").toString();
+    ok &= check(service.directoryArtifactPath("desktop", directoryRef) == directory
+        && service.directoryArtifactPath("other", directoryRef).isEmpty()
+        && service.directoryArtifactPath("desktop", zipRef).isEmpty(), "desktop resolves only its own published directory artifacts");
+    const auto folders = findDownloadedChartFolders(output.path(), {{"complete", "Updated title"}, {"missing", "complete"}});
+    ok &= check(folders.size() == 1 && folders.value("complete") == directory,
+        "a completed download is rediscovered by chart ID after its title changes");
     server.statuses.insert("/maichart/absent/video", 404);
     result = download("absent", true, true);
     const auto absent = chartDirectoryPathForTitle(output.path(), "absent", "absent");

@@ -4519,8 +4519,8 @@ Error: %1</source>
     </message>
 
     <message id="net.ui.query_options">
-        <source>Search options</source>
-        <translation>筛选选项</translation>
+        <source>Filters</source>
+        <translation>筛选</translation>
     </message>
     <message id="net.ui.queue_hint">
         <source>Choose a chart folder and add it to the queue.</source>
@@ -4541,22 +4541,6 @@ Error: %1</source>
     <message id="net.ui.tag">
         <source>Tag</source>
         <translation>标签</translation>
-    </message>
-    <message id="net.ui.start_date">
-        <source>Start date (YYYY-MM-DD)</source>
-        <translation>开始日期 (YYYY-MM-DD)</translation>
-    </message>
-    <message id="net.ui.end_date">
-        <source>End date (YYYY-MM-DD)</source>
-        <translation>结束日期 (YYYY-MM-DD)</translation>
-    </message>
-    <message id="net.ui.sort_uploaded_desc">
-        <source>Newest first</source>
-        <translation>上传时间降序</translation>
-    </message>
-    <message id="net.ui.sort_uploaded_asc">
-        <source>Oldest first</source>
-        <translation>上传时间升序</translation>
     </message>
     <message id="net.ui.sort_level_desc">
         <source>Highest level first</source>
@@ -4590,6 +4574,10 @@ Error: %1</source>
         <source>Check connection</source>
         <translation>检测连接</translation>
     </message>
+    <message id="net.ui.probing">
+        <source>Checking connection…</source>
+        <translation>正在检测连接…</translation>
+    </message>
     <message id="net.ui.clear_selection">
         <source>Clear selection</source>
         <translation>取消选择</translation>
@@ -4598,13 +4586,21 @@ Error: %1</source>
         <source>%1 results, %2 selected</source>
         <translation>%1 条结果，已选择 %2 条</translation>
     </message>
+    <message id="net.ui.results">
+        <source>%1 results</source>
+        <translation>%1 条结果</translation>
+    </message>
+    <message id="net.ui.searching">
+        <source>Searching…</source>
+        <translation>正在查询…</translation>
+    </message>
     <message id="net.ui.connection_normal">
-        <source>Connection normal (%1 ms)</source>
-        <translation>连接正常（%1 ms）</translation>
+        <source>Connection normal</source>
+        <translation>连接正常</translation>
     </message>
     <message id="net.ui.connection_slow">
-        <source>Connection slow (%1 ms)</source>
-        <translation>连接较慢（%1 ms）</translation>
+        <source>Connection slow</source>
+        <translation>连接较慢</translation>
     </message>
     <message id="net.ui.error">
         <source>Net: %1</source>
@@ -4671,10 +4667,6 @@ Error: %1</source>
         <translation>曲师</translation>
     </message>
 
-    <message id="net.ui.uploaded_at">
-        <source>Uploaded at</source>
-        <translation>上传时间</translation>
-    </message>
 
     <message id="net.ui.state">
         <source>Status</source>
@@ -4686,9 +4678,29 @@ Error: %1</source>
         <translation>在线预览</translation>
     </message>
 
+    <message id="net.ui.search_placeholder">
+        <source>Search songs, artists or chart designers…</source>
+        <translation>搜索曲目、曲师或谱师…</translation>
+    </message>
+    <message id="net.ui.search_suggestions">
+        <source>Search suggestions</source>
+        <translation>搜索建议</translation>
+    </message>
+    <message id="net.ui.clear_search">
+        <source>Clear search</source>
+        <translation>清空搜索</translation>
+    </message>
+    <message id="net.ui.search_by_id">
+        <source>Chart ID</source>
+        <translation>谱面 ID</translation>
+    </message>
+    <message id="net.ui.search_by_hash">
+        <source>Chart hash</source>
+        <translation>谱面哈希</translation>
+    </message>
     <message id="net.ui.query_hint">
-        <source>Enter a user ID, Tag or song title and select a date range.</source>
-        <translation>输入用户 ID、Tag 或歌曲名，选择日期范围查询。</translation>
+        <source>Search by keyword or enter a filter.</source>
+        <translation>输入关键词搜索，或在筛选中指定条件。</translation>
     </message>
 
     <message id="net.ui.view_log">
@@ -4699,6 +4711,26 @@ Error: %1</source>
     <message id="net.download_selected">
         <source>Download selected</source>
         <translation>下载选中</translation>
+    </message>
+    <message id="net.ui.download_selection_count">
+        <source>Download %1 Items</source>
+        <translation>下载 %1</translation>
+    </message>
+    <message id="net.ui.file_progress">
+        <source>Current file progress</source>
+        <translation>当前文件进度</translation>
+    </message>
+    <message id="net.ui.preview_column">
+        <source>Preview</source>
+        <translation>预览</translation>
+    </message>
+    <message id="net.ui.download_one">
+        <source>Download</source>
+        <translation>下载</translation>
+    </message>
+    <message id="net.ui.download_folder_unavailable">
+        <source>The download folder could not be opened.</source>
+        <translation>无法打开下载文件夹。</translation>
     </message>
 
     <message id="net.ui.cancel_task">

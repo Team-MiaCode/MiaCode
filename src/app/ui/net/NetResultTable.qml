@@ -8,11 +8,17 @@ Rectangle {
     property var model
     required property var columns
     property bool interactive: true
+    property bool selecting: false
+    property int selectionState: Qt.Unchecked
+    property bool canSelectAll: false
     property bool reorderable: false
     property string wrappingRole: "artist"
-    property int wrappingColumn: 3
+    readonly property var visibleColumns: columns ? columns.filter(column => !column.checkbox || root.selecting) : []
+    readonly property int wrappingColumn: visibleColumns.findIndex(column => column.role === root.wrappingRole)
     signal selectionChanged(string chartId, bool selected)
+    signal selectAllRequested(bool selected)
     signal previewRequested(string chartId)
+    signal downloadRequested(string chartId)
     signal rowActivated(int row)
     signal rowDragStarted(int row)
     signal rowsDropped(int row)
@@ -26,21 +32,35 @@ Rectangle {
         font.weight: Font.Medium
     }
 
+    FontMetrics {
+        id: rowMetrics
+        font.family: Theme.uiFont
+        font.pixelSize: Theme.uiFontSize
+    }
+
+    readonly property real numberWidth: {
+        let digitWidth = 0
+        for (const digit of "0123456789")
+            digitWidth = Math.max(digitWidth, rowMetrics.advanceWidth(digit))
+        return Math.ceil(digitWidth * String(rows.count).length) + 8
+    }
+
     // Keep wrapped row heights independent of the horizontal scroll range.
     readonly property real verticalScrollExtent: rows.count > 0
         ? verticalScroll.implicitWidth : 0
     readonly property var columnWidths: {
-        if (!columns || columns.length === 0)
+        if (visibleColumns.length === 0)
             return []
-        const minimums = columns.map(column => Math.max(
+        const minimums = visibleColumns.map(column => Math.max(
             column.width || column.minimum || 100,
-            Math.ceil(headerMetrics.advanceWidth(column.title)) + 16))
+            column.number ? root.numberWidth : 0,
+            column.checkbox ? 0 : Math.ceil(headerMetrics.advanceWidth(column.title)) + 16))
         const minimumTotal = minimums.reduce((sum, value) => sum + value, 0)
-        const weightTotal = columns.reduce((sum, column) => sum + (column.weight || 0), 0)
+        const weightTotal = visibleColumns.reduce((sum, column) => sum + (column.weight || 0), 0)
         const extra = Math.max(0, Math.floor(scroll.width - verticalScrollExtent) - minimumTotal)
         let accumulatedWeight = 0
         let assignedExtra = 0
-        return columns.map((column, index) => {
+        return visibleColumns.map((column, index) => {
             if (!column.weight || weightTotal === 0)
                 return minimums[index]
             accumulatedWeight += column.weight
@@ -70,8 +90,9 @@ Rectangle {
             id: header
             height: Math.max(32, Theme.controlMinHeight)
             Repeater {
-                model: root.columns
+                model: root.visibleColumns
                 delegate: Rectangle {
+                    id: heading
                     required property int index
                     required property var modelData
                     width: root.columnWidth(index)
@@ -81,6 +102,7 @@ Rectangle {
                         anchors.fill: parent
                         anchors.leftMargin: 8
                         anchors.rightMargin: 8
+                        visible: !heading.modelData.checkbox
                         text: parent.modelData.title
                         color: Theme.colors.text.secondary
                         font.family: Theme.uiFont
@@ -89,6 +111,27 @@ Rectangle {
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                         elide: Text.ElideRight
+                    }
+                    Loader {
+                        anchors.centerIn: parent
+                        active: !!heading.modelData.checkbox
+                        sourceComponent: AppCheckBox {
+                            id: selectAllBox
+                            readonly property string actionLabel: root.selectionState === Qt.Checked
+                                ? qsTrId("net.ui.clear_selection") : qsTrId("net.select_all")
+                            tristate: true
+                            enabled: root.interactive && root.canSelectAll
+                            checkState: root.selectionState
+                            nextCheckState: () => root.selectionState === Qt.Checked ? Qt.Unchecked : Qt.Checked
+                            Accessible.name: actionLabel
+                            onClicked: root.selectAllRequested(checkState === Qt.Checked)
+                            Component.onCompleted: if (enabled) forceActiveFocus(Qt.TabFocusReason)
+
+                            Tooltip {
+                                visible: selectAllBox.hovered
+                                text: selectAllBox.actionLabel
+                            }
+                        }
                     }
                     Rectangle {
                         anchors.left: parent.left
@@ -102,7 +145,7 @@ Rectangle {
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
                         width: 1
-                        visible: index < root.columns.length - 1
+                        visible: index < root.visibleColumns.length - 1
                         color: Theme.separatorColor
                     }
                 }
@@ -130,19 +173,32 @@ Rectangle {
                 id: tableRow
                 required property int index
                 required property var model
+                readonly property bool selected: !!model.selected && (root.reorderable || root.selecting)
                 width: rows.width
                 height: Math.max(Theme.controlMinHeight + 8, measurement.implicitHeight + 16)
                 HoverHandler { id: rowHover }
-                Text { id: measurement; visible: false; width: root.columnWidth(root.wrappingColumn) - 16; text: tableRow.model[root.wrappingRole] || ""; font.family: Theme.uiFont; font.pixelSize: Theme.uiFontSize; wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight }
+                TapHandler {
+                    property bool dataCellPressed: false
+                    enabled: root.interactive && !root.reorderable && !tableRow.model.downloaded
+                    onPressedChanged: {
+                        if (!pressed)
+                            return
+                        const cell = tableRow.childAt(point.position.x, point.position.y)
+                        const column = cell?.modelData
+                        dataCellPressed = !!column && !column.checkbox && !column.preview && !column.download
+                    }
+                    onTapped: if (dataCellPressed) root.selectionChanged(tableRow.model.chartId, !tableRow.selected)
+                }
+                Text { id: measurement; visible: false; width: Math.max(0, root.columnWidth(root.wrappingColumn) - 16); text: tableRow.model[root.wrappingRole] || ""; font.family: Theme.uiFont; font.pixelSize: Theme.uiFontSize; wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight }
                 Repeater {
-                    model: root.columns
+                    model: root.visibleColumns
                     delegate: Rectangle {
                         id: cell
                         required property int index
                         required property var modelData
                         width: root.columnWidth(index)
                         height: tableRow.height
-                        color: tableRow.model.selected && !root.columns[1].checkbox
+                        color: tableRow.selected
                             ? Qt.tint(Theme.surfaceColor(Theme.colors.background.surface),
                                       Theme.contentOverlayColor(Theme.colors.accent.primary, 0.14))
                             : rowHover.hovered ? Theme.surfaceColor(Theme.colors.background.panel)
@@ -159,7 +215,7 @@ Rectangle {
                             anchors.left: parent.left
                             anchors.top: parent.top
                             anchors.bottom: parent.bottom
-                            visible: cell.index === 0 && tableRow.model.selected && !root.columns[1].checkbox
+                            visible: root.reorderable && cell.index === 0 && tableRow.selected
                             color: Theme.colors.accent.primary
                         }
                         DropArea {
@@ -176,7 +232,9 @@ Rectangle {
                         Label {
                             anchors.fill: parent
                             anchors.margins: 8
-                            visible: !cell.modelData.checkbox && !cell.modelData.preview
+                            anchors.leftMargin: cell.modelData.number ? 4 : 8
+                            anchors.rightMargin: cell.modelData.number ? 4 : 8
+                            visible: !cell.modelData.checkbox && !cell.modelData.preview && !cell.modelData.download
                             text: cell.modelData.role ? tableRow.model[cell.modelData.role] || "" : String(tableRow.index + 1)
                             color: cell.index === 0 ? Theme.colors.text.secondary : Theme.colors.text.primary
                             font.family: Theme.uiFont
@@ -191,10 +249,63 @@ Rectangle {
                             HoverHandler { id: hover }
                             ToolTip.visible: hover.hovered && (truncated || !!cell.modelData.tooltipRole)
                             ToolTip.text: cell.modelData.tooltipRole ? tableRow.model[cell.modelData.tooltipRole] || text : text
-                            TapHandler { enabled: root.interactive && !root.columns[1].checkbox; onTapped: root.rowActivated(tableRow.index) }
+                            TapHandler {
+                                enabled: parent.visible && root.interactive && root.reorderable
+                                onTapped: root.rowActivated(tableRow.index)
+                            }
                         }
-                        AppCheckBox { anchors.centerIn: parent; visible: !!cell.modelData.checkbox; checked: !!tableRow.model.selected; enabled: root.interactive; onClicked: root.selectionChanged(tableRow.model.chartId, checked) }
-                        NetPageButton { anchors.centerIn: parent; visible: !!cell.modelData.preview; iconSource: Qt.resolvedUrl("icons/play.svg"); tooltip: qsTrId("net.online_preview"); enabled: root.interactive; onClicked: root.previewRequested(tableRow.model.chartId) }
+                        Loader {
+                            anchors.centerIn: parent
+                            active: !!cell.modelData.checkbox && !tableRow.model.downloaded
+                            sourceComponent: AppCheckBox {
+                                checked: tableRow.selected
+                                enabled: root.interactive
+                                Accessible.name: qsTrId("net.select") + ", " + tableRow.model.title
+                                onClicked: root.selectionChanged(tableRow.model.chartId, checked)
+                            }
+                        }
+                        Loader {
+                            anchors.centerIn: parent
+                            active: !!cell.modelData.preview
+                            sourceComponent: IconButton {
+                                compact: true
+                                iconSource: Qt.resolvedUrl("icons/play.svg")
+                                tooltip: qsTrId("net.online_preview")
+                                enabled: root.interactive
+                                onClicked: root.previewRequested(tableRow.model.chartId)
+                            }
+                        }
+                        Loader {
+                            anchors.centerIn: parent
+                            active: !!cell.modelData.download
+                            sourceComponent: tableRow.model.downloadInProgress ? busyDownload : downloadAction
+
+                            Component {
+                                id: downloadAction
+                                IconButton {
+                                    compact: true
+                                    enabled: (root.interactive && !root.selecting) || !!tableRow.model.downloaded
+                                    iconSource: tableRow.model.downloaded ? Qt.resolvedUrl("icons/folder-open.svg")
+                                        : Qt.resolvedUrl("icons/download.svg")
+                                    tooltip: {
+                                        if (tableRow.model.downloaded) return qsTrId("action.open_folder")
+                                        const action = qsTrId("net.ui.download_one")
+                                        const state = tableRow.model.itemState
+                                        return state && state !== qsTrId("net.pending_download") ? action + "\n" + state : action
+                                    }
+                                    onClicked: root.downloadRequested(tableRow.model.chartId)
+                                }
+                            }
+                            Component {
+                                id: busyDownload
+                                BusyIndicator {
+                                    width: Theme.compactControlHeight
+                                    height: Theme.compactControlHeight
+                                    running: visible
+                                    Accessible.name: tableRow.model.itemState || ""
+                                }
+                            }
+                        }
                         Item {
                             id: dragToken
                             width: cell.width

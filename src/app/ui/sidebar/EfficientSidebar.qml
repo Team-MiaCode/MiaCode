@@ -133,6 +133,28 @@ Rectangle {
                 filledIconSource: Qt.resolvedUrl("icons/tools-fill.svg")
                 onClicked: root.toolsRequested()
             }
+
+            SectionDivider {}
+
+            SidebarRow {
+                objectName: "efficientNetDownloadRow"
+                width: parent.width
+                text: qsTrId("net.ui.download_page")
+                iconSource: Qt.resolvedUrl("icons/download.svg")
+                filledIconSource: Qt.resolvedUrl("icons/download-fill.svg")
+                selected: root.pages.activePageId === "net-download"
+                onClicked: root.pages.openNetPage("net-download")
+            }
+            SidebarRow {
+                objectName: "efficientNetUploadRow"
+                width: parent.width
+                visible: root.pages.netUploadEnabled
+                text: qsTrId("net.ui.upload_page")
+                iconSource: Qt.resolvedUrl("icons/upload.svg")
+                filledIconSource: Qt.resolvedUrl("icons/upload-fill.svg")
+                selected: root.pages.activePageId === "net-upload"
+                onClicked: root.pages.openNetPage("net-upload")
+            }
         }
     }
 

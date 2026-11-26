@@ -48,6 +48,7 @@ Item {
     readonly property Item chartSidebarItem: sidebar.chartSidebarItem
     readonly property Item sourceEditorItem: editorPane.sourceEditorItem
     readonly property Item difficultyFieldsItem: editorPane.difficultyFieldsItem
+    readonly property WorkbenchPreviewPane preview: previewDetached ? detachedPreview : workspacePreview
     readonly property Item transportItem: preview.transportItem
     readonly property Item timelineGuideItem: bottomPanel.timelineGuideItem
     readonly property Item timelineSettingsGuideItem: bottomPanel.timelineSettingsGuideItem
@@ -288,14 +289,10 @@ Item {
             workspaceSplit.moveItem(currentPreviewIndex, targetPreviewIndex)
     }
 
-    PreviewPane {
-        id: preview
-        objectName: "workspacePreviewPane"
-        parent: root.previewDetached ? detachedPreviewContent : previewHost
+    component WorkbenchPreviewPane: PreviewPane {
         anchors.fill: parent
         documentAvailable: root.documentSession.hasDocument
-        surfaceActive: !root.previewSurfaceMoving
-        detached: root.previewDetached
+        surfaceActive: !root.previewSurfaceMoving && detached === root.previewDetached
         transportMirrored: root.previewOnLeft
         previewSession: root.previewSession
         preferences: root.preferences
@@ -305,6 +302,19 @@ Item {
                        && root.pages.activePageId === "latency"
         onDetachRequested: root.detachPreview()
         onDockRequested: root.dockPreview()
+    }
+
+    WorkbenchPreviewPane {
+        id: workspacePreview
+        objectName: "workspacePreviewPane"
+        parent: previewHost
+    }
+
+    WorkbenchPreviewPane {
+        id: detachedPreview
+        objectName: "detachedPreviewPane"
+        parent: detachedPreviewContent
+        detached: true
     }
 
     ApplicationWindow {

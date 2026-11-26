@@ -4519,8 +4519,8 @@ Error: %1</source>
     </message>
 
     <message id="net.ui.query_options">
-        <source>Search options</source>
-        <translation>検索オプション</translation>
+        <source>Filters</source>
+        <translation>絞り込み</translation>
     </message>
     <message id="net.ui.queue_hint">
         <source>Choose a chart folder and add it to the queue.</source>
@@ -4541,22 +4541,6 @@ Error: %1</source>
     <message id="net.ui.tag">
         <source>Tag</source>
         <translation>タグ</translation>
-    </message>
-    <message id="net.ui.start_date">
-        <source>Start date (YYYY-MM-DD)</source>
-        <translation>開始日 (YYYY-MM-DD)</translation>
-    </message>
-    <message id="net.ui.end_date">
-        <source>End date (YYYY-MM-DD)</source>
-        <translation>終了日 (YYYY-MM-DD)</translation>
-    </message>
-    <message id="net.ui.sort_uploaded_desc">
-        <source>Newest first</source>
-        <translation>新しい順</translation>
-    </message>
-    <message id="net.ui.sort_uploaded_asc">
-        <source>Oldest first</source>
-        <translation>古い順</translation>
     </message>
     <message id="net.ui.sort_level_desc">
         <source>Highest level first</source>
@@ -4590,6 +4574,10 @@ Error: %1</source>
         <source>Check connection</source>
         <translation>接続を確認</translation>
     </message>
+    <message id="net.ui.probing">
+        <source>Checking connection…</source>
+        <translation>接続を確認しています…</translation>
+    </message>
     <message id="net.ui.clear_selection">
         <source>Clear selection</source>
         <translation>選択を解除</translation>
@@ -4598,13 +4586,21 @@ Error: %1</source>
         <source>%1 results, %2 selected</source>
         <translation>%1 件、%2 件選択中</translation>
     </message>
+    <message id="net.ui.results">
+        <source>%1 results</source>
+        <translation>%1 件の結果</translation>
+    </message>
+    <message id="net.ui.searching">
+        <source>Searching…</source>
+        <translation>検索中…</translation>
+    </message>
     <message id="net.ui.connection_normal">
-        <source>Connection normal (%1 ms)</source>
-        <translation>接続正常 (%1 ms)</translation>
+        <source>Connection normal</source>
+        <translation>接続は正常です</translation>
     </message>
     <message id="net.ui.connection_slow">
-        <source>Connection slow (%1 ms)</source>
-        <translation>接続が遅い (%1 ms)</translation>
+        <source>Connection slow</source>
+        <translation>接続が遅くなっています</translation>
     </message>
     <message id="net.ui.error">
         <source>Net: %1</source>
@@ -4671,10 +4667,6 @@ Error: %1</source>
         <translation>アーティスト</translation>
     </message>
 
-    <message id="net.ui.uploaded_at">
-        <source>Uploaded at</source>
-        <translation>アップロード日時</translation>
-    </message>
 
     <message id="net.ui.state">
         <source>Status</source>
@@ -4686,9 +4678,29 @@ Error: %1</source>
         <translation>オンラインプレビュー</translation>
     </message>
 
+    <message id="net.ui.search_placeholder">
+        <source>Search songs, artists or chart designers…</source>
+        <translation>曲名・作曲者・譜面作者を検索…</translation>
+    </message>
+    <message id="net.ui.search_suggestions">
+        <source>Search suggestions</source>
+        <translation>検索候補</translation>
+    </message>
+    <message id="net.ui.clear_search">
+        <source>Clear search</source>
+        <translation>検索をクリア</translation>
+    </message>
+    <message id="net.ui.search_by_id">
+        <source>Chart ID</source>
+        <translation>譜面 ID</translation>
+    </message>
+    <message id="net.ui.search_by_hash">
+        <source>Chart hash</source>
+        <translation>譜面のハッシュ</translation>
+    </message>
     <message id="net.ui.query_hint">
-        <source>Enter a user ID, Tag or song title and select a date range.</source>
-        <translation>ユーザー ID、Tag または曲名と期間を指定してください。</translation>
+        <source>Search by keyword or enter a filter.</source>
+        <translation>キーワードを入力するか、絞り込み条件を指定してください。</translation>
     </message>
 
     <message id="net.ui.view_log">
@@ -4699,6 +4711,26 @@ Error: %1</source>
     <message id="net.download_selected">
         <source>Download selected</source>
         <translation>選択した譜面をダウンロード</translation>
+    </message>
+    <message id="net.ui.download_selection_count">
+        <source>Download %1 Items</source>
+        <translation>%1 件をダウンロード</translation>
+    </message>
+    <message id="net.ui.file_progress">
+        <source>Current file progress</source>
+        <translation>現在のファイルの進捗</translation>
+    </message>
+    <message id="net.ui.preview_column">
+        <source>Preview</source>
+        <translation>プレビュー</translation>
+    </message>
+    <message id="net.ui.download_one">
+        <source>Download</source>
+        <translation>ダウンロード</translation>
+    </message>
+    <message id="net.ui.download_folder_unavailable">
+        <source>The download folder could not be opened.</source>
+        <translation>ダウンロード先のフォルダーを開けませんでした。</translation>
     </message>
 
     <message id="net.ui.cancel_task">

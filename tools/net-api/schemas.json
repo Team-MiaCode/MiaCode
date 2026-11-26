@@ -85,6 +85,12 @@
     "ChartQueryRequest": {
       "type": "object",
       "properties": {
+        "search": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 512,
+          "x-trim": true
+        },
         "providerId": {
           "type": "string",
           "minLength": 1,
@@ -1371,6 +1377,9 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 100
+        },
+        "fileProgress": {
+          "$ref": "#/$defs/Progress"
         },
         "bytesReceived": {
           "type": "string",

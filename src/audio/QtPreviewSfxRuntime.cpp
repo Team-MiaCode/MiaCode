@@ -568,17 +568,46 @@ double QtPreviewSfxRuntime::backgroundPlaybackSecond() const
 double QtPreviewSfxRuntime::audiblePlaybackSecond(double fallbackSecond, double playbackRate) const
 {
     const PreviewAudioSnapshot snapshot = lastSnapshot();
+    const quint64 expectedGeneration = playbackGeneration_.load(std::memory_order_acquire);
+    const quint64 expectedAssetGeneration = assetGeneration_.load(std::memory_order_acquire);
+    const quint64 expectedTransactionId = transactionId_.load(std::memory_order_acquire);
     if (!snapshot.backgroundTrackRunning || !std::isfinite(snapshot.backgroundPlaybackSecond)
         || snapshot.backgroundSampledAtNs <= 0
-        || snapshot.identity.generation != playbackGeneration_.load(std::memory_order_acquire)
-        || snapshot.identity.assetGeneration != assetGeneration_.load(std::memory_order_acquire)
-        || snapshot.identity.transactionId != transactionId_.load(std::memory_order_acquire)) {
+        || snapshot.identity.generation != expectedGeneration
+        || snapshot.identity.assetGeneration != expectedAssetGeneration
+        || snapshot.identity.transactionId != expectedTransactionId) {
+        std::lock_guard<std::mutex> guard(audibleOffsetMutex_);
+        audibleOffsetState_.initialized = false;
         return fallbackSecond;
     }
     const auto nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::steady_clock::now().time_since_epoch()).count();
+    const double clampedRate = qMax(0.0, playbackRate);
     const double elapsed = qMax<qint64>(0, nowNs - snapshot.backgroundSampledAtNs) / 1000000000.0;
-    return snapshot.backgroundPlaybackSecond + elapsed * qMax(0.0, playbackRate);
+    const double rawAudibleSecond = snapshot.backgroundPlaybackSecond + elapsed * clampedRate;
+    if (!std::isfinite(fallbackSecond)) {
+        return rawAudibleSecond;
+    }
+    const double rawOffsetSeconds = rawAudibleSecond - fallbackSecond;
+
+    std::lock_guard<std::mutex> guard(audibleOffsetMutex_);
+    const bool identityChanged = !audibleOffsetState_.initialized
+        || audibleOffsetState_.generation != expectedGeneration
+        || audibleOffsetState_.assetGeneration != expectedAssetGeneration
+        || audibleOffsetState_.transactionId != expectedTransactionId;
+    if (identityChanged || std::abs(rawOffsetSeconds - audibleOffsetState_.offsetSeconds) > 0.080) {
+        audibleOffsetState_.initialized = true;
+        audibleOffsetState_.generation = expectedGeneration;
+        audibleOffsetState_.assetGeneration = expectedAssetGeneration;
+        audibleOffsetState_.transactionId = expectedTransactionId;
+        audibleOffsetState_.offsetSeconds = rawOffsetSeconds;
+    } else {
+        // Slew slowly toward the quantized BASS position so audio-wall offset stays
+        // aligned without injecting the mixer buffer's ~10ms staircase into every frame.
+        const double error = rawOffsetSeconds - audibleOffsetState_.offsetSeconds;
+        audibleOffsetState_.offsetSeconds += std::clamp(error * 0.05, -0.00025, 0.00025);
+    }
+    return qMax(0.0, fallbackSecond + audibleOffsetState_.offsetSeconds);
 }
 
 bool QtPreviewSfxRuntime::audition(const QString& kind, double gain)

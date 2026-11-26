@@ -15,18 +15,20 @@ Item {
     property int difficultyId: 0
     property string tooltip
     property bool active: false
+    property bool dragging: false
     property bool closable: false
     property bool showSeparator: false
     property real preferredTabWidth: 160
     readonly property real outlineWidth: 1 / Screen.devicePixelRatio
     readonly property bool hovered: tabButton.hovered || closeButton.hovered
+    readonly property bool closeButtonPressed: closeButton.down
 
     signal clicked()
     signal closeRequested()
 
     implicitHeight: Theme.workspaceHeaderHeight
     implicitWidth: preferredTabWidth
-    z: active ? 1 : 0
+    z: dragging ? 10 : active ? 1 : 0
 
     AbstractButton {
         id: tabButton
@@ -74,7 +76,11 @@ Item {
                     source: root.active && root.filledIconSource.toString().length > 0
                         ? root.filledIconSource : root.iconSource
                     sourceSize: Theme.iconSourceSize(15, 15)
-                    color: root.active ? Theme.colors.text.active : Theme.colors.text.secondary
+                    color: root.active || root.dragging ? Theme.colors.text.active : Theme.colors.text.secondary
+
+                    Behavior on color {
+                        ColorAnimation { duration: 140; easing.type: Easing.OutCubic }
+                    }
                 }
 
                 Text {
@@ -83,11 +89,15 @@ Item {
                     Layout.fillWidth: true
                     text: root.text
                     elide: Text.ElideRight
-                    color: root.active ? Theme.colors.text.active : Theme.colors.text.secondary
+                    color: root.active || root.dragging ? Theme.colors.text.active : Theme.colors.text.secondary
                     font.family: Theme.uiFont
                     font.pixelSize: Theme.secondaryFontSize
                     horizontalAlignment: Text.AlignLeft
                     verticalAlignment: Text.AlignVCenter
+
+                    Behavior on color {
+                        ColorAnimation { duration: 140; easing.type: Easing.OutCubic }
+                    }
                 }
 
                 Text {
@@ -107,12 +117,16 @@ Item {
                     Layout.preferredWidth: root.closable ? 24 : 0
                     Layout.preferredHeight: 24
                     visible: root.closable
-                    opacity: root.active || root.hovered || activeFocus ? 1 : 0
-                    enabled: opacity > 0
+                    opacity: root.active || root.hovered || root.dragging || activeFocus ? 1 : 0
+                    enabled: (root.active || root.hovered || activeFocus) && !root.dragging
                     hoverEnabled: true
                     focusPolicy: Qt.TabFocus
                     Accessible.name: qsTrId("qml.close_1").arg(root.text)
                     onClicked: root.closeRequested()
+
+                    Behavior on opacity {
+                        NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                    }
 
                     // Preserve the 14px glyph within the 24px hit/hover area,
                     // even when sourceSize requests more texture pixels.
@@ -145,10 +159,22 @@ Item {
         background: Item {
             Rectangle {
                 anchors.fill: parent
+                anchors.topMargin: root.dragging && !root.active ? 3 : 0
+                anchors.bottomMargin: root.dragging && !root.active ? 3 : 0
+                anchors.leftMargin: root.dragging && !root.active ? 2 : 0
+                anchors.rightMargin: root.dragging && !root.active ? 2 : 0
                 radius: Theme.editorTabRadius
                 visible: !root.active
-                color: tabButton.down ? Theme.overlayColor(Theme.colors.state.pressed)
+                color: root.dragging
+                    ? Theme.surfaceColor(Theme.colors.background.surface)
+                    : tabButton.down ? Theme.overlayColor(Theme.colors.state.pressed)
                     : root.hovered ? Theme.overlayColor(Theme.colors.state.hover) : "transparent"
+                border.width: root.dragging ? root.outlineWidth : 0
+                border.color: Theme.colors.accent.primary
+
+                Behavior on color {
+                    ColorAnimation { duration: 110; easing.type: Easing.OutCubic }
+                }
             }
 
             Rectangle {
@@ -156,15 +182,19 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 width: root.outlineWidth
                 height: Theme.uiFontSize + 3
-                visible: root.showSeparator && !root.active && !root.hovered
+                opacity: root.showSeparator && !root.active && !root.hovered && !root.dragging ? 1 : 0
                 color: Theme.separatorColor
+
+                Behavior on opacity {
+                    NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                }
             }
 
             Rectangle {
                 anchors.fill: parent
                 anchors.margins: Theme.controlBorderWidth * 2
                 radius: Theme.smallControlRadius
-                visible: tabButton.visualFocus
+                visible: tabButton.visualFocus && !root.dragging
                 color: "transparent"
                 border.width: Theme.controlBorderWidth
                 border.color: Theme.colors.accent.focus
@@ -173,7 +203,7 @@ Item {
     }
 
     Tooltip {
-        visible: tabButton.hovered && !closeButton.hovered && root.tooltip.length > 0
+        visible: !root.dragging && tabButton.hovered && !closeButton.hovered && root.tooltip.length > 0
         text: root.tooltip
     }
 }

@@ -151,14 +151,16 @@ public:
     bool currentVideoDecodePrefersSoftware() const;
     PreviewCanvasFrameRateMode currentTimelineFrameRateMode() const;
     bool previewCanvasUsesFrameSwappedPacing() const;
-    double targetRefreshRateForFrameRateMode(PreviewCanvasFrameRateMode mode) const;
+    bool previewCanvasUsesFramePreparationPacing() const;
+    void onPreviewCanvasFramePreparing();
+    double targetRefreshRateForFrameRateMode(PreviewCanvasFrameRateMode mode, double displayHz) const;
     qint64 previewCanvasTargetFrameIntervalNs() const;
     qint64 targetFrameIntervalNsForFrameRateMode(PreviewCanvasFrameRateMode mode) const;
     qint64 timelineTargetFrameIntervalNs() const;
     void resetQtPreviewFixedFramePacing();
     void scheduleNextQtPreviewTick();
     void requestNextDisplayRefreshPreviewFrame();
-    void requestNextFixedIntervalPreviewFrame();
+    void requestNextFixedIntervalPreviewFrame(bool refreshScene = true);
     void advanceFixedIntervalGateAfterPresent();
     void requestNextPreviewCanvasFrame();
     void refreshPreviewFrameRateTimers();
@@ -247,7 +249,7 @@ public:
     void stopQtPreviewPlayback(bool keepPosition = true);
     void applyQtPreviewPosition(double second, bool centerView);
     void syncPausedPreviewMediaTimestamps(double second);
-    void flushQtPreviewTimelinePosition();
+    void flushQtPreviewTimelinePosition(bool usePresentationLead = false);
     // Phase-locked sampling entry point: driven by TimelineQuickItem's afterAnimating hook
     // (once per timeline frame, GUI thread, just before that frame's scene-graph sync).
     void onTimelineRenderCadenceTick();

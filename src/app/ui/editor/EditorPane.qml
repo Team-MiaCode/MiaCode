@@ -214,12 +214,19 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        visible: root.viewState.openEditorTabs.length > 0
-        height: visible ? implicitHeight : 0
+        clip: true
+        readonly property bool stripOpen: root.viewState.openEditorTabs.length > 0
+        height: stripOpen ? implicitHeight : 0
+        visible: height > 0.5
         viewState: root.viewState
         documentSession: root.documentSession
         commands: root.commands
         pages: root.pages
+
+        Behavior on height {
+            enabled: tabs.animationsReady
+            NumberAnimation { duration: 170; easing.type: Easing.OutCubic }
+        }
     }
 
     LatencyPage {

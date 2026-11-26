@@ -289,6 +289,13 @@ Session::Session(miacode::ApplicationServices& services, QObject* parent)
                 }
             });
     logStartupStage("preview_audio_device_watcher_created");
+    connect(scene_, &PreviewRuntime::visibleHostRefreshRateChanged, this,
+            &Session::refreshPreviewFrameRateTimers, Qt::QueuedConnection);
+#ifdef Q_OS_MACOS
+    connect(scene_, &PreviewRuntime::framePreparing, this, [this] {
+        playback_->onPreviewCanvasFramePreparing();
+    });
+#endif
     connect(scene_, &PreviewRuntime::framePresented, this, [this]() {
         playback_->handlePreviewStartupCanvasPresented();
         if (!playing_) {
@@ -370,7 +377,7 @@ Session::Session(miacode::ApplicationServices& services, QObject* parent)
                 );
             }
         }
-        if (!matchedRequest) {
+        if (!matchedRequest || playback_->previewCanvasUsesFramePreparationPacing()) {
             return;
         }
         qtPreviewFixedAwaitingFrame_ = false;

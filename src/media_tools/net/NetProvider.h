@@ -24,6 +24,7 @@ public:
                        const QJsonObject& parameters) override;
     QString grantDirectory(const QString& principal, const QString& path) override;
     QString previewPath(const QString& principal, const QString& reference) const override;
+    QString directoryArtifactPath(const QString& principal, const QString& reference) const override;
     QString uploadMaterialPath(const QString& principal, const QString& planRef, const QString& itemId) const override;
     void setAccountRemembered(const QString& principal, const QString& accountRef, bool remembered) override;
 
@@ -50,9 +51,10 @@ private:
     bool resourceActive_ = false;
     QJsonObject registerArtifact(const QString& principal, const QString& path, bool directory);
     struct StoredPath { QString principal; QString path; };
+    struct ArtifactPath { QString principal; QString path; bool directory; };
     struct Preview { QString principal; QString path; QJsonObject handle; qint64 expiresAt; };
     QHash<QString, StoredPath> directoryGrants_;
-    QHash<QString, StoredPath> artifacts_;
+    QHash<QString, ArtifactPath> artifacts_;
     QHash<QString, Preview> previews_;
     QHash<QString, QString> previewCache_;
     std::unique_ptr<QTemporaryDir> previewRoot_;

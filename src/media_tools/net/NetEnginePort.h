@@ -49,6 +49,7 @@ public:
     // Local host capabilities. Paths stay outside serialized API requests/results.
     virtual QString grantDirectory(const QString&, const QString&) { return {}; }
     virtual QString previewPath(const QString&, const QString&) const { return {}; }
+    virtual QString directoryArtifactPath(const QString&, const QString&) const { return {}; }
     virtual QString uploadMaterialPath(const QString&, const QString&, const QString&) const { return {}; }
     virtual void setAccountRemembered(const QString&, const QString&, bool) {}
 };
