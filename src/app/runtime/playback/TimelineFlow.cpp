@@ -20,6 +20,7 @@
 #include "common/ProcessDiagnostics.h"
 #include "common/DebugOptions.h"
 #include "core/video/PreviewInteractionConfig.h"
+#include "audio/SpectrogramCache.h"
 #include "audio/WaveformCache.h"
 #include "preview/runtime/PreviewRuntime.h"
 #include "preview/stage_media/PreviewStageMediaHost.h"
@@ -325,6 +326,10 @@ void miacode::runtime::PlaybackCoordinator::refreshWaveformCache(double knownDur
             QStringLiteral("refresh_placeholder"),
             QStringLiteral("generation=%1 reason=track_empty").arg(generation));
         applyWaveformData(miacode::waveform::makeWaveformPlaceholder(0.0));
+        ++state_.timeline_.spectrogramRefreshGeneration_;
+        state_.timeline_.timelineQuickStateBridge_->setSpectrogramData(
+            miacode::spectrogram::makeSpectrogramPlaceholder(0.0));
+        state_.timeline_.timelineQuickStateBridge_->setSpectrogramUpdating(false);
         return;
     }
 
@@ -336,6 +341,10 @@ void miacode::runtime::PlaybackCoordinator::refreshWaveformCache(double knownDur
                 .arg(generation)
                 .arg(miacode::waveform::waveformTrackDebugId(normalizedTrackPath)));
         applyWaveformData(miacode::waveform::makeWaveformPlaceholder(0.0));
+        ++state_.timeline_.spectrogramRefreshGeneration_;
+        state_.timeline_.timelineQuickStateBridge_->setSpectrogramData(
+            miacode::spectrogram::makeSpectrogramPlaceholder(0.0));
+        state_.timeline_.timelineQuickStateBridge_->setSpectrogramUpdating(false);
         return;
     }
 
@@ -347,6 +356,8 @@ void miacode::runtime::PlaybackCoordinator::refreshWaveformCache(double knownDur
                 .arg(miacode::waveform::waveformTrackDebugId(normalizedTrackPath))
                 .arg(knownDurationSeconds, 0, 'f', 6));
         applyWaveformData(miacode::waveform::makeWaveformPlaceholder(knownDurationSeconds));
+        state_.timeline_.timelineQuickStateBridge_->setSpectrogramData(
+            miacode::spectrogram::makeSpectrogramPlaceholder(knownDurationSeconds));
     } else {
         appendPreviewWaveformLog(
             QStringLiteral("refresh_placeholder"),
@@ -354,10 +365,12 @@ void miacode::runtime::PlaybackCoordinator::refreshWaveformCache(double knownDur
                 .arg(generation)
                 .arg(miacode::waveform::waveformTrackDebugId(normalizedTrackPath)));
         applyWaveformData(miacode::waveform::makeWaveformPlaceholder(0.0));
+        state_.timeline_.timelineQuickStateBridge_->setSpectrogramData(
+            miacode::spectrogram::makeSpectrogramPlaceholder(0.0));
     }
 
-    const QString cacheDirectoryPath = miacode::waveform::waveformCacheDirectoryPath(
-        miacode::waveform::projectDataDirectoryPathForFile(state_.currentFilePath_));
+    const QString projectDataDirectoryPath = miacode::waveform::projectDataDirectoryPathForFile(state_.currentFilePath_);
+    const QString cacheDirectoryPath = miacode::waveform::waveformCacheDirectoryPath(projectDataDirectoryPath);
     ensureWaveformCacheService()->requestWaveform(
         trackPath,
         cacheDirectoryPath,
@@ -411,6 +424,70 @@ void miacode::runtime::PlaybackCoordinator::refreshWaveformCache(double knownDur
                         : QStringLiteral("data=0")));
             applyWaveformData(waveformData);
         });
+    requestCurrentSpectrogram();
+}
+
+void miacode::runtime::PlaybackCoordinator::refreshSpectrogramCache()
+{
+    if (state_.timeline_.timelineQuickStateBridge_ == nullptr || state_.lastTrackPath_.isEmpty()) {
+        return;
+    }
+    const QFileInfo trackInfo(state_.lastTrackPath_);
+    if (!trackInfo.exists() || !trackInfo.isFile()) {
+        return;
+    }
+    requestCurrentSpectrogram();
+}
+
+void miacode::runtime::PlaybackCoordinator::requestCurrentSpectrogram()
+{
+    if (state_.timeline_.timelineQuickStateBridge_ == nullptr) {
+        return;
+    }
+    const QString trackPath = state_.lastTrackPath_;
+    const QFileInfo trackInfo(trackPath);
+    if (trackPath.isEmpty() || !trackInfo.exists() || !trackInfo.isFile()) {
+        return;
+    }
+    ++state_.timeline_.spectrogramRefreshGeneration_;
+    const quint64 generation = state_.timeline_.spectrogramRefreshGeneration_;
+    const QString projectDataDirectoryPath = miacode::waveform::projectDataDirectoryPathForFile(state_.currentFilePath_);
+    const auto parameters = state_.timeline_.timelineQuickStateBridge_->spectrogramParameters();
+    state_.timeline_.timelineQuickStateBridge_->setSpectrogramUpdating(true);
+    ensureSpectrogramCacheService()->requestSpectrogram(
+        trackPath,
+        miacode::spectrogram::spectrogramCacheDirectoryPath(projectDataDirectoryPath),
+        [this, generation, trackPath](miacode::spectrogram::SpectrogramDataPtr spectrogramData) {
+            const auto finishUpdating = [this, generation]() {
+                if (generation != state_.timeline_.spectrogramRefreshGeneration_) {
+                    return;
+                }
+                if (state_.timeline_.timelineQuickStateBridge_ != nullptr) {
+                    state_.timeline_.timelineQuickStateBridge_->setSpectrogramUpdating(false);
+                }
+            };
+            if (generation != state_.timeline_.spectrogramRefreshGeneration_ || state_.lastTrackPath_ != trackPath) {
+                return;
+            }
+            const QFileInfo currentTrackInfo(trackPath);
+            if (!currentTrackInfo.exists() || !currentTrackInfo.isFile()) {
+                finishUpdating();
+                return;
+            }
+            if (spectrogramData && spectrogramData->fileSize >= 0) {
+                const qint64 currentLastModifiedMs = fileLastModifiedMs(currentTrackInfo);
+                if (currentTrackInfo.size() != spectrogramData->fileSize
+                    || currentLastModifiedMs != spectrogramData->lastModifiedMs) {
+                    finishUpdating();
+                    return;
+                }
+            }
+            if (state_.timeline_.timelineQuickStateBridge_ != nullptr) {
+                state_.timeline_.timelineQuickStateBridge_->setSpectrogramData(spectrogramData);
+            }
+            finishUpdating();
+        },
+        parameters);
 }
 
 bool miacode::runtime::PlaybackCoordinator::hasActiveDifficulty() const
@@ -549,8 +626,13 @@ void miacode::runtime::PlaybackCoordinator::setCurrentFilePath(const QString& pa
             latency->exitSandboxIfActive();
         }
     }
-    if ((pathChanged || trackPathChanged) && state_.waveformCacheService_ != nullptr) {
-        state_.waveformCacheService_->clear();
+    if (pathChanged || trackPathChanged) {
+        if (state_.waveformCacheService_ != nullptr) {
+            state_.waveformCacheService_->clear();
+        }
+        if (state_.spectrogramCacheService_ != nullptr) {
+            state_.spectrogramCacheService_->clear();
+        }
     }
     state_.currentFilePath_ = normalizedPath;
     const bool netPreview = services_.workspace().isNetPreview();
@@ -1083,4 +1165,15 @@ miacode::waveform::WaveformCacheService* miacode::runtime::PlaybackCoordinator::
     state_.waveformCacheService_->setThreadPool(
         state_.previewWarmupPool_ != nullptr ? state_.previewWarmupPool_ : QThreadPool::globalInstance());
     return state_.waveformCacheService_;
+}
+
+miacode::spectrogram::SpectrogramCacheService* miacode::runtime::PlaybackCoordinator::ensureSpectrogramCacheService()
+{
+    if (state_.spectrogramCacheService_ == nullptr) {
+        state_.spectrogramCacheService_ = new miacode::spectrogram::SpectrogramCacheService(&owner_);
+        state_.spectrogramCacheService_->setDecoder(miacode::audio_decode::bassAudioFileDecoder());
+    }
+    state_.spectrogramCacheService_->setThreadPool(
+        state_.previewWarmupPool_ != nullptr ? state_.previewWarmupPool_ : QThreadPool::globalInstance());
+    return state_.spectrogramCacheService_;
 }

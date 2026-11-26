@@ -35,6 +35,7 @@
 #include "timeline/quick/TimelineQuickLayerUtils.h"
 #include "timeline/quick/TimelineQuickNotesLayer.h"
 #include "timeline/quick/TimelineQuickOverlayLayer.h"
+#include "timeline/quick/TimelineQuickSpectrogramLayer.h"
 #include "timeline/quick/TimelineQuickStateBridge.h"
 #include "timeline/quick/TimelineQuickTextureCache.h"
 #include "timeline/quick/TimelineQuickWaveformLayer.h"
@@ -834,6 +835,7 @@ TimelineQuickItem::TimelineQuickItem(QQuickItem* parent)
     , textures_(std::make_unique<TimelineQuickTextureCache>())
     , gridLayer_(std::make_unique<TimelineQuickGridLayer>())
     , waveformLayer_(std::make_unique<TimelineQuickWaveformLayer>())
+    , spectrogramLayer_(std::make_unique<TimelineQuickSpectrogramLayer>())
     , headerLayer_(std::make_unique<TimelineQuickHeaderLayer>())
     , gridLinesLayer_(std::make_unique<TimelineQuickGridLinesLayer>())
     , notesLayer_(std::make_unique<TimelineQuickNotesLayer>())
@@ -1257,6 +1259,7 @@ miacode::timeline::TimelineSceneState TimelineQuickItem::currentSceneState() con
         miacode::timeline::TimelineSceneBuildRequest request;
         request.snapshot = stateBridge_->renderSnapshot();
         request.waveformData = stateBridge_->waveformData();
+        request.spectrogramData = stateBridge_->spectrogramData();
         request.muriMarkersByLocation = stateBridge_->muriMarkersByLocation();
         request.muriMarkerTooltips = stateBridge_->muriMarkerTooltips();
         request.viewportSize = viewportSize;
@@ -1274,6 +1277,10 @@ miacode::timeline::TimelineSceneState TimelineQuickItem::currentSceneState() con
         request.contentScale = stateBridge_->contentScale();
         request.fitViewportHeight = true;
         request.waveformBrightness = stateBridge_->waveformBrightness();
+        request.spectrogramOpacity = stateBridge_->spectrogramOpacity();
+        request.spectrogramDevicePixelRatio = window() != nullptr
+            ? qMax(1.0, window()->effectiveDevicePixelRatio()) : 1.0;
+        request.audioVisualizationMode = stateBridge_->audioVisualizationMode();
         request.measureLineBrightness = stateBridge_->measureLineBrightness();
         request.playbackEntrySeconds = stateBridge_->playbackEntrySeconds();
         request.playheadSeconds = stateBridge_->playheadSeconds();
@@ -1518,16 +1525,21 @@ QSGNode* TimelineQuickItem::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeDat
     updateLayerSlot(layerSlotAt(root, slotIndex++), [&](QSGNode* oldChild) {
         return headerLayer_->updateNode(oldChild, state, window());
     });
+    const bool spectrogram = state.audioVisualizationMode
+        == static_cast<int>(miacode::timeline::AudioVisualizationMode::Spectrogram);
+    // The waveform stays above the grid: it is translucent, so the lines show
+    // through. The spectrogram is an opaque heat map, so the grid lines move
+    // above it and below the notes.
     updateLayerSlot(layerSlotAt(root, slotIndex++), [&](QSGNode* oldChild) {
+        if (spectrogram) {
+            return spectrogramLayer_->updateNode(oldChild, state, window());
+        }
         return gridLinesLayer_->updateNode(oldChild, state, window());
     });
-    // Waveform-on-top — the waveform now stacks ABOVE the grid lines (and
-    // lane overlays) instead of below them. It is a TRANSLUCENT filled
-    // silhouette (alpha baked into timelineWaveStroke), so the bar/note lines
-    // show through the waveform and the audio shape reads on top of the grid
-    // without hiding it. Still BELOW note sprites + the overlay (playhead/
-    // cursor) which follow.
     updateLayerSlot(layerSlotAt(root, slotIndex++), [&](QSGNode* oldChild) {
+        if (spectrogram) {
+            return gridLinesLayer_->updateNode(oldChild, state, window());
+        }
         return waveformLayer_->updateNode(oldChild, state, window());
     });
     updateLayerSlot(layerSlotAt(root, slotIndex++), [&](QSGNode* oldChild) {

@@ -13,6 +13,7 @@
 #include "common/OperationLog.h"
 #include "core/scene/PreviewSfxAssets.h"
 #include "core/video/PreviewGameplayConfig.h"
+#include "audio/SpectrogramCache.h"
 #include "audio/WaveformCache.h"
 #include "preview/runtime/PreviewRuntime.h"
 #include "app/runtime/latency/LatencyAnalysis.h"
@@ -83,6 +84,9 @@ void miacode::runtime::MediaJobsHost::reloadPreviewMediaAfterFileOperation(bool 
         session_.lastTrackPath_ = miacode::chart_assets::resolveTrackPath(session_.currentFilePath_);
         if (state_.waveformCacheService_ != nullptr) {
             state_.waveformCacheService_->clear();
+        }
+        if (state_.spectrogramCacheService_ != nullptr) {
+            state_.spectrogramCacheService_->clear();
         }
         if (session_.previewSfxRuntime_ != nullptr) {
             const QtPreviewSfxRuntime::AssetSubmission reload =

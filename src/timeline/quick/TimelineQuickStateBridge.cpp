@@ -171,6 +171,7 @@ void TimelineQuickStateBridge::clear()
 {
     snapshot_ = TimelineRenderSnapshot();
     waveformData_.reset();
+    spectrogramData_.reset();
     muriMarkersByLocation_.clear();
     muriMarkerTooltips_.clear();
     horizontalScrollValue_ = 0.0;
@@ -224,6 +225,19 @@ void TimelineQuickStateBridge::setWaveformData(
 std::shared_ptr<const miacode::waveform::WaveformData> TimelineQuickStateBridge::waveformData() const
 {
     return waveformData_;
+}
+
+void TimelineQuickStateBridge::setSpectrogramData(
+    const std::shared_ptr<const miacode::spectrogram::SpectrogramData>& spectrogramData)
+{
+    spectrogramData_ = spectrogramData;
+    ++waveformRevision_;
+    emit renderStateChanged();
+}
+
+std::shared_ptr<const miacode::spectrogram::SpectrogramData> TimelineQuickStateBridge::spectrogramData() const
+{
+    return spectrogramData_;
 }
 
 void TimelineQuickStateBridge::setMuriAnalysisReport(const MuriAnalysisReport& report)
@@ -324,6 +338,8 @@ void TimelineQuickStateBridge::refreshLayoutMetrics()
     miacode::timeline::TimelineSceneBuildRequest request;
     request.snapshot = snapshot_;
     request.waveformData = waveformData_;
+    request.spectrogramData = spectrogramData_;
+    request.audioVisualizationMode = audioVisualizationMode_;
     request.viewportSize = effectiveViewportSize();
     request.skinDirectory = skinDirectory_;
     request.zoomScale = zoomScale();
@@ -506,6 +522,194 @@ void TimelineQuickStateBridge::setMeasureLineBrightness(double brightness)
     ++gridRevision_;
     emit measureLineBrightnessChanged(measureLineBrightness_);
     emit renderStateChanged();
+}
+
+int TimelineQuickStateBridge::audioVisualizationMode() const
+{
+    return audioVisualizationMode_;
+}
+
+void TimelineQuickStateBridge::setAudioVisualizationMode(int mode)
+{
+    const int normalized = miacode::timeline::normalizedAudioVisualizationMode(mode);
+    if (audioVisualizationMode_ == normalized) {
+        return;
+    }
+    audioVisualizationMode_ = normalized;
+    ++waveformRevision_;
+    emit audioVisualizationModeChanged(audioVisualizationMode_);
+    emit renderStateChanged();
+}
+
+double TimelineQuickStateBridge::spectrogramMinHz() const
+{
+    return spectrogramParameters_.minHz;
+}
+
+double TimelineQuickStateBridge::spectrogramMaxHz() const
+{
+    return spectrogramParameters_.maxHz;
+}
+
+double TimelineQuickStateBridge::spectrogramFloorDb() const
+{
+    return spectrogramParameters_.floorDb;
+}
+
+double TimelineQuickStateBridge::spectrogramCeilingDb() const
+{
+    return spectrogramParameters_.ceilingDb;
+}
+
+double TimelineQuickStateBridge::spectrogramColumnGateDb() const
+{
+    return spectrogramParameters_.columnGateDb;
+}
+
+double TimelineQuickStateBridge::spectrogramProminenceFloorDb() const
+{
+    return spectrogramParameters_.prominenceFloorDb;
+}
+
+miacode::spectrogram::SpectrogramParameters TimelineQuickStateBridge::spectrogramParameters() const
+{
+    return spectrogramParameters_;
+}
+
+void TimelineQuickStateBridge::setSpectrogramParameters(
+    const miacode::spectrogram::SpectrogramParameters& parameters)
+{
+    applySpectrogramParameters(parameters);
+}
+
+void TimelineQuickStateBridge::setSpectrogramMinHz(double hz)
+{
+    auto next = spectrogramParameters_;
+    next.minHz = hz;
+    applySpectrogramParameters(next);
+}
+
+void TimelineQuickStateBridge::setSpectrogramMaxHz(double hz)
+{
+    auto next = spectrogramParameters_;
+    next.maxHz = hz;
+    applySpectrogramParameters(next);
+}
+
+void TimelineQuickStateBridge::setSpectrogramFloorDb(double db)
+{
+    auto next = spectrogramParameters_;
+    next.floorDb = static_cast<float>(db);
+    applySpectrogramParameters(next);
+}
+
+void TimelineQuickStateBridge::setSpectrogramCeilingDb(double db)
+{
+    auto next = spectrogramParameters_;
+    next.ceilingDb = static_cast<float>(db);
+    applySpectrogramParameters(next);
+}
+
+void TimelineQuickStateBridge::setSpectrogramColumnGateDb(double db)
+{
+    auto next = spectrogramParameters_;
+    next.columnGateDb = static_cast<float>(db);
+    applySpectrogramParameters(next);
+}
+
+void TimelineQuickStateBridge::setSpectrogramProminenceFloorDb(double db)
+{
+    auto next = spectrogramParameters_;
+    next.prominenceFloorDb = static_cast<float>(db);
+    applySpectrogramParameters(next);
+}
+
+void TimelineQuickStateBridge::setSpectrogramFrequencyWindow(double minHz, double maxHz)
+{
+    auto next = spectrogramParameters_;
+    next.minHz = minHz;
+    next.maxHz = maxHz;
+    applySpectrogramParameters(next);
+}
+
+void TimelineQuickStateBridge::setSpectrogramLoudnessWindow(double floorDb, double ceilingDb)
+{
+    auto next = spectrogramParameters_;
+    next.floorDb = static_cast<float>(floorDb);
+    next.ceilingDb = static_cast<float>(ceilingDb);
+    applySpectrogramParameters(next);
+}
+
+double TimelineQuickStateBridge::spectrogramOpacity() const
+{
+    return spectrogramOpacity_;
+}
+
+void TimelineQuickStateBridge::setSpectrogramOpacity(double opacity)
+{
+    const double clamped = qBound(0.0, opacity, 1.0);
+    if (qFuzzyCompare(spectrogramOpacity_ + 1.0, clamped + 1.0)) {
+        return;
+    }
+    spectrogramOpacity_ = clamped;
+    ++waveformRevision_;
+    emit spectrogramOpacityChanged(spectrogramOpacity_);
+    emit renderStateChanged();
+}
+
+bool TimelineQuickStateBridge::spectrogramUpdating() const
+{
+    return spectrogramUpdating_;
+}
+
+void TimelineQuickStateBridge::setSpectrogramUpdating(bool updating)
+{
+    if (spectrogramUpdating_ == updating) {
+        return;
+    }
+    spectrogramUpdating_ = updating;
+    emit spectrogramUpdatingChanged(spectrogramUpdating_);
+}
+
+void TimelineQuickStateBridge::applySpectrogramParameters(
+    const miacode::spectrogram::SpectrogramParameters& parameters)
+{
+    const auto next = miacode::spectrogram::normalizedSpectrogramParameters(parameters);
+    const auto& current = spectrogramParameters_;
+    if (qFuzzyCompare(current.minHz + 1.0, next.minHz + 1.0)
+        && qFuzzyCompare(current.maxHz + 1.0, next.maxHz + 1.0)
+        && qFuzzyCompare(current.floorDb + 1.0f, next.floorDb + 1.0f)
+        && qFuzzyCompare(current.ceilingDb + 1.0f, next.ceilingDb + 1.0f)
+        && qFuzzyCompare(current.columnGateDb + 1.0f, next.columnGateDb + 1.0f)
+        && qFuzzyCompare(current.prominenceFloorDb + 1.0f, next.prominenceFloorDb + 1.0f)) {
+        return;
+    }
+    const bool minChanged = !qFuzzyCompare(current.minHz + 1.0, next.minHz + 1.0);
+    const bool maxChanged = !qFuzzyCompare(current.maxHz + 1.0, next.maxHz + 1.0);
+    const bool floorChanged = !qFuzzyCompare(current.floorDb + 1.0f, next.floorDb + 1.0f);
+    const bool ceilingChanged = !qFuzzyCompare(current.ceilingDb + 1.0f, next.ceilingDb + 1.0f);
+    const bool gateChanged = !qFuzzyCompare(current.columnGateDb + 1.0f, next.columnGateDb + 1.0f);
+    const bool ridgeChanged = !qFuzzyCompare(current.prominenceFloorDb + 1.0f, next.prominenceFloorDb + 1.0f);
+    spectrogramParameters_ = next;
+    if (minChanged) {
+        emit spectrogramMinHzChanged(next.minHz);
+    }
+    if (maxChanged) {
+        emit spectrogramMaxHzChanged(next.maxHz);
+    }
+    if (floorChanged) {
+        emit spectrogramFloorDbChanged(next.floorDb);
+    }
+    if (ceilingChanged) {
+        emit spectrogramCeilingDbChanged(next.ceilingDb);
+    }
+    if (gateChanged) {
+        emit spectrogramColumnGateDbChanged(next.columnGateDb);
+    }
+    if (ridgeChanged) {
+        emit spectrogramProminenceFloorDbChanged(next.prominenceFloorDb);
+    }
+    emit spectrogramParametersChanged();
 }
 
 void TimelineQuickStateBridge::setZoomScale(double scale)

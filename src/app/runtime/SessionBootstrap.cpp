@@ -418,6 +418,16 @@ Session::Session(miacode::ApplicationServices& services, QObject* parent)
     connect(state_.timeline_.timelineQuickStateBridge_, &TimelineQuickStateBridge::measureLineBrightnessChanged, this, [this](double) {
         savePortableState();
     });
+    connect(state_.timeline_.timelineQuickStateBridge_, &TimelineQuickStateBridge::audioVisualizationModeChanged, this, [this](int) {
+        savePortableState();
+    });
+    connect(state_.timeline_.timelineQuickStateBridge_, &TimelineQuickStateBridge::spectrogramParametersChanged, this, [this]() {
+        savePortableState();
+        playback_->refreshSpectrogramCache();
+    });
+    connect(state_.timeline_.timelineQuickStateBridge_, &TimelineQuickStateBridge::spectrogramOpacityChanged, this, [this](double) {
+        savePortableState();
+    });
     logStartupStage("timeline_ready");
 
     finishFrameBootstrap(logStartupStage);

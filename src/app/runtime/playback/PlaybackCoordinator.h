@@ -57,6 +57,7 @@ public:
     void applyWaveformData(const std::shared_ptr<const miacode::waveform::WaveformData>& waveformData);
     void refreshWaveformCache();
     void refreshWaveformCache(double knownDurationSeconds);
+    void refreshSpectrogramCache();
     bool hasActiveDifficulty() const;
     // True when there is a chart the preview transport can play: either a real
     // active difficulty, or the latency page's synthesized test chart. Playback
@@ -353,6 +354,7 @@ public:
     double authoritativeAudioClockSecond() const;
 
 private:
+    void requestCurrentSpectrogram();
     bool bottomTabsTabVisibleFromState(RuntimeContext::BottomTabsTabId tabId) const;
     static QString bottomTabsTabIdToString(RuntimeContext::BottomTabsTabId tabId);
     static RuntimeContext::BottomTabsTabId bottomTabsTabIdFromString(const QString& tabId);
@@ -402,6 +404,7 @@ private:
     bool currentExportIntroLeadInSpec(IntroBannerSpec* outSpec) const;
     bool ensureAuditionSceneReady();
     miacode::waveform::WaveformCacheService* ensureWaveformCacheService();
+    miacode::spectrogram::SpectrogramCacheService* ensureSpectrogramCacheService();
     void clearPreviewFollowDecoration();
     // Timer/connection parent and QPointer-tracked liveness anchor only — see
     // the class comment above. Production passes the owning Session.

@@ -16,6 +16,13 @@ miacode_add_dev_tool(timeline_marker_offset_spec TEST
     INCLUDES src
 )
 
+miacode_add_dev_tool(spectrogram_cache_spec TEST
+    SOURCES
+        src/tools/timeline/SpectrogramCacheSpec.cpp
+    LIBS miacode_audio Qt6::Core
+    INCLUDES src
+)
+
 miacode_add_dev_tool(timeline_cadence_arbitration_policy_spec TEST
     SOURCES
         src/tools/timeline/TimelineCadenceArbitrationPolicySpec.cpp

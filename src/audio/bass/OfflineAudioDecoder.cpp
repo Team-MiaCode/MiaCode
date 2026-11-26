@@ -150,9 +150,12 @@ DecodedMonoAudio decodeWithBass(const QString& path, int targetSampleRate)
         return decoded;
     }
 
-    decoded.samples = resampleLinear(mono, sourceSampleRate, targetSampleRate);
-    decoded.sampleRate = targetSampleRate;
-    decoded.durationSeconds = static_cast<double>(decoded.samples.size()) / targetSampleRate;
+    const int outputRate = targetSampleRate > 0 ? targetSampleRate : sourceSampleRate;
+    decoded.samples = outputRate == sourceSampleRate
+        ? std::move(mono)
+        : resampleLinear(mono, sourceSampleRate, outputRate);
+    decoded.sampleRate = outputRate;
+    decoded.durationSeconds = static_cast<double>(decoded.samples.size()) / outputRate;
     return decoded;
 }
 
@@ -162,7 +165,7 @@ DecodedMonoAudio decodeFileToMono(
     const QString& path,
     int targetSampleRate)
 {
-    if (path.isEmpty() || targetSampleRate <= 0 || !QFileInfo::exists(path)) {
+    if (path.isEmpty() || !QFileInfo::exists(path)) {
         return {};
     }
     return decodeWithBass(path, targetSampleRate);

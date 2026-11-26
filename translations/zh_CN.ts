@@ -4097,6 +4097,72 @@ The file may be open in preview, a media player, File Explorer preview pane, or 
         <source>Waveform Brightness</source>
         <translation>波形图亮度</translation>
     </message>
+    <message id="shell.timeline_audio_visualization">
+        <source>Audio Visualization</source>
+        <translation>音频可视化</translation>
+    </message>
+    <message id="shell.timeline_audio_visualization_waveform">
+        <source>Waveform</source>
+        <translation>波形图</translation>
+    </message>
+    <message id="shell.timeline_audio_visualization_spectrogram">
+        <source>Spectrogram</source>
+        <translation>频谱图</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_min_hz">
+        <source>Lowest Frequency</source>
+        <translation>最低频率</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_max_hz">
+        <source>Highest Frequency</source>
+        <translation>最高频率</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_frequency_range">
+        <source>Frequency Range</source>
+        <translation>频率范围</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_floor_db">
+        <source>Loudness Floor</source>
+        <translation>响度底噪</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_loudness_range">
+        <source>Loudness Range</source>
+        <translation>响度范围</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_reading_help">
+        <source>Bright vertical lines are usually drums.
+A short bright mark along the bottom is the kick.
+A line running up from the bottom is the snare.
+Horizontal lines are pitch.
+Voice, piano, guitar and strings show up there; higher notes sit higher.
+Brighter means louder.</source>
+        <translation>竖着的亮线一般是鼓。
+贴着最下面、又短又亮的是底鼓。
+从下往上拉通一条的是军鼓。
+横着的亮线是音高。
+人声、钢琴、吉他、提琴都看这个，音越高，线越靠上。
+越亮越响。</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_updating">
+        <source>Recalculating spectrogram</source>
+        <translation>正在按新设置重算频谱</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_updated">
+        <source>Spectrogram updated</source>
+        <translation>频谱已更新</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_opacity">
+        <source>Spectrogram Opacity</source>
+        <translation>频谱图不透明度</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_column_gate_db">
+        <source>Drum Floor</source>
+        <translation>鼓底噪</translation>
+    </message>
+    <message id="shell.timeline_spectrogram_prominence_floor_db">
+        <source>Melody Floor</source>
+        <translation>旋律底噪</translation>
+    </message>
     <message id="shortcut.ui.zoom_out">
         <source>Zoom Out Interface</source>
         <translation>缩小界面</translation>

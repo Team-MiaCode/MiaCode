@@ -18,6 +18,7 @@ class QHoverEvent;
 class TimelineQuickStateBridge;
 class TimelineQuickTextureCache;
 class TimelineQuickGridLayer;
+class TimelineQuickSpectrogramLayer;
 class TimelineQuickWaveformLayer;
 class TimelineQuickHeaderLayer;
 class TimelineQuickGridLinesLayer;
@@ -216,6 +217,7 @@ private:
     std::unique_ptr<TimelineQuickTextureCache> textures_;
     std::unique_ptr<TimelineQuickGridLayer> gridLayer_;
     std::unique_ptr<TimelineQuickWaveformLayer> waveformLayer_;
+    std::unique_ptr<TimelineQuickSpectrogramLayer> spectrogramLayer_;
     std::unique_ptr<TimelineQuickHeaderLayer> headerLayer_;
     std::unique_ptr<TimelineQuickGridLinesLayer> gridLinesLayer_;
     std::unique_ptr<TimelineQuickNotesLayer> notesLayer_;

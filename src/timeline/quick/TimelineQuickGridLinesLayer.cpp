@@ -14,6 +14,7 @@ struct TimelineQuickGridLinesRootNode : public QSGNode {
     quint64 gridRevision = 0;
     quint64 layoutRevision = 0;
     quint64 appearanceRevision = 0;
+    int audioVisualizationMode = -1;
 };
 
 void clearChildren(QSGNode* node)
@@ -116,24 +117,64 @@ QSGNode* TimelineQuickGridLinesLayer::updateNode(
         transformRoot->setMatrix(transform);
     }
 
+    const bool spectrogram = state.audioVisualizationMode
+        == static_cast<int>(miacode::timeline::AudioVisualizationMode::Spectrogram);
     const bool appearanceChanged = root->appearanceRevision != state.appearanceRevision;
     if (appearanceChanged
         || root->layoutRevision != state.layoutRevision
-        || root->gridRevision != state.gridRevision) {
+        || root->gridRevision != state.gridRevision
+        || root->audioVisualizationMode != state.audioVisualizationMode) {
         clearChildren(contentRoot);
         // Same per-color batching as the previous in-headerLayer path.
         // The Blending=true override in TimelineQuickFlatColorBatchBuilder
         // applies here too, ensuring even alpha-255 bar lines stay on
         // the translucent draw path.
         TimelineQuickFlatColorBatchBuilder gridBatch(contentRoot);
-        for (const auto& line : state.gridLines) {
+        const auto appendLine = [&](const miacode::timeline::TimelineSceneLine& line) {
             if (!gridBatch.tryAppendOrthogonalLine(line)) {
                 gridBatch.flush();
                 contentRoot->appendChildNode(buildTimelineLineNode(line));
             }
+        };
+        if (spectrogram) {
+            // Heat runs from near-black to near-white, so the palette gray
+            // disappears on one end or the other. A dark rim plus a light core
+            // stays readable on both. Measure lines stay the clearest, subdivision
+            // lines are fainter, and comma lines are the lightest.
+            const auto paintLine = [&](const miacode::timeline::TimelineSceneLine& line, bool rim) {
+                miacode::timeline::TimelineSceneLine painted = line;
+                const bool measure = line.width >= 1.25;
+                const qreal height = line.end.y() - line.start.y();
+                const bool subdivision = !measure
+                    && state.timelineHeight > 1.0
+                    && height >= state.timelineHeight * 0.83;
+                if (rim) {
+                    painted.width = line.width + 1.0;
+                    painted.color = measure ? QColor(6, 8, 14, 150)
+                        : subdivision ? QColor(6, 8, 14, 88)
+                                      : QColor(6, 8, 14, 56);
+                } else {
+                    painted.color = measure ? QColor(255, 248, 236, 188)
+                        : subdivision ? QColor(255, 248, 236, 112)
+                                      : QColor(255, 248, 236, 72);
+                }
+                appendLine(painted);
+            };
+            for (const auto& line : state.gridLines) {
+                paintLine(line, true);
+            }
+            gridBatch.flush();
+            for (const auto& line : state.gridLines) {
+                paintLine(line, false);
+            }
+        } else {
+            for (const auto& line : state.gridLines) {
+                appendLine(line);
+            }
         }
         gridBatch.flush();
         root->gridRevision = state.gridRevision;
+        root->audioVisualizationMode = state.audioVisualizationMode;
     }
     root->layoutRevision = state.layoutRevision;
     root->appearanceRevision = state.appearanceRevision;

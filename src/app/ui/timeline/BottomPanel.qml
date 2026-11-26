@@ -19,6 +19,30 @@ Item {
         && root.visible && timelineItem.visible
     readonly property Item timelineGuideItem: timelineItem
     readonly property Item timelineSettingsGuideItem: settingsMenu.contentItem
+    readonly property bool spectrogramBusy: timelineSession.stateBridge
+        ? timelineSession.stateBridge.spectrogramUpdating : false
+    property bool spectrogramSettled: false
+    property bool spectrogramBusySeen: false
+
+    onSpectrogramBusyChanged: {
+        if (spectrogramBusy) {
+            spectrogramBusySeen = true
+            spectrogramSettled = false
+            return
+        }
+        if (!spectrogramBusySeen)
+            return
+        spectrogramBusySeen = false
+        spectrogramSettled = true
+        spectrogramSettledTimer.restart()
+    }
+
+    Timer {
+        id: spectrogramSettledTimer
+        interval: 1600
+        onTriggered: root.spectrogramSettled = false
+    }
+
     signal analysisRowActivated(int difficultyId, var revision, int line, int column, int endColumn, double second)
 
     onGuideSettingsAvailableChanged: {
@@ -234,6 +258,45 @@ Item {
                 return
             }
             settingsMenu.openAt(brightnessButton)
+        }
+    }
+
+    Rectangle {
+        id: spectrogramStatusChip
+        visible: timelineItem.visible
+            && root.timelineSession.stateBridge
+            && root.timelineSession.stateBridge.audioVisualizationMode === 1
+            && (root.spectrogramBusy || root.spectrogramSettled)
+        z: 2
+        x: zoomButton.x
+        y: timelineItem.y + timelineItem.timelineTop + 8
+        radius: 4
+        height: 22
+        width: spectrogramStatusText.implicitWidth + (spectrogramStatusSpinner.visible ? 28 : 16)
+        color: Theme.colors.panel
+        border.width: Theme.controlBorderWidth
+        border.color: Theme.colors.toggle.knobBorder
+
+        BusyIndicator {
+            id: spectrogramStatusSpinner
+            x: 6
+            width: 12
+            height: 12
+            anchors.verticalCenter: parent.verticalCenter
+            running: root.spectrogramBusy
+            visible: running
+        }
+
+        Text {
+            id: spectrogramStatusText
+            x: spectrogramStatusSpinner.visible ? 22 : 8
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.spectrogramBusy
+                  ? qsTrId("shell.timeline_spectrogram_updating")
+                  : qsTrId("shell.timeline_spectrogram_updated")
+            font.family: Theme.uiFont
+            font.pixelSize: Theme.uiFontSize
+            color: Theme.colors.text.primary
         }
     }
 
