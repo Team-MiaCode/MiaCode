@@ -15,6 +15,7 @@
 #include "core/analysis/MuriRenderOptions.h"
 #include "core/analysis/MuriTypes.h"
 #include "core/scene/PreviewProgressStatsCache.h"
+#include "core/scene/PreviewFrameRateMonitor.h"
 #include "core/scene/PreviewHudState.h"
 #include "core/video/PreviewRenderSettings.h"
 #include "core/chart/model/TimelineData.h"
@@ -290,21 +291,7 @@ struct PreviewFrameState {
     quint64 sceneContentRevision = 0;
     quint64 sceneStorageGeneration = 0;
     double fpsDisplay = 0.0;
-    double tickFpsDisplay = 0.0;
-    double updateRequestFpsDisplay = 0.0;
-    // Smoothness-perception metrics (window-scoped, same window as the FPS
-    // averages). Average FPS hides spiky frames; these surface them.
-    //  - *MaxMsDisplay   : worst single inter-event interval in the window.
-    //  - *StutterCountDisplay : count of intervals in the window that
-    //                           exceeded `kStutterMultiplier × target_ms`.
-    // Read by PreviewQuickHudLayer; populated by PreviewRuntime after each
-    // recordIntervalSample() call.
-    double presentMaxMsDisplay = 0.0;
-    double tickMaxMsDisplay = 0.0;
-    double updateRequestMaxMsDisplay = 0.0;
-    int presentStutterCountDisplay = 0;
-    int tickStutterCountDisplay = 0;
-    int updateRequestStutterCountDisplay = 0;
+    PreviewFrameMetrics renderMetrics;
     double framePacingTargetFps = 0.0;
     double displayRefreshRate = 0.0;
     qint64 tickCount = 0;

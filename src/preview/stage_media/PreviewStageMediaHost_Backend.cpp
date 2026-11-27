@@ -264,6 +264,7 @@ void PreviewStageMediaHost::initializeBackendObjects()
             videoPlaybackActive_ = false;
             videoPlaybackPendingStart_ = false;
             videoPlaybackActiveElapsed_.invalidate();
+            videoFpsMonitor_.markDiscontinuity();
             recordPvMemoryBoundary(PvMemoryBoundary::EndOfMedia);
             updateClockDelta();
             updateVideoFrameStallState(true);

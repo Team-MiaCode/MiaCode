@@ -47,15 +47,11 @@ using namespace miacode::preview::psmh_detail;
 
 namespace {
 
-constexpr int kVideoFrameIntervalWindowSize = 120;
-
 }  // namespace
 
 PreviewStageMediaHost::PreviewStageMediaHost(QObject* parent)
     : QObject(parent)
 {
-    videoFrameIntervalsMs_.resize(kVideoFrameIntervalWindowSize);
-    videoFrameIntervalsMs_.fill(0.0);
     pvMemoryElapsed_.start();
 }
 

@@ -52,16 +52,6 @@ constexpr qint64 kVideoFrameStallMinMs = 120;
 constexpr double kVideoFrameStallMultiplier = 3.5;
 constexpr qint64 kPvMemoryPeriodicSampleMs = 5000;
 
-double averageOrZero(double total, qint64 count)
-{
-    return count > 0 ? total / static_cast<double>(count) : 0.0;
-}
-
-double fpsFromAverageMs(double averageMs)
-{
-    return averageMs > 1e-6 ? 1000.0 / averageMs : 0.0;
-}
-
 quint64 counterDelta(quint64 current, quint64 baseline)
 {
     // The QtAV counters are process-wide and monotonically increasing.  Be
@@ -268,19 +258,23 @@ qint64 PreviewStageMediaHost::videoFrameCountTotal() const
 
 double PreviewStageMediaHost::videoFrameRateEstimate() const
 {
-    return fpsFromAverageMs(videoFrameIntervalAvgMs());
+    return videoFpsMonitor_.snapshot(
+        miacode::preview::scene::PreviewFrameRateMonitor::steadyNowNs()).fps;
 }
 
 
 double PreviewStageMediaHost::videoFrameIntervalAvgMs() const
 {
-    return averageOrZero(videoFrameIntervalSumMs_, videoFrameIntervalSampleCount_);
+    const auto metrics = videoFpsMonitor_.snapshot(
+        miacode::preview::scene::PreviewFrameRateMonitor::steadyNowNs());
+    return metrics.active ? metrics.avgFrameMs : videoFpsMonitor_.lastActiveAvgFrameMs();
 }
 
 
 double PreviewStageMediaHost::videoFrameIntervalMaxMs() const
 {
-    return videoFrameIntervalMaxMs_;
+    return videoFpsMonitor_.snapshot(
+        miacode::preview::scene::PreviewFrameRateMonitor::steadyNowNs()).maxFrameMs;
 }
 
 
@@ -369,17 +363,7 @@ void PreviewStageMediaHost::handleDecodedVideoFrame(const QVideoFrame& frame,
 
     // Frame-rate / stall diagnostics (drives the HUD; backend-agnostic math).
     const bool firstFrameForSource = videoFrameCountTotal_ == 0;
-    if (videoFrameElapsed_.isValid()) {
-        const double intervalMs = static_cast<double>(videoFrameElapsed_.nsecsElapsed()) / 1000000.0;
-        videoFrameIntervalSumMs_ += intervalMs;
-        videoFrameIntervalMaxMs_ = qMax(videoFrameIntervalMaxMs_, intervalMs);
-        videoFrameIntervalSampleCount_ += 1;
-        if (!videoFrameIntervalsMs_.isEmpty()) {
-            videoFrameIntervalsMs_[videoFrameIntervalWriteIndex_] = intervalMs;
-            videoFrameIntervalWriteIndex_ = (videoFrameIntervalWriteIndex_ + 1) % videoFrameIntervalsMs_.size();
-            videoFrameIntervalCount_ = qMin(videoFrameIntervalCount_ + 1, videoFrameIntervalsMs_.size());
-        }
-    }
+    videoFpsMonitor_.record(miacode::preview::scene::PreviewFrameRateMonitor::steadyNowNs());
     videoFrameElapsed_.restart();
     ++videoFrameCountTotal_;
 
@@ -785,12 +769,7 @@ void PreviewStageMediaHost::resetVideoFrameDiagnostics()
 {
     videoFrameElapsed_.invalidate();
     videoPlaybackActiveElapsed_.invalidate();
-    videoFrameIntervalsMs_.fill(0.0);
-    videoFrameIntervalWriteIndex_ = 0;
-    videoFrameIntervalCount_ = 0;
-    videoFrameIntervalSumMs_ = 0.0;
-    videoFrameIntervalMaxMs_ = 0.0;
-    videoFrameIntervalSampleCount_ = 0;
+    videoFpsMonitor_.reset();
     videoFrameCountTotal_ = 0;
     videoFrameStallCount_ = 0;
     videoFrameStalled_ = false;

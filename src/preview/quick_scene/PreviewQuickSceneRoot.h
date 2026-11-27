@@ -124,7 +124,10 @@ private:
     struct PresentationBinding {
         // Written during scene synchronization and consumed by the same render thread.
         bool fireworkInFrame = false;
+        bool previewFrameInSwap = false;
         std::atomic<bool> fireworkPresented{false};
+        QMutex swapTimestampsMutex;
+        QVector<qint64> pendingPreviewSwapTimestampsNs;
 #ifdef Q_OS_MACOS
         std::atomic<int> pendingPresentCount{0};
 #endif

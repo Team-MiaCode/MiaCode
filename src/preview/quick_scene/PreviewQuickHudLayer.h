@@ -103,6 +103,7 @@ private:
 
     QPointer<PreviewRuntime> runtime_;
     QMetaObject::Connection runtimeUpdateConnection_;
+    QMetaObject::Connection runtimeHudMetricsConnection_;
     const miacode::preview::scene::PreviewFrameState* frameState_ = nullptr;
     miacode::preview::scene::PreviewRenderLayerFlags layerFlags_ =
         miacode::preview::scene::kPreviewAllRenderLayers;

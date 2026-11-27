@@ -680,6 +680,7 @@ void PreviewQuickSceneRoot::syncVisibleHostWindowBinding(const char* reason)
                 .arg(pointerHex(runtime_))
         );
         runtime_->clearVisibleHostWindow(boundWindow_);
+        runtime_->markRenderFpsDiscontinuity();
     }
 
     const QPointer<QQuickWindow> previousBoundWindow = boundWindow_;
@@ -689,6 +690,9 @@ void PreviewQuickSceneRoot::syncVisibleHostWindowBinding(const char* reason)
     }
     if (runtime_ == nullptr || boundWindow_ == nullptr || !isVisible()
         || !boundWindow_->isVisible() || boundWindow_->visibility() == QWindow::Minimized) {
+        if (runtime_ != nullptr) {
+            runtime_->markRenderFpsDiscontinuity();
+        }
         appendQuickSceneLog(
             QStringLiteral("visible_host_skip"),
             QString("%1 reason=%2 runtime=%3 window=%4 item_visible=%5 window_visible=%6")
@@ -756,6 +760,13 @@ void PreviewQuickSceneRoot::syncVisibleHostWindowBinding(const char* reason)
             if (std::exchange(binding->fireworkInFrame, false)) {
                 binding->fireworkPresented.store(true, std::memory_order_release);
             }
+            if (std::exchange(binding->previewFrameInSwap, false)) {
+                const qint64 swapNs = miacode::preview::scene::PreviewFrameRateMonitor::steadyNowNs();
+                QMutexLocker locker(&binding->swapTimestampsMutex);
+                if (binding->pendingPreviewSwapTimestampsNs.size() < 32) {
+                    binding->pendingPreviewSwapTimestampsNs.append(swapNs);
+                }
+            }
 #ifdef Q_OS_MACOS
             binding->pendingPresentCount.fetch_add(1, std::memory_order_release);
 #endif
@@ -772,6 +783,14 @@ void PreviewQuickSceneRoot::syncVisibleHostWindowBinding(const char* reason)
 #else
         constexpr int presentCount = 1;
 #endif
+        QVector<qint64> swapTimestampsNs;
+        {
+            QMutexLocker locker(&binding->swapTimestampsMutex);
+            swapTimestampsNs.swap(binding->pendingPreviewSwapTimestampsNs);
+        }
+        if (!swapTimestampsNs.isEmpty()) {
+            runtime_->recordRenderedFrameSwaps(swapTimestampsNs);
+        }
         if (binding->fireworkPresented.exchange(false, std::memory_order_acquire)) {
             runtime_->notifyFireworkLayerPresentedNode();
         }
@@ -1342,6 +1361,9 @@ QSGNode* PreviewQuickSceneRoot::updatePaintNode(QSGNode* oldNode, UpdatePaintNod
         maimuriDxJudgeCursor_.activePreparedIndices.size()
     );
     root->renderedFrame = frameKey;
+    if (presentationBinding_) {
+        presentationBinding_->previewFrameInSwap = true;
+    }
     if (miacode::debug_options::previewProfileOutputEnabled()) {
         enqueueTextureStatsForPresentation(mergedTextureStats(*textures, layerProfileStats_));
     }

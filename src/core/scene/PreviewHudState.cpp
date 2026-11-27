@@ -359,7 +359,7 @@ QVector<PreviewHudFontAreaChoice> previewHudFontAreaChoices()
          "DELUXE Rate: 101.0000%  TAP: 128/128"},
         {PreviewHudFontArea::DebugInfo,
          "dialog.video_export.option.hud_font_area.debug",
-         "Present: 60.0 FPS  max=17ms"},
+         "60.0 FPS  16.7 ms  ·  Metal"},
     };
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/LogEmissionPolicy.h"
+#include "core/scene/PreviewFrameRateMonitor.h"
 #include "core/video/PreviewVideoGeometryConfig.h"
 #include "core/video/PreviewRenderSettings.h"
 #include "preview/stage_media/PvMemoryDiagnostics.h"
@@ -316,12 +317,7 @@ private:
     double clockDeltaSeconds_ = 0.0;
     QElapsedTimer videoFrameElapsed_;
     QElapsedTimer videoPlaybackActiveElapsed_;
-    QVector<double> videoFrameIntervalsMs_;
-    int videoFrameIntervalWriteIndex_ = 0;
-    int videoFrameIntervalCount_ = 0;
-    double videoFrameIntervalSumMs_ = 0.0;
-    double videoFrameIntervalMaxMs_ = 0.0;
-    qint64 videoFrameIntervalSampleCount_ = 0;
+    miacode::preview::scene::PreviewFrameRateMonitor videoFpsMonitor_;
     qint64 videoFrameCountTotal_ = 0;
     qint64 videoFrameStallCount_ = 0;
     bool videoFrameStalled_ = false;

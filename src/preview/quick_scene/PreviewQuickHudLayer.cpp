@@ -591,6 +591,245 @@ QColor centerDisplayHeaderColor(miacode::preview_gameplay::CenterDisplayMode mod
     }
 }
 
+qreal paintDebugOverlay(
+    QPainter& painter,
+    const miacode::preview::scene::PreviewFrameState& state,
+    const miacode::preview::quick_scene::QuickGraphicsInfo& graphicsInfo,
+    const QRectF& stageRect,
+    qreal hudPadding,
+    qreal hudScale)
+{
+    const int headerPointSize = qMax(1, qRound(13.5 * hudScale));
+    const int bodyPointSize = qMax(1, qRound(11.5 * hudScale));
+    const QFont headerFont = hudReferenceFont(miacode::preview::scene::previewHudMonoFontForArea(
+        state.hudFontSettings,
+        miacode::preview::scene::PreviewHudFontArea::DebugInfo,
+        headerPointSize,
+        QFont::DemiBold));
+    const QFont bodyFont = hudReferenceFont(miacode::preview::scene::previewHudMonoFontForArea(
+        state.hudFontSettings,
+        miacode::preview::scene::PreviewHudFontArea::DebugInfo,
+        bodyPointSize,
+        QFont::Normal));
+
+    const QFontMetrics headerMetrics(headerFont, painter.device());
+    const QFontMetrics bodyMetrics(bodyFont, painter.device());
+
+    const double targetFps = state.framePacingTargetFps > 1.0
+        ? state.framePacingTargetFps
+        : (state.displayRefreshRate > 1.0 ? state.displayRefreshRate : 60.0);
+    const bool hasRenderMetrics = state.renderMetrics.active;
+    const bool hasFallbackFps = !hasRenderMetrics && state.fpsDisplay > 0.0;
+    const double shownFps = hasRenderMetrics ? state.renderMetrics.fps : state.fpsDisplay;
+
+    QColor statusColor(0x94, 0xA3, 0xB8);
+    if (hasRenderMetrics || hasFallbackFps) {
+        if (shownFps >= targetFps * 0.92) {
+            statusColor = QColor(0x4A, 0xDE, 0x80);
+        } else if (shownFps >= targetFps * 0.70) {
+            statusColor = QColor(0xFB, 0xBF, 0x24);
+        } else {
+            statusColor = QColor(0xF8, 0x71, 0x71);
+        }
+    }
+
+    QString primaryText;
+    QString frameMsText;
+    if (hasRenderMetrics) {
+        primaryText = QStringLiteral("%1 FPS").arg(state.renderMetrics.fps, 0, 'f', 1);
+        frameMsText = QStringLiteral("  %1 ms").arg(state.renderMetrics.avgFrameMs, 0, 'f', 1);
+    } else if (hasFallbackFps) {
+        primaryText = QStringLiteral("%1 FPS").arg(state.fpsDisplay, 0, 'f', 1);
+    } else {
+        primaryText = QStringLiteral("IDLE");
+        frameMsText = QStringLiteral("  --.- ms");
+    }
+
+    QString hzBadge;
+    const int targetHz = qRound(state.framePacingTargetFps);
+    const int displayHz = qRound(state.displayRefreshRate);
+    if (targetHz > 1 && displayHz > 1 && qAbs(targetHz - displayHz) > 1) {
+        hzBadge = QStringLiteral("%1/%2 Hz").arg(targetHz).arg(displayHz);
+    } else if (displayHz > 1) {
+        hzBadge = QStringLiteral("%1 Hz").arg(displayHz);
+    } else if (targetHz > 1) {
+        hzBadge = QStringLiteral("%1 Hz").arg(targetHz);
+    }
+
+    const QString frameValue = hasRenderMetrics
+        ? QStringLiteral("1% Low %1 FPS · Max %2 ms")
+              .arg(state.renderMetrics.low1Fps, 0, 'f', 1)
+              .arg(state.renderMetrics.maxFrameMs, 0, 'f', 0)
+        : QStringLiteral("Paused");
+
+    const QString rendererLabel = graphicsInfo.hardwareAccelerated
+        ? QStringLiteral("GPU")
+        : QStringLiteral("CPU");
+    const QString apiName = graphicsInfo.apiName.isEmpty()
+        ? QStringLiteral("Unknown")
+        : graphicsInfo.apiName;
+    const QString gpuValue = (graphicsInfo.deviceIdentified && !graphicsInfo.deviceName.isEmpty())
+        ? QStringLiteral("%1 · %2").arg(apiName, graphicsInfo.deviceName)
+        : apiName;
+
+    QString mediaValue = QStringLiteral("None");
+    bool mediaStalled = false;
+    if (state.media.presentationMode
+        == miacode::preview::scene::PreviewStageMediaPresentationMode::ExternalQuickMediaItem) {
+        switch (state.media.externalMediaType) {
+        case miacode::preview::scene::PreviewExternalStageMediaType::Image:
+            mediaValue = QStringLiteral("Cover Image");
+            break;
+        case miacode::preview::scene::PreviewExternalStageMediaType::Video: {
+            QString decodeShort = state.media.externalVideoDecodeDesc.trimmed();
+            if (decodeShort.startsWith(QStringLiteral("GPU (")) && decodeShort.endsWith(QLatin1Char(')'))) {
+                decodeShort = decodeShort.mid(5, decodeShort.size() - 6);
+            } else if (decodeShort.startsWith(QStringLiteral("CPU (")) && decodeShort.endsWith(QLatin1Char(')'))) {
+                decodeShort = QStringLiteral("CPU");
+            } else if (decodeShort.isEmpty()) {
+                decodeShort = QStringLiteral("Unknown");
+            }
+            if (state.media.externalVideoPlaybackActive && state.media.externalVideoFrameRate > 0.0) {
+                const qint64 deltaMs = qRound64(state.media.externalClockDeltaSeconds * 1000.0);
+                const QString deltaSign = deltaMs >= 0 ? QStringLiteral("+") : QString();
+                mediaValue = QStringLiteral("PV %1 FPS · %2 · Δ %3%4 ms")
+                    .arg(state.media.externalVideoFrameRate, 0, 'f', 1)
+                    .arg(decodeShort)
+                    .arg(deltaSign)
+                    .arg(deltaMs);
+                if (state.media.externalVideoFrameStalled) {
+                    mediaValue += QStringLiteral(" · STALL");
+                    mediaStalled = true;
+                }
+            } else {
+                mediaValue = QStringLiteral("PV Paused · %1").arg(decodeShort);
+            }
+            break;
+        }
+        case miacode::preview::scene::PreviewExternalStageMediaType::None:
+        default:
+            break;
+        }
+    } else if (state.media.stageMediaAvailable) {
+        mediaValue = QStringLiteral("Embedded");
+    }
+
+    struct DebugRow {
+        QString label;
+        QString value;
+        bool alert = false;
+    };
+    const std::array<DebugRow, 3> rows = {{
+        {QStringLiteral("FRAME"), frameValue, false},
+        {rendererLabel, gpuValue, false},
+        {QStringLiteral("MEDIA"), mediaValue, mediaStalled},
+    }};
+
+    const qreal padX = 12.0 * hudScale;
+    const qreal padY = 9.0 * hudScale;
+    const qreal dotRadius = 3.5 * hudScale;
+    const qreal dotGap = 7.0 * hudScale;
+    const qreal headerBadgeGap = 16.0 * hudScale;
+    const qreal dividerGap = 6.0 * hudScale;
+    const qreal rowGap = 3.5 * hudScale;
+    const qreal colGap = 10.0 * hudScale;
+    const qreal cornerRadius = 8.0 * hudScale;
+
+    qreal maxLabelWidth = 0.0;
+    qreal maxValueWidth = 0.0;
+    for (const DebugRow& row : rows) {
+        maxLabelWidth = qMax(maxLabelWidth, informationTextWidth(bodyMetrics, row.label));
+        maxValueWidth = qMax(maxValueWidth, informationTextWidth(bodyMetrics, row.value));
+    }
+
+    const qreal headerContentWidth =
+        dotRadius * 2.0 + dotGap
+        + informationTextWidth(headerMetrics, primaryText)
+        + informationTextWidth(headerMetrics, frameMsText)
+        + (hzBadge.isEmpty() ? 0.0 : headerBadgeGap + informationTextWidth(bodyMetrics, hzBadge));
+    const qreal rowsContentWidth = maxLabelWidth + colGap + maxValueWidth;
+    const qreal minCardWidth = 220.0 * hudScale;
+    const qreal maxCardWidth = qMax(minCardWidth, stageRect.width() * 0.44);
+    const qreal cardWidth = qBound(
+        minCardWidth,
+        padX * 2.0 + qMax(headerContentWidth, rowsContentWidth),
+        maxCardWidth);
+
+    const qreal headerLineHeight = headerMetrics.height();
+    const qreal bodyLineHeight = bodyMetrics.height();
+    const qreal cardHeight = padY * 2.0
+        + headerLineHeight
+        + dividerGap * 2.0 + 1.0
+        + rows.size() * bodyLineHeight
+        + (rows.size() - 1) * rowGap;
+
+    const QRectF cardRect(
+        stageRect.left() + hudPadding,
+        stageRect.top() + hudPadding,
+        cardWidth,
+        cardHeight);
+
+    QPainterStateGuard guard(&painter);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setBrush(QColor(14, 16, 20, 188));
+    painter.setPen(QPen(QColor(255, 255, 255, 34), qMax<qreal>(0.75, 1.0 * hudScale)));
+    painter.drawRoundedRect(cardRect, cornerRadius, cornerRadius);
+
+    const qreal contentLeft = cardRect.left() + padX;
+    const qreal contentRight = cardRect.right() - padX;
+    const qreal headerTop = cardRect.top() + padY;
+    const qreal headerBaselineY = headerTop + headerMetrics.ascent();
+
+    const QPointF dotCenter(
+        contentLeft + dotRadius,
+        headerTop + headerLineHeight * 0.5);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(statusColor);
+    painter.drawEllipse(dotCenter, dotRadius, dotRadius);
+
+    qreal textX = dotCenter.x() + dotRadius + dotGap;
+    painter.setFont(headerFont);
+    painter.setPen(hasRenderMetrics || hasFallbackFps
+        ? QColor(0xF8, 0xFA, 0xFC)
+        : QColor(0x94, 0xA3, 0xB8));
+    painter.drawText(QPointF(textX, headerBaselineY), primaryText);
+    textX += headerMetrics.horizontalAdvance(primaryText);
+
+    if (!frameMsText.isEmpty()) {
+        painter.setPen(QColor(0x94, 0xA3, 0xB8));
+        painter.drawText(QPointF(textX, headerBaselineY), frameMsText);
+    }
+
+    if (!hzBadge.isEmpty()) {
+        painter.setFont(bodyFont);
+        painter.setPen(QColor(0x94, 0xA3, 0xB8));
+        const qreal badgeWidth = bodyMetrics.horizontalAdvance(hzBadge);
+        const qreal badgeBaselineY = headerTop + (headerLineHeight - bodyLineHeight) * 0.5 + bodyMetrics.ascent();
+        painter.drawText(QPointF(contentRight - badgeWidth, badgeBaselineY), hzBadge);
+    }
+
+    const qreal dividerY = headerTop + headerLineHeight + dividerGap;
+    painter.setPen(QPen(QColor(255, 255, 255, 24), qMax<qreal>(0.75, 1.0 * hudScale)));
+    painter.drawLine(QPointF(contentLeft, dividerY), QPointF(contentRight, dividerY));
+
+    painter.setFont(bodyFont);
+    const qreal valueLeft = contentLeft + maxLabelWidth + colGap;
+    const int availableValuePx = qMax(24, qFloor(contentRight - valueLeft));
+    qreal rowTop = dividerY + 1.0 + dividerGap;
+    for (const DebugRow& row : rows) {
+        const qreal baselineY = rowTop + bodyMetrics.ascent();
+        painter.setPen(QColor(0x94, 0xA3, 0xB8));
+        painter.drawText(QPointF(contentLeft, baselineY), row.label);
+
+        painter.setPen(row.alert ? QColor(0xF8, 0x71, 0x71) : QColor(0xE2, 0xE8, 0xF0));
+        const QString elidedValue = bodyMetrics.elidedText(row.value, Qt::ElideRight, availableValuePx);
+        painter.drawText(QPointF(valueLeft, baselineY), elidedValue);
+        rowTop += bodyLineHeight + rowGap;
+    }
+
+    return cardRect.bottom();
+}
+
 }  // namespace
 
 // Min interval between HUD repaints. The HUD shows FPS/max-ms/stutter
@@ -661,10 +900,16 @@ void PreviewQuickHudLayer::setRuntime(PreviewRuntime* runtime)
     if (runtimeUpdateConnection_) {
         QObject::disconnect(runtimeUpdateConnection_);
     }
+    if (runtimeHudMetricsConnection_) {
+        QObject::disconnect(runtimeHudMetricsConnection_);
+    }
     runtime_ = runtime;
     if (runtime_ != nullptr) {
         frameState_ = nullptr;
         runtimeUpdateConnection_ = QObject::connect(runtime_, &PreviewRuntime::frameStateChanged, this, [this]() {
+            requestThrottledUpdate();
+        });
+        runtimeHudMetricsConnection_ = QObject::connect(runtime_, &PreviewRuntime::hudMetricsChanged, this, [this]() {
             requestThrottledUpdate();
         });
         runtime_->setFrameSize(miacode::pixel_geometry::coveringSize(boundingRect().size()));
@@ -898,7 +1143,6 @@ void paintPreviewHudOverlay(
     const QRectF stageRect = hudReferenceStage(painter, canvasSize);
     constexpr qreal kHudReferenceShortSide = 1024.0;
     constexpr qreal kHudReferencePadding = 18.0;
-    constexpr int kHudReferenceDebugFontPointSize = 13;
     constexpr int kHudReferenceStatsFontPointSize = 22;
     constexpr qreal kHudTimestampToStatsFontScale = 1.2;
 
@@ -909,7 +1153,6 @@ void paintPreviewHudOverlay(
         1,
         qRound(static_cast<qreal>(kHudReferenceStatsFontPointSize) * kHudTimestampToStatsFontScale * hudScale)
     );
-    const int debugFontPointSize = qMax(1, qRound(static_cast<qreal>(kHudReferenceDebugFontPointSize) * hudScale));
     QFont timestampFont = miacode::preview::scene::previewHudTimestampFontForArea(
         state->hudFontSettings,
         miacode::preview::scene::PreviewHudFontArea::Timestamp,
@@ -933,130 +1176,7 @@ void paintPreviewHudOverlay(
         appendHudPaintDiag(
             QStringLiteral("branch_enter"),
             [&] { return QStringLiteral("branch=debug state=%1").arg(pointerHex(state)); });
-        QFont fpsFont = miacode::preview::scene::previewHudMonoFontForArea(
-            state->hudFontSettings,
-            miacode::preview::scene::PreviewHudFontArea::DebugInfo,
-            debugFontPointSize,
-            QFont::Medium);
-        fpsFont = hudReferenceFont(fpsFont);
-        const qreal shadowOffset = qMax<qreal>(1.0, 2.0 * hudScale);
-        const auto formatMetric = [](double value) {
-            return value > 0.0 ? QString::number(value, 'f', 1) : QStringLiteral("na");
-        };
-        QStringList debugLines;
-        const auto drawDebugLine = [&](const QString& text) { debugLines.append(text); };
-
-        drawDebugLine(
-            QStringLiteral("Renderer: %1  API: %2")
-                .arg(graphicsInfo.hardwareAccelerated
-                    ? QStringLiteral("GPU") : QStringLiteral("CPU"))
-                .arg(graphicsInfo.apiName.isEmpty()
-                    ? QStringLiteral("Unknown") : graphicsInfo.apiName)
-        );
-        drawDebugLine(
-            QStringLiteral("Device: %1")
-                .arg(graphicsInfo.deviceIdentified
-                    ? graphicsInfo.deviceName : QStringLiteral("Unknown"))
-        );
-        // The trailing max=Nms and stut=N metrics surface what an FPS average
-        // hides: max is the worst single inter-event interval in the rolling
-        // window, stut is the count of intervals exceeding 1.5× the target
-        // (i.e. user-noticeable hitches). A clean 60fps line should show
-        // max≈17ms stut=0; numbers above that are the actual lag the user
-        // perceives even when the FPS figure looks healthy.
-        drawDebugLine(
-            QStringLiteral("Present: %1 FPS  max=%2ms  stut=%3")
-                .arg(QString::number(state->fpsDisplay, 'f', 1))
-                .arg(QString::number(state->presentMaxMsDisplay, 'f', 0))
-                .arg(state->presentStutterCountDisplay)
-        );
-        drawDebugLine(
-            QStringLiteral("Tick: %1 FPS  max=%2ms  stut=%3")
-                .arg(QString::number(state->tickFpsDisplay, 'f', 1))
-                .arg(QString::number(state->tickMaxMsDisplay, 'f', 0))
-                .arg(state->tickStutterCountDisplay)
-        );
-        drawDebugLine(
-            QStringLiteral("Req: %1 FPS  max=%2ms  stut=%3")
-                .arg(QString::number(state->updateRequestFpsDisplay, 'f', 1))
-                .arg(QString::number(state->updateRequestMaxMsDisplay, 'f', 0))
-                .arg(state->updateRequestStutterCountDisplay)
-        );
-        drawDebugLine(
-            QStringLiteral("Count T/U/P: %1 / %2 / %3")
-                .arg(state->tickCount)
-                .arg(state->updateRequestCount)
-                .arg(state->presentedFrameCount)
-        );
-        drawDebugLine(
-            QStringLiteral("Pacing: %1 %2  Disp: %3")
-                .arg(state->framePacingUsesDisplayRefresh ? QStringLiteral("display") : QStringLiteral("fixed"))
-                .arg(formatMetric(state->framePacingTargetFps))
-                .arg(formatMetric(state->displayRefreshRate))
-        );
-        if (state->media.presentationMode == miacode::preview::scene::PreviewStageMediaPresentationMode::ExternalQuickMediaItem) {
-            QString mediaType = QStringLiteral("none");
-            switch (state->media.externalMediaType) {
-            case miacode::preview::scene::PreviewExternalStageMediaType::Image:
-                mediaType = QStringLiteral("image");
-                break;
-            case miacode::preview::scene::PreviewExternalStageMediaType::Video:
-                mediaType = QStringLiteral("video");
-                break;
-            case miacode::preview::scene::PreviewExternalStageMediaType::None:
-            default:
-                break;
-            }
-            drawDebugLine(
-                QStringLiteral("Media: external/%1").arg(mediaType)
-            );
-            drawDebugLine(
-                QStringLiteral("Video: %1  Delta: %2 s")
-                    .arg(
-                        QStringLiteral("%1 @ %2 FPS")
-                            .arg(state->media.externalVideoPlaybackActive ? QStringLiteral("active") : QStringLiteral("idle"))
-                            .arg(formatMetric(state->media.externalVideoFrameRate))
-                    )
-                    .arg(QString::number(state->media.externalClockDeltaSeconds, 'f', 3))
-            );
-            drawDebugLine(
-                QStringLiteral("Decode: %1")
-                    .arg(state->media.externalVideoDecodeDesc.trimmed().isEmpty()
-                        ? QStringLiteral("None")
-                        : state->media.externalVideoDecodeDesc)
-            );
-            const QString frameAgeText = state->media.externalVideoFrameAgeMs >= 0
-                ? QString::number(state->media.externalVideoFrameAgeMs)
-                : QStringLiteral("na");
-            drawDebugLine(
-                QStringLiteral("Age: %1 ms  AvgInt: %2  MaxInt: %3")
-                    .arg(frameAgeText)
-                    .arg(formatMetric(state->media.externalVideoFrameIntervalAvgMs))
-                    .arg(formatMetric(state->media.externalVideoFrameIntervalMaxMs))
-            );
-            drawDebugLine(
-                QStringLiteral("Stall: %1  Count: %2  MediaT: %3 s")
-                    .arg(state->media.externalVideoFrameStalled ? QStringLiteral("yes") : QStringLiteral("no"))
-                    .arg(state->media.externalVideoFrameStallCount)
-                    .arg(QString::number(state->media.externalPlaybackSecond, 'f', 3))
-            );
-        }
-        const QFontMetrics metrics(fpsFont, painter.device());
-        // Keep row geometry stable when decoder names and counters change.
-        const auto glyphs = hudGlyphVerticalBounds(fpsFont, metrics,
-            {QStringLiteral("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ()/.:@+-")});
-        const qreal advance = hudLineAdvance(fpsFont, metrics, glyphs, shadowOffset);
-        const qreal ascent = glyphs.valid ? -glyphs.top : metrics.ascent();
-        const qreal descent = glyphs.valid ? glyphs.bottom : metrics.descent();
-        const qreal bearing = informationLeftBearing(metrics, debugLines);
-        for (int i = 0; i < debugLines.size(); ++i) {
-            drawHudText(painter, QStringLiteral("debug.%1").arg(i),
-                QPointF(stageRect.left() + hudPadding + bearing,
-                    stageRect.top() + hudPadding + ascent + i * advance),
-                debugLines[i], fpsFont, shadowOffset);
-        }
-        debugBottom = stageRect.top() + hudPadding + ascent
-            + (debugLines.size() - 1) * advance + descent + shadowOffset;
+        debugBottom = paintDebugOverlay(painter, *state, graphicsInfo, stageRect, hudPadding, hudScale);
     }
 
     // The HUD honours `hudPlayheadSecondsOverride` when finite so callers

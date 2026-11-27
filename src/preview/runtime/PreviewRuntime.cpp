@@ -20,6 +20,7 @@
 #include <QQuickWindow>
 #include <QScreen>
 #include <QTextStream>
+#include <QTimer>
 
 #include <algorithm>
 #include <cmath>
@@ -95,34 +96,7 @@ double rollingMaxMs(const QVector<double>& samples, int count)
     return maxMs;
 }
 
-// Multiplier applied to the target frame interval to flag a "stutter".
-// 1.5× target (≈25ms at 60Hz) is the threshold beyond which an isolated
-// frame is reliably noticeable. Counted against the rolling sample window
-// so the HUD shows a per-second-scale figure.
-constexpr double kStutterMultiplier = 1.5;
-
 constexpr qint64 kNonFinitePlayheadLogIntervalMs = 5000;
-
-int rollingStutterCount(const QVector<double>& samples, int count, double thresholdMs)
-{
-    if (thresholdMs <= 0.0 || count <= 0) {
-        return 0;
-    }
-    int stutters = 0;
-    for (int index = 0; index < count; ++index) {
-        if (samples.at(index) > thresholdMs) {
-            ++stutters;
-        }
-    }
-    return stutters;
-}
-
-double targetIntervalMsForStutterDetection(double targetFps)
-{
-    // Fall back to 60fps if target hasn't been published yet (early frames).
-    const double effectiveTarget = targetFps > 1.0 ? targetFps : 60.0;
-    return 1000.0 / effectiveTarget;
-}
 
 struct PlaybackScopeAccumulator {
     bool active = false;
@@ -140,13 +114,11 @@ void recordIntervalSample(
     double& sessionSumMs,
     double& sessionMaxMs,
     qint64& sessionSampleCount,
-    double& fpsDisplay,
     const PlaybackScopeAccumulator& playbackScope = PlaybackScopeAccumulator{})
 {
     if (!timer.isValid()) {
         timer.start();
         lastSampleNs = 0;
-        fpsDisplay = 0.0;
         return;
     }
 
@@ -159,7 +131,6 @@ void recordIntervalSample(
                 samplesMs[writeIndex] = intervalMs;
                 writeIndex = (writeIndex + 1) % samplesMs.size();
                 sampleCount = qMin(sampleCount + 1, samplesMs.size());
-                fpsDisplay = fpsFromAverageMs(rollingAverageMs(samplesMs, sampleCount));
             }
             sessionSumMs += intervalMs;
             sessionMaxMs = qMax(sessionMaxMs, intervalMs);
@@ -206,6 +177,11 @@ PreviewRuntime::PreviewRuntime(QObject* parent)
     tickIntervalsMs_.fill(0.0);
     updateRequestIntervalsMs_.resize(kPreviewIntervalWindowSize);
     updateRequestIntervalsMs_.fill(0.0);
+    debugMetricsRefreshTimer_ = new QTimer(this);
+    debugMetricsRefreshTimer_->setInterval(250);
+    connect(debugMetricsRefreshTimer_, &QTimer::timeout, this, [this]() {
+        refreshRenderMetricsSnapshot(/*emitHudIfChanged=*/true);
+    });
     publishFrameStateSnapshot();
     connect(assets_, &miacode::preview::runtime::PreviewSceneAssetRepository::assetsChanged, this, [this]() {
         refreshAssetStateFromRepository();
@@ -366,6 +342,53 @@ void PreviewRuntime::notifyVisibleFramePresented()
     handlePresentedFrame();
 }
 
+void PreviewRuntime::recordRenderedFrameSwaps(const QVector<qint64>& swapTimestampsNs)
+{
+    for (const qint64 swapNs : swapTimestampsNs) {
+        renderFpsMonitor_.record(swapNs);
+    }
+    refreshRenderMetricsSnapshot(/*emitHudIfChanged=*/frameState_.render.showDebugInfo);
+}
+
+void PreviewRuntime::markRenderFpsDiscontinuity()
+{
+    renderFpsMonitor_.markDiscontinuity();
+    refreshRenderMetricsSnapshot(/*emitHudIfChanged=*/frameState_.render.showDebugInfo);
+}
+
+void PreviewRuntime::syncDebugMetricsRefreshTimer()
+{
+    if (debugMetricsRefreshTimer_ == nullptr) {
+        return;
+    }
+    if (frameState_.render.showDebugInfo) {
+        if (!debugMetricsRefreshTimer_->isActive()) {
+            debugMetricsRefreshTimer_->start();
+        }
+    } else {
+        debugMetricsRefreshTimer_->stop();
+    }
+}
+
+void PreviewRuntime::refreshRenderMetricsSnapshot(bool emitHudIfChanged)
+{
+    const auto metrics = renderFpsMonitor_.snapshot(
+        miacode::preview::scene::PreviewFrameRateMonitor::steadyNowNs());
+    const auto& prev = frameState_.renderMetrics;
+    const bool changed =
+        prev.active != metrics.active
+        || qAbs(prev.fps - metrics.fps) >= 0.05
+        || qAbs(prev.avgFrameMs - metrics.avgFrameMs) >= 0.05
+        || qAbs(prev.maxFrameMs - metrics.maxFrameMs) >= 0.5
+        || qAbs(prev.low1Fps - metrics.low1Fps) >= 0.05;
+    frameState_.renderMetrics = metrics;
+    frameState_.fpsDisplay = metrics.fps;
+    if (emitHudIfChanged && changed) {
+        publishFrameStateSnapshot(/*sceneFrameChanged=*/false);
+        emit hudMetricsChanged();
+    }
+}
+
 QQuickWindow* PreviewRuntime::visibleHostWindow() const
 {
     return visibleHostWindow_.data();
@@ -406,17 +429,8 @@ void PreviewRuntime::requestFrameUpdate(bool sceneFrameChanged, bool forceWindow
         updateRequestIntervalSumMs_,
         updateRequestIntervalMaxMs_,
         updateRequestIntervalSampleCount_,
-        frameState_.updateRequestFpsDisplay,
         playbackScope
     );
-    {
-        const double thresholdMs = kStutterMultiplier
-            * targetIntervalMsForStutterDetection(frameState_.framePacingTargetFps);
-        frameState_.updateRequestMaxMsDisplay =
-            rollingMaxMs(updateRequestIntervalsMs_, updateRequestIntervalCount_);
-        frameState_.updateRequestStutterCountDisplay = rollingStutterCount(
-            updateRequestIntervalsMs_, updateRequestIntervalCount_, thresholdMs);
-    }
     pendingPresentedStatsRefresh_ = true;
     publishFrameStateSnapshot(sceneFrameChanged);
     emit frameStateChanged();
@@ -476,7 +490,10 @@ void PreviewRuntime::setExternalStageMediaState(const ExternalStageMediaState& s
     if (requestUpdate) {
         update();
     } else {
-        publishFrameStateSnapshot();
+        publishFrameStateSnapshot(/*sceneFrameChanged=*/false);
+        if (frameState_.render.showDebugInfo) {
+            emit hudMetricsChanged();
+        }
     }
 }
 
@@ -934,6 +951,10 @@ void PreviewRuntime::setShowDebugInfo(bool show)
 {
     requestedShowDebugInfo_ = show;
     frameState_.render.showDebugInfo = requestedShowDebugInfo_ && !suppressDebugInfo_;
+    syncDebugMetricsRefreshTimer();
+    if (frameState_.render.showDebugInfo) {
+        refreshRenderMetricsSnapshot(/*emitHudIfChanged=*/false);
+    }
     update();
 }
 
@@ -945,6 +966,10 @@ void PreviewRuntime::setSuppressDebugInfo(bool suppress)
     const bool oldEffective = frameState_.render.showDebugInfo;
     suppressDebugInfo_ = suppress;
     frameState_.render.showDebugInfo = requestedShowDebugInfo_ && !suppressDebugInfo_;
+    syncDebugMetricsRefreshTimer();
+    if (frameState_.render.showDebugInfo) {
+        refreshRenderMetricsSnapshot(/*emitHudIfChanged=*/false);
+    }
     appendHudStateDiagLine(
         QStringLiteral("set_suppress_debug_info"),
         QStringLiteral("runtime=%1 state=%2 suppress=%3 requested=%4 old_effective=%5 new_effective=%6")
@@ -1158,14 +1183,7 @@ void PreviewRuntime::reset(bool releaseStorage)
     frameState_.media = miacode::preview::scene::PreviewMediaFrameState();
     frameState_.media.presentationMode = presentationMode;
     frameState_.fpsDisplay = 0.0;
-    frameState_.tickFpsDisplay = 0.0;
-    frameState_.updateRequestFpsDisplay = 0.0;
-    frameState_.presentMaxMsDisplay = 0.0;
-    frameState_.tickMaxMsDisplay = 0.0;
-    frameState_.updateRequestMaxMsDisplay = 0.0;
-    frameState_.presentStutterCountDisplay = 0;
-    frameState_.tickStutterCountDisplay = 0;
-    frameState_.updateRequestStutterCountDisplay = 0;
+    frameState_.renderMetrics = {};
     frameState_.tickCount = 0;
     frameState_.updateRequestCount = 0;
     frameState_.presentedFrameCount = 0;
@@ -1198,17 +1216,8 @@ void PreviewRuntime::noteTickForProfiling()
         tickIntervalSumMs_,
         tickIntervalMaxMs_,
         tickIntervalSampleCount_,
-        frameState_.tickFpsDisplay,
         playbackScope
     );
-    {
-        const double thresholdMs = kStutterMultiplier
-            * targetIntervalMsForStutterDetection(frameState_.framePacingTargetFps);
-        frameState_.tickMaxMsDisplay =
-            rollingMaxMs(tickIntervalsMs_, tickIntervalCount_);
-        frameState_.tickStutterCountDisplay = rollingStutterCount(
-            tickIntervalsMs_, tickIntervalCount_, thresholdMs);
-    }
     publishFrameStateSnapshot();
 }
 
@@ -1553,6 +1562,7 @@ void PreviewRuntime::setActivePlaybackProfilingEnabled(bool enabled)
         return;
     }
     activePlaybackProfiling_ = enabled;
+    renderFpsMonitor_.markDiscontinuity();
     if (enabled) {
         // Reset playback-scope accumulators so pause gaps don't leak into the next run.
         playbackPresentedFrameIntervalSumMs_ = 0.0;
@@ -1600,14 +1610,8 @@ void PreviewRuntime::resetProfilingSession()
     updateRequestIntervalMaxMs_ = 0.0;
     updateRequestIntervalSampleCount_ = 0;
     frameState_.fpsDisplay = 0.0;
-    frameState_.tickFpsDisplay = 0.0;
-    frameState_.updateRequestFpsDisplay = 0.0;
-    frameState_.presentMaxMsDisplay = 0.0;
-    frameState_.tickMaxMsDisplay = 0.0;
-    frameState_.updateRequestMaxMsDisplay = 0.0;
-    frameState_.presentStutterCountDisplay = 0;
-    frameState_.tickStutterCountDisplay = 0;
-    frameState_.updateRequestStutterCountDisplay = 0;
+    frameState_.renderMetrics = {};
+    renderFpsMonitor_.reset();
     frameState_.tickCount = 0;
     frameState_.updateRequestCount = 0;
     frameState_.presentedFrameCount = 0;
@@ -1724,12 +1728,12 @@ QString PreviewRuntime::writeProfilingSummaryToFile()
     stream << "tick_total=" << tickCountTotal_ << '\n';
     stream << "tick_avg_ms=" << QString::number(tickSessionAvgMs, 'f', 4) << '\n';
     stream << "tick_max_ms=" << QString::number(tickIntervalMaxMs_, 'f', 4) << '\n';
-    stream << "tick_fps=" << QString::number(frameState_.tickFpsDisplay, 'f', 4) << '\n';
+    stream << "tick_fps=" << QString::number(fpsFromAverageMs(rollingAverageMs(tickIntervalsMs_, tickIntervalCount_)), 'f', 4) << '\n';
     stream << "tick_session_fps=" << QString::number(fpsFromAverageMs(tickSessionAvgMs), 'f', 4) << '\n';
     stream << "update_requests_total=" << updateRequestCountTotal_ << '\n';
     stream << "update_request_avg_ms=" << QString::number(updateRequestSessionAvgMs, 'f', 4) << '\n';
     stream << "update_request_max_ms=" << QString::number(updateRequestIntervalMaxMs_, 'f', 4) << '\n';
-    stream << "update_request_fps=" << QString::number(frameState_.updateRequestFpsDisplay, 'f', 4) << '\n';
+    stream << "update_request_fps=" << QString::number(fpsFromAverageMs(rollingAverageMs(updateRequestIntervalsMs_, updateRequestIntervalCount_)), 'f', 4) << '\n';
     stream << "update_request_session_fps="
            << QString::number(fpsFromAverageMs(updateRequestSessionAvgMs), 'f', 4) << '\n';
     stream << "fixed_timer.late_wakeups=" << fixedTimerLateWakeupCount_ << '\n';
@@ -2236,17 +2240,8 @@ void PreviewRuntime::updatePresentedFrameStats()
         presentedFrameIntervalSumMs_,
         presentedFrameIntervalMaxMs_,
         presentedFrameIntervalSampleCount_,
-        frameState_.fpsDisplay,
         playbackScope
     );
-    {
-        const double thresholdMs = kStutterMultiplier
-            * targetIntervalMsForStutterDetection(frameState_.framePacingTargetFps);
-        frameState_.presentMaxMsDisplay =
-            rollingMaxMs(presentedFrameIntervalsMs_, presentedFrameIntervalCount_);
-        frameState_.presentStutterCountDisplay = rollingStutterCount(
-            presentedFrameIntervalsMs_, presentedFrameIntervalCount_, thresholdMs);
-    }
     frameState_.usedGpuRendererThisFrame = true;
     frameState_.cpuFallbackCount = 0;
 }

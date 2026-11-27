@@ -82,6 +82,7 @@ void PreviewStageMediaHost::preparePlaybackStart(double seconds, quint64 transac
     videoPlaybackActive_ = false;
     videoPlaybackPendingStart_ = false;
     videoPlaybackActiveElapsed_.invalidate();
+    videoFpsMonitor_.markDiscontinuity();
     lastTimelineSecond_ = clampedSecond;
     const qint64 targetMs = qMax<qint64>(0, qRound64((clampedSecond + timelineOffsetSeconds_) * 1000.0));
     preparedPlaybackTargetMs_ = targetMs;
@@ -281,6 +282,7 @@ void PreviewStageMediaHost::setPlayheadSeconds(double seconds)
     }
     lastSeekMs_ = targetMs;
     sealPendingVideoFrameDelivery();
+    videoFpsMonitor_.markDiscontinuity();
     player_->seek(targetMs);
     emit diagnosticsChanged();
 }
@@ -290,6 +292,7 @@ void PreviewStageMediaHost::startPlayback(double seconds)
 {
     MC_OP("PreviewStageMediaHost::startPlayback");
     transportPlaying_ = true;
+    videoFpsMonitor_.markDiscontinuity();
     recordPvMemoryBoundary(PvMemoryBoundary::Play);
     // This start owns the transport from here; a stale-EndOfMedia recovery seek still
     // in flight must not resume on this start's own seek acknowledgement.
@@ -411,6 +414,7 @@ void PreviewStageMediaHost::submitPausedSeek(double seconds, quint64 generation)
     }
     lastSeekMs_ = targetMs;
     sealPendingVideoFrameDelivery();
+    videoFpsMonitor_.markDiscontinuity();
     player_->seek(targetMs);
     schedulePausedSeekTimeout(generation, targetMs);
     emit diagnosticsChanged();
@@ -514,6 +518,7 @@ void PreviewStageMediaHost::pausePlayback()
     videoPlaybackActive_ = false;
     videoPlaybackPendingStart_ = false;
     videoPlaybackActiveElapsed_.invalidate();
+    videoFpsMonitor_.markDiscontinuity();
     preparedPlaybackPending_ = false;
     preparedPlaybackReady_ = false;
     preparedPlaybackLandingConfirmed_ = false;

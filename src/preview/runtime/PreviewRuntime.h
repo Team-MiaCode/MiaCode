@@ -19,6 +19,7 @@
 #include "preview/runtime/PreviewSceneAssetRepository.h"
 
 class QQuickWindow;
+class QTimer;
 class QVideoFrame;
 
 struct PreviewRuntimeLayerProfileAggregate {
@@ -94,6 +95,8 @@ public:
     void setVisibleHostWindow(QQuickWindow* window);
     void clearVisibleHostWindow(QQuickWindow* window);
     void notifyVisibleFramePresented();
+    void recordRenderedFrameSwaps(const QVector<qint64>& swapTimestampsNs);
+    void markRenderFpsDiscontinuity();
     // Called from the QSG render thread when the firework layer emits a node;
     // drives the firework warm-up completion check (atomic — thread-safe).
     void notifyFireworkLayerPresentedNode();
@@ -272,6 +275,7 @@ public:
 
 signals:
     void frameStateChanged();
+    void hudMetricsChanged();
     void framePresented();
     void framePreparing();
     void visibleHostRefreshRateChanged();
@@ -285,6 +289,8 @@ private:
     void handlePresentedFrame();
     void refreshAssetStateFromRepository();
     void updatePresentedFrameStats();
+    void refreshRenderMetricsSnapshot(bool emitHudIfChanged);
+    void syncDebugMetricsRefreshTimer();
     // Firework PSO/texture warm-up (in-process QML preview path). See the
     // member-variable block below for the full rationale.
     void armFireworkPsoWarmupIfReady();
@@ -344,6 +350,8 @@ private:
     double presentedFrameIntervalSumMs_ = 0.0;
     double presentedFrameIntervalMaxMs_ = 0.0;
     qint64 presentedFrameIntervalSampleCount_ = 0;
+    miacode::preview::scene::PreviewFrameRateMonitor renderFpsMonitor_;
+    QTimer* debugMetricsRefreshTimer_ = nullptr;
     QElapsedTimer tickTimer_;
     qint64 lastTickNs_ = -1;
     QVector<double> tickIntervalsMs_;

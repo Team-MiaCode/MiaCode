@@ -155,6 +155,7 @@ miacode_add_module(miacode_scene
         src/core/scene/PreviewChartReviewLayerState.h
         src/core/scene/PreviewCircleDescriptor.h
         src/core/scene/PreviewFireworkWarmupPolicy.h
+        src/core/scene/PreviewFrameRateMonitor.h
         src/core/scene/PreviewFrameState.h
         src/core/scene/PreviewGuideLayerState.cpp
         src/core/scene/PreviewGuideLayerState.h
