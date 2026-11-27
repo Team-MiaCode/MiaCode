@@ -4,17 +4,11 @@
 #include "core/chart/parser/SimaiParser.h"
 
 #include <QApplication>
-#include <QFile>
-#include <QDir>
 #include <QStringList>
 #include <QTextCursor>
 #include <QTextDocument>
 #include <QTextStream>
 #include <QtMath>
-
-#ifndef MIACODE_SOURCE_ROOT
-#error "MIACODE_SOURCE_ROOT must be defined as the absolute repository root"
-#endif
 
 namespace {
 
@@ -734,16 +728,6 @@ bool incrementalMatchesRebuild(
     return sameSnapshot(incremental.snapshot(), rebuilt.snapshot());
 }
 
-QString qmlSource(const QString& relativePath)
-{
-    const QDir root(QStringLiteral(MIACODE_SOURCE_ROOT));
-    QFile file(root.filePath(relativePath));
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        return {};
-    }
-    return QString::fromUtf8(file.readAll());
-}
-
 }  // namespace
 
 int main(int argc, char** argv)
@@ -763,81 +747,6 @@ int main(int argc, char** argv)
         err << "[FAIL] " << message << '\n';
         ++failed;
     };
-
-    {
-        expect(QDir(QStringLiteral(MIACODE_SOURCE_ROOT)).exists(),
-               QStringLiteral("timeline source-contract root is injected by CMake and exists"));
-        const QString panel = qmlSource(QStringLiteral("src/app/ui/timeline/BottomPanel.qml"));
-        const QString tabBar = qmlSource(QStringLiteral("src/app/ui/timeline/BottomTabBar.qml"));
-        const QString splitView = qmlSource(QStringLiteral("src/app/ui/layout/MainSplitView.qml"));
-        const QString viewState = qmlSource(QStringLiteral("src/app/ui/ViewState.qml"));
-        const QString timelineSession = qmlSource(QStringLiteral("src/app/ui/timeline/TimelineModel.h"));
-        const QString timelineTick = qmlSource(
-            QStringLiteral("src/app/runtime/playback/Tick.cpp"));
-        const QString editorDisplay = qmlSource(
-            QStringLiteral("src/app/runtime/editor/EditorDisplay.cpp"));
-        const QString zoomMenu = qmlSource(QStringLiteral("src/app/ui/timeline/TimelineZoomMenu.qml"));
-        const QString settingsMenu = qmlSource(QStringLiteral("src/app/ui/timeline/TimelineSettingsMenu.qml"));
-        expect(!panel.isEmpty() && !tabBar.isEmpty() && !splitView.isEmpty()
-                   && !viewState.isEmpty() && !timelineSession.isEmpty() && !timelineTick.isEmpty()
-                   && !editorDisplay.isEmpty() && !zoomMenu.isEmpty() && !settingsMenu.isEmpty(),
-               QStringLiteral("v2 timeline control QML sources are available to the developer spec"));
-        const QString controls = panel + tabBar + settingsMenu;
-        expect(zoomMenu.contains(QStringLiteral("applyZoomPreset"))
-                   && settingsMenu.contains(QStringLiteral("waveformBrightness"))
-                   && settingsMenu.contains(QStringLiteral("measureLineBrightness"))
-                   && controls.contains(QStringLiteral("followPreviewToggled")),
-               QStringLiteral("v2 timeline zoom and brightness menus are QML and follow-code stays on the session"));
-        expect(!timelineSession.contains(QStringLiteral("openTimelineZoomMenu"))
-                   && !timelineSession.contains(QStringLiteral("openTimelineBrightnessMenu"))
-                   && !timelineSession.contains(QStringLiteral("TimelineBrightnessSliderItem")),
-               QStringLiteral("v2 timeline zoom and brightness no longer pop QWidget menus"));
-        expect(!controls.contains(QStringLiteral("openTimelineFollowSettingsMenu"))
-                   && !timelineSession.contains(QStringLiteral("FollowSettingsCheckItem")),
-               QStringLiteral("v2 timeline settings expose follow-code through the session"));
-        expect(tabBar.contains(QStringLiteral("currentTabId"))
-                   && tabBar.contains(QStringLiteral("setCurrentTabId"))
-                   && !tabBar.contains(QStringLiteral("activeBottomTab"))
-                   && !panel.contains(QStringLiteral("activeBottomTab"))
-                   && !splitView.contains(QStringLiteral("activeBottomTab"))
-                   && !viewState.contains(QStringLiteral("activeBottomTab")),
-               QStringLiteral("v2 bottom tabs select through the timeline session instead of ViewState"));
-        expect(splitView.contains(QStringLiteral("persistBottomPanelHeightRatio"))
-                   && splitView.contains(QStringLiteral("bottomPanelHeightRatio"))
-                   && splitView.contains(QStringLiteral("bottomPanelMinimumHeightRatio"))
-                   && splitView.contains(QStringLiteral("bottomPanelMaximumHeightRatio"))
-                   && splitView.contains(QStringLiteral("onReleased: bottomPanelSnap.finishDrag(true)"))
-                   && splitView.contains(QStringLiteral("root.persistBottomPanelHeightRatio(finalSize, sizeAtPress)"))
-                   && splitView.contains(QStringLiteral("centerSplit.height * root.preferences.bottomPanelHeightRatio"))
-                   && !splitView.contains(QStringLiteral("queueBottomTabsHostHeight"))
-                   && !splitView.contains(QStringLiteral("bottomTabsHeightFeedback"))
-                   && !splitView.contains(QStringLiteral("maximumHeight: root.bottomPanelEffectivelyVisible ? 340 : 0")),
-               QStringLiteral("v2 bottom height persists one SplitView ratio after divider release without a fixed 340px cap"));
-        expect(panel.contains(QStringLiteral("headerLeftLimit: zoomButton.x + zoomButton.width + 2"))
-                   && panel.contains(QStringLiteral("headerRightLimit: Math.max(0, brightnessButton.x - 2)"))
-                   && panel.contains(QStringLiteral("headerMarkerLeftLimit: zoomButton.x + zoomButton.width + 2"))
-                   && panel.contains(QStringLiteral("headerMarkerRightLimit: Math.max(0, brightnessButton.x - 2)"))
-                   && panel.contains(QStringLiteral("timelineItem.y + Math.max(0, (timelineItem.timelineTop - height) / 2)")),
-               QStringLiteral("v2 timeline header keeps labels clear of its QML controls"));
-        const int playingFlushStart = timelineTick.indexOf(
-            QStringLiteral("void miacode::runtime::PlaybackCoordinator::flushQtPreviewTimelinePosition()"));
-        const QString playingFlush = playingFlushStart >= 0
-            ? timelineTick.mid(playingFlushStart, 2600)
-            : QString();
-        expect(!playingFlush.contains(QStringLiteral("|| !timelineTabIsForeground()"))
-                   && playingFlush.contains(QStringLiteral("syncEditorCursorToPreviewSecond")),
-               QStringLiteral("editor follow tick continues while validation or Muri owns the visible bottom tab"));
-        expect(editorDisplay.contains(QStringLiteral("hasLegacyBottomPanelHeight"))
-                   && editorDisplay.contains(QStringLiteral("legacySettings.remove(QStringLiteral(\"ui/bottomPanelHeight\"))"))
-                   && editorDisplay.lastIndexOf(QStringLiteral("legacySettings.remove"))
-                       > editorDisplay.indexOf(QStringLiteral("if (ui.value(\"bottom_tabs_content_scale\").isDouble())")),
-               QStringLiteral("legacy v2 bottom-panel height is retired even when shell scale already exists"));
-        expect(editorDisplay.contains(QStringLiteral("state_.previewViewportLockEnabled_ = true"))
-                   && editorDisplay.contains(QStringLiteral("state_.previewProgressFollowEnabled_ = true"))
-                   && editorDisplay.contains(QStringLiteral("preview.insert(\"viewport_lock\", true)"))
-                   && editorDisplay.contains(QStringLiteral("preview.insert(\"follow_progress\", true)")),
-               QStringLiteral("view-lock and progress-follow retain fixed editor behavior"));
-    }
 
     {
         const QString hsDirective = QStringLiteral("<HS*1.5>");

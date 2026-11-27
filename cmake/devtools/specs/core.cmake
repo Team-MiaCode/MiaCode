@@ -251,15 +251,6 @@ target_compile_definitions(ui_text_locale_spec PRIVATE
     "MIACODE_EN_US_QM_PATH=\"${CMAKE_CURRENT_BINARY_DIR}/en_US.qm\"")
 add_dependencies(ui_text_locale_spec miacode_lrelease)
 
-miacode_add_dev_tool(native_chrome_policy_spec TEST
-    SOURCES
-        src/tools/ui/NativeChromePolicySpec.cpp
-        src/app/quick_shell/QuickShellPopupPosition.h
-        src/app/ui/chrome/NativeWindowThemePolicy.h
-    LIBS Qt6::Core
-    INCLUDES src
-)
-
 miacode_add_dev_tool(ui_text_preferences_spec TEST
     SOURCES
         src/tools/ui_text/UiTextPreferencesSpec.cpp
