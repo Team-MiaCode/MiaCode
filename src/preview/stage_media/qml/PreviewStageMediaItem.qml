@@ -5,6 +5,7 @@ import QtQuick.Effects
 Item {
     id: root
     property var mediaHost: null
+    property bool surfaceActive: true
     property alias videoOutputObject: previewStageVideoOutput
     property alias innerVideoOutputObject: previewStageInnerVideoOutput
 
@@ -62,6 +63,10 @@ Item {
                 && root.mediaHost.hasVideoMedia
                 && root.mediaHost.hasVideoFrame
             fillMode: root.fitContain ? VideoOutput.PreserveAspectFit : VideoOutput.PreserveAspectCrop
+            onVisibleChanged: {
+                if (visible && root.surfaceActive && root.mediaHost && root.mediaHost.refreshVideoOutputFrames)
+                    root.mediaHost.refreshVideoOutputFrames()
+            }
         }
     }
 
@@ -96,6 +101,10 @@ Item {
                 && root.mediaHost.hasVideoMedia
                 && root.mediaHost.hasVideoFrame
             fillMode: VideoOutput.PreserveAspectFit
+            onVisibleChanged: {
+                if (visible && root.surfaceActive && root.mediaHost && root.mediaHost.refreshVideoOutputFrames)
+                    root.mediaHost.refreshVideoOutputFrames()
+            }
         }
     }
 
@@ -117,7 +126,7 @@ Item {
         id: innerCircleFitTexture
         sourceItem: innerCircleFitSource
         hideSource: true
-        live: root.innerCircleFitOuterFill
+        live: root.innerCircleFitOuterFill && root.surfaceActive
         visible: false
     }
 
@@ -125,7 +134,7 @@ Item {
         id: innerCircleMaskTexture
         sourceItem: innerCircleMaskSource
         hideSource: true
-        live: root.innerCircleFitOuterFill
+        live: root.innerCircleFitOuterFill && root.surfaceActive
         visible: false
     }
 

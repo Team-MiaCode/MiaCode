@@ -134,7 +134,6 @@ Rectangle {
                     : root.fittedFrameHeight(parent.width, parent.height)
             readonly property bool presenting: root.surfaceActive && root.visible
                 && !!root.Window.window && root.Window.window.visible
-                && root.Window.window.visibility !== Window.Minimized
                 && width >= 64 && height >= 64
             // Keep each surface in its own window after its first activation.
             property bool initialized: false
@@ -146,7 +145,7 @@ Rectangle {
             sourceComponent: Preview.PreviewSurface {
                 anchors.fill: parent
                 runtime: previewSurfaceLoader.presenting ? root.previewSession.runtime : null
-                mediaHost: previewSurfaceLoader.presenting ? root.previewSession.mediaHost : null
+                mediaHost: root.previewSession.mediaHost
                 logger: root.previewSession
                 surfaceRole: root.detached ? "detached" : "workspace"
                 backgroundColor: "transparent"

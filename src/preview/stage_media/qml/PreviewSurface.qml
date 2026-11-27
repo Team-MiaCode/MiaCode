@@ -59,6 +59,14 @@ Item {
         logger.logPreviewInteraction(action, payload)
     }
 
+    function refreshActiveVideoOutput() {
+        if (attachedMediaHost && visible && hostWindow && hostWindow.visible
+                && hostWindow.visibility !== Window.Minimized
+                && attachedMediaHost.refreshVideoOutputFrames) {
+            attachedMediaHost.refreshVideoOutputFrames()
+        }
+    }
+
     function syncVideoOutputBinding() {
         const videoOutput = previewStageMedia.videoOutputObject
         const innerVideoOutput = previewStageMedia.innerVideoOutputObject
@@ -71,8 +79,6 @@ Item {
                 attachedMediaHost.detachVideoOutputObjects(attachedVideoOutputObject, attachedInnerVideoOutputObject)
             else
                 attachedMediaHost.detachVideoOutputObject(attachedVideoOutputObject)
-            attachedVideoOutputObject?.clearOutput()
-            attachedInnerVideoOutputObject?.clearOutput()
             logSurface(
                 "preview_surface_video_output_detach",
                 "has_video_output=" + (attachedVideoOutputObject ? 1 : 0)
@@ -119,8 +125,14 @@ Item {
     onRuntimeChanged: logSurface("preview_surface_runtime_changed")
     onXChanged: geometryLogTimer.restart()
     onYChanged: geometryLogTimer.restart()
-    onWidthChanged: geometryLogTimer.restart()
-    onHeightChanged: geometryLogTimer.restart()
+    onWidthChanged: {
+        syncVideoOutputBinding()
+        geometryLogTimer.restart()
+    }
+    onHeightChanged: {
+        syncVideoOutputBinding()
+        geometryLogTimer.restart()
+    }
     Component.onCompleted: {
         syncVideoOutputBinding()
         geometryLogTimer.restart()
@@ -156,12 +168,22 @@ Item {
             root.syncVideoOutputBinding()
             root.logSurface("preview_surface_window_visible_changed")
         }
+
+        function onVisibilityChanged() {
+            root.syncVideoOutputBinding()
+            root.refreshActiveVideoOutput()
+        }
+
+        function onSceneGraphInitialized() {
+            root.refreshActiveVideoOutput()
+        }
     }
 
     PreviewRuntimeQml.PreviewStageMediaItem {
         id: previewStageMedia
         anchors.fill: parent
         z: 0
+        surfaceActive: root.visible
         mediaHost: root.mediaHost
         // NOTE — keep visible:true. See the comment above
         // PreviewQuickSceneRoot for why hiding QML items in this

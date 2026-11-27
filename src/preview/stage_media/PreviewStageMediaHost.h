@@ -56,6 +56,7 @@ public:
     Q_INVOKABLE void attachVideoOutputObjects(QObject* videoOutputObject, QObject* innerVideoOutputObject);
     Q_INVOKABLE void detachVideoOutputObject(QObject* videoOutputObject);
     Q_INVOKABLE void detachVideoOutputObjects(QObject* videoOutputObject, QObject* innerVideoOutputObject);
+    Q_INVOKABLE void refreshVideoOutputFrames();
 
     bool hasResolvedMedia() const;
     bool hasVideoMedia() const;
@@ -171,6 +172,9 @@ private:
     QString resolveStageMediaPath(const QString& chartPath, const QString& chartVideoOverridePath) const;
     void loadImageMedia(const QString& path);
     void loadVideoMedia(const QString& path);
+    static QVideoSink* resolveVideoSink(QObject* videoOutputObject);
+    static void clearVideoOutputSink(QObject* videoOutputObject);
+    static void pushVideoFrameToSink(QVideoSink* sink, const QVideoFrame& frame, bool forceRepush = false);
     void bindVideoOutput();
     void schedulePreparedPlaybackTimeout(quint64 transactionId, qint64 targetMs);
     void schedulePausedSeekTimeout(quint64 generation, qint64 targetMs);

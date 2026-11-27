@@ -687,7 +687,8 @@ void PreviewQuickSceneRoot::syncVisibleHostWindowBinding(const char* reason)
     if (previousBoundWindow != boundWindow_) {
         clearPendingTextureStatsForPresentation();
     }
-    if (runtime_ == nullptr || boundWindow_ == nullptr || !isVisible() || !boundWindow_->isVisible()) {
+    if (runtime_ == nullptr || boundWindow_ == nullptr || !isVisible()
+        || !boundWindow_->isVisible() || boundWindow_->visibility() == QWindow::Minimized) {
         appendQuickSceneLog(
             QStringLiteral("visible_host_skip"),
             QString("%1 reason=%2 runtime=%3 window=%4 item_visible=%5 window_visible=%6")

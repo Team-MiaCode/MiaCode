@@ -298,8 +298,8 @@ Item {
         preview.closeMenus()
         root.previewSurfaceMoving = true
         detachedPreviewWindow.windowChrome.saveWindowState()
-        root.preferences.previewDetached = false
         detachedPreviewWindow.hide()
+        root.preferences.previewDetached = false
         root.Window.window.requestActivate()
         Qt.callLater(root.finishPreviewMove)
     }
@@ -307,7 +307,7 @@ Item {
     Connections {
         target: root.Window.window
         function onVisibleChanged() {
-            if (root.Window.window.visible && root.previewDetached)
+            if (root.Window.window.visible && root.previewDetached && !detachedPreviewWindow.visible)
                 root.detachPreview()
         }
     }
@@ -353,7 +353,7 @@ Item {
     component WorkbenchPreviewPane: PreviewPane {
         anchors.fill: parent
         documentAvailable: root.documentSession.hasDocument
-        surfaceActive: !root.previewSurfaceMoving && detached === root.previewDetached
+        surfaceActive: detached === root.previewDetached
         transportMirrored: root.previewOnLeft
         previewSession: root.previewSession
         preferences: root.preferences

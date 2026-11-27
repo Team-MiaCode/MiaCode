@@ -95,6 +95,14 @@ void PreviewStageMediaHost::attachVideoOutputObjects(QObject* videoOutputObject,
     if (videoOutputObject_ == videoOutputObject && innerVideoOutputObject_ == innerVideoOutputObject) {
         return;
     }
+    if (videoOutputObject_ != nullptr && videoOutputObject_ != videoOutputObject) {
+        clearVideoOutputSink(videoOutputObject_);
+    }
+    if (innerVideoOutputObject_ != nullptr
+        && innerVideoOutputObject_ != innerVideoOutputObject
+        && innerVideoOutputObject_ != videoOutputObject_) {
+        clearVideoOutputSink(innerVideoOutputObject_);
+    }
     videoOutputObject_ = videoOutputObject;
     innerVideoOutputObject_ = innerVideoOutputObject;
     bindVideoOutput();
@@ -108,6 +116,10 @@ void PreviewStageMediaHost::detachVideoOutputObject(QObject* videoOutputObject)
 
 void PreviewStageMediaHost::detachVideoOutputObjects(QObject* videoOutputObject, QObject* innerVideoOutputObject)
 {
+    clearVideoOutputSink(videoOutputObject);
+    if (innerVideoOutputObject != nullptr && innerVideoOutputObject != videoOutputObject) {
+        clearVideoOutputSink(innerVideoOutputObject);
+    }
     if (videoOutputObject_ == nullptr || videoOutputObject == nullptr) {
         return;
     }

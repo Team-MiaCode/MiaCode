@@ -224,7 +224,7 @@ PreviewStageMediaHost::InnerVideoSinkRefresh PreviewStageMediaHost::refreshInner
     }
     if (innerVideoSinkActive()) {
         if (lastVideoFrame_.isValid()) {
-            innerVideoSink_->setVideoFrame(lastVideoFrame_);
+            pushVideoFrameToSink(innerVideoSink_, lastVideoFrame_, /*forceRepush=*/true);
             return InnerVideoSinkRefresh::Primed;
         }
         // Entered the mode with nothing retained — the inner circle stays blank
@@ -583,6 +583,46 @@ void PreviewStageMediaHost::loadVideoMedia(const QString& path)
     return;
 }
 
+QVideoSink* PreviewStageMediaHost::resolveVideoSink(QObject* videoOutputObject)
+{
+    if (videoOutputObject == nullptr) {
+        return nullptr;
+    }
+    const QVariant sinkVariant = videoOutputObject->property("videoSink");
+    return sinkVariant.isValid() ? qobject_cast<QVideoSink*>(sinkVariant.value<QObject*>()) : nullptr;
+}
+
+void PreviewStageMediaHost::clearVideoOutputSink(QObject* videoOutputObject)
+{
+    if (QVideoSink* sink = resolveVideoSink(videoOutputObject)) {
+        sink->setVideoFrame(QVideoFrame());
+    }
+}
+
+void PreviewStageMediaHost::pushVideoFrameToSink(QVideoSink* sink, const QVideoFrame& frame, bool forceRepush)
+{
+    if (sink == nullptr || !frame.isValid()) {
+        return;
+    }
+    if (forceRepush && sink->videoFrame() == frame) {
+        // Force a sink-level change when QQuickVideoOutput dropped its cached frame
+        // (clearOutput, hide/show, or sceneGraphInvalidated) while the sink still holds it.
+        sink->setVideoFrame(QVideoFrame());
+    }
+    sink->setVideoFrame(frame);
+}
+
+void PreviewStageMediaHost::refreshVideoOutputFrames()
+{
+    if (!lastVideoFrame_.isValid()) {
+        return;
+    }
+    pushVideoFrameToSink(videoSink_, lastVideoFrame_, /*forceRepush=*/true);
+    if (innerVideoSinkActive() && innerVideoSink_ != videoSink_) {
+        pushVideoFrameToSink(innerVideoSink_, lastVideoFrame_, /*forceRepush=*/true);
+    }
+}
+
 void PreviewStageMediaHost::bindVideoOutput()
 {
     // Push model: resolve the QVideoSink owned by the QML VideoOutput; decoded
@@ -591,25 +631,12 @@ void PreviewStageMediaHost::bindVideoOutput()
     // generation), so this only (re)binds the sink target.
     videoSink_.clear();
     innerVideoSink_.clear();
-    const auto resolveSink = [](QObject* videoOutputObject) -> QVideoSink* {
-        if (videoOutputObject == nullptr) {
-            return nullptr;
-        }
-        QObject* sinkObject = nullptr;
-        const QVariant sinkVariant = videoOutputObject->property("videoSink");
-        if (sinkVariant.isValid()) {
-            sinkObject = sinkVariant.value<QObject*>();
-        }
-        return qobject_cast<QVideoSink*>(sinkObject);
-    };
-    videoSink_ = resolveSink(videoOutputObject_);
-    innerVideoSink_ = resolveSink(innerVideoOutputObject_);
+    videoSink_ = resolveVideoSink(videoOutputObject_);
+    innerVideoSink_ = resolveVideoSink(innerVideoOutputObject_);
     if (lastVideoFrame_.isValid()) {
-        if (videoSink_ != nullptr) {
-            videoSink_->setVideoFrame(lastVideoFrame_);
-        }
+        pushVideoFrameToSink(videoSink_, lastVideoFrame_, /*forceRepush=*/true);
         if (innerVideoSinkActive() && innerVideoSink_ != videoSink_) {
-            innerVideoSink_->setVideoFrame(lastVideoFrame_);
+            pushVideoFrameToSink(innerVideoSink_, lastVideoFrame_, /*forceRepush=*/true);
         }
     }
     appendPreviewStageMediaLog(
