@@ -531,7 +531,6 @@ add_executable(MiaCode WIN32 MACOSX_BUNDLE
     src/app/ui/theme/UiTheme.cpp
     src/app/ui/chrome/NativeWindowTheme.h
     src/app/ui/chrome/NativeWindowTheme.cpp
-    src/app/ui/chrome/NativeWindowThemePolicy.h
     src/app/runtime/shell/WindowParityMetrics.h
     src/app/runtime/shell/WindowParityMetrics.cpp
     src/app/services/Id3TagReader.h
@@ -682,6 +681,7 @@ set(MIACODE_UI_QML_FILES
     src/app/ui/components/SettingsSection.qml
     src/app/ui/components/JobProgressOverlay.qml
     src/app/ui/components/ImageSequence.qml
+    src/app/ui/chrome/AppWindow.qml
     src/app/ui/chrome/WindowGestureArea.qml
     src/app/ui/chrome/WindowTitleBar.qml
     src/app/ui/chrome/WindowCaptionButtons.qml
@@ -1088,12 +1088,11 @@ miacode_enable_native_file_dialogs(MiaCode)
 
 if (APPLE)
     target_sources(MiaCode PRIVATE
-        src/app/ui/chrome/NativeWindowThemeMac.h
-        src/app/ui/chrome/NativeWindowThemeMac.mm
         src/app/ui/chrome/WindowChrome.mm
         src/app/ui/pet/PetNativeWindowMac.mm
         src/app/ui/preferences/ApplicationMenuTranslationMac.mm
     )
+    set_source_files_properties(src/app/ui/chrome/WindowChrome.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
     target_link_libraries(MiaCode PRIVATE "-framework AppKit" "-framework QuartzCore")
 endif()
 

@@ -78,7 +78,6 @@ Bootstrap::~Bootstrap()
     if (netService_) { netService_->setPreviewOpenHandler({}); netService_->setDocumentSnapshotHandler({}); }
     applicationContext_.reset();
     backend_.reset();
-    if (jobRegistry_) jobRegistry_->cancelAll();
     if (applicationServices_) applicationServices_->setNetService(nullptr);
     netService_.reset();
     netProvider_.reset();
@@ -190,17 +189,13 @@ bool Bootstrap::start(const QString& startupOpenTarget)
         engine_.get(), static_cast<PreviewModel*>(applicationContext_->preview()));
     ChartLibraryModel::registerCoverProvider(*engine_);
 
+    auto* const chromeSettings = qobject_cast<WorkbenchSettings*>(applicationContext_->preferences());
     windowChrome_ = std::make_unique<WindowChrome>(this);
-    if (auto* settings = qobject_cast<WorkbenchSettings*>(applicationContext_->preferences())) {
-        windowChrome_->setBlurMaterialsEnabled(settings->blurMaterialsEnabled());
-        connect(settings, &WorkbenchSettings::blurMaterialsEnabledChanged, this, [this, settings] {
-            windowChrome_->setBlurMaterialsEnabled(settings->blurMaterialsEnabled());
-            if (detachedPreviewWindowChrome_) {
-                detachedPreviewWindowChrome_->setBlurMaterialsEnabled(settings->blurMaterialsEnabled());
-            }
-        });
-    }
+    windowChrome_->bindPreferences(chromeSettings);
+    detachedPreviewWindowChrome_ = std::make_unique<WindowChrome>(this);
+    detachedPreviewWindowChrome_->bindPreferences(chromeSettings);
     applicationContext_->setWindowChrome(windowChrome_.get());
+    applicationContext_->setDetachedPreviewWindowChrome(detachedPreviewWindowChrome_.get());
 
     QObject::connect(
         engine_.get(),
@@ -320,29 +315,20 @@ bool Bootstrap::start(const QString& startupOpenTarget)
 
         if (auto* previewWindow = window->findChild<QQuickWindow*>(
                 QStringLiteral("detachedPreviewWindow")); previewWindow != nullptr) {
-            detachedPreviewWindowChrome_ = std::make_unique<WindowChrome>(this);
-            detachedPreviewWindowChrome_->setBlurMaterialsEnabled(windowChrome_->blurMaterialsEnabled());
-            previewWindow->setIcon(appIcon_);
+            if (!appIcon_.isNull()) {
+                previewWindow->setIcon(appIcon_);
+            }
+            miacode::app::entry::bindHighPerformanceQuickGraphicsDevice(
+                previewWindow, QStringLiteral("detached_preview_window"), /*preferVideoShareDevice=*/false);
             detachedPreviewWindowChrome_->attach(previewWindow, QStringLiteral("preview_window"));
-            previewWindow->setProperty("windowChrome",
-                QVariant::fromValue<QObject*>(detachedPreviewWindowChrome_.get()));
+            if (previewWindow->property("alwaysOnTop").toBool()) {
+                detachedPreviewWindowChrome_->setAlwaysOnTop(true);
+            }
         }
 
         window->setVisible(false);
         windowChrome_->attach(window);
         appendUiRuntimeLog(QStringLiteral("window_chrome_attached"));
-        // Appearance follows the palette; backdrop lifetime belongs to chrome.
-        if (auto* settings = qobject_cast<WorkbenchSettings*>(applicationContext_->preferences());
-            settings != nullptr) {
-            QObject::connect(settings, &WorkbenchSettings::themeChanged, this, [this]() {
-                if (rootWindow_ != nullptr) {
-                    windowChrome_->refreshNativeTheme();
-                }
-                if (detachedPreviewWindowChrome_) {
-                    detachedPreviewWindowChrome_->refreshNativeTheme();
-                }
-            });
-        }
         if (!rootLifecycle_.canShowRoot()) {
             releaseRootWindowResources();
             return false;

@@ -17,7 +17,6 @@ Rectangle {
     property string documentTitle: ""
     property string titleText: (root.documentSession && root.documentSession.dirty ? "* " : "")
         + (root.documentTitle.length > 0 ? root.documentTitle : Qt.application.name)
-    property real leadingInset: 0
     property bool saveEnabled: true
     property bool wholeDocumentSaveEnabled: true
     property bool documentAvailable: true
@@ -25,21 +24,24 @@ Rectangle {
     property bool chartCommandsEnabled: true
     property bool playbackCommandsEnabled: true
     property bool toolCommandsEnabled: true
-    property real nativeHeight: 0
-    property real leadingToolAreaWidth: 0
-    property real trailingToolAreaWidth: 0
+    property real nativeHeight: root.windowChrome
+        ? root.windowChrome.titleBarHeight / Theme.uiScale : 0
+    property real leadingInset: root.windowChrome
+        ? root.windowChrome.titleBarLeadingInset / Theme.uiScale : 0
+    property real leadingToolAreaWidth: root.leadingInset
+    property real trailingToolAreaWidth: trailingHostItem.width > 0 ? trailingHostItem.width + 8 : 0
     readonly property real captionButtonsWidth: captionButtons.width
+    readonly property alias trailingHost: trailingHostItem
 
-    readonly property bool useEmbeddedMenu: root.applicationMenusVisible && root.platform.embeddedMenuInTitleBar
-    readonly property bool useNativeMenu: root.platform.nativeMenuBar
-    readonly property bool useCaptionButtons: root.platform.captionButtons
+    readonly property bool useEmbeddedMenu: root.applicationMenusVisible && !!root.platform && root.platform.embeddedMenuInTitleBar
+    readonly property bool useCaptionButtons: !!root.platform && root.platform.captionButtons
     readonly property real brandContentPadding: Theme.chromePadding
     readonly property real brandLeadingMargin:
         root.useEmbeddedMenu
             ? (Theme.activityButtonSize - Theme.titleBarBrandIconSize) / 2 - brandContentPadding
             : (root.leadingInset > 0 ? root.leadingInset : 10) - brandContentPadding
 
-    implicitHeight: root.useNativeMenu && root.nativeHeight > 0
+    implicitHeight: root.platform && root.platform.nativeMenuBar && root.nativeHeight > 0
                     ? root.nativeHeight
                     : (root.useEmbeddedMenu ? Theme.windowChromeRowHeight : 32)
     color: Theme.chromeSurfaceColor(Theme.colors.background.titleBar)
@@ -54,12 +56,10 @@ Rectangle {
     readonly property real brandCollapsedWidth: Theme.titleBarBrandIconSize + 2 * root.brandContentPadding
     readonly property real brandFullWidth: Theme.titleBarBrandIconSize + 7
         + (brandText ? Math.ceil(brandText.implicitWidth) : 0) + 2 * root.brandContentPadding
-    readonly property real minimumLeftMargin: root.useNativeMenu
-        ? root.leadingToolAreaWidth + menuGap
-        : root.brandLeadingMargin + brandCollapsedWidth + minimumMenuWidth + menuGap
-    readonly property real minimumRightMargin: root.useNativeMenu
-        ? root.trailingToolAreaWidth + menuGap
-        : captionButtons.width + root.trailingToolAreaWidth + menuGap
+    readonly property real minimumLeftMargin: root.useEmbeddedMenu
+        ? root.brandLeadingMargin + brandCollapsedWidth + minimumMenuWidth + menuGap
+        : root.leadingToolAreaWidth + menuGap
+    readonly property real minimumRightMargin: captionButtons.width + root.trailingToolAreaWidth + menuGap
     // 按标题文字宽度预留居中区域，两侧至少预留最小边距保证居中对称。
     readonly property real preferredTitleWidth: Math.min(titleLabel.implicitWidth, Math.max(0,
         width - 2 * Math.max(minimumLeftMargin, minimumRightMargin)))
@@ -72,12 +72,10 @@ Rectangle {
     readonly property real menuAvailableWidth: root.useEmbeddedMenu
         ? Math.max(minimumMenuWidth, (width - preferredTitleWidth) / 2 - menuGap - menuLeft)
         : 0
-    readonly property real titleAreaLeft: root.useNativeMenu || !root.applicationMenusVisible
-        ? root.leadingToolAreaWidth + menuGap
-        : menuHost.x + menuHost.width + menuGap
-    readonly property real titleAreaRight: root.useNativeMenu
-        ? width - root.trailingToolAreaWidth - menuGap
-        : width - captionButtons.width - root.trailingToolAreaWidth - menuGap
+    readonly property real titleAreaLeft: root.useEmbeddedMenu
+        ? menuHost.x + menuHost.width + menuGap
+        : root.leadingToolAreaWidth + menuGap
+    readonly property real titleAreaRight: width - captionButtons.width - root.trailingToolAreaWidth - menuGap
     readonly property real fullTitleWidth: Math.ceil(titleLabel.implicitWidth)
     readonly property real titleAvailableWidth: Math.max(0, titleAreaRight - titleAreaLeft)
 
@@ -102,7 +100,7 @@ Rectangle {
         selected: brandMenu.active
         Accessible.name: Theme.brandName
         z: 2
-        visible: root.applicationMenusVisible && !root.useNativeMenu
+        visible: root.useEmbeddedMenu
 
         implicitWidth: visible
             ? (root.brandTextVisible ? root.brandFullWidth : root.brandCollapsedWidth)
@@ -160,12 +158,12 @@ Rectangle {
 
         AppMenuAction {
             text: qsTrId("qml.about_miacode")
-            enabled: root.applicationMenusVisible && root.visible && !root.useNativeMenu
+            enabled: root.useEmbeddedMenu && root.visible
             onTriggered: root.menuCommands.aboutRequested()
         }
         AppMenuAction {
             text: qsTrId("dialog.preferences.title")
-            enabled: root.applicationMenusVisible && root.visible && !root.useNativeMenu
+            enabled: root.useEmbeddedMenu && root.visible
             onTriggered: root.menuCommands.preferencesRequested()
         }
         AppMenuSeparator {}
@@ -173,7 +171,7 @@ Rectangle {
             text: qsTrId("shortcut.file.quit")
             shortcut: StandardKey.Quit
             shortcutText: root.shortcuts ? root.shortcuts.standardDisplayText(StandardKey.Quit) : ""
-            enabled: root.applicationMenusVisible && root.visible && !root.useNativeMenu
+            enabled: root.useEmbeddedMenu && root.visible
             onTriggered: root.menuCommands.exitRequested()
         }
     }
@@ -232,6 +230,16 @@ Rectangle {
             visible: titleHover.hovered && titleLabel.truncated
             text: titleLabel.text
         }
+    }
+
+    Item {
+        id: trailingHostItem
+        anchors.right: captionButtons.left
+        anchors.rightMargin: 8
+        anchors.verticalCenter: parent.verticalCenter
+        height: parent.height
+        width: childrenRect.width
+        z: 2
     }
 
     WindowCaptionButtons {

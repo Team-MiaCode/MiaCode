@@ -361,10 +361,6 @@ Item {
                 hostWindow: root.hostWindow
                 windowChrome: root.applicationContext.windowChrome
                 platform: root.platform
-                nativeHeight: root.platform.nativeMenuBar
-                    && root.applicationContext.windowChrome
-                    ? root.applicationContext.windowChrome.titleBarHeight / Theme.uiScale
-                    : 0
                 menuCommands: menuCommands
                 shortcuts: root.applicationContext.shortcuts
                 documentSession: root.documentSession
@@ -377,9 +373,6 @@ Item {
                 playbackCommandsEnabled: root.hostWindow.playbackCommandsEnabled
                     && root.hostWindow.workbenchCommandsAllowed
                 toolCommandsEnabled: root.documentSession.hasDocument
-                leadingInset: root.applicationContext.windowChrome
-                    ? root.applicationContext.windowChrome.titleBarLeadingInset / Theme.uiScale
-                    : 0
                 leadingToolAreaWidth: root.platform.nativeMenuBar
                     ? mainToolBar.leadingActionsRight : 0
                 trailingToolAreaWidth: root.platform.nativeMenuBar

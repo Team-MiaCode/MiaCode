@@ -1,5 +1,6 @@
 #include "app/ui/chrome/WindowChrome.h"
 #include "app/ui/chrome/NativeWindowTheme.h"
+#include "app/ui/layout/WorkbenchSettings.h"
 #include "app/services/PreferenceDocument.h"
 #include "common/DebugLog.h"
 
@@ -36,9 +37,11 @@ WindowChrome::WindowChrome(QObject* parent)
 
 WindowChrome::~WindowChrome()
 {
+#ifdef Q_OS_MACOS
     stopObservingMacOsWindow();
     stopObservingMacOsFullScreen();
     releaseMacOsMaterial();
+#endif
     if (QCoreApplication::instance() != nullptr) {
         QCoreApplication::instance()->removeNativeEventFilter(this);
     }
@@ -89,6 +92,18 @@ void WindowChrome::setMaterialRegions(const QVariantList& regions)
 #elif defined(Q_OS_MACOS)
     materialUpdateTimer_.start();
 #endif
+}
+
+void WindowChrome::bindPreferences(WorkbenchSettings* settings)
+{
+    if (settings == nullptr) {
+        return;
+    }
+    setBlurMaterialsEnabled(settings->blurMaterialsEnabled());
+    connect(settings, &WorkbenchSettings::blurMaterialsEnabledChanged, this, [this, settings] {
+        setBlurMaterialsEnabled(settings->blurMaterialsEnabled());
+    });
+    connect(settings, &WorkbenchSettings::themeChanged, this, &WindowChrome::refreshNativeTheme);
 }
 
 void WindowChrome::attach(QWindow* window, const QString& stateKey)
@@ -245,13 +260,16 @@ void WindowChrome::setBlurMaterialsEnabled(bool enabled)
 
 void WindowChrome::refreshNativeTheme()
 {
+    if (window_.isNull()) {
+        return;
+    }
 #ifdef Q_OS_WIN
     if (nativeHandle_ == 0) {
         return;
     }
     NativeWindowTheme::applyAppearanceToWindow(window_.data(), &dwmState_);
-#else
-    NativeWindowTheme::applyAppearanceToWindow(window_.data());
+#elif defined(Q_OS_MACOS)
+    applyMacOsAppearance(window_.data());
 #endif
 }
 
@@ -270,8 +288,7 @@ void WindowChrome::refreshNativeMaterial()
     }
     const bool backdropEnabled = blurMaterialsEnabled_ && !materialRegions_.isEmpty();
     if (!backdropEnabled) {
-        NativeWindowTheme::applyToWindow(window_.data(), false,
-            NativeWindowTheme::BackdropMaterial::Acrylic, &dwmState_);
+        NativeWindowTheme::applyToWindow(window_.data(), false, &dwmState_);
         if (!restoreMaximizedPending_) {
             return;
         }
@@ -306,7 +323,7 @@ void WindowChrome::refreshNativeMaterial()
                         return;
                     }
                     const bool backdropApplied = NativeWindowTheme::applyToWindow(
-                        window_.data(), backdropEnabled, NativeWindowTheme::BackdropMaterial::Acrylic, &dwmState_);
+                        window_.data(), backdropEnabled, &dwmState_);
                     setNativeMaterialAvailable(dwmState_.frameExtended && backdropApplied);
                     if (restoreMaximizedPending_) {
                         if (nativeMaterialAvailable_ && !materialWasAvailable) {
@@ -324,7 +341,6 @@ void WindowChrome::refreshNativeMaterial()
     quickWindow->update();
 #elif defined(Q_OS_MACOS)
     refreshMacOsMaterial(window_.data());
-    updateMacOsTitleBarMetrics(window_.data());
 #endif
 }
 
@@ -339,6 +355,19 @@ void WindowChrome::invalidateNativeMaterial()
     dwmState_ = {};
     setNativeMaterialAvailable(false);
 }
+
+bool WindowChrome::extendDwmFrame() const
+{
+    if (nativeHandle_ == 0) {
+        return false;
+    }
+
+    const auto handle = reinterpret_cast<HWND>(nativeHandle_);
+    // QML owns the caption; retain the native frame's animation styles.
+    const MARGINS margins{1, 1, 0, 1};
+    const HRESULT frameResult = DwmExtendFrameIntoClientArea(handle, &margins);
+    return SUCCEEDED(frameResult);
+}
 #endif
 
 #ifdef Q_OS_MACOS
@@ -346,6 +375,7 @@ void WindowChrome::refreshMaterialAfterPresentation()
 {
     auto* quickWindow = qobject_cast<QQuickWindow*>(window_.data());
     if (quickWindow == nullptr) {
+        materialUpdateTimer_.start();
         return;
     }
     if (materialPresentationPending_) {
@@ -372,6 +402,7 @@ bool WindowChrome::eventFilter(QObject* watched, QEvent* event)
             invalidateNativeMaterial();
             materialUpdateTimer_.start();
 #else
+            updateMacOsTitleBarMetrics(window_.data());
             refreshMaterialAfterPresentation();
 #endif
         } else if (
@@ -386,6 +417,9 @@ bool WindowChrome::eventFilter(QObject* watched, QEvent* event)
             invalidateNativeMaterial();
             materialUpdateTimer_.start();
 #else
+            if (event->type() != QEvent::Expose) {
+                updateMacOsTitleBarMetrics(window_.data());
+            }
             if (window_->isExposed()) {
                 refreshMaterialAfterPresentation();
             }
@@ -420,6 +454,7 @@ bool WindowChrome::eventFilter(QObject* watched, QEvent* event)
 #endif
 #ifdef Q_OS_MACOS
                 observeMacOsWindow(window_.data());
+                updateMacOsTitleBarMetrics(window_.data());
 #endif
                 materialUpdateTimer_.start();
             } else {
@@ -639,59 +674,10 @@ bool WindowChrome::nativeEventFilter(const QByteArray& eventType, void* message,
     return false;
 }
 
-bool WindowChrome::extendDwmFrame() const
-{
-#ifdef Q_OS_WIN
-    if (nativeHandle_ == 0) {
-        return false;
-    }
-
-    const auto handle = reinterpret_cast<HWND>(nativeHandle_);
-    // QML owns the caption; retain the native frame's animation styles.
-    const MARGINS margins{1, 1, 0, 1};
-    const HRESULT frameResult = DwmExtendFrameIntoClientArea(handle, &margins);
-    return SUCCEEDED(frameResult);
-#else
-    return false;
-#endif
-}
-
 #ifndef Q_OS_MACOS
 void WindowChrome::handleTitleBarDoubleClick()
 {
     toggleMaximized();
-}
-
-void WindowChrome::refreshMacOsMaterial(QWindow* window)
-{
-    Q_UNUSED(window);
-}
-
-void WindowChrome::observeMacOsWindow(QWindow* window)
-{
-    Q_UNUSED(window);
-}
-
-void WindowChrome::stopObservingMacOsWindow()
-{
-}
-
-void WindowChrome::updateMacOsTitleBarMetrics(QWindow* window)
-{
-    Q_UNUSED(window);
-}
-
-void WindowChrome::observeMacOsFullScreen(QWindow* window)
-{
-    Q_UNUSED(window);
-}
-
-void WindowChrome::stopObservingMacOsFullScreen()
-{
-}
-
-void WindowChrome::releaseMacOsMaterial()
-{
 }
 #endif
 

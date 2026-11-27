@@ -1,6 +1,6 @@
 #include "app/ui/chrome/WindowChrome.h"
+#include "app/ui/theme/UiTheme.h"
 
-#include <QRectF>
 #include <QGuiApplication>
 #include <QVariantMap>
 #include <QWindow>
@@ -45,7 +45,8 @@
                        change:(NSDictionary*)change context:(void*)context
 {
     if ([keyPath isEqualToString:@"window"]) {
-        self.windowChanged(self.view.window);
+        NSView* observed = self.view;
+        self.windowChanged(observed ? observed.window : nil);
     } else if ([keyPath isEqualToString:@"layer"]) {
         self.layerChanged();
     } else {
@@ -53,16 +54,19 @@
     }
 }
 
+- (void)detach
+{
+    NSView* observed = self.view;
+    if (observed != nil) {
+        [observed removeObserver:self forKeyPath:@"window"];
+        [observed removeObserver:self forKeyPath:@"layer"];
+        self.view = nil;
+    }
+}
+
 - (void)dealloc
 {
-    [_view removeObserver:self forKeyPath:@"window"];
-    [_view removeObserver:self forKeyPath:@"layer"];
-#if !__has_feature(objc_arc)
-    [_view release];
-    [_windowChanged release];
-    [_layerChanged release];
-    [super dealloc];
-#endif
+    [self detach];
 }
 @end
 
@@ -89,15 +93,6 @@
     }
     return self;
 }
-#if !__has_feature(objc_arc)
-- (void)dealloc
-{
-    [_effects release];
-    [_placements release];
-    [_edgeKinds release];
-    [super dealloc];
-}
-#endif
 @end
 
 namespace {
@@ -108,11 +103,7 @@ NSView* cocoaView(QWindow* window)
     }
     return (__bridge NSView*)reinterpret_cast<void*>(window->winId());
 }
-}
 
-namespace miacode::ui {
-
-namespace {
 void configureNativeTitleBar(NSWindow* window, bool fullscreen = false)
 {
     if (window == nil) {
@@ -131,9 +122,6 @@ void configureNativeTitleBar(NSWindow* window, bool fullscreen = false)
         toolbar.autosavesConfiguration = NO;
         toolbar.showsBaselineSeparator = NO;
         window.toolbar = toolbar;
-#if !__has_feature(objc_arc)
-        [toolbar release];
-#endif
     }
     const BOOL toolbarVisible = fullscreen ? NO : YES;
     if (window.toolbar.visible != toolbarVisible) {
@@ -149,6 +137,35 @@ void configureNativeTitleBar(NSWindow* window, bool fullscreen = false)
         }
     }
 }
+}  // namespace
+
+namespace miacode::ui {
+
+struct WindowChrome::MacState {
+    MiaCodeWindowBindingObserver* windowObserver = nil;
+    MiaCodeMaterialHostView* materialView = nil;
+    NSMutableArray<id>* fullScreenObservers = nil;
+    qreal windowedTitleBarLeadingInset = 0;
+    qreal windowedTitleBarHeight = 0;
+};
+
+void WindowChrome::MacStateDeleter::operator()(MacState* state) const
+{
+    delete state;
+}
+
+void WindowChrome::applyMacOsAppearance(QWindow* window)
+{
+    if (QGuiApplication::platformName() != QStringLiteral("cocoa")) {
+        return;
+    }
+    NSView* view = cocoaView(window);
+    NSWindow* nativeWindow = (view != nil) ? view.window : nil;
+    if (nativeWindow == nil) {
+        return;
+    }
+    nativeWindow.appearance = [NSAppearance appearanceNamed:
+        UiTheme::isDarkTheme() ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
 }
 
 void WindowChrome::refreshMacOsMaterial(QWindow* window)
@@ -184,11 +201,15 @@ void WindowChrome::refreshMacOsMaterial(QWindow* window)
         return;
     }
 
+    if (!mac_) {
+        mac_.reset(new MacState);
+    }
+
     // Keep Qt's content view identity and place the native backdrop beneath
     // its Metal layer. Material geometry belongs to AppKit's layout system.
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
-    MiaCodeMaterialHostView* material = (__bridge MiaCodeMaterialHostView*)macMaterialView_;
+    MiaCodeMaterialHostView* material = mac_->materialView;
     bool layoutChanged = false;
     if (material == nil) {
         layoutChanged = true;
@@ -196,11 +217,7 @@ void WindowChrome::refreshMacOsMaterial(QWindow* window)
         material.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
         material.wantsLayer = YES;
         material.layer.zPosition = -FLT_MAX;
-#if __has_feature(objc_arc)
-        macMaterialView_ = (__bridge_retained void*)material;
-#else
-        macMaterialView_ = material;
-#endif
+        mac_->materialView = material;
     }
     if (material.superview != view || material.layer.superlayer != view.layer) {
         layoutChanged = true;
@@ -227,8 +244,7 @@ void WindowChrome::refreshMacOsMaterial(QWindow* window)
     // and leaves the central workspace outside behind-window blur calculation.
     for (NSUInteger i = 0; i < regionCount; ++i) {
         const QVariantMap region = materialRegions_.at(i).toMap();
-        const QString edge = region.value(QStringLiteral("edge")).toString();
-        NSString* edgeKind = edge.isEmpty() ? @"rect" : edge.toNSString();
+        NSString* edgeKind = region.value(QStringLiteral("edge")).toString().toNSString();
 
         NSVisualEffectView* visualEffect = i < material.effects.count ? material.effects[i] : nil;
         if (visualEffect == nil) {
@@ -242,27 +258,17 @@ void WindowChrome::refreshMacOsMaterial(QWindow* window)
             [material.effects addObject:visualEffect];
             [material.placements addObject:@[]];
             [material.edgeKinds addObject:@""];
-#if !__has_feature(objc_arc)
-            [visualEffect release];
-#endif
         }
 
         if (![material.edgeKinds[i] isEqualToString:edgeKind]) {
             layoutChanged = true;
             [NSLayoutConstraint deactivateConstraints:material.placements[i]];
-            NSArray<NSLayoutConstraint*>* placement = nil;
+            NSArray<NSLayoutConstraint*>* placement = @[];
             if ([edgeKind isEqualToString:@"top"]) {
                 placement = @[
                     [visualEffect.leadingAnchor constraintEqualToAnchor:material.leadingAnchor],
                     [visualEffect.trailingAnchor constraintEqualToAnchor:material.trailingAnchor],
                     [visualEffect.topAnchor constraintEqualToAnchor:material.topAnchor],
-                    [visualEffect.heightAnchor constraintEqualToConstant:0]
-                ];
-            } else if ([edgeKind isEqualToString:@"bottom"]) {
-                placement = @[
-                    [visualEffect.leadingAnchor constraintEqualToAnchor:material.leadingAnchor],
-                    [visualEffect.trailingAnchor constraintEqualToAnchor:material.trailingAnchor],
-                    [visualEffect.bottomAnchor constraintEqualToAnchor:material.bottomAnchor],
                     [visualEffect.heightAnchor constraintEqualToConstant:0]
                 ];
             } else if ([edgeKind isEqualToString:@"left"]) {
@@ -271,13 +277,6 @@ void WindowChrome::refreshMacOsMaterial(QWindow* window)
                     [visualEffect.topAnchor constraintEqualToAnchor:material.topAnchor],
                     [visualEffect.bottomAnchor constraintEqualToAnchor:material.bottomAnchor],
                     [visualEffect.widthAnchor constraintEqualToConstant:0]
-                ];
-            } else {
-                placement = @[
-                    [visualEffect.leadingAnchor constraintEqualToAnchor:material.leadingAnchor],
-                    [visualEffect.topAnchor constraintEqualToAnchor:material.topAnchor],
-                    [visualEffect.widthAnchor constraintEqualToConstant:0],
-                    [visualEffect.heightAnchor constraintEqualToConstant:0]
                 ];
             }
             material.placements[i] = placement;
@@ -292,22 +291,11 @@ void WindowChrome::refreshMacOsMaterial(QWindow* window)
             constants[1] = -region.value(QStringLiteral("rightInset")).toDouble();
             constants[2] = region.value(QStringLiteral("topInset")).toDouble();
             constants[3] = region.value(QStringLiteral("thickness")).toDouble();
-        } else if ([edgeKind isEqualToString:@"bottom"]) {
-            constants[0] = region.value(QStringLiteral("leftInset")).toDouble();
-            constants[1] = -region.value(QStringLiteral("rightInset")).toDouble();
-            constants[2] = -region.value(QStringLiteral("bottomInset")).toDouble();
-            constants[3] = region.value(QStringLiteral("thickness")).toDouble();
         } else if ([edgeKind isEqualToString:@"left"]) {
             constants[0] = region.value(QStringLiteral("leftInset")).toDouble();
             constants[1] = region.value(QStringLiteral("topInset")).toDouble();
             constants[2] = -region.value(QStringLiteral("bottomInset")).toDouble();
             constants[3] = region.value(QStringLiteral("thickness")).toDouble();
-        } else {
-            const QRectF rect = region.value(QStringLiteral("rect")).toRectF();
-            constants[0] = rect.x();
-            constants[1] = rect.y();
-            constants[2] = rect.width();
-            constants[3] = rect.height();
         }
         for (NSUInteger j = 0; j < placement.count; ++j) {
             if (placement[j].constant != constants[j]) {
@@ -349,15 +337,22 @@ void WindowChrome::handleTitleBarDoubleClick()
 
 void WindowChrome::observeMacOsWindow(QWindow* window)
 {
-    if (macViewWindowObserver_ != nullptr) {
+    if (!mac_) {
+        mac_.reset(new MacState);
+    }
+    if (mac_->windowObserver != nil) {
         return;
     }
     NSView* view = cocoaView(window);
     if (view == nil) {
         return;
     }
-    MiaCodeWindowBindingObserver* observer = [[MiaCodeWindowBindingObserver alloc]
+    QPointer<WindowChrome> guard(this);
+    mac_->windowObserver = [[MiaCodeWindowBindingObserver alloc]
         initWithView:view callback:^(NSWindow* nativeWindow) {
+            if (!guard) {
+                return;
+            }
             if (nativeWindow == nil || window_.isNull()) {
                 stopObservingMacOsFullScreen();
                 return;
@@ -366,31 +361,23 @@ void WindowChrome::observeMacOsWindow(QWindow* window)
             configureNativeTitleBar(nativeWindow,
                 window_->windowState() == Qt::WindowFullScreen);
             observeMacOsFullScreen(window_.data());
+            updateMacOsTitleBarMetrics(window_.data());
             materialUpdateTimer_.start();
         } layerCallback:^{
-            materialUpdateTimer_.start();
+            if (!guard) {
+                return;
+            }
             refreshMaterialAfterPresentation();
         }];
-#if __has_feature(objc_arc)
-    macViewWindowObserver_ = (__bridge_retained void*)observer;
-#else
-    macViewWindowObserver_ = observer;
-#endif
 }
 
 void WindowChrome::stopObservingMacOsWindow()
 {
-    if (macViewWindowObserver_ == nullptr) {
+    if (!mac_ || mac_->windowObserver == nil) {
         return;
     }
-#if __has_feature(objc_arc)
-    MiaCodeWindowBindingObserver* observer =
-        (__bridge_transfer MiaCodeWindowBindingObserver*)macViewWindowObserver_;
-    Q_UNUSED(observer);
-#else
-    [static_cast<MiaCodeWindowBindingObserver*>(macViewWindowObserver_) release];
-#endif
-    macViewWindowObserver_ = nullptr;
+    [mac_->windowObserver detach];
+    mac_->windowObserver = nil;
 }
 
 void WindowChrome::updateMacOsTitleBarMetrics(QWindow* window)
@@ -401,14 +388,17 @@ void WindowChrome::updateMacOsTitleBarMetrics(QWindow* window)
     if (contentView == nil) {
         return;
     }
+    if (!mac_) {
+        mac_.reset(new MacState);
+    }
 
     [contentView.superview layoutSubtreeIfNeeded];
 
     const qreal systemTitleBarHeight = static_cast<qreal>(
         NSHeight(contentView.bounds) - NSHeight(nativeWindow.contentLayoutRect));
     if (systemTitleBarHeight > 0) {
-        windowedTitleBarHeight_ = systemTitleBarHeight;
-        setTitleBarHeight(windowedTitleBarHeight_);
+        mac_->windowedTitleBarHeight = systemTitleBarHeight;
+        setTitleBarHeight(mac_->windowedTitleBarHeight);
     }
 
     if (window->windowState() == Qt::WindowFullScreen) {
@@ -447,8 +437,8 @@ void WindowChrome::updateMacOsTitleBarMetrics(QWindow* window)
         return;
     }
 
-    windowedTitleBarLeadingInset_ = static_cast<qreal>(NSMaxX(group)) + buttonGap;
-    setTitleBarLeadingInset(windowedTitleBarLeadingInset_);
+    mac_->windowedTitleBarLeadingInset = static_cast<qreal>(NSMaxX(group)) + buttonGap;
+    setTitleBarLeadingInset(mac_->windowedTitleBarLeadingInset);
 }
 
 void WindowChrome::observeMacOsFullScreen(QWindow* window)
@@ -460,91 +450,79 @@ void WindowChrome::observeMacOsFullScreen(QWindow* window)
     if (nativeWindow == nil) {
         return;
     }
+    if (!mac_) {
+        mac_.reset(new MacState);
+    }
 
     NSNotificationCenter* center = NSNotificationCenter.defaultCenter;
-    id willEnterObserver = [center
-        addObserverForName:NSWindowWillEnterFullScreenNotification
-                    object:nativeWindow
-                     queue:NSOperationQueue.mainQueue
-                usingBlock:^(__unused NSNotification* notification) {
-                    nativeWindow.toolbar.visible = NO;
-                    setTitleBarLeadingInset(0);
-                    setTitleBarHeight(windowedTitleBarHeight_);
-                }];
-    id didEnterObserver = [center
-        addObserverForName:NSWindowDidEnterFullScreenNotification
-                    object:nativeWindow
-                     queue:NSOperationQueue.mainQueue
-                usingBlock:^(__unused NSNotification* notification) {
-                    nativeWindow.toolbar.visible = NO;
-                    setTitleBarLeadingInset(0);
-                    setTitleBarHeight(windowedTitleBarHeight_);
-                    materialUpdateTimer_.start();
-                }];
-    id willExitObserver = [center
-        addObserverForName:NSWindowWillExitFullScreenNotification
-                    object:nativeWindow
-                     queue:NSOperationQueue.mainQueue
-                usingBlock:^(__unused NSNotification* notification) {
-                    configureNativeTitleBar(nativeWindow);
-                    setTitleBarLeadingInset(windowedTitleBarLeadingInset_);
-                    setTitleBarHeight(windowedTitleBarHeight_);
-                }];
-    id didExitObserver = [center
-        addObserverForName:NSWindowDidExitFullScreenNotification
-                    object:nativeWindow
-                     queue:NSOperationQueue.mainQueue
-                usingBlock:^(__unused NSNotification* notification) {
-                    configureNativeTitleBar(nativeWindow);
-                    materialUpdateTimer_.start();
-                }];
-
-    macWillEnterFullScreenObserver_ = (__bridge void*)willEnterObserver;
-    macDidEnterFullScreenObserver_ = (__bridge void*)didEnterObserver;
-    macWillExitFullScreenObserver_ = (__bridge void*)willExitObserver;
-    macDidExitFullScreenObserver_ = (__bridge void*)didExitObserver;
+    QPointer<WindowChrome> guard(this);
+    __weak NSWindow* weakNativeWindow = nativeWindow;
+    auto observe = [&](NSNotificationName name, void (^handler)(NSNotification*)) {
+        return [center addObserverForName:name
+                                   object:nativeWindow
+                                    queue:NSOperationQueue.mainQueue
+                               usingBlock:handler];
+    };
+    mac_->fullScreenObservers = [NSMutableArray arrayWithObjects:
+        observe(NSWindowWillEnterFullScreenNotification, ^(__unused NSNotification*) {
+            NSWindow* win = weakNativeWindow;
+            if (!guard || !mac_ || win == nil) {
+                return;
+            }
+            win.toolbar.visible = NO;
+            setTitleBarLeadingInset(0);
+            setTitleBarHeight(mac_->windowedTitleBarHeight);
+        }),
+        observe(NSWindowDidEnterFullScreenNotification, ^(__unused NSNotification*) {
+            NSWindow* win = weakNativeWindow;
+            if (!guard || !mac_ || win == nil) {
+                return;
+            }
+            win.toolbar.visible = NO;
+            setTitleBarLeadingInset(0);
+            setTitleBarHeight(mac_->windowedTitleBarHeight);
+            materialUpdateTimer_.start();
+        }),
+        observe(NSWindowWillExitFullScreenNotification, ^(__unused NSNotification*) {
+            NSWindow* win = weakNativeWindow;
+            if (!guard || !mac_ || win == nil) {
+                return;
+            }
+            configureNativeTitleBar(win);
+            setTitleBarLeadingInset(mac_->windowedTitleBarLeadingInset);
+            setTitleBarHeight(mac_->windowedTitleBarHeight);
+        }),
+        observe(NSWindowDidExitFullScreenNotification, ^(__unused NSNotification*) {
+            NSWindow* win = weakNativeWindow;
+            if (!guard || win == nil) {
+                return;
+            }
+            configureNativeTitleBar(win);
+            updateMacOsTitleBarMetrics(window_.data());
+            materialUpdateTimer_.start();
+        }),
+        nil];
 }
 
 void WindowChrome::stopObservingMacOsFullScreen()
 {
+    if (!mac_ || mac_->fullScreenObservers == nil) {
+        return;
+    }
     NSNotificationCenter* center = NSNotificationCenter.defaultCenter;
-    if (macWillEnterFullScreenObserver_ != nullptr) {
-        id observer = (__bridge id)macWillEnterFullScreenObserver_;
+    for (id observer in mac_->fullScreenObservers) {
         [center removeObserver:observer];
-        macWillEnterFullScreenObserver_ = nullptr;
     }
-    if (macDidEnterFullScreenObserver_ != nullptr) {
-        id observer = (__bridge id)macDidEnterFullScreenObserver_;
-        [center removeObserver:observer];
-        macDidEnterFullScreenObserver_ = nullptr;
-    }
-    if (macWillExitFullScreenObserver_ != nullptr) {
-        id observer = (__bridge id)macWillExitFullScreenObserver_;
-        [center removeObserver:observer];
-        macWillExitFullScreenObserver_ = nullptr;
-    }
-    if (macDidExitFullScreenObserver_ != nullptr) {
-        id observer = (__bridge id)macDidExitFullScreenObserver_;
-        [center removeObserver:observer];
-        macDidExitFullScreenObserver_ = nullptr;
-    }
+    mac_->fullScreenObservers = nil;
 }
 
 void WindowChrome::releaseMacOsMaterial()
 {
-    if (macMaterialView_ == nullptr) {
+    if (!mac_ || mac_->materialView == nil) {
         return;
     }
-#if __has_feature(objc_arc)
-    NSView* material = (__bridge_transfer NSView*)macMaterialView_;
-#else
-    NSView* material = static_cast<NSView*>(macMaterialView_);
-#endif
-    [material removeFromSuperview];
-#if !__has_feature(objc_arc)
-    [material release];
-#endif
-    macMaterialView_ = nullptr;
+    [mac_->materialView removeFromSuperview];
+    mac_->materialView = nil;
 }
 
 } // namespace miacode::ui

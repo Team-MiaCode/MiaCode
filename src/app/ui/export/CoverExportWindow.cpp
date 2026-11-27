@@ -44,12 +44,7 @@ CoverExportWindow::CoverExportWindow(miacode::ExportEngine& exportEngine,
             session_.refreshDocument(pendingDifficultyId_);
         }
     }, Qt::QueuedConnection);
-    windowChrome_.setBlurMaterialsEnabled(preferences_.blurMaterialsEnabled());
-    connect(&preferences_, &WorkbenchSettings::themeChanged,
-            &windowChrome_, &WindowChrome::refreshNativeTheme);
-    connect(&preferences_, &WorkbenchSettings::blurMaterialsEnabledChanged, this, [this] {
-        windowChrome_.setBlurMaterialsEnabled(preferences_.blurMaterialsEnabled());
-    });
+    windowChrome_.bindPreferences(&preferences_);
 }
 
 CoverExportWindow::~CoverExportWindow()

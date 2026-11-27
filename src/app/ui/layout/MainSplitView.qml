@@ -378,18 +378,20 @@ Item {
         detached: true
     }
 
-    ApplicationWindow {
+    AppWindow {
         id: detachedPreviewWindow
         objectName: "detachedPreviewWindow"
-        readonly property Item backdropSource: detachedSceneContent
-        property var windowChrome: null
+        platform: root.Window.window ? root.Window.window.platform : null
+        windowChrome: root.Window.window
+            ? root.Window.window.applicationContext.detachedPreviewWindowChrome : null
         property bool alwaysOnTop: true
         onAlwaysOnTopChanged: if (windowChrome) windowChrome.setAlwaysOnTop(alwaysOnTop)
-        onWindowChromeChanged: if (windowChrome) windowChrome.setAlwaysOnTop(alwaysOnTop)
+        staysOnTop: alwaysOnTop
+        fallbackColor: Theme.colors.background.panel
+        manageTopMaterialRegion: true
+        topMaterialThickness: detachedTitleBar.visible
+            ? detachedTitleBar.height + detachedToolBar.height : 0
         readonly property bool settingsInTitleBar: Qt.platform.os !== "windows"
-        readonly property bool nativeMaterialActive: windowChrome
-            && windowChrome.nativeMaterialAvailable && Theme.blurMaterialsEnabled
-            && !Theme.backgroundActive
         readonly property string captionTitle: root.documentTitle.length > 0
             ? (root.documentSession.dirty ? "* " : "") + root.documentTitle
             : qsTrId("preview.window.title")
@@ -402,188 +404,121 @@ Item {
         minimumWidth: Math.min(Screen.desktopAvailableWidth, Math.ceil(preview.minimumWidth * Theme.uiScale))
         minimumHeight: Math.min(Screen.desktopAvailableHeight,
             Math.ceil((preview.minimumHeight + detachedTitleBar.height + detachedToolBar.height) * Theme.uiScale))
-        flags: {
-            let value = Qt.Window
-            if (Qt.platform.os !== "windows" && alwaysOnTop)
-                value |= Qt.WindowStaysOnTopHint
-            if (root.Window.window.platform.captionButtons) {
-                value |= Qt.CustomizeWindowHint
-                        | Qt.WindowTitleHint
-                        | Qt.WindowSystemMenuHint
-                        | Qt.WindowMinimizeButtonHint
-                        | Qt.WindowMaximizeButtonHint
-                        | Qt.WindowCloseButtonHint
-            }
-            if (Qt.platform.os === "linux")
-                value |= Qt.FramelessWindowHint
-            if (Qt.platform.os === "osx")
-                value |= Qt.ExpandedClientAreaHint | Qt.NoTitleBarBackgroundHint
-            return value
-        }
-        // Allocate the alpha surface before WindowChrome creates the native handle.
-        color: Qt.platform.os === "osx" || Qt.platform.os === "windows"
-            ? "transparent" : Theme.colors.background.panel
-        background: null
-        font.family: Theme.uiFont
-        font.pixelSize: Theme.uiFontSize
-        topPadding: 0
-        leftPadding: 0
-        rightPadding: 0
-        bottomPadding: 0
-        palette.window: Theme.colors.background.surface
-        palette.windowText: Theme.colors.text.primary
-        palette.base: Theme.colors.background.surface
-        palette.text: Theme.colors.text.primary
-        palette.button: Theme.colors.background.panel
-        palette.buttonText: Theme.colors.text.primary
-        palette.highlight: Theme.colors.state.textSelection
-        palette.highlightedText: Theme.colors.text.active
-        palette.disabled.text: Theme.colors.text.disabled
-        palette.disabled.buttonText: Theme.colors.text.disabled
         onClosing: root.dockPreview()
 
-        Binding {
-            target: detachedPreviewWindow.windowChrome
-            property: "materialRegions"
-            when: (Qt.platform.os === "osx" || Qt.platform.os === "windows") && target !== null
-            value: detachedPreviewWindow.visible && detachedTitleBar.visible
-                && Theme.blurMaterialsEnabled && !Theme.backgroundActive
-                ? [{ edge: "top",
-                     thickness: Math.round((detachedTitleBar.height + detachedToolBar.height) * Theme.uiScale) }]
-                : []
-            restoreMode: Binding.RestoreNone
+        WindowTitleBar {
+            id: detachedTitleBar
+            color: Theme.chromeSurfaceColor(Theme.colors.background.titleBar,
+                detachedPreviewWindow.nativeMaterialActive)
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            visible: detachedPreviewWindow.visibility !== Window.FullScreen
+            height: visible ? implicitHeight : 0
+            hostWindow: detachedPreviewWindow
+            windowChrome: detachedPreviewWindow.windowChrome
+            platform: detachedPreviewWindow.platform
+            applicationMenusVisible: false
+            titleText: detachedPreviewWindow.captionTitle
+
+            Row {
+                id: detachedSettingsActions
+                parent: detachedPreviewWindow.settingsInTitleBar ? detachedTitleBar.trailingHost : detachedToolBar
+                anchors.right: detachedPreviewWindow.settingsInTitleBar ? undefined : detachedToolBar.right
+                anchors.rightMargin: detachedPreviewWindow.settingsInTitleBar ? 0 : 8
+                anchors.verticalCenter: parent.verticalCenter
+                height: parent.height
+                spacing: Theme.toolbarButtonSpacing
+                z: 2
+
+                TextMetrics {
+                    id: detachedAudioSettingsMetrics
+                    font.family: Theme.uiFont
+                    font.pixelSize: Theme.uiFontSize
+                    text: qsTrId("action.audio_settings")
+                }
+
+                TextMetrics {
+                    id: detachedPreviewSettingsMetrics
+                    font.family: Theme.uiFont
+                    font.pixelSize: Theme.uiFontSize
+                    text: qsTrId("action.video_settings")
+                }
+
+                readonly property real expandedActionsWidth:
+                    Theme.toolbarLabeledButtonWidth(detachedAudioSettingsMetrics)
+                    + Theme.toolbarLabeledButtonWidth(detachedPreviewSettingsMetrics)
+                    + Theme.toolbarButtonWidth + 2 * Theme.toolbarButtonSpacing
+                readonly property bool settingsLabelsCollapsed: detachedPreviewWindow.settingsInTitleBar
+                    ? detachedTitleBar.fullTitleWidth > Math.max(0,
+                        detachedTitleBar.width
+                        - (detachedTitleBar.leadingToolAreaWidth + detachedTitleBar.menuGap)
+                        - (detachedTitleBar.captionButtonsWidth + expandedActionsWidth + 8 + detachedTitleBar.menuGap))
+                    : detachedToolBar.width < expandedActionsWidth + 16
+
+                component DetachedToolButton: IconButton {
+                    width: label.length > 0 ? implicitWidth : Theme.toolbarButtonWidth
+                    height: Math.min(Theme.toolbarButtonHeight, detachedSettingsActions.height)
+                    iconWidth: Theme.toolbarButtonIconSize
+                    iconHeight: Theme.toolbarButtonIconSize
+                    anchors.verticalCenter: parent.verticalCenter
+                    stateColors: Theme.chromeStateColorsFor(detachedPreviewWindow.nativeMaterialActive)
+                }
+
+                DetachedToolButton {
+                    objectName: "detachedPreviewAudioSettingsButton"
+                    iconSource: Qt.resolvedUrl("icons/audio-settings.svg")
+                    label: detachedSettingsActions.settingsLabelsCollapsed ? "" : qsTrId("action.audio_settings")
+                    tooltip: qsTrId("action.audio_settings")
+                    onClicked: root.audioSettingsRequested()
+                }
+
+                DetachedToolButton {
+                    objectName: "detachedPreviewPreviewSettingsButton"
+                    iconSource: Qt.resolvedUrl("icons/preview-settings.svg")
+                    label: detachedSettingsActions.settingsLabelsCollapsed ? "" : qsTrId("action.video_settings")
+                    tooltip: qsTrId("action.video_settings")
+                    onClicked: root.previewSettingsRequested()
+                }
+
+                DetachedToolButton {
+                    objectName: "detachedPreviewAlwaysOnTopButton"
+                    iconSource: Qt.resolvedUrl("icons/pin.svg")
+                    filledIconSource: Qt.resolvedUrl("icons/pin-filled.svg")
+                    highlightWhenActive: false
+                    checkable: true
+                    checked: detachedPreviewWindow.alwaysOnTop
+                    tooltip: checked ? qsTrId("preview.window.disable_always_on_top")
+                                     : qsTrId("preview.window.always_on_top")
+                    Accessible.name: qsTrId("preview.window.always_on_top")
+                    onToggled: detachedPreviewWindow.alwaysOnTop = checked
+                }
+            }
         }
 
-        UiScaleSurface {
-            id: detachedSceneContent
+        Rectangle {
+            id: detachedToolBar
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: detachedTitleBar.bottom
+            visible: !detachedPreviewWindow.settingsInTitleBar && detachedTitleBar.visible
+            height: visible ? Theme.windowChromeRowHeight : 0
+            color: Theme.chromeSurfaceColor(Theme.colors.background.activityBar,
+                detachedPreviewWindow.nativeMaterialActive)
 
-            WindowBackground {
+            WindowGestureArea {
                 anchors.fill: parent
-                nativeMaterialActive: detachedPreviewWindow.nativeMaterialActive
-            }
-
-            WindowTitleBar {
-                id: detachedTitleBar
-                color: Theme.chromeSurfaceColor(Theme.colors.background.titleBar,
-                    detachedPreviewWindow.nativeMaterialActive)
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                visible: detachedPreviewWindow.visibility !== Window.FullScreen
-                height: visible ? implicitHeight : 0
                 hostWindow: detachedPreviewWindow
                 windowChrome: detachedPreviewWindow.windowChrome
-                platform: root.Window.window.platform
-                applicationMenusVisible: false
-                titleText: detachedPreviewWindow.captionTitle
-                nativeHeight: detachedPreviewWindow.windowChrome
-                    ? detachedPreviewWindow.windowChrome.titleBarHeight / Theme.uiScale : 0
-                leadingInset: detachedPreviewWindow.windowChrome
-                    ? detachedPreviewWindow.windowChrome.titleBarLeadingInset / Theme.uiScale : 0
-                leadingToolAreaWidth: leadingInset
-                trailingToolAreaWidth: detachedPreviewWindow.settingsInTitleBar
-                    ? detachedSettingsActions.width + 8 : 0
-
-                Row {
-                    id: detachedSettingsActions
-                    parent: detachedPreviewWindow.settingsInTitleBar ? detachedTitleBar : detachedToolBar
-                    anchors.right: parent.right
-                    anchors.rightMargin: detachedPreviewWindow.settingsInTitleBar
-                        ? detachedTitleBar.captionButtonsWidth + 8 : 8
-                    anchors.verticalCenter: parent.verticalCenter
-                    height: parent.height
-                    spacing: Theme.toolbarButtonSpacing
-                    z: 2
-
-                    TextMetrics {
-                        id: detachedAudioSettingsMetrics
-                        font.family: Theme.uiFont
-                        font.pixelSize: Theme.uiFontSize
-                        text: qsTrId("action.audio_settings")
-                    }
-
-                    TextMetrics {
-                        id: detachedPreviewSettingsMetrics
-                        font.family: Theme.uiFont
-                        font.pixelSize: Theme.uiFontSize
-                        text: qsTrId("action.video_settings")
-                    }
-
-                    readonly property real expandedActionsWidth:
-                        Theme.toolbarLabeledButtonWidth(detachedAudioSettingsMetrics)
-                        + Theme.toolbarLabeledButtonWidth(detachedPreviewSettingsMetrics)
-                        + Theme.toolbarButtonWidth + 2 * Theme.toolbarButtonSpacing
-                    readonly property bool settingsLabelsCollapsed: detachedPreviewWindow.settingsInTitleBar
-                        ? detachedTitleBar.fullTitleWidth > Math.max(0,
-                            detachedTitleBar.width
-                            - (detachedTitleBar.leadingToolAreaWidth + detachedTitleBar.menuGap)
-                            - (detachedTitleBar.captionButtonsWidth + expandedActionsWidth + 8 + detachedTitleBar.menuGap))
-                        : detachedToolBar.width < expandedActionsWidth + 16
-
-                    component DetachedToolButton: IconButton {
-                        width: label.length > 0 ? implicitWidth : Theme.toolbarButtonWidth
-                        height: Math.min(Theme.toolbarButtonHeight, detachedSettingsActions.height)
-                        iconWidth: Theme.toolbarButtonIconSize
-                        iconHeight: Theme.toolbarButtonIconSize
-                        anchors.verticalCenter: parent.verticalCenter
-                        stateColors: Theme.chromeStateColorsFor(detachedPreviewWindow.nativeMaterialActive)
-                    }
-
-                    DetachedToolButton {
-                        objectName: "detachedPreviewAudioSettingsButton"
-                        iconSource: Qt.resolvedUrl("icons/audio-settings.svg")
-                        label: detachedSettingsActions.settingsLabelsCollapsed ? "" : qsTrId("action.audio_settings")
-                        tooltip: qsTrId("action.audio_settings")
-                        onClicked: root.audioSettingsRequested()
-                    }
-
-                    DetachedToolButton {
-                        objectName: "detachedPreviewPreviewSettingsButton"
-                        iconSource: Qt.resolvedUrl("icons/preview-settings.svg")
-                        label: detachedSettingsActions.settingsLabelsCollapsed ? "" : qsTrId("action.video_settings")
-                        tooltip: qsTrId("action.video_settings")
-                        onClicked: root.previewSettingsRequested()
-                    }
-
-                    DetachedToolButton {
-                        objectName: "detachedPreviewAlwaysOnTopButton"
-                        iconSource: Qt.resolvedUrl("icons/pin.svg")
-                        filledIconSource: Qt.resolvedUrl("icons/pin-filled.svg")
-                        highlightWhenActive: false
-                        checkable: true
-                        checked: detachedPreviewWindow.alwaysOnTop
-                        tooltip: checked ? qsTrId("preview.window.disable_always_on_top")
-                                         : qsTrId("preview.window.always_on_top")
-                        Accessible.name: qsTrId("preview.window.always_on_top")
-                        onToggled: detachedPreviewWindow.alwaysOnTop = checked
-                    }
-                }
             }
+        }
 
-            Rectangle {
-                id: detachedToolBar
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: detachedTitleBar.bottom
-                visible: !detachedPreviewWindow.settingsInTitleBar && detachedTitleBar.visible
-                height: visible ? Theme.windowChromeRowHeight : 0
-                color: Theme.chromeSurfaceColor(Theme.colors.background.activityBar,
-                    detachedPreviewWindow.nativeMaterialActive)
-
-                WindowGestureArea {
-                    anchors.fill: parent
-                    hostWindow: detachedPreviewWindow
-                    windowChrome: detachedPreviewWindow.windowChrome
-                }
-            }
-
-            Item {
-                id: detachedPreviewContent
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: detachedToolBar.bottom
-                anchors.bottom: parent.bottom
-            }
+        Item {
+            id: detachedPreviewContent
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: detachedToolBar.bottom
+            anchors.bottom: parent.bottom
         }
 
         Shortcut {

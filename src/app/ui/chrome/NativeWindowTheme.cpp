@@ -2,10 +2,6 @@
 
 #include "app/ui/theme/UiTheme.h"
 
-#ifdef Q_OS_MACOS
-#include "app/ui/chrome/NativeWindowThemeMac.h"
-#endif
-
 #include <QWindow>
 
 #ifdef Q_OS_WIN
@@ -22,7 +18,6 @@ constexpr DWORD kDwmwaBorderColor = 34;
 constexpr COLORREF kDwmColorNone = 0xFFFFFFFE;
 constexpr DWORD kDwmwaSystemBackdropType = 38;
 constexpr int kDwmsbtNone = 1;
-constexpr int kDwmsbtMainWindow = 2;
 constexpr int kDwmsbtTransientWindow = 3;
 
 bool setDwmWindowAttribute(HWND hwnd, DWORD attribute, const void* value, DWORD size)
@@ -47,64 +42,51 @@ void applyAppearanceToNativeHandle(HWND hwnd, AppliedState* state)
     }
 }
 
-bool applyBackdropToNativeHandle(HWND hwnd, bool backdropEnabled, BackdropMaterial material,
-                                AppliedState* state)
+bool applyBackdropToNativeHandle(HWND hwnd, bool backdropEnabled, AppliedState* state)
 {
-    const int backdropType = backdropEnabled
-        ? (material == BackdropMaterial::Acrylic ? kDwmsbtTransientWindow : kDwmsbtMainWindow)
-        : kDwmsbtNone;
+    const int backdropType = backdropEnabled ? kDwmsbtTransientWindow : kDwmsbtNone;
     if (state != nullptr && state->backdropType == backdropType) {
         return backdropEnabled;
     }
-    const bool backdropApplied = setDwmWindowAttribute(hwnd, kDwmwaSystemBackdropType, &backdropType, sizeof(backdropType));
+    const bool backdropApplied = setDwmWindowAttribute(
+        hwnd, kDwmwaSystemBackdropType, &backdropType, sizeof(backdropType));
     if (backdropApplied && state != nullptr) {
         state->backdropType = backdropType;
     }
 
     return backdropEnabled && backdropApplied;
 }
-
 #endif  // Q_OS_WIN
 
 }  // namespace
 
 void applyAppearanceToWindow(QWindow* window, AppliedState* state)
 {
-#ifndef Q_OS_WIN
-    Q_UNUSED(state);
-#endif
+#ifdef Q_OS_WIN
     if (window == nullptr) {
         return;
     }
-#ifdef Q_OS_WIN
-    const HWND hwnd = reinterpret_cast<HWND>(window->winId());
-    applyAppearanceToNativeHandle(hwnd, state);
-#elif defined(Q_OS_MACOS)
-    NativeWindowThemeMac::applyToNativeView(
-        reinterpret_cast<void*>(window->winId()),
-        UiTheme::isDarkTheme()
-            ? NativeWindowThemePolicy::Appearance::Dark
-            : NativeWindowThemePolicy::Appearance::Light);
+    applyAppearanceToNativeHandle(reinterpret_cast<HWND>(window->winId()), state);
 #else
     Q_UNUSED(window);
+    Q_UNUSED(state);
 #endif
 }
 
-bool applyToWindow(QWindow* window, bool backdropEnabled, BackdropMaterial material,
-                   AppliedState* state)
+bool applyToWindow(QWindow* window, bool backdropEnabled, AppliedState* state)
 {
+#ifdef Q_OS_WIN
     if (window == nullptr) {
         return false;
     }
     applyAppearanceToWindow(window, state);
-#ifdef Q_OS_WIN
-    return applyBackdropToNativeHandle(reinterpret_cast<HWND>(window->winId()), backdropEnabled,
-                                      material, state);
+    return applyBackdropToNativeHandle(reinterpret_cast<HWND>(window->winId()), backdropEnabled, state);
 #else
+    Q_UNUSED(window);
     Q_UNUSED(backdropEnabled);
-    Q_UNUSED(material);
-#endif
+    Q_UNUSED(state);
     return false;
+#endif
 }
 
 }  // namespace NativeWindowTheme

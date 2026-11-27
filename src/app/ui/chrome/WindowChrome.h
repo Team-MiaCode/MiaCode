@@ -8,6 +8,7 @@
 #include <QString>
 #include <QTimer>
 #include <QVariantList>
+#include <memory>
 
 class QWindow;
 class QEvent;
@@ -18,6 +19,7 @@ class QEvent;
 // A non-empty state key enables geometry persistence for that window.
 // titleBarLeadingInset: clearance past macOS traffic lights (0 elsewhere).
 namespace miacode::ui {
+class WorkbenchSettings;
 
 class WindowChrome final : public QObject, public QAbstractNativeEventFilter
 {
@@ -32,6 +34,7 @@ public:
     ~WindowChrome() override;
 
     void attach(QWindow* window, const QString& stateKey = QStringLiteral("main_window"));
+    void bindPreferences(WorkbenchSettings* settings);
     Q_INVOKABLE void showRestored();
     Q_INVOKABLE void setAlwaysOnTop(bool enabled);
     Q_INVOKABLE void minimize();
@@ -60,11 +63,14 @@ private:
     void refreshNativeMaterial();
 #ifdef Q_OS_WIN
     void invalidateNativeMaterial();
+    bool extendDwmFrame() const;
 #endif
 #ifdef Q_OS_MACOS
+    struct MacState;
+    struct MacStateDeleter {
+        void operator()(MacState* state) const;
+    };
     void refreshMaterialAfterPresentation();
-#endif
-    bool extendDwmFrame() const;
     void observeMacOsWindow(QWindow* window);
     void stopObservingMacOsWindow();
     void updateMacOsTitleBarMetrics(QWindow* window);
@@ -72,6 +78,8 @@ private:
     void observeMacOsFullScreen(QWindow* window);
     void stopObservingMacOsFullScreen();
     void releaseMacOsMaterial();
+    void applyMacOsAppearance(QWindow* window);
+#endif
     void setTitleBarLeadingInset(qreal inset);
     void setTitleBarHeight(qreal height);
     void setNativeMaterialAvailable(bool available);
@@ -97,18 +105,13 @@ private:
     QMetaObject::Connection materialSyncConnection_;
     QMetaObject::Connection materialFrameConnection_;
 #endif
+#ifdef Q_OS_MACOS
+    std::unique_ptr<MacState, MacStateDeleter> mac_;
+#endif
     bool nativeMaterialAvailable_ = false;
     QVariantList materialRegions_;
     bool blurMaterialsEnabled_ = true;
     qreal titleBarLeadingInset_ = 0;
     qreal titleBarHeight_ = 0;
-    qreal windowedTitleBarLeadingInset_ = 0;
-    qreal windowedTitleBarHeight_ = 0;
-    void* macViewWindowObserver_ = nullptr;
-    void* macWillEnterFullScreenObserver_ = nullptr;
-    void* macMaterialView_ = nullptr;
-    void* macDidEnterFullScreenObserver_ = nullptr;
-    void* macWillExitFullScreenObserver_ = nullptr;
-    void* macDidExitFullScreenObserver_ = nullptr;
 };
 } // namespace miacode::ui

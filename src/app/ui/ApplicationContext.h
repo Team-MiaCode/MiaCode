@@ -47,6 +47,7 @@ class ApplicationContext final : public QObject
     Q_PROPERTY(QObject* editorSync READ editorSync CONSTANT)
     Q_PROPERTY(QObject* shortcuts READ shortcuts CONSTANT)
     Q_PROPERTY(QObject* windowChrome READ windowChrome CONSTANT)
+    Q_PROPERTY(QObject* detachedPreviewWindowChrome READ detachedPreviewWindowChrome CONSTANT)
     Q_PROPERTY(QObject* chartDropBridge READ chartDropBridge NOTIFY chartDropBridgeChanged)
     Q_PROPERTY(QObject* platform READ platform CONSTANT)
     // Shared Widgets-free UI boundary, hosted once by MainView.qml.
@@ -80,6 +81,7 @@ public:
     QObject* editorSync();
     QObject* shortcuts();
     QObject* windowChrome() const;
+    QObject* detachedPreviewWindowChrome() const;
     QObject* chartDropBridge() const;
     QObject* platform();
     QObject* uiRequests();
@@ -95,6 +97,7 @@ public:
     QObject* net();
     QObject* netUpload() { return &netUpload_; }
     void setWindowChrome(QObject* chrome);
+    void setDetachedPreviewWindowChrome(QObject* chrome);
     void setChartDropBridge(QObject* bridge);
 
 signals:
@@ -124,6 +127,7 @@ private:
     NetUploadModel netUpload_;
     miacode::ui::ShellLifecycle lifecycle_;
     QObject* windowChrome_ = nullptr;
+    QObject* detachedPreviewWindowChrome_ = nullptr;
     QObject* chartDropBridge_ = nullptr;
 };
 } // namespace miacode::ui

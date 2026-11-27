@@ -2,9 +2,11 @@ import QtQuick
 import QtQuick.Controls
 import MiaCode.UI
 
-ApplicationWindow {
+AppWindow {
     id: window
 
+    platform: applicationContext.platform
+    windowChrome: applicationContext.windowChrome
     readonly property var inputContext: mainView.inputContext
     readonly property bool workbenchCommandsAllowed: inputContext && inputContext.workbenchCommandsAllowed
         && !window.applicationContext.shortcuts.captureActive
@@ -17,15 +19,12 @@ ApplicationWindow {
         || (mainView.pages.exportSession
             && mainView.pages.exportSession.pageSessionActive
             && mainView.pages.exportSession.selectedDifficultyId > 0)
-    readonly property Item backdropSource: sceneContent
-    readonly property bool nativeMaterialActive: Theme.nativeMaterialActive
     readonly property real tooltipTopMargin: 6 + (
-        Qt.platform.os === "osx" && window.visibility !== Window.FullScreen
-        ? window.applicationContext.windowChrome.titleBarHeight / Theme.uiScale : 0)
+        Qt.platform.os === "osx" && window.visibility !== Window.FullScreen && window.windowChrome
+        ? window.windowChrome.titleBarHeight / Theme.uiScale : 0)
 
     required property var applicationContext
     readonly property var shellLifecycle: applicationContext.shell
-    readonly property var platform: applicationContext.platform
     readonly property var chartDropBridge: applicationContext.chartDropBridge
 
     property NativeMenuBar nativeSystemMenu: NativeMenuBar {
@@ -44,7 +43,7 @@ ApplicationWindow {
         toolCommandsEnabled: mainView.documentSession.hasDocument
     }
 
-    menuBar: window.platform.nativeMenuBar ? window.nativeSystemMenu : null
+    menuBar: window.platform && window.platform.nativeMenuBar ? window.nativeSystemMenu : null
 
     width: 1280
     height: 800
@@ -54,57 +53,7 @@ ApplicationWindow {
     // C++ explicitly shows this only after MainWindow has registered the root
     // and installed the shared chart-audio drop route.
     visible: false
-    flags: {
-        let value = Qt.Window
-        if (window.platform.captionButtons) {
-            value |= Qt.CustomizeWindowHint
-                    | Qt.WindowTitleHint
-                    | Qt.WindowSystemMenuHint
-                    | Qt.WindowMinimizeButtonHint
-                    | Qt.WindowMaximizeButtonHint
-                    | Qt.WindowCloseButtonHint
-        }
-        if (Qt.platform.os === "linux") {
-            value |= Qt.FramelessWindowHint
-        }
-        if (Qt.platform.os === "osx") {
-            value |= Qt.ExpandedClientAreaHint | Qt.NoTitleBarBackgroundHint
-        }
-        return value
-    }
     title: mainView.windowTitle.replace(/ — /g, " - ")
-    font.family: Theme.uiFont
-    font.pixelSize: Theme.uiFontSize
-    // Allocate an alpha-capable surface at startup and retain it across
-    // wallpaper/material switches. Opaque modes are painted by the base layer.
-    color: Qt.platform.os === "osx" || Qt.platform.os === "windows"
-        ? "transparent" : Theme.colors.background.surface
-    background: null
-    topPadding: 0
-    leftPadding: 0
-    rightPadding: 0
-    bottomPadding: 0
-
-    palette.window: Theme.colors.background.surface
-    palette.windowText: Theme.colors.text.primary
-    palette.base: Theme.overlayColor(Theme.colors.background.surface)
-    palette.alternateBase: Theme.overlayColor(Theme.colors.background.elevated)
-    palette.text: Theme.colors.text.primary
-    palette.button: Theme.overlayColor(Theme.colors.background.panel)
-    palette.buttonText: Theme.colors.text.primary
-    palette.light: Theme.colors.border.control
-    palette.midlight: Theme.colors.border.normal
-    palette.mid: Theme.colors.border.control
-    palette.dark: Theme.colors.background.surface
-    palette.shadow: "#000000"
-    palette.highlight: Theme.overlayColor(Theme.colors.state.textSelection)
-    palette.highlightedText: Theme.colors.text.active
-    palette.placeholderText: Theme.colors.text.secondary
-    palette.toolTipBase: Theme.overlayColor(Theme.colors.background.elevated, Theme.popupOpacity)
-    palette.toolTipText: Theme.colors.text.primary
-    palette.disabled.text: Theme.colors.text.disabled
-    palette.disabled.windowText: Theme.colors.text.disabled
-    palette.disabled.buttonText: Theme.colors.text.disabled
 
     Binding {
         target: Theme
@@ -159,55 +108,45 @@ ApplicationWindow {
     }
 
     // Popups live in ApplicationWindow's overlay, outside the sampled scene.
-    UiScaleSurface {
-        id: sceneContent
+    MainView {
+        id: mainView
+        anchors.fill: parent
+        backgroundSource: window.backgroundLayer
+        hostWindow: window
+        applicationContext: window.applicationContext
+    }
 
-        WindowBackground {
-            id: backgroundLayer
+    Item {
+        id: chartDropHint
+        anchors.fill: parent
+        visible: window.chartDropBridge !== null && window.chartDropBridge.dragActive
+        enabled: false
+
+        Rectangle {
             anchors.fill: parent
-            nativeMaterialActive: window.nativeMaterialActive
+            color: Theme.colors.state.selected
+            opacity: 0.08
+            border.color: Theme.colors.text.active
+            border.width: 2
         }
 
-        MainView {
-            id: mainView
-            anchors.fill: parent
-            backgroundSource: backgroundLayer
-            hostWindow: window
-            applicationContext: window.applicationContext
-        }
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 48, 420)
+            height: 72
+            radius: Theme.controlRadius
+            color: Theme.overlayColor(Theme.colors.background.elevated, Theme.popupOpacity)
+            border.color: Theme.colors.text.active
+            border.width: 1
 
-        Item {
-            id: chartDropHint
-            anchors.fill: parent
-            visible: window.chartDropBridge !== null && window.chartDropBridge.dragActive
-            enabled: false
-
-            Rectangle {
-                anchors.fill: parent
-                color: Theme.colors.state.selected
-                opacity: 0.08
-                border.color: Theme.colors.text.active
-                border.width: 2
-            }
-
-            Rectangle {
+            Text {
                 anchors.centerIn: parent
-                width: Math.min(parent.width - 48, 420)
-                height: 72
-                radius: Theme.controlRadius
-                color: Theme.overlayColor(Theme.colors.background.elevated, Theme.popupOpacity)
-                border.color: Theme.colors.text.active
-                border.width: 1
-
-                Text {
-                    anchors.centerIn: parent
-                    color: Theme.colors.text.primary
-                    text: (window.chartDropBridge && window.chartDropBridge.chartDocumentDrag)
-                          ? qsTrId("drop_chart.preview.open_title")
-                          : qsTrId("drop_chart.preview.title")
-                    font.family: Theme.uiFont
-                    font.pixelSize: 16
-                }
+                color: Theme.colors.text.primary
+                text: (window.chartDropBridge && window.chartDropBridge.chartDocumentDrag)
+                      ? qsTrId("drop_chart.preview.open_title")
+                      : qsTrId("drop_chart.preview.title")
+                font.family: Theme.uiFont
+                font.pixelSize: 16
             }
         }
     }
@@ -234,13 +173,5 @@ ApplicationWindow {
         shortcuts: window.applicationContext.shortcuts
         preferencesModel: window.applicationContext.preferencesModel
         commandsEnabled: window.windowCommandsEnabled
-    }
-
-    Loader {
-        active: Qt.platform.os === "linux"
-        anchors.fill: parent
-        sourceComponent: WindowResizeBorder {
-            hostWindow: window
-        }
     }
 }

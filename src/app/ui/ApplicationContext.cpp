@@ -100,6 +100,7 @@ QObject* ApplicationContext::editor() { return &editor_; }
 QObject* ApplicationContext::editorSync() { return &services_.editorSync(); }
 QObject* ApplicationContext::shortcuts() { return &shortcuts_; }
 QObject* ApplicationContext::windowChrome() const { return windowChrome_; }
+QObject* ApplicationContext::detachedPreviewWindowChrome() const { return detachedPreviewWindowChrome_; }
 QObject* ApplicationContext::chartDropBridge() const { return chartDropBridge_; }
 QObject* ApplicationContext::platform() { return &platform_; }
 
@@ -126,6 +127,11 @@ QObject* ApplicationContext::net() { return &net_; }
 void ApplicationContext::setWindowChrome(QObject* chrome)
 {
     windowChrome_ = chrome;
+}
+
+void ApplicationContext::setDetachedPreviewWindowChrome(QObject* chrome)
+{
+    detachedPreviewWindowChrome_ = chrome;
 }
 
 void ApplicationContext::setChartDropBridge(QObject* bridge)
