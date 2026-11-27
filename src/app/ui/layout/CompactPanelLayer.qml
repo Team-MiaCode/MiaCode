@@ -210,11 +210,11 @@ Item {
         visible: root.peekEnabled && root.peekOpen
 
         enter: Transition {
-            NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+            NumberAnimation { duration: Theme.animDuration(140); easing.type: Easing.OutCubic }
         }
         exit: Transition {
             NumberAnimation {
-                duration: root.suppressExitAnimation ? 0 : 160
+                duration: root.suppressExitAnimation ? 0 : Theme.animDuration(160)
                 easing.type: Easing.OutCubic
             }
         }

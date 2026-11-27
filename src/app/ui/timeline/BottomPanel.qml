@@ -407,7 +407,8 @@ Item {
             opacity: engaged ? 0.96 : 0.48
 
             Behavior on opacity {
-                NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+                enabled: Theme.animationsEnabled
+                NumberAnimation { duration: Theme.animDuration(150); easing.type: Easing.OutCubic }
             }
 
             HoverHandler {
@@ -440,7 +441,8 @@ Item {
                 border.pixelAligned: false
 
                 Behavior on color {
-                    ColorAnimation { duration: 150; easing.type: Easing.OutCubic }
+                    enabled: Theme.animationsEnabled
+                    ColorAnimation { duration: Theme.animDuration(150); easing.type: Easing.OutCubic }
                 }
             }
 

@@ -19,8 +19,14 @@ ToolTip {
             ? above : (root.parent ? root.parent.height : 0) + 6
     }
 
-    enter: Transition {
-        PropertyAction { property: "opacity"; value: 1 }
+    property bool closing: false
+    onAboutToShow: root.closing = false
+    onAboutToHide: root.closing = true
+    onClosed: root.closing = false
+
+    enter: FadeTransition {
+        appearing: true
+        initialOpacity: 0
     }
     exit: FadeTransition {
         appearing: false
@@ -41,5 +47,6 @@ ToolTip {
     background: FloatingCard {
         popup: root
         cornerRadius: Theme.controlRadius
+        liveBackdrop: false
     }
 }

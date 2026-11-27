@@ -68,7 +68,7 @@ Item {
     property bool suppressAnimations: false
     property bool suppressHorizontalAnim: false
     property int previousActiveIndex: -1
-    readonly property bool transitionsEnabled: animationsReady && !suppressAnimations
+    readonly property bool transitionsEnabled: Theme.animationsEnabled && animationsReady && !suppressAnimations
 
     // Remember the last active tab bounds so the arch can retract in place when closing the last tab.
     property real retainedActiveLeft: 0
@@ -135,7 +135,6 @@ Item {
 
     function cancelDrag() {
         animateDropSlot = false
-        dropSlotXAnim.stop()
         draggingEditorKey = ""
         dragStartIndex = -1
         dragTargetIndex = -1
@@ -144,10 +143,6 @@ Item {
 
     function snapHorizontalContour() {
         suppressHorizontalAnim = true
-        activeLeftAnim.stop()
-        activeRightAnim.stop()
-        leftCurveAnim.stop()
-        rightCurveAnim.stop()
         animatedActiveLeft = Qt.binding(() => root.targetActiveLeft)
         animatedActiveRight = Qt.binding(() => root.targetActiveRight)
         animatedLeftCurve = Qt.binding(() => root.effectiveAtLeftEdge ? 0 : root.curve)
@@ -157,11 +152,6 @@ Item {
 
     function snapAnimatedLayout() {
         suppressAnimations = true
-        activeLeftAnim.stop()
-        activeRightAnim.stop()
-        leftCurveAnim.stop()
-        rightCurveAnim.stop()
-        contourPresenceAnim.stop()
         scrollRevealAnim.stop()
         animatedActiveLeft = Qt.binding(() => root.targetActiveLeft)
         animatedActiveRight = Qt.binding(() => root.targetActiveRight)
@@ -345,7 +335,7 @@ Item {
         id: scrollRevealAnim
         target: tabViewport
         property: "contentX"
-        duration: 160
+        duration: Theme.tabSlideDuration
         easing.type: Easing.OutCubic
     }
 

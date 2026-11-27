@@ -43,6 +43,7 @@ Dialog {
         color: Theme.modalScrimColor
         Behavior on opacity {
             id: dimmerFade
+            enabled: Theme.animationsEnabled
             NumberAnimation {
                 duration: dimmerFade.targetValue > 0
                     ? Theme.popupEnterDuration : Theme.popupExitDuration

@@ -16,6 +16,11 @@ Item {
     property real blurMultiplier: Theme.popupBlurMultiplier
     property real backdropSaturation: Theme.popupBlurSaturation
     property real cornerRadius: Theme.popupRadius
+    property bool liveBackdrop: true
+    readonly property bool captureLive: root.liveBackdrop
+        && root.visible
+        && !(root.popup && root.popup.closing)
+        && (!root.popup || root.popup.opened)
     readonly property real padding: blurRadius
     readonly property real sampleWidth: width + 2 * padding
     readonly property real sampleHeight: height + 2 * padding
@@ -60,6 +65,13 @@ Item {
         root.sceneRect = root.sampleRect(root.sourceItem)
         if (root.overlaySource)
             root.overlayRect = root.sampleRect(root.overlaySource)
+        if (root.visible && !root.captureLive) {
+            sceneSample.scheduleUpdate()
+            if (root.overlaySource) {
+                overlaySample.scheduleUpdate()
+                sample.scheduleUpdate()
+            }
+        }
     }
 
     Timer {
@@ -72,6 +84,7 @@ Item {
     onGeometryItemsChanged: queueSourceRectUpdate()
     onPaddingChanged: queueSourceRectUpdate()
     onOverlaySourceChanged: queueSourceRectUpdate()
+    onVisibleChanged: if (visible) queueSourceRectUpdate()
     Instantiator {
         model: root.geometryItems
         delegate: Connections {
@@ -96,7 +109,7 @@ Item {
 
         ShaderEffectSource {
             id: sceneSample
-            live: root.visible
+            live: root.captureLive
             smooth: true
             mipmap: true
             anchors.fill: parent
@@ -105,9 +118,10 @@ Item {
             textureSize: Qt.size(capture.width, capture.height)
         }
         ShaderEffectSource {
+            id: overlaySample
             anchors.fill: parent
             sourceItem: root.overlaySource
-            live: root.visible
+            live: root.captureLive
             smooth: true
             mipmap: true
             sourceRect: root.overlayRect
@@ -117,7 +131,7 @@ Item {
 
     ShaderEffectSource {
         id: sample
-        live: root.visible
+        live: root.captureLive
         smooth: true
         mipmap: true
         width: capture.width

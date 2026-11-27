@@ -50,6 +50,10 @@ Item {
         color: root.handleActive
                ? Theme.colors.accent.focus
                : Theme.separatorColor
+        Behavior on color {
+            enabled: Theme.animationsEnabled && root.visible
+            ColorAnimation { duration: Theme.hoverTransitionDuration; easing.type: Easing.OutCubic }
+        }
     }
 
     property bool wasPressed: false

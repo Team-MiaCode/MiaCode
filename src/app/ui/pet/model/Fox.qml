@@ -21,13 +21,13 @@ PetModelNode {
     property real sleepingWeight: clip === "animation.fox.sleep" ? 1 : 0
     eulerRotation.y: -115 * sleepingWeight
     property real wiggleWeight: clip === "animation.fox.wiggle" ? 1 : 0
-    readonly property int transitionDuration: clip === "animation.fox.wiggle" ? 150 : 650
+    readonly property int transitionDuration: Theme.animDuration(clip === "animation.fox.wiggle" ? 150 : 650)
     readonly property bool sleeping: sleepingWeight > 0.5
     readonly property real idleMotion: (1 - sleepingWeight) * (1 - wiggleWeight)
     readonly property real breathing: Math.sin(lifeTime * Math.PI / 2) * (1 - wiggleWeight)
-    Behavior on sittingWeight { NumberAnimation { duration: fox.transitionDuration; easing.type: Easing.InOutSine } }
-    Behavior on sleepingWeight { NumberAnimation { duration: fox.transitionDuration; easing.type: Easing.InOutSine } }
-    Behavior on wiggleWeight { NumberAnimation { duration: fox.transitionDuration; easing.type: Easing.InOutSine } }
+    Behavior on sittingWeight { enabled: Theme.animationsEnabled; NumberAnimation { duration: fox.transitionDuration; easing.type: Easing.InOutSine } }
+    Behavior on sleepingWeight { enabled: Theme.animationsEnabled; NumberAnimation { duration: fox.transitionDuration; easing.type: Easing.InOutSine } }
+    Behavior on wiggleWeight { enabled: Theme.animationsEnabled; NumberAnimation { duration: fox.transitionDuration; easing.type: Easing.InOutSine } }
     function rotationZYX(x, y, z) {
         const rx = -x * Math.PI / 360
         const ry = -y * Math.PI / 360

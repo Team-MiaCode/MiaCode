@@ -28,7 +28,10 @@ Item {
             root.resources.selectNextResource()
         incomingImage.source = root.resources.currentImageUrl
         incomingImage.x = step < 0 ? -root.imageWidth : root.width
-        slideAnimation.start()
+        if (Theme.animationsEnabled)
+            slideAnimation.start()
+        else
+            root.finishNavigation()
     }
 
     function selectPrevious() {

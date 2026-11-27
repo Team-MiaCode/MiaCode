@@ -1341,6 +1341,10 @@ Failed: %2</source>
         <source>Blur materials</source>
         <translation>ぼかしマテリアル</translation>
     </message>
+    <message id="dialog.preferences.animations">
+        <source>Interface animations</source>
+        <translation>インターフェースアニメーション</translation>
+    </message>
     <message id="dialog.preferences.interface_layout">
         <source>Interface layout</source>
         <translation>画面レイアウト</translation>

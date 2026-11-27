@@ -31,8 +31,9 @@ Item {
           + 2 * Theme.toastVerticalPadding
     width: Math.min(implicitWidth, availableWidth)
     height: implicitHeight
+    readonly property real targetY: progressVisible ? Theme.progressToastTopMargin : Theme.toastTopMargin
     x: parent ? (parent.width - width) / 2 : 0
-    y: progressVisible ? Theme.progressToastTopMargin : Theme.toastTopMargin
+    y: targetY
     z: 10000
     opacity: 0
     visible: opacity > 0 && width > 0
@@ -43,24 +44,59 @@ Item {
 
     function present(nextSeverity, text, stayOpen = false) {
         hold.stop()
+        appearAnim.stop()
         fade.stop()
         severity = nextSeverity
         message = text
-        opacity = 1
+        if (Theme.animationsEnabled) {
+            opacity = 0
+            y = targetY - 6
+            appearAnim.start()
+        } else {
+            opacity = 1
+            y = targetY
+        }
         if (!stayOpen)
             hold.restart()
     }
 
     function dismiss() {
         hold.stop()
+        appearAnim.stop()
         fade.stop()
         opacity = 0
+        y = targetY
     }
 
     Timer {
         id: hold
         interval: root.holdDuration
-        onTriggered: fade.restart()
+        onTriggered: {
+            if (Theme.animationsEnabled)
+                fade.restart()
+            else
+                root.opacity = 0
+        }
+    }
+
+    ParallelAnimation {
+        id: appearAnim
+        NumberAnimation {
+            target: root
+            property: "opacity"
+            from: 0
+            to: 1
+            duration: Theme.popupEnterDuration
+            easing.type: Easing.OutCubic
+        }
+        NumberAnimation {
+            target: root
+            property: "y"
+            from: root.targetY - 6
+            to: root.targetY
+            duration: Theme.popupEnterDuration
+            easing.type: Easing.OutCubic
+        }
     }
 
     NumberAnimation {
@@ -68,7 +104,7 @@ Item {
         target: root
         property: "opacity"
         to: 0
-        duration: Theme.toastFadeDuration
+        duration: Theme.animDuration(Theme.toastFadeDuration)
         easing.type: Easing.InCubic
     }
 

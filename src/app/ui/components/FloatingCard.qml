@@ -23,6 +23,7 @@ Item {
     property real shadowVerticalOffset: largeSurface ? 8 : 5
     property Component tintDelegate: null
     property bool retainBackdrop: false
+    property bool liveBackdrop: true
     property bool backdropCreated: false
     readonly property bool materialActive: backdrop.active
     readonly property Item backdropSource: root.Window.window?.backdropSource ?? null
@@ -61,6 +62,7 @@ Item {
             blurMultiplier: root.blurMultiplier
             backdropSaturation: root.backdropSaturation
             cornerRadius: root.cornerRadius
+            liveBackdrop: root.liveBackdrop
         }
     }
 

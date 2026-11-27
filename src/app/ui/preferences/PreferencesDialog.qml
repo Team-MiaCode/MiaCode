@@ -894,6 +894,13 @@ AppDialog {
                             onToggled: root.preferencesModel.blurMaterialsEnabled = checked
                         }
 
+                        PreferenceSwitch {
+                            objectName: "preferencesAnimationsSwitch"
+                            text: qsTrId("dialog.preferences.animations")
+                            checked: root.preferencesModel.animationsEnabled
+                            onToggled: root.preferencesModel.animationsEnabled = checked
+                        }
+
                         PreferenceCombo {
                             objectName: "preferencesCanvasFrameRateCombo"
                             label: qsTrId("qml.canvas_frame_rate")

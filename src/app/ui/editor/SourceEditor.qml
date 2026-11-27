@@ -49,7 +49,10 @@ Rectangle {
         radius: Math.min(width, height) / 2
         opacity: scrollActive ? 0.5 : 0
         color: highlighted ? Theme.colors.scroll.handleHover : Theme.colors.scroll.handle
-        Behavior on opacity { NumberAnimation { duration: 150 } }
+        Behavior on opacity {
+            enabled: Theme.animationsEnabled
+            NumberAnimation { duration: Theme.animDuration(150) }
+        }
     }
 
     signal normalizeChartRequested()
@@ -460,7 +463,7 @@ Rectangle {
             function syncTo(targetX, targetY, targetHeight, scrollDeltaX, scrollDeltaY, allowAnimate) {
                 if (targetHeight <= 0)
                     return
-                if (!allowAnimate || !caretInitialized) {
+                if (!Theme.animationsEnabled || !allowAnimate || !caretInitialized) {
                     xAnim.stop()
                     yAnim.stop()
                     x = targetX
@@ -500,7 +503,7 @@ Rectangle {
                 id: xAnim
                 target: caret
                 property: "x"
-                duration: 110
+                duration: Theme.animDuration(110)
                 easing.type: Easing.OutCubic
             }
 
@@ -508,7 +511,7 @@ Rectangle {
                 id: yAnim
                 target: caret
                 property: "y"
-                duration: 110
+                duration: Theme.animDuration(110)
                 easing.type: Easing.OutCubic
             }
         }
@@ -559,13 +562,14 @@ Rectangle {
                     && (sourceArea.activeFocus || editorContextMenu.visible || findReplaceBar.open)
                 readonly property bool overwriteBlock: sourceArea.overwriteMode
                     && sourceArea.selectionStart === sourceArea.selectionEnd
-                readonly property bool caretSolid: editorContextMenu.visible
+                readonly property bool caretSolid: !Theme.animationsEnabled || editorContextMenu.visible
                     || findReplaceBar.open || animating || sourceArea.imeComposing
                 property bool blinkOn: true
 
                 function sync(scrollDeltaX, scrollDeltaY, allowAnimate) {
                     blinkOn = true
-                    caretBlinkTimer.restart()
+                    if (visible && !caretSolid)
+                        caretBlinkTimer.restart()
                     syncTo(sourceArea.cursorRectangle.x - caretClipOverlay.x,
                            sourceArea.cursorRectangle.y,
                            sourceArea.cursorRectangle.height,
@@ -584,8 +588,8 @@ Rectangle {
                 opacity: (caretSolid || blinkOn) ? 1.0 : 0.0
 
                 Behavior on opacity {
-                    enabled: !editCaret.caretSolid
-                    NumberAnimation { duration: 75; easing.type: Easing.OutQuad }
+                    enabled: Theme.animationsEnabled && !editCaret.caretSolid
+                    NumberAnimation { duration: Theme.animDuration(75); easing.type: Easing.OutQuad }
                 }
 
                 Timer {

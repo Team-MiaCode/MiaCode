@@ -112,9 +112,16 @@ Slider {
         width: 12
         height: 12
         radius: 6
+        transformOrigin: Item.Center
+        scale: !root.enabled ? 1.0 : root.pressed ? 1.18 : root.hovered ? 1.1 : 1.0
         color: Theme.colors.slider.handle
         border.width: Theme.controlBorderWidth
         border.color: Theme.colors.toggle.knobBorder
+
+        Behavior on scale {
+            enabled: Theme.animationsEnabled
+            NumberAnimation { duration: Theme.iconPressDuration; easing.type: Easing.OutCubic }
+        }
 
         // Hover/drag halo. A negative z keeps it under the handle itself.
         Rectangle {
@@ -123,10 +130,15 @@ Slider {
             width: parent.width + 8
             height: width
             radius: width / 2
-            visible: root.enabled && (root.hovered || root.pressed)
+            opacity: root.enabled && (root.hovered || root.pressed) ? 1 : 0
+            visible: opacity > 0.005
             color: {
                 const c = Qt.color(Theme.colors.text.active)
                 return Qt.rgba(c.r, c.g, c.b, root.pressed ? 0.20 : 0.12)
+            }
+            Behavior on opacity {
+                enabled: Theme.animationsEnabled
+                NumberAnimation { duration: Theme.hoverTransitionDuration; easing.type: Easing.OutCubic }
             }
         }
     }

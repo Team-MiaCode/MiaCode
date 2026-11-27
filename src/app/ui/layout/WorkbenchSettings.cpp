@@ -22,6 +22,7 @@ namespace miacode::ui {
 namespace {
 constexpr auto kUiSection = "ui";
 constexpr auto kBlurMaterialsEnabled = "blur_materials_enabled";
+constexpr auto kAnimationsEnabled = "animations_enabled";
 constexpr auto kEfficientSidebarEnabled = "efficient_sidebar_enabled";
 constexpr auto kSidebarVisible = "sidebar_visible";
 constexpr auto kSidebarWidth = "sidebar_width";
@@ -130,6 +131,7 @@ WorkbenchSettings::WorkbenchSettings(QObject* parent)
     efficientSidebarEnabled_ = ui.value(QLatin1String(kEfficientSidebarEnabled)).toBool(false);
     previewDetached_ = ui.value(QLatin1String(kPreviewDetached)).toBool(false);
     blurMaterialsEnabled_ = ui.value(QLatin1String(kBlurMaterialsEnabled)).toBool(true);
+    animationsEnabled_ = ui.value(QLatin1String(kAnimationsEnabled)).toBool(true);
     uiScalePercent_ = qBound(kUiScaleMinimumPercent,
                             ui.value(QLatin1String(kUiScalePercent)).toInt(kUiScaleDefaultPercent),
                             kUiScaleMaximumPercent);
@@ -213,6 +215,16 @@ void WorkbenchSettings::setBlurMaterialsEnabled(bool enabled)
     blurMaterialsEnabled_ = enabled;
     storeUiValue(kBlurMaterialsEnabled, enabled);
     emit blurMaterialsEnabledChanged();
+}
+
+void WorkbenchSettings::setAnimationsEnabled(bool enabled)
+{
+    if (animationsEnabled_ == enabled) {
+        return;
+    }
+    animationsEnabled_ = enabled;
+    storeUiValue(kAnimationsEnabled, enabled);
+    emit animationsEnabledChanged();
 }
 
 QVariantMap WorkbenchSettings::aboutInfo() const

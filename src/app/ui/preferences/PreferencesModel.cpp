@@ -45,6 +45,8 @@ PreferencesModel::PreferencesModel(miacode::PreferencesStore*& storeSlot,
             this, &PreferencesModel::persistCompletionCandidates);
     connect(&settings, &WorkbenchSettings::blurMaterialsEnabledChanged,
             this, &PreferencesModel::interfaceChanged);
+    connect(&settings, &WorkbenchSettings::animationsEnabledChanged,
+            this, &PreferencesModel::interfaceChanged);
     connect(&settings, &WorkbenchSettings::uiScalePercentChanged,
             this, &PreferencesModel::interfaceChanged);
     connect(&miacode::LocaleService::instance(), &miacode::LocaleService::languageChanged,
@@ -194,6 +196,18 @@ void PreferencesModel::setBlurMaterialsEnabled(bool enabled)
 {
     if (settings_ != nullptr) {
         settings_->setBlurMaterialsEnabled(enabled);
+    }
+}
+
+bool PreferencesModel::animationsEnabled() const
+{
+    return settings_ == nullptr || settings_->animationsEnabled();
+}
+
+void PreferencesModel::setAnimationsEnabled(bool enabled)
+{
+    if (settings_ != nullptr) {
+        settings_->setAnimationsEnabled(enabled);
     }
 }
 

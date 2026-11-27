@@ -40,6 +40,7 @@ public:
     Q_PROPERTY(QString darkThemeToken READ darkThemeToken WRITE setDarkThemeToken NOTIFY interfaceChanged)
     Q_PROPERTY(bool previewOnLeft READ previewOnLeft WRITE setPreviewOnLeft NOTIFY interfaceChanged)
     Q_PROPERTY(bool blurMaterialsEnabled READ blurMaterialsEnabled WRITE setBlurMaterialsEnabled NOTIFY interfaceChanged)
+    Q_PROPERTY(bool animationsEnabled READ animationsEnabled WRITE setAnimationsEnabled NOTIFY interfaceChanged)
     Q_PROPERTY(QVariantList uiScaleOptions READ uiScaleOptions NOTIFY interfaceChanged)
     Q_PROPERTY(int uiScalePercent READ uiScalePercent WRITE setUiScalePercent NOTIFY interfaceChanged)
 
@@ -98,6 +99,8 @@ public:
     void setPreviewOnLeft(bool onLeft);
     bool blurMaterialsEnabled() const;
     void setBlurMaterialsEnabled(bool enabled);
+    bool animationsEnabled() const;
+    void setAnimationsEnabled(bool enabled);
     QVariantList uiScaleOptions() const;
     int uiScalePercent() const;
     void setUiScalePercent(int percent);

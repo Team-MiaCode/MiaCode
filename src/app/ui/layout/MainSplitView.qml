@@ -136,20 +136,21 @@ Item {
     signal workspacePressed()
 
     Behavior on animatedSidebarContentWidth {
-        enabled: root.sidebarAnimationReady
+        enabled: Theme.animationsEnabled
+            && root.sidebarAnimationReady
             && !root.sidebarResizing
             && !root.compact
             && !root.suppressSidebarAnimation
         NumberAnimation {
-            duration: 180
+            duration: Theme.panelSlideDuration
             easing.type: Easing.OutCubic
         }
     }
 
     Behavior on bottomPanelReveal {
-        enabled: root.bottomPanelAnimationReady && !centerSplit.resizing
+        enabled: Theme.animationsEnabled && root.bottomPanelAnimationReady && !centerSplit.resizing
         NumberAnimation {
-            duration: 180
+            duration: Theme.panelSlideDuration
             easing.type: Easing.OutCubic
         }
     }

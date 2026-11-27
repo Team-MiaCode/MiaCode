@@ -70,31 +70,17 @@ Item {
         scale: Math.min(panelScale, Math.max(0.8, noteViewportScale))
         visible: opacity > 0 && scale > 0
             && root.noteViewportRect.width > 0 && root.noteViewportRect.height > 0
-        opacity: 0
+        opacity: root.showing ? 1 : 0
         enabled: false
         focus: false
-        state: root.showing ? "shown" : ""
 
-        states: State {
-            name: "shown"
-            PropertyChanges {
-                target: card
-                opacity: 1
+        Behavior on opacity {
+            enabled: Theme.animationsEnabled
+            NumberAnimation {
+                duration: root.showing ? Theme.popupEnterDuration : Theme.popupExitDuration
+                easing.type: root.showing ? Easing.OutCubic : Easing.InCubic
             }
         }
-
-        transitions: [
-            Transition {
-                to: "shown"
-                PropertyAction { property: "opacity"; value: 1 }
-            },
-            FadeTransition {
-                from: "shown"
-                to: ""
-                appearing: false
-                initialOpacity: card.opacity
-            }
-        ]
 
         FloatingCard {
             anchors.fill: parent

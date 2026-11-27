@@ -18,16 +18,18 @@ Item {
     scale: !enabled ? 1 : pressed ? 0.9 : hovered ? 1.08 : 1
 
     Behavior on scale {
-        enabled: root.enabled
+        enabled: Theme.animationsEnabled && root.enabled
         NumberAnimation {
             duration: root.pressed ? Theme.iconPressDuration : Theme.iconTransitionDuration
             easing.type: Easing.OutCubic
         }
     }
     Behavior on color {
+        enabled: Theme.animationsEnabled
         ColorAnimation { duration: Theme.iconTransitionDuration }
     }
     Behavior on fillProgress {
+        enabled: Theme.animationsEnabled
         NumberAnimation {
             duration: Theme.iconTransitionDuration
             easing.type: Easing.OutCubic

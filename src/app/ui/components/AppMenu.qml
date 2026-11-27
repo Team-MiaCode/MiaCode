@@ -11,8 +11,9 @@ Menu {
     property bool retainBackdrop: false
     property bool closing: false
     readonly property bool active: root.visible && !root.closing
-    enter: Transition {
-        PropertyAction { property: "opacity"; value: 1 }
+    enter: FadeTransition {
+        appearing: true
+        initialOpacity: 0
     }
     exit: FadeTransition {
         appearing: false

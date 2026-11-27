@@ -50,6 +50,7 @@ class WorkbenchSettings final : public QObject
     Q_PROPERTY(QString activeThemeToken READ activeThemeToken NOTIFY themeChanged)
     Q_PROPERTY(bool darkTheme READ darkTheme NOTIFY themeChanged)
     Q_PROPERTY(bool blurMaterialsEnabled READ blurMaterialsEnabled WRITE setBlurMaterialsEnabled NOTIFY blurMaterialsEnabledChanged)
+    Q_PROPERTY(bool animationsEnabled READ animationsEnabled WRITE setAnimationsEnabled NOTIFY animationsEnabledChanged)
     Q_PROPERTY(QFont codeFont READ codeFont NOTIFY editorSettingsChanged)
     Q_PROPERTY(QString editorFontFamily READ editorFontFamily WRITE setEditorFontFamily NOTIFY editorSettingsChanged)
     Q_PROPERTY(int editorBlockSpacing READ editorBlockSpacing NOTIFY editorSettingsChanged)
@@ -104,6 +105,8 @@ public:
     bool darkTheme() const;
     bool blurMaterialsEnabled() const { return blurMaterialsEnabled_; }
     void setBlurMaterialsEnabled(bool enabled);
+    bool animationsEnabled() const { return animationsEnabled_; }
+    void setAnimationsEnabled(bool enabled);
     QFont codeFont() const;
     QString editorFontFamily() const;
     void setEditorFontFamily(const QString& family);
@@ -161,6 +164,7 @@ signals:
     void editorSettingsChanged();
     void themeChanged();
     void blurMaterialsEnabledChanged();
+    void animationsEnabledChanged();
     void uiScalePercentChanged();
 
 private:
@@ -180,6 +184,7 @@ private:
     bool efficientSidebarEnabled_ = false;
     bool sidebarVisible_ = true;
     bool blurMaterialsEnabled_ = true;
+    bool animationsEnabled_ = true;
     int sidebarWidth_ = kSidebarDefaultWidth;
     bool bottomPanelVisible_ = true;
     double bottomPanelHeightRatio_ = kBottomPanelDefaultHeightRatio;

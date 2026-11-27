@@ -198,7 +198,7 @@ Window {
     }
 
     FrameAnimation {
-        running: petWindow.visible
+        running: petWindow.visible && Theme.animationsEnabled
         onTriggered: {
             petWindow.animationPhase += frameTime
             petWindow.lifeTime += frameTime

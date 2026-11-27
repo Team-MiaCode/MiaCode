@@ -44,16 +44,29 @@ Switch {
                                                : Theme.colors.toggle.track)
         opacity: root.enabled ? 1 : 0.45
 
+        Behavior on color {
+            enabled: Theme.animationsEnabled && root.visible
+            ColorAnimation { duration: Theme.stateTransitionDuration; easing.type: Easing.OutCubic }
+        }
+
         Rectangle {
+            readonly property real knobWidth: root.down && root.enabled ? 14 : 12
             x: root.checked ? parent.width - width - 2 : 2
             anchors.verticalCenter: parent.verticalCenter
-            width: 12
+            width: knobWidth
             height: 12
             radius: 6
             color: root.checked ? Theme.colors.toggle.checkedKnob : Theme.colors.toggle.knob
             border.width: 1
             border.color: Theme.colors.toggle.knobBorder
-            Behavior on x { NumberAnimation { duration: 100 } }
+            Behavior on x {
+                enabled: Theme.animationsEnabled && root.visible
+                NumberAnimation { duration: Theme.stateTransitionDuration; easing.type: Easing.OutCubic }
+            }
+            Behavior on width {
+                enabled: Theme.animationsEnabled && root.visible
+                NumberAnimation { duration: Theme.iconPressDuration; easing.type: Easing.OutCubic }
+            }
         }
     }
 

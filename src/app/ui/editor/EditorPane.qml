@@ -224,8 +224,8 @@ Item {
         pages: root.pages
 
         Behavior on height {
-            enabled: tabs.animationsReady
-            NumberAnimation { duration: 170; easing.type: Easing.OutCubic }
+            enabled: Theme.animationsEnabled && tabs.animationsReady
+            NumberAnimation { duration: Theme.panelSlideDuration; easing.type: Easing.OutCubic }
         }
     }
 
