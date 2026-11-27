@@ -599,8 +599,8 @@ qreal paintDebugOverlay(
     qreal hudPadding,
     qreal hudScale)
 {
-    const int headerPointSize = qMax(1, qRound(13.5 * hudScale));
-    const int bodyPointSize = qMax(1, qRound(11.5 * hudScale));
+    const int headerPointSize = qMax(1, qRound(12.5 * hudScale));
+    const int bodyPointSize = qMax(1, qRound(10.5 * hudScale));
     const QFont headerFont = hudReferenceFont(miacode::preview::scene::previewHudMonoFontForArea(
         state.hudFontSettings,
         miacode::preview::scene::PreviewHudFontArea::DebugInfo,
@@ -614,6 +614,11 @@ qreal paintDebugOverlay(
 
     const QFontMetrics headerMetrics(headerFont, painter.device());
     const QFontMetrics bodyMetrics(bodyFont, painter.device());
+    const auto measuredWidth = [](const QFontMetrics& metrics, const QString& text) -> qreal {
+        return qMax(
+            informationTextWidth(metrics, text),
+            static_cast<qreal>(metrics.horizontalAdvance(text)));
+    };
 
     const double targetFps = state.framePacingTargetFps > 1.0
         ? state.framePacingTargetFps
@@ -656,29 +661,50 @@ qreal paintDebugOverlay(
         hzBadge = QStringLiteral("%1 Hz").arg(targetHz);
     }
 
-    const QString frameValue = hasRenderMetrics
-        ? QStringLiteral("1% Low %1 FPS · Max %2 ms")
-              .arg(state.renderMetrics.low1Fps, 0, 'f', 1)
-              .arg(state.renderMetrics.maxFrameMs, 0, 'f', 0)
-        : QStringLiteral("Paused");
-
-    const QString rendererLabel = graphicsInfo.hardwareAccelerated
-        ? QStringLiteral("GPU")
-        : QStringLiteral("CPU");
     const QString apiName = graphicsInfo.apiName.isEmpty()
-        ? QStringLiteral("Unknown")
+        ? (!graphicsInfo.hardwareAccelerated ? QStringLiteral("Software") : QStringLiteral("Unknown"))
         : graphicsInfo.apiName;
-    const QString gpuValue = (graphicsInfo.deviceIdentified && !graphicsInfo.deviceName.isEmpty())
-        ? QStringLiteral("%1 · %2").arg(apiName, graphicsInfo.deviceName)
-        : apiName;
 
-    QString mediaValue = QStringLiteral("None");
-    bool mediaStalled = false;
+    struct DebugRow {
+        QString label;
+        QString value;
+        bool alert = false;
+    };
+
+    QVector<DebugRow> rows;
+    rows.reserve(6);
+    rows.push_back({
+        QStringLiteral("1% Low"),
+        hasRenderMetrics
+            ? QStringLiteral("%1 FPS").arg(state.renderMetrics.low1Fps, 0, 'f', 1)
+            : QStringLiteral("--"),
+        false,
+    });
+    rows.push_back({
+        QStringLiteral("Max"),
+        hasRenderMetrics
+            ? QStringLiteral("%1 ms").arg(state.renderMetrics.maxFrameMs, 0, 'f', 1)
+            : QStringLiteral("--"),
+        false,
+    });
+    rows.push_back({
+        QStringLiteral("API"),
+        apiName,
+        false,
+    });
+    if (graphicsInfo.deviceIdentified && !graphicsInfo.deviceName.isEmpty()) {
+        rows.push_back({
+            graphicsInfo.hardwareAccelerated ? QStringLiteral("GPU") : QStringLiteral("CPU"),
+            graphicsInfo.deviceName,
+            false,
+        });
+    }
+
     if (state.media.presentationMode
         == miacode::preview::scene::PreviewStageMediaPresentationMode::ExternalQuickMediaItem) {
         switch (state.media.externalMediaType) {
         case miacode::preview::scene::PreviewExternalStageMediaType::Image:
-            mediaValue = QStringLiteral("Cover Image");
+            rows.push_back({QStringLiteral("Media"), QStringLiteral("Cover"), false});
             break;
         case miacode::preview::scene::PreviewExternalStageMediaType::Video: {
             QString decodeShort = state.media.externalVideoDecodeDesc.trimmed();
@@ -689,71 +715,70 @@ qreal paintDebugOverlay(
             } else if (decodeShort.isEmpty()) {
                 decodeShort = QStringLiteral("Unknown");
             }
-            if (state.media.externalVideoPlaybackActive && state.media.externalVideoFrameRate > 0.0) {
-                const qint64 deltaMs = qRound64(state.media.externalClockDeltaSeconds * 1000.0);
-                const QString deltaSign = deltaMs >= 0 ? QStringLiteral("+") : QString();
-                mediaValue = QStringLiteral("PV %1 FPS · %2 · Δ %3%4 ms")
-                    .arg(state.media.externalVideoFrameRate, 0, 'f', 1)
-                    .arg(decodeShort)
-                    .arg(deltaSign)
-                    .arg(deltaMs);
+
+            QString pvValue = QStringLiteral("Paused");
+            bool pvAlert = false;
+            if (state.media.externalVideoPlaybackActive) {
                 if (state.media.externalVideoFrameStalled) {
-                    mediaValue += QStringLiteral(" · STALL");
-                    mediaStalled = true;
+                    pvAlert = true;
+                    pvValue = state.media.externalVideoFrameRate > 0.0
+                        ? QStringLiteral("%1 FPS  Stall").arg(state.media.externalVideoFrameRate, 0, 'f', 1)
+                        : QStringLiteral("Stalled");
+                } else if (state.media.externalVideoFrameRate > 0.0) {
+                    const qint64 deltaMs = qRound64(state.media.externalClockDeltaSeconds * 1000.0);
+                    const QString deltaSign = deltaMs >= 0 ? QStringLiteral("+") : QString();
+                    pvValue = QStringLiteral("%1 FPS  %2%3 ms")
+                        .arg(state.media.externalVideoFrameRate, 0, 'f', 1)
+                        .arg(deltaSign)
+                        .arg(deltaMs);
+                } else {
+                    pvValue = QStringLiteral("Active");
                 }
-            } else {
-                mediaValue = QStringLiteral("PV Paused · %1").arg(decodeShort);
             }
+            rows.push_back({QStringLiteral("PV"), pvValue, pvAlert});
+            rows.push_back({QStringLiteral("Decode"), decodeShort, false});
             break;
         }
         case miacode::preview::scene::PreviewExternalStageMediaType::None:
         default:
+            rows.push_back({QStringLiteral("Media"), QStringLiteral("None"), false});
             break;
         }
     } else if (state.media.stageMediaAvailable) {
-        mediaValue = QStringLiteral("Embedded");
+        rows.push_back({QStringLiteral("Media"), QStringLiteral("Embedded"), false});
+    } else {
+        rows.push_back({QStringLiteral("Media"), QStringLiteral("None"), false});
     }
 
-    struct DebugRow {
-        QString label;
-        QString value;
-        bool alert = false;
-    };
-    const std::array<DebugRow, 3> rows = {{
-        {QStringLiteral("FRAME"), frameValue, false},
-        {rendererLabel, gpuValue, false},
-        {QStringLiteral("MEDIA"), mediaValue, mediaStalled},
-    }};
-
-    const qreal padX = 12.0 * hudScale;
-    const qreal padY = 9.0 * hudScale;
-    const qreal dotRadius = 3.5 * hudScale;
-    const qreal dotGap = 7.0 * hudScale;
-    const qreal headerBadgeGap = 16.0 * hudScale;
-    const qreal dividerGap = 6.0 * hudScale;
-    const qreal rowGap = 3.5 * hudScale;
-    const qreal colGap = 10.0 * hudScale;
-    const qreal cornerRadius = 8.0 * hudScale;
+    const qreal padX = 11.0 * hudScale;
+    const qreal padY = 8.0 * hudScale;
+    const qreal dotRadius = 3.2 * hudScale;
+    const qreal dotGap = 6.5 * hudScale;
+    const qreal headerBadgeGap = 14.0 * hudScale;
+    const qreal dividerGap = 5.5 * hudScale;
+    const qreal rowGap = 3.0 * hudScale;
+    const qreal colGap = 12.0 * hudScale;
+    const qreal valueMargin = 2.0 * hudScale;
+    const qreal cornerRadius = 7.5 * hudScale;
 
     qreal maxLabelWidth = 0.0;
     qreal maxValueWidth = 0.0;
     for (const DebugRow& row : rows) {
-        maxLabelWidth = qMax(maxLabelWidth, informationTextWidth(bodyMetrics, row.label));
-        maxValueWidth = qMax(maxValueWidth, informationTextWidth(bodyMetrics, row.value));
+        maxLabelWidth = qMax(maxLabelWidth, measuredWidth(bodyMetrics, row.label));
+        maxValueWidth = qMax(maxValueWidth, measuredWidth(bodyMetrics, row.value) + valueMargin);
     }
 
     const qreal headerContentWidth =
         dotRadius * 2.0 + dotGap
-        + informationTextWidth(headerMetrics, primaryText)
-        + informationTextWidth(headerMetrics, frameMsText)
-        + (hzBadge.isEmpty() ? 0.0 : headerBadgeGap + informationTextWidth(bodyMetrics, hzBadge));
+        + measuredWidth(headerMetrics, primaryText)
+        + measuredWidth(headerMetrics, frameMsText)
+        + (hzBadge.isEmpty() ? 0.0 : headerBadgeGap + measuredWidth(bodyMetrics, hzBadge));
     const qreal rowsContentWidth = maxLabelWidth + colGap + maxValueWidth;
-    const qreal minCardWidth = 220.0 * hudScale;
-    const qreal maxCardWidth = qMax(minCardWidth, stageRect.width() * 0.44);
-    const qreal cardWidth = qBound(
-        minCardWidth,
-        padX * 2.0 + qMax(headerContentWidth, rowsContentWidth),
-        maxCardWidth);
+    const qreal minCardWidth = 196.0 * hudScale;
+    const qreal maxCardWidth = qMax(minCardWidth, stageRect.width() - hudPadding * 2.0);
+    const qreal desiredCardWidth = padX * 2.0 + qMax(headerContentWidth, rowsContentWidth);
+    const qreal cardWidth = qBound(minCardWidth, desiredCardWidth, maxCardWidth);
+    const bool constrainedCardWidth = desiredCardWidth > maxCardWidth;
 
     const qreal headerLineHeight = headerMetrics.height();
     const qreal bodyLineHeight = bodyMetrics.height();
@@ -761,7 +786,7 @@ qreal paintDebugOverlay(
         + headerLineHeight
         + dividerGap * 2.0 + 1.0
         + rows.size() * bodyLineHeight
-        + (rows.size() - 1) * rowGap;
+        + qMax<qsizetype>(0, rows.size() - 1) * rowGap;
 
     const QRectF cardRect(
         stageRect.left() + hudPadding,
@@ -822,8 +847,10 @@ qreal paintDebugOverlay(
         painter.drawText(QPointF(contentLeft, baselineY), row.label);
 
         painter.setPen(row.alert ? QColor(0xF8, 0x71, 0x71) : QColor(0xE2, 0xE8, 0xF0));
-        const QString elidedValue = bodyMetrics.elidedText(row.value, Qt::ElideRight, availableValuePx);
-        painter.drawText(QPointF(valueLeft, baselineY), elidedValue);
+        const QString valueText = constrainedCardWidth && measuredWidth(bodyMetrics, row.value) > availableValuePx
+            ? bodyMetrics.elidedText(row.value, Qt::ElideRight, availableValuePx)
+            : row.value;
+        painter.drawText(QPointF(valueLeft, baselineY), valueText);
         rowTop += bodyLineHeight + rowGap;
     }
 

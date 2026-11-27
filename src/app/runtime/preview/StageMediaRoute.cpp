@@ -330,7 +330,7 @@ void miacode::runtime::StageMediaHost::ensurePreviewStageMediaHostInitialized()
         }
     );
     QObject::connect(state_.previewStageMediaHost_, &PreviewStageMediaHost::diagnosticsChanged, &session_, [this]() {
-        refreshPreviewStageMediaRouteDebugState(!state_.playing_);
+        refreshPreviewStageMediaRouteDebugState(false);
     });
     ensureQuickShellPreviewCompositeSurfaceInitialized();
     state_.deferredQuickShellStartupStageMediaChartPath_ = state_.currentFilePath_;
