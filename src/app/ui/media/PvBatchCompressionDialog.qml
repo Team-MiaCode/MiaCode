@@ -1,11 +1,10 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 import MiaCode.UI
 
-// The PV batch queue. Progress and cancellation live on the shell's shared
-// overlay, so this page shows only what the overlay cannot: which folder each
-// job came from and how each one ended.
+// The PV batch queue. Progress and cancellation live on the shell's shared overlay.
 AppDialog {
     id: root
 
@@ -21,12 +20,14 @@ AppDialog {
     }
 
     readonly property bool busy: !!root.mediaTools && root.mediaTools.batchRunning
+    readonly property var batchJobs: root.mediaTools ? root.mediaTools.batchJobs : []
 
     body: ColumnLayout {
-        spacing: 10
+        spacing: Theme.settingsRowSpacing
 
         RowLayout {
             Layout.fillWidth: true
+            spacing: 6
             AppTextField {
                 objectName: "pvBatchDirectoryField"
                 Layout.fillWidth: true
@@ -36,64 +37,112 @@ AppDialog {
             }
             AppButton {
                 objectName: "pvBatchBrowseButton"
+                minimumButtonWidth: 76
                 text: qsTrId("action.browse")
                 enabled: !root.busy
                 onClicked: root.mediaTools.chooseBatchDirectory()
             }
             AppButton {
                 objectName: "pvBatchAddButton"
+                minimumButtonWidth: 76
                 text: qsTrId("qml.add")
-                enabled: !root.busy && !!root.mediaTools
-                         && root.mediaTools.batchDirectory.length > 0
+                enabled: !root.busy && !!root.mediaTools && root.mediaTools.batchDirectory.length > 0
                 onClicked: root.mediaTools.addBatchFolder()
             }
         }
 
-        ListView {
-            objectName: "pvBatchQueue"
+        Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            radius: Theme.controlRadius
+            color: Theme.surfaceColor(Theme.colors.background.surface)
+            border.width: 1 / Screen.devicePixelRatio
+            border.color: Theme.colors.border.normal
             clip: true
-            model: root.mediaTools ? root.mediaTools.batchJobs : []
-            ScrollBar.vertical: AppScrollBar {}
-            delegate: RowLayout {
-                width: ListView.view.width
-                required property int index
-                required property var modelData
-                spacing: 8
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 0
-                    Text {
-                        Layout.fillWidth: true
-                        text: modelData.displayName
-                        elide: Text.ElideMiddle
-                        color: modelData.hasVideo
-                               ? Theme.colors.text.active
-                               : Theme.colors.text.disabled
+
+            ListView {
+                objectName: "pvBatchQueue"
+                anchors.fill: parent
+                anchors.margins: 4
+                spacing: 2
+                clip: true
+                model: root.batchJobs
+                ScrollBar.vertical: AppScrollBar {}
+                delegate: Item {
+                    id: jobRow
+                    required property int index
+                    required property var modelData
+                    width: ListView.view.width
+                    height: 46
+
+                    HoverHandler { id: rowHover }
+                    HoverChrome {
+                        anchors.fill: parent
+                        fillBounds: true
+                        highlightOutset: 0
+                        stateColors: Theme.colors.listState
+                        hovered: rowHover.hovered
+                        showFocusRing: false
                     }
-                    Text {
-                        Layout.fillWidth: true
-                        text: modelData.status.length > 0 ? modelData.status : modelData.size
-                        elide: Text.ElideRight
-                        color: Theme.colors.text.secondary
-                        font.family: Theme.uiFont
-                        font.pixelSize: Theme.secondaryFontSize
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 6
+                        spacing: 8
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            Text {
+                                Layout.fillWidth: true
+                                text: jobRow.modelData.displayName
+                                elide: Text.ElideMiddle
+                                font.family: Theme.uiFont
+                                font.pixelSize: Theme.uiFontSize
+                                color: jobRow.modelData.hasVideo ? Theme.colors.text.active : Theme.colors.text.disabled
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: jobRow.modelData.status.length > 0 ? jobRow.modelData.status : jobRow.modelData.size
+                                elide: Text.ElideRight
+                                color: Theme.colors.text.secondary
+                                font.family: Theme.uiFont
+                                font.pixelSize: Theme.secondaryFontSize
+                            }
+                        }
+                        IconButton {
+                            compact: true
+                            iconSource: Qt.resolvedUrl("icons/remove.svg")
+                            tooltip: qsTrId("qml.remove")
+                            enabled: !root.busy
+                            onClicked: root.mediaTools.removeBatchJob(jobRow.index)
+                        }
                     }
                 }
-                AppButton {
-                    text: qsTrId("qml.remove")
-                    enabled: !root.busy
-                    onClicked: root.mediaTools.removeBatchJob(index)
-                }
+            }
+
+            Text {
+                anchors.centerIn: parent
+                width: parent.width - 32
+                visible: root.batchJobs.length === 0
+                text: qsTrId("qml.choose_a_folder_to_scan")
+                horizontalAlignment: Text.AlignHCenter
+                color: Theme.colors.text.disabled
+                font.family: Theme.uiFont
+                font.pixelSize: Theme.secondaryFontSize
+                wrapMode: Text.WordWrap
             }
         }
 
         Text {
             objectName: "pvBatchSummary"
             Layout.fillWidth: true
+            visible: text.length > 0
             text: root.mediaTools ? root.mediaTools.batchSummary : ""
             color: Theme.colors.text.secondary
+            font.family: Theme.uiFont
+            font.pixelSize: Theme.secondaryFontSize
             wrapMode: Text.WordWrap
         }
 
@@ -101,7 +150,7 @@ AppDialog {
             Layout.fillWidth: true
             AppButton {
                 text: qsTrId("media_tools.batch_pv_clear_queue")
-                enabled: !root.busy
+                enabled: !root.busy && root.batchJobs.length > 0
                 onClicked: root.mediaTools.clearBatchQueue()
             }
             Item { Layout.fillWidth: true }
@@ -109,8 +158,7 @@ AppDialog {
                 objectName: "pvBatchStartButton"
                 text: qsTrId("qml.start_compression")
                 emphasized: true
-                enabled: !root.busy && !!root.mediaTools
-                         && root.mediaTools.batchJobs.length > 0
+                enabled: !root.busy && root.batchJobs.length > 0
                 onClicked: root.mediaTools.startBatchCompression()
             }
         }

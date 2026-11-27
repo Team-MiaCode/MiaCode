@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Window
 import QtQuick.Layouts
 import MiaCode.UI
@@ -9,11 +10,9 @@ Rectangle {
     id: root
 
     required property var documentSession
-
     signal newRequested()
     signal openRequested()
     signal openRecentRequested(string path)
-
     property var recentDocuments: []
 
     function refreshRecentDocuments() {
@@ -21,11 +20,7 @@ Rectangle {
     }
 
     color: Theme.surfaceColor(Theme.colors.background.panel)
-
-    onVisibleChanged: {
-        if (visible)
-            refreshRecentDocuments()
-    }
+    onVisibleChanged: if (visible) refreshRecentDocuments()
     Component.onCompleted: refreshRecentDocuments()
 
     Flickable {
@@ -35,18 +30,19 @@ Rectangle {
         boundsBehavior: Flickable.StopAtBounds
         flickableDirection: Flickable.VerticalFlick
         clip: true
+        ScrollBar.vertical: AppScrollBar {}
 
         ColumnLayout {
             id: welcomeColumn
-
             width: Math.min(620, Math.max(320, parent.width - 64))
             anchors.horizontalCenter: parent.horizontalCenter
             y: Math.max(48, (parent.height - implicitHeight) / 2)
-            spacing: 22
+            spacing: 20
 
             Text {
                 Layout.fillWidth: true
-                text: "MiaCode"
+                text: Theme.brandDisplayText
+                textFormat: Theme.miaMiaCode ? Text.RichText : Text.PlainText
                 color: Theme.colors.text.heading
                 font.family: Theme.uiFont
                 font.pixelSize: 36
@@ -63,7 +59,6 @@ Rectangle {
                     emphasized: true
                     onClicked: root.newRequested()
                 }
-
                 AppButton {
                     text: qsTrId("action.open")
                     onClicked: root.openRequested()
@@ -72,7 +67,7 @@ Rectangle {
 
             Rectangle {
                 Layout.fillWidth: true
-                Layout.topMargin: 10
+                Layout.topMargin: 6
                 height: 1 / Screen.devicePixelRatio
                 color: Theme.separatorColor
             }
@@ -80,10 +75,10 @@ Rectangle {
             Text {
                 Layout.fillWidth: true
                 text: qsTrId("cover.open_recent")
-                color: Theme.colors.text.primary
+                color: Theme.colors.text.section
                 font.family: Theme.uiFont
-                font.pixelSize: Theme.uiFontSize
-                font.weight: Font.DemiBold
+                font.pixelSize: Theme.sectionTitleFontSize
+                font.weight: Theme.sectionTitleFontWeight
             }
 
             ColumnLayout {
@@ -101,69 +96,66 @@ Rectangle {
 
                 Repeater {
                     model: root.recentDocuments.slice(0, 8)
-
-                    delegate: Item {
+                    delegate: AbstractButton {
                         id: recentRow
-
                         required property var modelData
 
                         Layout.fillWidth: true
                         implicitHeight: 48
+                        padding: 0
+                        hoverEnabled: true
+                        focusPolicy: Qt.TabFocus
+                        Accessible.name: modelData.label + " " + modelData.path
+                        onClicked: root.openRecentRequested(modelData.path)
 
-                        HoverChrome {
-                            anchors.fill: parent
-                            baseColor: "transparent"
+                        HoverHandler { cursorShape: Qt.PointingHandCursor }
+
+                        background: HoverChrome {
+                            fillBounds: true
+                            highlightOutset: 0
                             stateColors: Theme.colors.listState
-                            hovered: recentMouse.containsMouse
-                            pressed: recentMouse.pressed
+                            hovered: recentRow.hovered
+                            pressed: recentRow.down
+                            focused: recentRow.visualFocus
                         }
 
-                        Column {
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            anchors.leftMargin: 12
-                            anchors.rightMargin: 52
-                            spacing: 2
-
-                            Text {
-                                width: parent.width
-                                text: recentRow.modelData.label
-                                color: Theme.colors.text.primary
-                                font.family: Theme.uiFont
-                                font.pixelSize: Theme.uiFontSize
-                                elide: Text.ElideMiddle
-                            }
-
-                            Text {
-                                width: parent.width
-                                text: recentRow.modelData.path
-                                color: Theme.colors.text.disabled
-                                font.family: Theme.uiFont
-                                font.pixelSize: Theme.secondaryFontSize
-                                elide: Text.ElideMiddle
-                            }
-                        }
-
-                        MouseArea {
-                            id: recentMouse
+                        contentItem: RowLayout {
                             anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.openRecentRequested(recentRow.modelData.path)
-                        }
-
-                        IconButton {
-                            anchors.right: parent.right
+                            anchors.leftMargin: 12
                             anchors.rightMargin: 8
-                            anchors.verticalCenter: parent.verticalCenter
-                            z: 1
-                            compact: true
-                            iconSource: Qt.resolvedUrl("icons/remove.svg")
-                            tooltip: qsTrId("metadata.delete")
-                            onClicked: {
-                                root.documentSession.removeRecentDocument(recentRow.modelData.path)
-                                root.refreshRecentDocuments()
+                            spacing: 8
+
+                            Column {
+                                Layout.fillWidth: true
+                                spacing: 2
+
+                                Text {
+                                    width: parent.width
+                                    text: recentRow.modelData.label
+                                    color: recentRow.hovered || recentRow.visualFocus
+                                        ? Theme.colors.text.active : Theme.colors.text.primary
+                                    font.family: Theme.uiFont
+                                    font.pixelSize: Theme.uiFontSize
+                                    elide: Text.ElideMiddle
+                                }
+                                Text {
+                                    width: parent.width
+                                    text: recentRow.modelData.path
+                                    color: Theme.colors.text.disabled
+                                    font.family: Theme.uiFont
+                                    font.pixelSize: Theme.secondaryFontSize
+                                    elide: Text.ElideMiddle
+                                }
+                            }
+
+                            IconButton {
+                                compact: true
+                                iconSource: Qt.resolvedUrl("icons/remove.svg")
+                                tooltip: qsTrId("metadata.delete")
+                                onClicked: {
+                                    root.documentSession.removeRecentDocument(recentRow.modelData.path)
+                                    root.refreshRecentDocuments()
+                                }
                             }
                         }
                     }

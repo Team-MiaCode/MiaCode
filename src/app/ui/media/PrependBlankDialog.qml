@@ -4,9 +4,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import MiaCode.UI
 
-// Beats/BPM for the blank prepended to track.mp3 or the background video. The
-// summary is the point of the dialog: beats and BPM only mean something once
-// they are turned into the length that will actually be inserted.
+// Beats/BPM for the blank prepended to track.mp3 or the background video.
 AppDialog {
     id: root
 
@@ -24,6 +22,7 @@ AppDialog {
     readonly property real blankSeconds: bpm > 0 ? beats * 60 / bpm : 0
 
     preferredWidth: 440
+    preferredHeight: Math.max(240, implicitHeight)
     footer: DialogFooter {
         acceptText: qsTrId("action.ok")
         cancelText: qsTrId("qml.back")
@@ -40,37 +39,38 @@ AppDialog {
         bpmField.value = context.bpm
     }
 
-    function formatNumber(value) {
-        return Number(value.toFixed(3)).toString()
-    }
+    function formatNumber(value) { return Number(value.toFixed(3)).toString() }
 
     onAccepted: root.mediaTools.applyPrepend(root.isTrack, root.beats, root.bpm)
 
     body: ColumnLayout {
-        spacing: 12
-
-        Text {
-            objectName: "prependBlankSummary"
-            Layout.fillWidth: true
-            text: root.isTrack
-                  ? qsTrId("qml.insert_2_beats_of_silence_bpm_3_about_4_seconds_at_the_beginning")
-                        .arg(root.inputName)
-                        .arg(root.formatNumber(root.beats))
-                        .arg(root.formatNumber(root.bpm))
-                        .arg(root.formatNumber(root.blankSeconds))
-                  : qsTrId("qml.insert_2_beats_of_black_screen_bpm_3_about_4_seconds_at_the_begi")
-                        .arg(root.inputName)
-                        .arg(root.formatNumber(root.beats))
-                        .arg(root.formatNumber(root.bpm))
-                        .arg(root.formatNumber(root.blankSeconds))
-            color: Theme.colors.text.secondary
-            wrapMode: Text.WordWrap
-        }
+        spacing: Theme.settingsRowSpacing
 
         Rectangle {
             Layout.fillWidth: true
-            height: 1 / Screen.devicePixelRatio
-            color: Theme.separatorColor
+            implicitHeight: summaryLabel.implicitHeight + 16
+            radius: Theme.controlRadius
+            color: Theme.overlayColor(Theme.colors.background.control)
+            border.width: 1 / Screen.devicePixelRatio
+            border.color: Theme.colors.border.normal
+
+            Text {
+                id: summaryLabel
+                objectName: "prependBlankSummary"
+                anchors.fill: parent
+                anchors.margins: 8
+                text: (root.isTrack
+                    ? qsTrId("qml.insert_2_beats_of_silence_bpm_3_about_4_seconds_at_the_beginning")
+                    : qsTrId("qml.insert_2_beats_of_black_screen_bpm_3_about_4_seconds_at_the_begi"))
+                    .arg(root.inputName)
+                    .arg(root.formatNumber(root.beats))
+                    .arg(root.formatNumber(root.bpm))
+                    .arg(root.formatNumber(root.blankSeconds))
+                color: Theme.colors.text.primary
+                font.family: Theme.uiFont
+                font.pixelSize: Theme.secondaryFontSize
+                wrapMode: Text.WordWrap
+            }
         }
 
         component NumberRow: RowLayout {
@@ -79,32 +79,34 @@ AppDialog {
             property alias value: spin.realValue
             property real minimum: 0
             property real maximum: 1000
+            signal detected(var values)
             Layout.fillWidth: true
+            spacing: 8
+
             Text {
+                Layout.preferredWidth: 68
                 text: numberRow.label
                 color: Theme.colors.text.secondary
+                font.family: Theme.uiFont
+                font.pixelSize: Theme.uiFontSize
             }
             AppTextField {
                 id: spin
                 property real realValue: 0
                 Layout.fillWidth: true
-                text: Number(spin.realValue.toFixed(3)).toString()
+                text: root.formatNumber(spin.realValue)
                 onEditingFinished: {
                     const parsed = parseFloat(text)
                     if (!isNaN(parsed))
-                        spin.realValue = Math.min(numberRow.maximum,
-                                                  Math.max(numberRow.minimum, parsed))
-                    text = Number(spin.realValue.toFixed(3)).toString()
+                        spin.realValue = Math.min(numberRow.maximum, Math.max(numberRow.minimum, parsed))
+                    text = root.formatNumber(spin.realValue)
                 }
             }
             AppButton {
+                minimumButtonWidth: 72
                 text: qsTrId("qml.detect")
-                onClicked: {
-                    const detected = root.mediaTools.detectPrependTiming(root.isTrack)
-                    numberRow.detected(detected)
-                }
+                onClicked: numberRow.detected(root.mediaTools.detectPrependTiming(root.isTrack))
             }
-            signal detected(var values)
         }
 
         NumberRow {
@@ -114,10 +116,7 @@ AppDialog {
             minimum: 0.125
             maximum: 512
             value: 4
-            onDetected: function(values) {
-                if (values.beats !== undefined)
-                    beatsField.value = values.beats
-            }
+            onDetected: values => { if (values.beats !== undefined) beatsField.value = values.beats }
         }
 
         NumberRow {
@@ -127,10 +126,7 @@ AppDialog {
             minimum: 1
             maximum: 999
             value: 120
-            onDetected: function(values) {
-                if (values.bpm !== undefined)
-                    bpmField.value = values.bpm
-            }
+            onDetected: values => { if (values.bpm !== undefined) bpmField.value = values.bpm }
         }
 
         AppButton {

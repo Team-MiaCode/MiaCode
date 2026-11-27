@@ -11,36 +11,36 @@ Item {
     property bool outlined: false
     readonly property bool hasDate: !isNaN(selectedDate.getTime())
     readonly property string text: hasDate ? Qt.formatDate(selectedDate, "yyyy-MM-dd") : ""
+    readonly property string todayText: Qt.formatDate(new Date(), "yyyy-MM-dd")
 
     function setDate(date) {
-        root.selectedDate = date;
-        dateInput.text = root.text;
+        root.selectedDate = date
+        dateInput.text = root.text
     }
 
     function commitDate() {
-        const value = dateInput.text.trim();
+        const value = dateInput.text.trim()
         if (value.length === 0) {
-            root.setDate(new Date(NaN));
-            return;
+            root.setDate(new Date(NaN))
+            return
         }
-        const parts = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(value);
+        const parts = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(value)
         if (parts) {
-            const year = Number(parts[1]);
-            const month = Number(parts[2]) - 1;
-            const day = Number(parts[3]);
-            const candidate = new Date(2000, 0, 1);
-            candidate.setFullYear(year, month, day);
+            const year = Number(parts[1]), month = Number(parts[2]) - 1, day = Number(parts[3])
+            const candidate = new Date(2000, 0, 1)
+            candidate.setFullYear(year, month, day)
             if (year > 0 && candidate.getFullYear() === year
                     && candidate.getMonth() === month && candidate.getDate() === day)
-                root.selectedDate = candidate;
+                root.selectedDate = candidate
         }
-        dateInput.text = root.text;
+        dateInput.text = root.text
     }
 
     onSelectedDateChanged: dateInput.text = root.text
     Component.onCompleted: dateInput.text = root.text
     implicitWidth: 158
     implicitHeight: Theme.controlMinHeight
+
     AppTextField {
         id: dateInput
         backgroundColor: root.backgroundColor
@@ -60,31 +60,32 @@ Item {
         iconWidth: 12
         iconHeight: 12
         tooltip: qsTrId("net.ui.choose_date")
-        active: calendar.visible
+        active: calendar.active
         onClicked: {
-            if (calendar.visible) {
-                calendar.close();
+            if (calendar.active) {
+                calendar.close()
             } else {
-                root.commitDate();
-                calendar.monthDate = root.hasDate ? root.selectedDate : new Date();
-                calendar.open();
+                root.commitDate()
+                calendar.monthDate = root.hasDate ? root.selectedDate : new Date()
+                calendar.open()
             }
         }
     }
-    Popup {
+
+    AppDropdownPanel {
         id: calendar
         parent: root
-        popupType: Popup.Item
         margins: 12
         padding: 12
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
         property date monthDate: new Date()
         readonly property Item viewport: Overlay.overlay
         readonly property var calendarLocale: Qt.locale()
         readonly property real cellSize: {
-            let labelWidth = calendarMetrics.advanceWidth("31");
+            let w = calendarMetrics.advanceWidth("31")
             for (let day = 0; day < 7; ++day)
-                labelWidth = Math.max(labelWidth, calendarMetrics.advanceWidth(calendarLocale.dayName(day, Locale.ShortFormat)));
-            return Math.ceil(Math.max(Theme.controlMinHeight, labelWidth + 16, calendarMetrics.height + 12));
+                w = Math.max(w, calendarMetrics.advanceWidth(calendarLocale.dayName(day, Locale.ShortFormat)))
+            return Math.ceil(Math.max(Theme.controlMinHeight, w + 16, calendarMetrics.height + 12))
         }
         readonly property real gridSpacing: 4
         implicitWidth: Math.max(monthHeader.implicitWidth, 7 * cellSize + 6 * gridSpacing) + leftPadding + rightPadding
@@ -94,62 +95,30 @@ Item {
 
         function reposition() {
             if (!viewport)
-                return;
-            const anchor = root.mapToItem(viewport, 0, 0);
-            const below = anchor.y + root.height + 4;
-            const above = anchor.y - height - 4;
-            const preferredY = below + height <= viewport.height - margins ? below : above;
-            x = Math.max(margins, Math.min(anchor.x, viewport.width - width - margins)) - anchor.x;
-            y = Math.max(margins, Math.min(preferredY, viewport.height - height - margins)) - anchor.y;
+                return
+            const anchor = root.mapToItem(viewport, 0, 0)
+            const below = anchor.y + root.height + 4
+            const preferredY = below + height <= viewport.height - margins ? below : anchor.y - height - 4
+            x = Math.max(margins, Math.min(anchor.x, viewport.width - width - margins)) - anchor.x
+            y = Math.max(margins, Math.min(preferredY, viewport.height - height - margins)) - anchor.y
         }
 
         onAboutToShow: reposition()
-        onWidthChanged: if (visible)
-            reposition()
-        onHeightChanged: if (visible)
-            reposition()
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
-        background: Rectangle {
-            color: Theme.colors.background.panel
-            border.color: Theme.colors.border.control
-            radius: 8
-        }
+        onWidthChanged: if (visible) reposition()
+        onHeightChanged: if (visible) reposition()
+
         FontMetrics {
             id: calendarMetrics
             font.family: Theme.uiFont
             font.pixelSize: Theme.uiFontSize
-            font.bold: true
+            font.weight: Font.DemiBold
         }
         Connections {
             target: calendar.viewport
-            function onWidthChanged() {
-                if (calendar.visible)
-                    calendar.reposition();
-            }
-            function onHeightChanged() {
-                if (calendar.visible)
-                    calendar.reposition();
-            }
+            function onWidthChanged() { if (calendar.visible) calendar.reposition() }
+            function onHeightChanged() { if (calendar.visible) calendar.reposition() }
         }
-        Connections {
-            target: root
-            function onXChanged() {
-                if (calendar.visible)
-                    calendar.reposition();
-            }
-            function onYChanged() {
-                if (calendar.visible)
-                    calendar.reposition();
-            }
-            function onWidthChanged() {
-                if (calendar.visible)
-                    calendar.reposition();
-            }
-            function onHeightChanged() {
-                if (calendar.visible)
-                    calendar.reposition();
-            }
-        }
+
         contentItem: Flickable {
             clip: true
             implicitHeight: calendarContent.implicitHeight
@@ -157,16 +126,18 @@ Item {
             contentHeight: calendarContent.implicitHeight
             flickableDirection: Flickable.VerticalFlick
             boundsBehavior: Flickable.StopAtBounds
-            ScrollBar.vertical: ScrollBar {}
+            ScrollBar.vertical: AppScrollBar {}
 
             ColumnLayout {
                 id: calendarContent
                 width: parent.width
                 spacing: 8
+
                 RowLayout {
                     id: monthHeader
                     Layout.fillWidth: true
                     IconButton {
+                        compact: true
                         glyph: "‹"
                         tooltip: qsTrId("net.ui.previous_month")
                         onClicked: calendar.monthDate = new Date(calendar.monthDate.getFullYear(), calendar.monthDate.getMonth() - 1, 1)
@@ -174,12 +145,12 @@ Item {
                     Label {
                         Layout.fillWidth: true
                         text: Qt.formatDate(calendar.monthDate, "yyyy-MM")
-                        font.family: Theme.uiFont
-                        font.pixelSize: Theme.uiFontSize
+                        font: calendarMetrics.font
                         color: Theme.colors.text.active
                         horizontalAlignment: Text.AlignHCenter
                     }
                     IconButton {
+                        compact: true
                         glyph: "›"
                         tooltip: qsTrId("net.ui.next_month")
                         onClicked: calendar.monthDate = new Date(calendar.monthDate.getFullYear(), calendar.monthDate.getMonth() + 1, 1)
@@ -187,7 +158,6 @@ Item {
                 }
                 DayOfWeekRow {
                     Layout.fillWidth: true
-                    Layout.minimumWidth: 0
                     implicitWidth: 7 * calendar.cellSize + 6 * spacing
                     implicitHeight: calendarMetrics.height + topPadding + bottomPadding
                     spacing: calendar.gridSpacing
@@ -195,7 +165,9 @@ Item {
                     delegate: Label {
                         required property string shortName
                         text: shortName
-                        font: calendarMetrics.font
+                        font.family: Theme.uiFont
+                        font.pixelSize: Theme.secondaryFontSize
+                        font.weight: Font.Medium
                         color: Theme.colors.text.secondary
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
@@ -204,7 +176,6 @@ Item {
                 MonthGrid {
                     id: monthGrid
                     Layout.fillWidth: true
-                    Layout.minimumWidth: 0
                     implicitWidth: 7 * calendar.cellSize + 6 * spacing
                     implicitHeight: 6 * calendar.cellSize + 5 * spacing
                     Layout.preferredHeight: implicitHeight
@@ -212,21 +183,40 @@ Item {
                     month: calendar.monthDate.getMonth()
                     year: calendar.monthDate.getFullYear()
                     locale: calendar.calendarLocale
-                    delegate: Rectangle {
+                    delegate: Item {
+                        id: dayCell
                         required property var model
-                        color: Qt.formatDate(model.date, "yyyy-MM-dd") === root.text ? Theme.colors.accent.primary : "transparent"
-                        radius: 4
+                        readonly property string iso: Qt.formatDate(model.date, "yyyy-MM-dd")
+                        readonly property bool selected: iso === root.text
+                        readonly property bool today: iso === root.todayText
+                        HoverHandler { id: dayHover; cursorShape: Qt.PointingHandCursor }
+                        HoverChrome {
+                            anchors.fill: parent
+                            fillBounds: true
+                            highlightOutset: 0
+                            cornerRadius: Theme.compactControlRadius
+                            emphasizedFill: dayCell.selected
+                            baseColor: dayCell.selected ? Theme.colors.accent.primary : "transparent"
+                            stateColors: dayCell.selected ? Theme.colors.accentState : Theme.colors.popupState
+                            borderWidth: dayCell.today && !dayCell.selected ? 1 : 0
+                            borderColor: Theme.colors.accent.primary
+                            hovered: dayHover.hovered
+                            showFocusRing: false
+                        }
                         Label {
                             anchors.centerIn: parent
-                            text: parent.model.day
+                            text: dayCell.model.day
                             font.family: Theme.uiFont
                             font.pixelSize: Theme.uiFontSize
-                            color: parent.model.month === monthGrid.month ? Theme.colors.text.active : Theme.colors.text.disabled
+                            font.weight: dayCell.selected || dayCell.today ? Font.DemiBold : Font.Normal
+                            color: dayCell.selected ? Theme.colors.text.onAccent
+                                : dayCell.model.month === monthGrid.month ? Theme.colors.text.active
+                                : Theme.colors.text.disabled
                         }
                     }
                     onClicked: date => {
-                        root.setDate(date);
-                        calendar.close();
+                        root.setDate(date)
+                        calendar.close()
                     }
                 }
             }
