@@ -142,10 +142,11 @@ AppDialog {
                     elide: Text.ElideRight
                     font.family: Theme.uiFont
                     font.pixelSize: Theme.uiFontSize
-                    ToolTip.text: qsTrId("document.no_chart_yet_records_des")
-                        .arg(slotRow.slotId)
-                    ToolTip.visible: !slotRow.hasChart && slotLabelHover.hovered
                     HoverHandler { id: slotLabelHover }
+                    Tooltip {
+                        visible: !slotRow.hasChart && slotLabelHover.hovered
+                        text: qsTrId("document.no_chart_yet_records_des").arg(slotRow.slotId)
+                    }
                 }
 
                 AppTextField {

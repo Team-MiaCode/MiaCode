@@ -49,6 +49,7 @@ Item {
         objectName: root.buttonObjectName
         anchors.fill: parent
         hoverEnabled: true
+        focusPolicy: Qt.TabFocus
         enabled: root.interactive
         Accessible.name: root.accessibleName
 
@@ -58,21 +59,26 @@ Item {
 
         onClicked: root.clicked()
 
-        background: Rectangle {
-            radius: Math.min(width, height) / 2
-            color: Theme.overlayColor(pill.down
-                ? Theme.colors.buttonState.pressed
-                : pill.hovered
-                    ? Theme.colors.buttonState.hover
-                    : Theme.colors.background.elevated)
-            border.width: pill.visualFocus
-                ? Theme.controlBorderWidth : 1 / root.Screen.devicePixelRatio
-            border.color: pill.visualFocus
-                ? Theme.colors.accent.focus : Theme.colors.border.control
-            border.pixelAligned: false
+        background: HoverChrome {
+            fillBounds: true
+            highlightOutset: 0
+            cornerRadius: Math.min(width, height) / 2
+            baseColor: Theme.colors.background.elevated
+            stateColors: Theme.colors.buttonState
+            hovered: pill.hovered
+            pressed: pill.down
+            focused: pill.visualFocus
+            borderWidth: 1 / root.Screen.devicePixelRatio
+            borderColor: Theme.colors.border.control
         }
 
         contentItem: Item {
+            transformOrigin: Item.Center
+            scale: pill.enabled && pill.down && Theme.animationsEnabled ? 0.90 : 1.0
+            Behavior on scale {
+                enabled: Theme.animationsEnabled
+                NumberAnimation { duration: Theme.iconPressDuration; easing.type: Easing.OutCubic }
+            }
             ControlsImpl.IconImage {
                 anchors.centerIn: parent
                 width: root.iconSize
@@ -80,7 +86,7 @@ Item {
                 rotation: root.iconRotation
                 source: root.iconSource
                 sourceSize: Theme.iconSourceSize(root.iconSize, root.iconSize)
-                color: pill.hovered || pill.visualFocus
+                color: pill.hovered || pill.down || pill.visualFocus
                     ? Theme.colors.text.active : Theme.colors.text.secondary
             }
         }

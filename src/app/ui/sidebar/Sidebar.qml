@@ -207,7 +207,7 @@ Item {
         ChartFieldSidebar {
             id: chartSidebar
             color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
-            rowStateColors: root.compact ? Theme.colors.popupState : Theme.colors.listState
+            rowStateColors: Theme.sidebarRowStateColors(root.compact, false)
             anchors.fill: parent
             visible: !root.efficientMode && root.viewState.activeSidebarView === "chart"
             viewState: root.viewState
@@ -239,7 +239,7 @@ Item {
         UtilitySidebarPage {
             id: networkSidebar
             color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
-            rowStateColors: root.compact ? Theme.colors.popupState : Theme.colors.listState
+            rowStateColors: Theme.sidebarRowStateColors(root.compact, false)
             anchors.fill: parent
             visible: !root.efficientMode && root.viewState.activeSidebarView === "network"
             mode: "network"
@@ -250,7 +250,7 @@ Item {
         UtilitySidebarPage {
             id: toolsSidebar
             color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
-            rowStateColors: root.compact ? Theme.colors.popupState : Theme.colors.listState
+            rowStateColors: Theme.sidebarRowStateColors(root.compact, false)
             anchors.fill: parent
             visible: !root.efficientMode && root.viewState.activeSidebarView === "tools"
             mode: "tools"
@@ -262,7 +262,7 @@ Item {
         ExportSidebarPage {
             id: exportSidebar
             color: root.compact ? "transparent" : Theme.surfaceColor(Theme.colors.background.panel)
-            rowStateColors: root.compact ? Theme.colors.popupState : Theme.colors.listState
+            rowStateColors: Theme.sidebarRowStateColors(root.compact, false)
             anchors.fill: parent
             visible: !root.efficientMode && root.viewState.activeSidebarView === "export"
             documentAvailable: root.documentSession.hasDocument

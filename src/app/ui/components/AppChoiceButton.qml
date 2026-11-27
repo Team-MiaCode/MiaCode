@@ -21,6 +21,12 @@ ToolButton {
 
     contentItem: RowLayout {
         spacing: 6
+        transformOrigin: Item.Center
+        scale: root.enabled && root.down && Theme.animationsEnabled ? 0.96 : 1.0
+        Behavior on scale {
+            enabled: Theme.animationsEnabled
+            NumberAnimation { duration: Theme.iconPressDuration; easing.type: Easing.OutCubic }
+        }
         DifficultySwatch {
             difficultyId: root.difficultyId
             visible: root.difficultyId > 0
@@ -30,7 +36,9 @@ ToolButton {
             id: label
             text: root.text
             font: root.font
-            color: root.checked ? Theme.colors.text.active : Theme.colors.text.secondary
+            color: !root.enabled ? Theme.colors.text.disabled
+                : (root.checked || root.hovered || root.down || root.visualFocus)
+                    ? Theme.colors.text.active : Theme.colors.text.secondary
             verticalAlignment: Text.AlignVCenter
         }
     }

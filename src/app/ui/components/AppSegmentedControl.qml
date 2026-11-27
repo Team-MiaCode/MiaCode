@@ -16,19 +16,22 @@ Item {
     property real radius: Theme.controlRadius
     property real trackPadding: 2
     property bool animateThumb: false
+    property bool animationsReady: false
     signal tabSelected(string tabId)
 
-    onCurrentIndexChanged: {
-        if (visible && thumb.width > 0) {
-            animateThumb = true
-            thumbAnimReset.restart()
-        }
+    function suppressThumbAnimation() {
+        animationsReady = false
+        animateThumb = false
+        Qt.callLater(() => root.animationsReady = true)
     }
+    Component.onCompleted: Qt.callLater(() => root.animationsReady = true)
+    onWidthChanged: suppressThumbAnimation()
+    onSegmentWidthChanged: suppressThumbAnimation()
+    onRightToLeftChanged: suppressThumbAnimation()
 
-    Timer {
-        id: thumbAnimReset
-        interval: 160
-        onTriggered: root.animateThumb = false
+    onCurrentIndexChanged: {
+        animateThumb = animationsReady && visible && thumb.width > 0 && Theme.animationsEnabled
+        Qt.callLater(() => { if (!thumbMotion.running) root.animateThumb = false })
     }
 
     readonly property int currentIndex: {
@@ -89,14 +92,14 @@ Item {
                 ? Theme.chromeStateColors.selected
                 : Theme.overlayColor(Theme.darkTheme
                     ? Theme.colors.buttonState.selected
-                    : Theme.colors.background.panel)
+                    : Theme.colors.background.elevated)
             border.width: 1 / root.Screen.devicePixelRatio
             border.color: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(0, 0, 0, 0.09)
             border.pixelAligned: false
 
             Behavior on x {
-                enabled: root.animateThumb
-                NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+                enabled: root.animateThumb && Theme.animationsEnabled
+                NumberAnimation { id: thumbMotion; duration: Theme.tabSlideDuration; easing.type: Easing.OutCubic }
             }
         }
 
@@ -136,17 +139,14 @@ Item {
                         event.accepted = true
                     }
 
-                    background: Rectangle {
-                        radius: Math.max(2, root.radius - root.trackPadding)
-                        color: segment.selected ? "transparent"
-                            : segment.down
-                                ? (Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.09) : Qt.rgba(0, 0, 0, 0.08))
-                                : segment.hovered
-                                    ? (Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(0, 0, 0, 0.04))
-                                    : "transparent"
-                        border.width: segment.visualFocus ? Theme.controlBorderWidth : 0
-                        border.color: Theme.colors.accent.focus
-                        border.pixelAligned: false
+                    background: HoverChrome {
+                        fillBounds: true
+                        highlightOutset: 0
+                        cornerRadius: Math.max(2, root.radius - root.trackPadding)
+                        stateColors: root.nativeMaterialActive ? Theme.chromeStateColors : Theme.colors.buttonState
+                        hovered: !segment.selected && segment.hovered
+                        pressed: !segment.selected && segment.down
+                        focused: segment.visualFocus
                     }
 
                     contentItem: Text {

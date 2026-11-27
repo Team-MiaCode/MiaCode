@@ -79,7 +79,8 @@ Item {
                     color: root.active || root.dragging ? Theme.colors.text.active : Theme.colors.text.secondary
 
                     Behavior on color {
-                        ColorAnimation { duration: 140; easing.type: Easing.OutCubic }
+                        enabled: Theme.animationsEnabled
+                        ColorAnimation { duration: Theme.stateTransitionDuration; easing.type: Easing.OutCubic }
                     }
                 }
 
@@ -89,14 +90,15 @@ Item {
                     Layout.fillWidth: true
                     text: root.text
                     elide: Text.ElideRight
-                    color: root.active || root.dragging ? Theme.colors.text.active : Theme.colors.text.secondary
+                    color: root.active || root.dragging || root.hovered ? Theme.colors.text.active : Theme.colors.text.secondary
                     font.family: Theme.uiFont
                     font.pixelSize: Theme.secondaryFontSize
                     horizontalAlignment: Text.AlignLeft
                     verticalAlignment: Text.AlignVCenter
 
                     Behavior on color {
-                        ColorAnimation { duration: 140; easing.type: Easing.OutCubic }
+                        enabled: Theme.animationsEnabled
+                        ColorAnimation { duration: Theme.stateTransitionDuration; easing.type: Easing.OutCubic }
                     }
                 }
 
@@ -125,7 +127,8 @@ Item {
                     onClicked: root.closeRequested()
 
                     Behavior on opacity {
-                        NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                        enabled: Theme.animationsEnabled
+                        NumberAnimation { duration: Theme.animDuration(120); easing.type: Easing.OutCubic }
                     }
 
                     // Preserve the 14px glyph within the 24px hit/hover area,
@@ -138,15 +141,18 @@ Item {
                             height: 14
                             source: Qt.resolvedUrl("icons/close.svg")
                             sourceSize: Theme.iconSourceSize(14, 14)
-                            color: Theme.colors.text.secondary
+                            color: closeButton.hovered || closeButton.down || closeButton.visualFocus
+                                ? Theme.colors.text.active : Theme.colors.text.secondary
                         }
                     }
-                    background: Rectangle {
-                        radius: Theme.smallControlRadius
-                        color: closeButton.down ? Theme.colors.buttonState.pressed
-                            : closeButton.hovered ? Theme.colors.buttonState.hover : "transparent"
-                        border.width: closeButton.visualFocus ? Theme.controlBorderWidth : 0
-                        border.color: Theme.colors.accent.focus
+                    background: HoverChrome {
+                        fillBounds: true
+                        cornerRadius: Theme.smallControlRadius
+                        highlightOutset: 0
+                        stateColors: Theme.colors.buttonState
+                        hovered: closeButton.hovered
+                        pressed: closeButton.down
+                        focused: closeButton.visualFocus
                     }
                     Tooltip {
                         visible: closeButton.hovered
@@ -164,16 +170,17 @@ Item {
                 anchors.leftMargin: root.dragging && !root.active ? 2 : 0
                 anchors.rightMargin: root.dragging && !root.active ? 2 : 0
                 radius: Theme.editorTabRadius
-                visible: !root.active
                 color: root.dragging
                     ? Theme.surfaceColor(Theme.colors.background.surface)
-                    : tabButton.down ? Theme.overlayColor(Theme.colors.state.pressed)
-                    : root.hovered ? Theme.overlayColor(Theme.colors.state.hover) : "transparent"
+                    : Theme.overlayColor(Theme.colors.state.hover)
+                opacity: root.active ? 0 : (root.dragging || root.hovered ? 1 : 0)
+                visible: opacity > 0.005
                 border.width: root.dragging ? root.outlineWidth : 0
                 border.color: Theme.colors.accent.primary
 
-                Behavior on color {
-                    ColorAnimation { duration: 110; easing.type: Easing.OutCubic }
+                Behavior on opacity {
+                    enabled: Theme.animationsEnabled && !root.active && !root.dragging
+                    NumberAnimation { duration: Theme.hoverTransitionDuration; easing.type: Easing.OutCubic }
                 }
             }
 
@@ -186,7 +193,8 @@ Item {
                 color: Theme.separatorColor
 
                 Behavior on opacity {
-                    NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                    enabled: Theme.animationsEnabled
+                    NumberAnimation { duration: Theme.animDuration(120); easing.type: Easing.OutCubic }
                 }
             }
 

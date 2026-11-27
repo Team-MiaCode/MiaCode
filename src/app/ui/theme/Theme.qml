@@ -21,28 +21,94 @@ QtObject {
     property var appBackground: null
     property var windowChrome: null
     readonly property bool blurMaterialsEnabled: preferences ? preferences.blurMaterialsEnabled : true
+    readonly property bool animationsEnabled: preferences?.animationsEnabled ?? true
     readonly property bool darkTheme: preferences ? preferences.darkTheme : true
     readonly property bool backgroundActive: appBackground
         && appBackground.enabled && appBackground.imageReadable
     readonly property bool nativeMaterialActive: windowChrome
         && blurMaterialsEnabled && windowChrome.nativeMaterialAvailable && !backgroundActive
 
+    function animDuration(ms) { return animationsEnabled ? ms : 0 }
+
     readonly property var themeCatalog: PaletteData.catalog.themes
     readonly property string activeThemeToken: preferences ? preferences.activeThemeToken : "dark"
     readonly property var activeTheme: themeCatalog[activeThemeToken] || themeCatalog.dark
-    // Compensate wallpaper highlights per semantic role, preserving palette hue.
+    readonly property real controlOverlayFloor: darkTheme ? 0.42 : 0.56
+
+    function shiftLightness(baseColor, delta, alphaOverride = -1) {
+        const c = Qt.color(baseColor)
+        const l = Math.max(0.04, Math.min(0.97, c.hslLightness + delta))
+        return Qt.hsla(c.hslHue >= 0 ? c.hslHue : 0, c.hslHue >= 0 ? c.hslSaturation : 0, l,
+                       alphaOverride >= 0 ? alphaOverride : c.a)
+    }
+
+    function colorDistance(a, b) {
+        const ca = Qt.color(a), cb = Qt.color(b)
+        return Math.abs(ca.r - cb.r) + Math.abs(ca.g - cb.g) + Math.abs(ca.b - cb.b)
+    }
+
+    // Guarantees distinct resting -> hover -> selected -> pressed steps across all 16 palettes.
+    function normalizeStateSet(rawState, baseHint = null, distinctSelectedHover = false) {
+        const dir = darkTheme ? 1 : -1
+        let hover = Qt.color(rawState.hover)
+        let selected = Qt.color(rawState.selected)
+        let pressed = Qt.color(rawState.pressed)
+        if (baseHint !== null && colorDistance(hover, baseHint) < 0.095)
+            hover = shiftLightness(baseHint, dir * 0.065)
+        if (colorDistance(selected, hover) < 0.055)
+            selected = shiftLightness(hover, dir * 0.055)
+        const lightLift = !darkTheme && selected.hslLightness > hover.hslLightness + 0.03
+        const selectedHover = !distinctSelectedHover ? selected
+            : rawState.selectedHover ? Qt.color(rawState.selectedHover)
+            : shiftLightness(selected, lightLift ? -0.048 : dir * 0.050)
+        if (colorDistance(pressed, selected) < 0.090 || colorDistance(pressed, hover) < 0.090)
+            pressed = shiftLightness(selected, lightLift ? -0.095 : dir * 0.085)
+        return Object.assign({}, rawState, {
+            hover: hover, selected: selected, selectedHover: selectedHover, pressed: pressed
+        })
+    }
+
+    function materialStateColors(roleColors, distinctSelectedHover = false) {
+        const ink = Qt.color(activeTheme.colors.text.active)
+        const tint = Qt.color(roleColors ? roleColors.selected : activeTheme.colors.state.selected)
+        const r = Math.min(1, Math.max(0, ink.r * 0.76 + tint.r * 0.24))
+        const g = Math.min(1, Math.max(0, ink.g * 0.76 + tint.g * 0.24))
+        const b = Math.min(1, Math.max(0, ink.b * 0.76 + tint.b * 0.24))
+        const a = darkTheme ? [0.105, 0.17, 0.22, 0.28] : [0.075, 0.135, 0.175, 0.23]
+        return {
+            hover: Qt.rgba(r, g, b, a[0]),
+            selected: Qt.rgba(r, g, b, a[1]),
+            selectedHover: Qt.rgba(r, g, b, distinctSelectedHover ? a[2] : a[1]),
+            pressed: Qt.rgba(r, g, b, a[3])
+        }
+    }
+
     readonly property var colors: {
         const palette = activeTheme.colors
-        if (!backgroundActive)
-            return palette
         const result = Object.assign({}, palette)
-        for (const role of ["state", "listState", "activityState", "popupState", "buttonState"])
-            result[role] = compensatedStateColorsFor(palette[role])
-        result.state.menuSelection = compensatedHighlightColor(palette.state.menuSelection, 0.16)
-        result.state.focusLine = compensatedHighlightColor(palette.state.focusLine, 0.08)
-        result.state.lineHighlight = compensatedHighlightColor(palette.state.lineHighlight, 0.08)
-        result.state.selectionHighlight = compensatedHighlightColor(palette.state.selectionHighlight, 0.16)
-        result.state.textSelection = compensatedHighlightColor(palette.state.textSelection, 0.22)
+        const bg = palette.background
+        const roles = [
+            ["state", bg.surface, false],
+            ["listState", bg.panel, false],
+            ["activityState", bg.activityBar, false],
+            ["popupState", bg.elevated, false],
+            ["buttonState", bg.elevated, true],
+            ["accentState", palette.accent.primary, true],
+            ["dangerState", palette.danger.primary, true]
+        ]
+        for (const [role, hint, distinct] of roles) {
+            const normalized = normalizeStateSet(palette[role], hint, distinct)
+            result[role] = backgroundActive && role !== "accentState" && role !== "dangerState"
+                ? compensatedStateColorsFor(normalized, distinct)
+                : normalized
+        }
+        if (backgroundActive) {
+            result.state.menuSelection = compensatedHighlightColor(palette.state.menuSelection, 0.16)
+            result.state.focusLine = compensatedHighlightColor(palette.state.focusLine, 0.08)
+            result.state.lineHighlight = compensatedHighlightColor(palette.state.lineHighlight, 0.08)
+            result.state.selectionHighlight = compensatedHighlightColor(palette.state.selectionHighlight, 0.16)
+            result.state.textSelection = compensatedHighlightColor(palette.state.textSelection, 0.22)
+        }
         return result
     }
 
@@ -110,28 +176,42 @@ QtObject {
         const lightness = darkTheme
             ? Math.max(source.hslLightness, target.hslLightness)
             : Math.min(source.hslLightness, target.hslLightness)
-        const opacity = backgroundActive ? Math.min(source.a, surfaceOpacity) : source.a
-        return Qt.hsla(Math.max(0, source.hslHue), source.hslSaturation, lightness, opacity)
+        const alpha = backgroundActive
+            ? Math.max(darkTheme ? 0.20 + amount * 0.9 : 0.18 + amount * 0.9, Math.min(source.a, surfaceOpacity))
+            : source.a
+        return Qt.hsla(Math.max(0, source.hslHue), source.hslSaturation, lightness, Math.min(1, alpha))
     }
 
-    function compensatedStateColorsFor(stateColors) {
+    function compensatedStateColorsFor(stateColors, distinctSelectedHover = false) {
+        const selected = compensatedHighlightColor(stateColors.selected, 0.16)
         return Object.assign({}, stateColors, {
-            hover: compensatedHighlightColor(stateColors.hover, 0.12),
-            pressed: compensatedHighlightColor(stateColors.pressed, 0.20),
-            selected: compensatedHighlightColor(stateColors.selected, 0.16)
+            hover: compensatedHighlightColor(stateColors.hover, 0.11),
+            selected: selected,
+            selectedHover: distinctSelectedHover
+                ? compensatedHighlightColor(stateColors.selectedHover ?? stateColors.selected, 0.20)
+                : selected,
+            pressed: compensatedHighlightColor(stateColors.pressed, 0.24)
         })
     }
 
-    function chromeStateColorsFor(materialActive) {
-        return materialActive || backgroundActive
-            ? compensatedStateColorsFor(activeTheme.colors.activityState)
-            : colors.activityState
+    function chromeStateColorsFor(materialActive = nativeMaterialActive) {
+        return materialActive ? materialStateColors(activeTheme.colors.activityState, false) : colors.activityState
     }
+
+    function sidebarRowStateColors(compact, materialActive = false) {
+        return materialActive ? materialStateColors(activeTheme.colors.listState, false)
+            : compact ? colors.popupState : colors.listState
+    }
+
     readonly property real popupOpacity: 0.96
-    readonly property int iconTransitionDuration: 140
-    readonly property int iconPressDuration: 90
-    readonly property int popupEnterDuration: 120
-    readonly property int popupExitDuration: 90
+    readonly property int hoverTransitionDuration: animDuration(90)
+    readonly property int stateTransitionDuration: animDuration(130)
+    readonly property int panelSlideDuration: animDuration(170)
+    readonly property int tabSlideDuration: animDuration(150)
+    readonly property int iconTransitionDuration: animDuration(130)
+    readonly property int iconPressDuration: animDuration(50)
+    readonly property int popupEnterDuration: animDuration(95)
+    readonly property int popupExitDuration: animDuration(75)
     readonly property color floatingBorderColor: darkTheme
         ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(0, 0, 0, 0.11)
     // Frosted menu and dialog materials are independent of wallpaper visibility.
@@ -161,13 +241,24 @@ QtObject {
         return Qt.rgba(c.r, c.g, c.b, dialogTintOpacity)
     }
 
-    function overlayColor(baseColor, opacity = surfaceOpacity) {
+    function overlayColor(baseColor, opacity) {
         if (!backgroundActive)
             return baseColor
         const c = Qt.color(baseColor)
-        // Semantic highlights already carry their fill alpha. Cap it here so
-        // controls and direct color bindings compose the same wallpaper layer.
-        return Qt.rgba(c.r, c.g, c.b, Math.min(c.a, opacity))
+        if (c.a <= 0)
+            return c
+        if (opacity !== undefined)
+            return Qt.rgba(c.r, c.g, c.b, Math.min(c.a, opacity))
+        if (c.a < 0.999)
+            return c
+        return Qt.rgba(c.r, c.g, c.b, Math.max(controlOverlayFloor, surfaceOpacity))
+    }
+
+    function emphasisOverlayColor(baseColor) {
+        if (!backgroundActive)
+            return baseColor
+        const c = Qt.color(baseColor)
+        return c.a <= 0 ? c : Qt.rgba(c.r, c.g, c.b, Math.max(0.92, surfaceOpacity))
     }
 
     // Content decoration may tint a surface, while surface ownership stays

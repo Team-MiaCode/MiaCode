@@ -27,22 +27,43 @@ CheckBox {
         Rectangle {
             anchors.fill: parent
             radius: Theme.smallControlRadius
-            // Same on/off colors as AppSwitch.
-            color: Theme.overlayColor(root.checkState !== Qt.Unchecked ? Theme.colors.accent.muted : "transparent")
+            color: "transparent"
             border.width: 1
             border.color: root.checkState !== Qt.Unchecked ? Theme.colors.accent.muted
                 : root.hovered ? Theme.colors.text.secondary
                 : Theme.colors.toggle.border
+
+            Rectangle {
+                anchors.fill: parent
+                radius: parent.radius
+                color: Theme.overlayColor(Theme.colors.accent.muted)
+                opacity: root.checkState !== Qt.Unchecked ? 1 : 0
+                visible: opacity > 0.005
+                Behavior on opacity {
+                    enabled: Theme.animationsEnabled && root.visible
+                    NumberAnimation { duration: Theme.hoverTransitionDuration; easing.type: Easing.OutCubic }
+                }
+            }
         }
 
         ControlsImpl.IconImage {
             anchors.centerIn: parent
             width: root.compact ? 9 : 11
             height: root.compact ? 9 : 11
-            visible: root.checkState === Qt.Checked
+            opacity: root.checkState === Qt.Checked ? 1 : 0
+            scale: root.checkState === Qt.Checked ? 1 : 0.72
+            visible: opacity > 0.005
             source: "qrc:/icons/checkmark.svg"
             sourceSize: Theme.iconSourceSize(width, height)
             color: Theme.colors.toggle.checkedKnob
+            Behavior on opacity {
+                enabled: Theme.animationsEnabled && root.visible
+                NumberAnimation { duration: Theme.hoverTransitionDuration; easing.type: Easing.OutCubic }
+            }
+            Behavior on scale {
+                enabled: Theme.animationsEnabled && root.visible
+                NumberAnimation { duration: Theme.hoverTransitionDuration; easing.type: Easing.OutCubic }
+            }
         }
 
         Rectangle {

@@ -37,19 +37,27 @@ AbstractButton {
                              (glyph.length > 0 ? glyphLabel.implicitHeight : iconHeight)
                              + 2 * (Theme.chromePadding + Theme.chromeInsetY))
     hoverEnabled: true
+    focusPolicy: Qt.TabFocus
     Accessible.name: root.tooltip
 
     readonly property color defaultGlyphColor:
         !root.enabled
             ? Theme.colors.text.disabled
             : (root.highlightWhenActive && (root.active || root.checked))
-                    || root.hovered || root.visualFocus
+                    || root.hovered || root.down || root.visualFocus
                 ? Theme.colors.text.active
                 : Theme.colors.text.secondary
     readonly property color glyphColor: root.defaultGlyphColor
 
     contentItem: Item {
         anchors.fill: parent
+        transformOrigin: Item.Center
+        scale: root.enabled && root.down && Theme.animationsEnabled ? 0.90 : 1.0
+
+        Behavior on scale {
+            enabled: Theme.animationsEnabled
+            NumberAnimation { duration: Theme.iconPressDuration; easing.type: Easing.OutCubic }
+        }
 
         Row {
             id: contentRow

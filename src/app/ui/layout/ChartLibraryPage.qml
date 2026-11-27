@@ -365,9 +365,11 @@ Item {
                         onTapped: eventPoint =>
                             root.showSongMenu(songRow, eventPoint.position.x, eventPoint.position.y)
                     }
-                    ToolTip.visible: songRow.hovered && (songName.truncated || artistName.truncated || variantName.truncated)
-                    ToolTip.text: [modelData.title, artistName.text, modelData.variant]
-                        .filter(value => value).join("\n")
+                    Tooltip {
+                        visible: songRow.hovered && (songName.truncated || artistName.truncated || variantName.truncated)
+                        text: [songRow.modelData.title, artistName.text, songRow.modelData.variant]
+                            .filter(value => value).join("\n")
+                    }
                     contentItem: RowLayout {
                         id: songBody
                         spacing: 9
@@ -507,13 +509,15 @@ Item {
                                         Keys.onReturnPressed: animateClick()
                                         Keys.onEnterPressed: animateClick()
                                         onClicked: root.openSongAt(songRow.index, modelData?.id)
-                                        ToolTip.visible: badge.hovered && (badge.createsDifficulty || badgeLabel.truncated)
-                                        ToolTip.text: badge.createsDifficulty ? badge.createLabel : badge.text
+                                        Tooltip {
+                                            visible: badge.hovered && (badge.createsDifficulty || badgeLabel.truncated)
+                                            text: badge.createsDifficulty ? badge.createLabel : badge.text
+                                        }
                                         background: Rectangle {
                                             radius: Theme.smallControlRadius
                                             color: Qt.rgba(badge.badgeColor.r, badge.badgeColor.g, badge.badgeColor.b,
-                                                Theme.darkTheme ? (badge.hovered || badge.down ? 0.48 : 0.28)
-                                                    : (badge.hovered || badge.down ? 0.35 : 0.18))
+                                                Theme.darkTheme ? (badge.down ? 0.58 : badge.hovered ? 0.44 : 0.28)
+                                                    : (badge.down ? 0.44 : badge.hovered ? 0.32 : 0.18))
                                             border.width: badge.visualFocus || Theme.darkTheme ? Theme.controlBorderWidth : 0
                                             border.color: badge.visualFocus ? Theme.colors.accent.focus
                                                 : Qt.alpha(badge.badgeColor, 0.75)

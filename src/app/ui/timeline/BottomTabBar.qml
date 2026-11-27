@@ -56,12 +56,12 @@ Item {
     property real animatedActiveRight: targetActiveRight
 
     Behavior on animatedActiveLeft {
-        enabled: root.animationsReady && root.activeTabItem !== null
-        NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+        enabled: Theme.animationsEnabled && root.animationsReady && root.activeTabItem !== null
+        NumberAnimation { duration: Theme.tabSlideDuration; easing.type: Easing.OutCubic }
     }
     Behavior on animatedActiveRight {
-        enabled: root.animationsReady && root.activeTabItem !== null
-        NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+        enabled: Theme.animationsEnabled && root.animationsReady && root.activeTabItem !== null
+        NumberAnimation { duration: Theme.tabSlideDuration; easing.type: Easing.OutCubic }
     }
 
     readonly property bool effectiveAtLeftEdge: activeTabItem !== null
@@ -72,12 +72,12 @@ Item {
     property real animatedRightCurve: effectiveAtRightEdge ? 0 : curve
 
     Behavior on animatedLeftCurve {
-        enabled: root.animationsReady && root.activeTabItem !== null
-        NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+        enabled: Theme.animationsEnabled && root.animationsReady && root.activeTabItem !== null
+        NumberAnimation { duration: Theme.stateTransitionDuration; easing.type: Easing.OutCubic }
     }
     Behavior on animatedRightCurve {
-        enabled: root.animationsReady && root.activeTabItem !== null
-        NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+        enabled: Theme.animationsEnabled && root.animationsReady && root.activeTabItem !== null
+        NumberAnimation { duration: Theme.stateTransitionDuration; easing.type: Easing.OutCubic }
     }
 
     readonly property real leftEdge: effectiveAtLeftEdge
@@ -157,15 +157,13 @@ Item {
                 anchors.leftMargin: 2
                 anchors.rightMargin: 2
                 radius: Theme.editorTabRadius
-                visible: !tab.checked
-                color: tab.down
-                    ? Theme.overlayColor(Theme.colors.state.pressed)
-                    : tab.hovered
-                        ? Theme.overlayColor(Theme.colors.state.hover)
-                        : "transparent"
+                color: Theme.overlayColor(Theme.colors.state.hover)
+                opacity: tab.checked ? 0 : (tab.hovered ? 1 : 0)
+                visible: opacity > 0.005
 
-                Behavior on color {
-                    ColorAnimation { duration: 110; easing.type: Easing.OutCubic }
+                Behavior on opacity {
+                    enabled: Theme.animationsEnabled && !tab.checked
+                    NumberAnimation { duration: Theme.hoverTransitionDuration; easing.type: Easing.OutCubic }
                 }
             }
 
@@ -178,7 +176,8 @@ Item {
                 color: Theme.separatorColor
 
                 Behavior on opacity {
-                    NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                    enabled: Theme.animationsEnabled
+                    NumberAnimation { duration: Theme.animDuration(120); easing.type: Easing.OutCubic }
                 }
             }
 
@@ -211,7 +210,8 @@ Item {
                         : Theme.colors.text.secondary
 
                     Behavior on color {
-                        ColorAnimation { duration: 140; easing.type: Easing.OutCubic }
+                        enabled: Theme.animationsEnabled
+                        ColorAnimation { duration: Theme.stateTransitionDuration; easing.type: Easing.OutCubic }
                     }
                 }
 

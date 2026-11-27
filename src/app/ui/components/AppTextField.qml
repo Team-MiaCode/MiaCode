@@ -70,5 +70,9 @@ TextField {
         border.color: root.enabled && (root.activeFocus || (!root.outlined && root.hovered))
             ? Theme.colors.accent.primary
             : root.enabled && root.hovered ? Theme.colors.border.control : Theme.colors.border.normal
+        Behavior on border.color {
+            enabled: Theme.animationsEnabled && root.visible
+            ColorAnimation { duration: Theme.hoverTransitionDuration; easing.type: Easing.OutCubic }
+        }
     }
 }

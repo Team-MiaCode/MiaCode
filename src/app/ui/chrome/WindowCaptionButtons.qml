@@ -49,11 +49,12 @@ Row {
         height: root.height
         padding: 0
         hoverEnabled: true
+        focusPolicy: Qt.TabFocus
         Accessible.name: accessibleName
 
         readonly property color iconColor: button.isClose && (button.hovered || button.down)
             ? "#FFFFFF"
-            : (button.hovered || button.visualFocus ? Theme.colors.text.active : Theme.colors.text.secondary)
+            : (button.hovered || button.down || button.visualFocus ? Theme.colors.text.active : Theme.colors.text.secondary)
 
         contentItem: Item {
             implicitWidth: 14
@@ -71,12 +72,16 @@ Row {
             }
         }
 
-        background: Rectangle {
-            color: button.isClose
-                ? (button.down ? "#B32617" : button.hovered ? "#C42B1C" : "transparent")
-                : (button.down ? Theme.overlayColor(root.stateColors.pressed)
-                               : button.hovered ? Theme.overlayColor(root.stateColors.hover)
-                                                : "transparent")
+        background: HoverChrome {
+            fillBounds: true
+            cornerRadius: 0
+            highlightOutset: 0
+            stateColors: button.isClose
+                ? ({ hover: "#C42B1C", pressed: "#B32617", selected: "#C42B1C" })
+                : root.stateColors
+            hovered: button.hovered
+            pressed: button.down
+            focused: button.visualFocus
         }
     }
 }

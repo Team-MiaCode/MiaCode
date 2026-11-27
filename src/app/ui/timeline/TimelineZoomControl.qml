@@ -89,8 +89,9 @@ Control {
         radius: root.borderless ? Theme.compactControlRadius : Theme.controlRadius
         color: root.borderless
             ? "transparent"
-            : Theme.surfaceColor(Theme.colors.background.elevated)
-        border.color: Theme.floatingBorderColor
+            : Theme.overlayColor(Theme.colors.background.elevated)
+        border.color: (valueButton.visualFocus || zoomMenu.active)
+            ? Theme.colors.accent.primary : Theme.floatingBorderColor
         border.width: root.borderless ? 0 : root.strokeWidth
         border.pixelAligned: false
     }
@@ -124,8 +125,9 @@ Control {
                     : Theme.controlRadius - root.strokeWidth
                 bottomLeftRadius: topLeftRadius
                 color: Theme.overlayColor(valueButton.down ? Theme.colors.buttonState.pressed
+                    : zoomMenu.active && valueButton.hovered ? Theme.colors.buttonState.selectedHover
+                    : zoomMenu.active ? Theme.colors.buttonState.selected
                     : valueButton.hovered ? Theme.colors.buttonState.hover
-                    : valueButton.visualFocus || zoomMenu.active ? Theme.colors.buttonState.selected
                     : "transparent")
             }
             onClicked: {

@@ -23,17 +23,27 @@ AbstractButton {
     Accessible.checkable: true
     Accessible.checked: selected
 
-    background: Rectangle {
-        radius: Theme.controlRadius
-        color: Theme.overlayColor(card.selected ? Theme.colors.state.selected
-             : card.down ? Theme.colors.state.pressed
-             : card.hovered ? Theme.colors.state.hover : Theme.colors.background.control)
-        border.width: card.selected || card.visualFocus ? 2 : 1
-        border.color: card.selected || card.visualFocus
-            ? Theme.colors.accent.primary : Theme.colors.border.control
+    background: HoverChrome {
+        fillBounds: true
+        cornerRadius: Theme.controlRadius
+        baseColor: Theme.colors.background.control
+        stateColors: Theme.colors.buttonState
+        selected: card.selected
+        hovered: card.hovered
+        pressed: card.down
+        focused: card.visualFocus
+        borderWidth: card.selected || card.visualFocus ? 2 : 1
+        borderColor: card.selected ? Theme.colors.accent.primary
+            : card.hovered ? Theme.colors.accent.muted : Theme.colors.border.control
     }
 
     contentItem: Item {
+        transformOrigin: Item.Center
+        scale: card.enabled && card.down && Theme.animationsEnabled ? 0.985 : 1.0
+        Behavior on scale {
+            enabled: Theme.animationsEnabled
+            NumberAnimation { duration: Theme.iconPressDuration; easing.type: Easing.OutCubic }
+        }
         Rectangle {
             id: miniature
             x: 12

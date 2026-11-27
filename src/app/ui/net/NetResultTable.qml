@@ -199,9 +199,8 @@ Rectangle {
                         width: root.columnWidth(index)
                         height: tableRow.height
                         color: tableRow.selected
-                            ? Qt.tint(Theme.surfaceColor(Theme.colors.background.surface),
-                                      Theme.contentOverlayColor(Theme.colors.accent.primary, 0.14))
-                            : rowHover.hovered ? Theme.surfaceColor(Theme.colors.background.panel)
+                            ? Theme.overlayColor(Theme.colors.listState.selected)
+                            : rowHover.hovered ? Theme.overlayColor(Theme.colors.listState.hover)
                             : Theme.surfaceColor(Theme.colors.background.surface)
                         Rectangle {
                             anchors.left: parent.left
@@ -247,8 +246,10 @@ Rectangle {
                                 ? cell.modelData.alignment
                                 : cell.index === 0 ? Text.AlignHCenter : Text.AlignLeft
                             HoverHandler { id: hover }
-                            ToolTip.visible: hover.hovered && (truncated || !!cell.modelData.tooltipRole)
-                            ToolTip.text: cell.modelData.tooltipRole ? tableRow.model[cell.modelData.tooltipRole] || text : text
+                            Tooltip {
+                                visible: hover.hovered && (parent.truncated || !!cell.modelData.tooltipRole)
+                                text: cell.modelData.tooltipRole ? tableRow.model[cell.modelData.tooltipRole] || parent.text : parent.text
+                            }
                             TapHandler {
                                 enabled: parent.visible && root.interactive && root.reorderable
                                 onTapped: root.rowActivated(tableRow.index)

@@ -34,6 +34,7 @@ RowLayout {
         implicitWidth: 22
         implicitHeight: 22
         hoverEnabled: true
+        focusPolicy: Qt.TabFocus
         Accessible.name: qsTrId("color_picker.open")
         onClicked: picker.visible ? picker.close() : picker.openFor(swatch)
 
@@ -45,9 +46,9 @@ RowLayout {
         background: Rectangle {
             radius: Theme.controlRadius
             color: root.color
-            border.width: Theme.controlBorderWidth
-            border.color: swatch.hovered || picker.visible ? Theme.colors.accent.primary
-                                                           : Theme.colors.border.control
+            border.width: swatch.visualFocus ? 2 : Theme.controlBorderWidth
+            border.color: swatch.hovered || swatch.visualFocus || picker.visible
+                ? Theme.colors.accent.primary : Theme.colors.border.control
         }
     }
 

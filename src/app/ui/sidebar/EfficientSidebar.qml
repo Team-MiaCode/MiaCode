@@ -15,11 +15,7 @@ Rectangle {
     property bool compact: false
     property bool toolsMenuActive: false
     property bool nativeMaterialActive: Theme.nativeMaterialActive
-    readonly property var navigationStateColors: nativeMaterialActive ? ({
-        hover: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.07) : Qt.rgba(0, 0, 0, 0.05),
-        pressed: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.11) : Qt.rgba(0, 0, 0, 0.09),
-        selected: Theme.darkTheme ? Qt.rgba(1, 1, 1, 0.13) : Qt.rgba(0, 0, 0, 0.08)
-    }) : root.compact ? Theme.colors.popupState : Theme.colors.listState
+    readonly property var navigationStateColors: Theme.sidebarRowStateColors(root.compact, root.nativeMaterialActive)
     readonly property Item cornerSourceItem: scroll
     readonly property Item navigationContentItem: difficulties
     readonly property Item toolsItem: toolsRow

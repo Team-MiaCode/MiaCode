@@ -46,13 +46,17 @@ ColumnLayout {
                 implicitHeight: compact ? 92 : 84
                 padding: 6
                 hoverEnabled: true
+                focusPolicy: Qt.TabFocus
                 objectName: "themeTile_" + modelData.value
                 Accessible.role: Accessible.RadioButton
                 Accessible.name: modelData.label
                 Accessible.checked: selected
-                ToolTip.visible: tile.hovered && themeLabel.truncated
-                ToolTip.text: modelData.label
                 onClicked: root.picked(modelData.value)
+
+                Tooltip {
+                    visible: tile.hovered && themeLabel.truncated
+                    text: tile.modelData.label
+                }
 
                 background: Rectangle {
                     radius: Theme.controlRadius
@@ -63,6 +67,12 @@ ColumnLayout {
                 }
                 contentItem: ColumnLayout {
                     spacing: 4
+                    transformOrigin: Item.Center
+                    scale: tile.enabled && tile.down && Theme.animationsEnabled ? 0.97 : 1.0
+                    Behavior on scale {
+                        enabled: Theme.animationsEnabled
+                        NumberAnimation { duration: Theme.iconPressDuration; easing.type: Easing.OutCubic }
+                    }
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true

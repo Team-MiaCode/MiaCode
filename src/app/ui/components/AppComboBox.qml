@@ -57,33 +57,33 @@ ComboBox {
         y: root.topPadding + (root.availableHeight - height) / 2
         width: 12
         height: 12
-
+        rotation: root.popup.visible ? 180 : 0
+        Behavior on rotation {
+            enabled: Theme.animationsEnabled
+            NumberAnimation { duration: Theme.stateTransitionDuration; easing.type: Easing.OutCubic }
+        }
         source: Qt.resolvedUrl("icons/chevron-down.svg")
         sourceSize: Theme.iconSourceSize(12, 12)
-        color: root.enabled ? Theme.colors.text.secondary : Theme.colors.text.disabled
+        color: !root.enabled ? Theme.colors.text.disabled
+            : (root.hovered || root.popup.visible || root.visualFocus) ? Theme.colors.text.active : Theme.colors.text.secondary
     }
 
-    background: Rectangle {
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.topMargin: Theme.chromeInsetY
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: Theme.chromeInsetY
-        implicitHeight: root.implicitHeight
-        radius: Theme.controlRadius
-        color: Theme.overlayColor(!root.enabled ? Theme.colors.background.controlDisabled
-               : root.down ? Theme.colors.buttonState.pressed
-               : root.hovered ? Theme.colors.buttonState.hover
-               : root.popup.visible || root.visualFocus ? Theme.colors.buttonState.selected
-               : root.backgroundColor)
-        border.width: 1 / root.Screen.devicePixelRatio
-        border.color: root.enabled && (root.visualFocus || root.popup.visible)
-                      ? Theme.colors.accent.primary
-                      : root.outlined
-                          ? root.enabled && root.hovered ? Theme.colors.border.control : Theme.colors.border.normal
-                          : Theme.floatingBorderColor
-        border.pixelAligned: false
+    background: HoverChrome {
+        fillWidth: true
+        highlightOutset: 0
+        contentHeight: Theme.controlHighlightHeight - 2 * Theme.chromePadding
+        baseColor: !root.enabled ? Theme.colors.background.controlDisabled : root.backgroundColor
+        stateColors: Theme.colors.buttonState
+        selected: root.popup.visible
+        hovered: root.hovered
+        pressed: root.down
+        focused: root.visualFocus
+        borderWidth: 1 / root.Screen.devicePixelRatio
+        borderColor: root.enabled && (root.visualFocus || root.popup.visible)
+            ? Theme.colors.accent.primary
+            : root.outlined
+                ? (root.enabled && root.hovered ? Theme.colors.border.control : Theme.colors.border.normal)
+                : Theme.floatingBorderColor
     }
 
     delegate: ChromeRow {
