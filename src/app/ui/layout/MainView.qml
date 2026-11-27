@@ -401,6 +401,7 @@ Item {
                 windowChrome: root.applicationContext.windowChrome
                 integratedInTitleBar: root.platform.nativeMenuBar
                 titleBarLeadingInset: titleBar.leadingInset
+                titleFullWidth: root.platform.nativeMenuBar ? titleBar.fullTitleWidth : 0
                 previewSettingsVisible: !splitView.previewDetached
                 sidebarActive: root.compact
                                ? compactPanelLayer.peekOpen

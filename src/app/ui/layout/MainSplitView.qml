@@ -492,38 +492,64 @@ Item {
                         ? detachedTitleBar.captionButtonsWidth + 8 : 8
                     anchors.verticalCenter: parent.verticalCenter
                     height: parent.height
-                    spacing: 5
+                    spacing: Theme.toolbarButtonSpacing
                     z: 2
 
-                    IconButton {
-                        objectName: "detachedPreviewAudioSettingsButton"
-                        height: Math.min(implicitHeight, detachedSettingsActions.height)
+                    TextMetrics {
+                        id: detachedAudioSettingsMetrics
+                        font.family: Theme.uiFont
+                        font.pixelSize: Theme.uiFontSize
+                        text: qsTrId("action.audio_settings")
+                    }
+
+                    TextMetrics {
+                        id: detachedPreviewSettingsMetrics
+                        font.family: Theme.uiFont
+                        font.pixelSize: Theme.uiFontSize
+                        text: qsTrId("action.video_settings")
+                    }
+
+                    readonly property real expandedActionsWidth:
+                        Theme.toolbarLabeledButtonWidth(detachedAudioSettingsMetrics)
+                        + Theme.toolbarLabeledButtonWidth(detachedPreviewSettingsMetrics)
+                        + Theme.toolbarButtonWidth + 2 * Theme.toolbarButtonSpacing
+                    readonly property bool settingsLabelsCollapsed: detachedPreviewWindow.settingsInTitleBar
+                        ? detachedTitleBar.fullTitleWidth > Math.max(0,
+                            detachedTitleBar.width
+                            - (detachedTitleBar.leadingToolAreaWidth + detachedTitleBar.menuGap)
+                            - (detachedTitleBar.captionButtonsWidth + expandedActionsWidth + 8 + detachedTitleBar.menuGap))
+                        : detachedToolBar.width < expandedActionsWidth + 16
+
+                    component DetachedToolButton: IconButton {
+                        width: label.length > 0 ? implicitWidth : Theme.toolbarButtonWidth
+                        height: Math.min(Theme.toolbarButtonHeight, detachedSettingsActions.height)
+                        iconWidth: Theme.toolbarButtonIconSize
+                        iconHeight: Theme.toolbarButtonIconSize
                         anchors.verticalCenter: parent.verticalCenter
                         stateColors: Theme.chromeStateColorsFor(detachedPreviewWindow.nativeMaterialActive)
+                    }
+
+                    DetachedToolButton {
+                        objectName: "detachedPreviewAudioSettingsButton"
                         iconSource: Qt.resolvedUrl("icons/audio-settings.svg")
-                        label: qsTrId("action.audio_settings")
+                        label: detachedSettingsActions.settingsLabelsCollapsed ? "" : qsTrId("action.audio_settings")
                         tooltip: qsTrId("action.audio_settings")
                         onClicked: root.audioSettingsRequested()
                     }
 
-                    IconButton {
+                    DetachedToolButton {
                         objectName: "detachedPreviewPreviewSettingsButton"
-                        height: Math.min(implicitHeight, detachedSettingsActions.height)
-                        anchors.verticalCenter: parent.verticalCenter
-                        stateColors: Theme.chromeStateColorsFor(detachedPreviewWindow.nativeMaterialActive)
                         iconSource: Qt.resolvedUrl("icons/preview-settings.svg")
-                        label: qsTrId("action.video_settings")
+                        label: detachedSettingsActions.settingsLabelsCollapsed ? "" : qsTrId("action.video_settings")
                         tooltip: qsTrId("action.video_settings")
                         onClicked: root.previewSettingsRequested()
                     }
 
-                    IconButton {
+                    DetachedToolButton {
                         objectName: "detachedPreviewAlwaysOnTopButton"
-                        height: Math.min(implicitHeight, detachedSettingsActions.height)
-                        anchors.verticalCenter: parent.verticalCenter
-                        stateColors: Theme.chromeStateColorsFor(detachedPreviewWindow.nativeMaterialActive)
                         iconSource: Qt.resolvedUrl("icons/pin.svg")
                         filledIconSource: Qt.resolvedUrl("icons/pin-filled.svg")
+                        highlightWhenActive: false
                         checkable: true
                         checked: detachedPreviewWindow.alwaysOnTop
                         tooltip: checked ? qsTrId("preview.window.disable_always_on_top")

@@ -13,6 +13,7 @@ AbstractButton {
     property string glyph: ""
     property string tooltip
     property bool active: false
+    property bool highlightWhenActive: true
     property bool compact: false
     property int iconWidth: compact ? 14 : 16
     property int iconHeight: compact ? 14 : 16
@@ -41,7 +42,8 @@ AbstractButton {
     readonly property color defaultGlyphColor:
         !root.enabled
             ? Theme.colors.text.disabled
-            : root.active || root.checked || root.hovered || root.visualFocus
+            : (root.highlightWhenActive && (root.active || root.checked))
+                    || root.hovered || root.visualFocus
                 ? Theme.colors.text.active
                 : Theme.colors.text.secondary
     readonly property color glyphColor: root.defaultGlyphColor
@@ -97,7 +99,7 @@ AbstractButton {
         contentWidth: root.contentImplicitWidth
         contentHeight: Theme.controlHighlightHeight - 2 * Theme.chromePadding
         stateColors: root.stateColors
-        selected: root.active || root.checked
+        selected: root.highlightWhenActive && (root.active || root.checked)
         hovered: root.hovered
         pressed: root.down
         focused: root.visualFocus

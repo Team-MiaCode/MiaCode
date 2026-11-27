@@ -247,6 +247,15 @@ QtObject {
     readonly property int rowPaddingX: 10
     readonly property int titleBarBrandIconSize: 17
     readonly property int windowChromeRowHeight: 30
+    readonly property int toolbarButtonIconSize: 16
+    readonly property int toolbarButtonWidth: 30
+    readonly property int toolbarButtonHeight: 28
+    readonly property int toolbarButtonSpacing: 2
+    function toolbarLabeledButtonWidth(metrics) {
+        const textWidth = Math.ceil(Math.max(metrics.advanceWidth, metrics.boundingRect.width))
+        return Math.max(toolbarButtonWidth,
+            toolbarButtonIconSize + 5 + textWidth + 2 * (chromePadding + chromeInsetX))
+    }
     readonly property int workspaceHeaderHeight: 34
     // Visual baseline shared by the editor tabs and workspace side headings.
     readonly property int workspaceHeaderContentOffsetY: 2

@@ -78,9 +78,8 @@ Rectangle {
     readonly property real titleAreaRight: root.useNativeMenu
         ? width - root.trailingToolAreaWidth - menuGap
         : width - captionButtons.width - root.trailingToolAreaWidth - menuGap
-    readonly property real titleAvailableWidth: Math.max(0, root.applicationMenusVisible || root.useNativeMenu
-        ? 2 * Math.min(width / 2 - titleAreaLeft, titleAreaRight - width / 2)
-        : titleAreaRight - titleAreaLeft)
+    readonly property real fullTitleWidth: Math.ceil(titleLabel.implicitWidth)
+    readonly property real titleAvailableWidth: Math.max(0, titleAreaRight - titleAreaLeft)
 
     WindowGestureArea {
         anchors.fill: parent
